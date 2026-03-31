@@ -1,0 +1,4 @@
+node_modules/
+archive/
+*.db
+.DS_Store

@@ -1,0 +1,220 @@
+#!/usr/bin/env python3
+"""Create D&D monster stat cards as PDF, 2 per letter-sized page"""
+
+from reportlab.lib.pagesizes import letter
+from reportlab.lib.units import inch
+from reportlab.lib import colors
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+from reportlab.lib.enums import TA_CENTER
+
+# Monster data
+monsters = [
+    {
+        'name': 'ORC',
+        'type': 'Medium humanoid (orc), chaotic evil',
+        'hp': '15',
+        'ac': '13',
+        'abilities': [],
+        'attacks': [
+            '<b>Greataxe:</b> Melee Weapon Attack, 1d12 + 3 slashing damage',
+            '<b>Javelin:</b> Melee or Ranged Weapon Attack, 1d6 + 3 piercing damage'
+        ]
+    },
+    {
+        'name': 'WIGHT',
+        'type': 'Medium undead, neutral evil',
+        'hp': '45',
+        'ac': '14',
+        'abilities': [
+            '<b>Life Drain:</b> Melee Weapon Attack, target must succeed on DC 13 Constitution saving throw or its hit point maximum is reduced by an amount equal to the damage taken'
+        ],
+        'attacks': [
+            '<b>Longsword:</b> Melee Weapon Attack, 1d8 + 2 slashing damage (or 1d10 + 2 if two-handed)',
+            '<b>Longbow:</b> Ranged Weapon Attack, 1d8 + 2 piercing damage'
+        ]
+    },
+    {
+        'name': 'SPECTER',
+        'type': 'Medium undead, chaotic evil',
+        'hp': '22',
+        'ac': '12',
+        'abilities': [
+            '<b>Incorporeal Movement:</b> The specter can move through other creatures and objects as if they were difficult terrain. It takes 5 (1d10) force damage if it ends its turn inside an object',
+            '<b>Life Drain:</b> Melee Spell Attack, 3d6 necrotic damage. Target must succeed on DC 10 Constitution saving throw or its hit point maximum is reduced by amount equal to damage taken'
+        ],
+        'attacks': []
+    },
+    {
+        'name': 'SKELETON',
+        'type': 'Medium undead, lawful evil',
+        'hp': '13',
+        'ac': '13',
+        'abilities': [],
+        'attacks': [
+            '<b>Shortsword:</b> Melee Weapon Attack, 1d6 + 2 piercing damage',
+            '<b>Shortbow:</b> Ranged Weapon Attack, 1d6 + 2 piercing damage'
+        ]
+    },
+    {
+        'name': 'GIANT SPIDER',
+        'type': 'Large beast, unaligned',
+        'hp': '26',
+        'ac': '14',
+        'abilities': [
+            '<b>Web (Recharge 5-6):</b> Ranged Weapon Attack, target is restrained by webbing. DC 12 Strength check to escape. The webbing can be attacked (AC 10, 5 HP)'
+        ],
+        'attacks': [
+            '<b>Bite:</b> Melee Weapon Attack, 1d8 + 3 piercing damage plus 2d8 poison damage. Target must succeed on DC 11 Constitution saving throw or take poison damage (half on success)'
+        ]
+    },
+    {
+        'name': 'WOLF SPIDER',
+        'type': 'Medium beast, unaligned',
+        'hp': '11',
+        'ac': '13',
+        'abilities': [
+            '<b>Spider Climb:</b> The spider can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check',
+            '<b>Web Sense:</b> While in contact with a web, the spider knows the exact location of any creature in contact with the same web',
+            '<b>Web Walker:</b> The spider ignores movement restrictions caused by webbing'
+        ],
+        'attacks': [
+            '<b>Bite:</b> Melee Weapon Attack, 1d6 + 1 piercing damage plus 1d6 poison damage. Target must succeed on DC 10 Constitution saving throw or take poison damage (half on success)'
+        ]
+    },
+    {
+        'name': 'ETTERCAP',
+        'type': 'Medium monstrosity, neutral evil',
+        'hp': '44',
+        'ac': '13',
+        'abilities': [
+            '<b>Spider Climb:</b> The ettercap can climb difficult surfaces, including upside down on ceilings, without needing to make an ability check',
+            '<b>Web Sense:</b> While in contact with a web, the ettercap knows the exact location of any creature in contact with the same web',
+            '<b>Web Walker:</b> The ettercap ignores movement restrictions caused by webbing',
+            '<b>Web (Recharge 5-6):</b> Ranged Weapon Attack, target is restrained by webbing. DC 11 Strength check to escape'
+        ],
+        'attacks': [
+            '<b>Bite:</b> Melee Weapon Attack, 1d8 + 2 piercing damage plus 1d8 poison damage. Target must succeed on DC 11 Constitution saving throw or be poisoned for 1 minute',
+            '<b>Claws:</b> Melee Weapon Attack, 2d4 + 2 slashing damage'
+        ]
+    }
+]
+
+def create_monster_card(monster):
+    """Create elements for a single monster card"""
+    story = []
+    
+    # Styles
+    styles = getSampleStyleSheet()
+    
+    title_style = ParagraphStyle(
+        'MonsterTitle',
+        parent=styles['Heading1'],
+        fontSize=20,
+        textColor=colors.HexColor('#8B0000'),
+        alignment=TA_CENTER,
+        spaceAfter=6,
+        fontName='Helvetica-Bold'
+    )
+    
+    type_style = ParagraphStyle(
+        'MonsterType',
+        parent=styles['Normal'],
+        fontSize=10,
+        alignment=TA_CENTER,
+        textColor=colors.grey,
+        fontName='Helvetica-Oblique',
+        spaceAfter=12
+    )
+    
+    stat_style = ParagraphStyle(
+        'Stat',
+        parent=styles['Normal'],
+        fontSize=11,
+        spaceAfter=6
+    )
+    
+    header_style = ParagraphStyle(
+        'SectionHeader',
+        parent=styles['Heading2'],
+        fontSize=12,
+        textColor=colors.HexColor('#8B0000'),
+        fontName='Helvetica-Bold',
+        spaceBefore=8,
+        spaceAfter=6
+    )
+    
+    ability_style = ParagraphStyle(
+        'Ability',
+        parent=styles['Normal'],
+        fontSize=10,
+        leftIndent=20,
+        spaceAfter=4,
+        bulletIndent=10
+    )
+    
+    # Title
+    story.append(Paragraph(monster['name'], title_style))
+    
+    # Horizontal line
+    story.append(Table([['']], colWidths=[6.5*inch], style=[
+        ('LINEBELOW', (0,0), (-1,-1), 2, colors.HexColor('#8B0000'))
+    ]))
+    story.append(Spacer(1, 6))
+    
+    # Type
+    story.append(Paragraph(monster['type'], type_style))
+    
+    # Stats
+    story.append(Paragraph(f"<b>Hit Points:</b> {monster['hp']}", stat_style))
+    story.append(Paragraph(f"<b>Armor Class:</b> {monster['ac']}", stat_style))
+    story.append(Spacer(1, 6))
+    
+    # Abilities
+    if monster['abilities']:
+        story.append(Paragraph("SPECIAL ABILITIES", header_style))
+        for ability in monster['abilities']:
+            story.append(Paragraph(f"• {ability}", ability_style))
+    
+    # Attacks
+    if monster['attacks']:
+        story.append(Paragraph("ATTACKS", header_style))
+        for attack in monster['attacks']:
+            story.append(Paragraph(f"• {attack}", ability_style))
+    
+    return story
+
+# Create PDF
+output_path = '/Users/moon/MoveAlong/dnd_monster_cards.pdf'
+doc = SimpleDocTemplate(
+    output_path,
+    pagesize=letter,
+    topMargin=0.5*inch,
+    bottomMargin=0.5*inch,
+    leftMargin=0.75*inch,
+    rightMargin=0.75*inch
+)
+
+story = []
+
+for i, monster in enumerate(monsters):
+    # Add monster card
+    card_elements = create_monster_card(monster)
+    story.extend(card_elements)
+    
+    # Add separator or page break
+    if i % 2 == 0 and i < len(monsters) - 1:
+        # Add separator between cards on same page
+        story.append(Spacer(1, 0.25*inch))
+        story.append(Table([['─' * 80]], colWidths=[6.5*inch], style=[
+            ('ALIGN', (0,0), (-1,-1), 'CENTER'),
+            ('TEXTCOLOR', (0,0), (-1,-1), colors.grey)
+        ]))
+        story.append(Spacer(1, 0.25*inch))
+    elif i % 2 == 1 and i < len(monsters) - 1:
+        # Page break after second card
+        story.append(PageBreak())
+
+# Build PDF
+doc.build(story)
+print(f"PDF created successfully at {output_path}")

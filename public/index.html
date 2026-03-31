@@ -1,0 +1,2492 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Move Along</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #1a1a2e;
+            color: #eee;
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 40px;
+        }
+
+        h1 {
+            margin-bottom: 20px;
+            font-weight: 300;
+            color: #a0a0c0;
+        }
+
+        .board-container {
+            display: flex;
+            gap: 16px;
+            overflow-x: auto;
+            padding-bottom: 20px;
+        }
+
+        .day-card {
+            min-width: 280px;
+            max-width: 280px;
+            background: #252542;
+            border-radius: 12px;
+            padding: 16px;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .day-header {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #fff;
+        }
+
+        .day-date {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 16px;
+        }
+
+        .day-card.today {
+            background: #2a2a4a;
+            border: 1px solid #4a4a7a;
+        }
+
+        .day-card.today .day-header {
+            color: #7eb8ff;
+        }
+
+        .day-card.selected {
+            border: 1px solid #7eb8ff;
+        }
+
+        .day-card:not(.selected) {
+            cursor: pointer;
+        }
+
+        .day-card:not(.selected):hover {
+            background: #2d2d4d;
+        }
+
+        .task-input-container {
+            margin-bottom: 12px;
+        }
+
+        .task-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #3a3a5a;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #eee;
+            font-size: 14px;
+        }
+
+        .task-input:focus {
+            outline: none;
+            border-color: #5a5a8a;
+        }
+
+        .task-input::placeholder {
+            color: #666;
+        }
+
+        .tasks-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .pending-tasks {
+            flex: 1;
+            min-height: 100px;
+        }
+
+        .task-divider {
+            border: none;
+            border-top: 1px dashed #3a3a5a;
+            margin: 12px 0;
+        }
+
+        .completed-tasks {
+            opacity: 0.6;
+        }
+
+        .assigned-tasks {
+            opacity: 0.5;
+        }
+
+        .task-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            border-radius: 6px;
+            transition: background 0.2s;
+            user-select: none;
+        }
+
+        .task-item:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .task-item.placeholder {
+            opacity: 0.6;
+            pointer-events: none;
+        }
+
+        .task-item.placeholder .task-circle,
+        .task-item.placeholder .task-arrow {
+            opacity: 0.5;
+        }
+
+        .task-circle {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #5a5a8a;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            flex-shrink: 0;
+        }
+
+        .task-circle:hover {
+            border-color: #7eb8ff;
+            background: rgba(126, 184, 255, 0.1);
+        }
+
+        .task-item.completed .task-circle {
+            background: #4a9a4a;
+            border-color: #4a9a4a;
+        }
+
+        .task-item.completed .task-circle::after {
+            content: '\2713';
+            color: white;
+            font-size: 12px;
+        }
+
+        .task-item.completed .task-description {
+            text-decoration: line-through;
+            color: #888;
+        }
+
+        /* Assigned (forwarded) task styling */
+        .task-item.forwarded .task-circle {
+            background: #c4a235;
+            border-color: #c4a235;
+        }
+
+        .task-item.forwarded .task-circle::after {
+            content: '\2794';
+            color: white;
+            font-size: 11px;
+        }
+
+        .task-item.forwarded .task-description {
+            color: #888;
+        }
+
+        .assigned-from {
+            color: #888;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .assigned-to-label {
+            color: #c4a235;
+            font-size: 12px;
+            font-style: italic;
+        }
+
+        .task-return {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #666;
+            font-size: 14px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            margin-left: auto;
+        }
+
+        .task-return:hover {
+            color: #ffb74d;
+            background: rgba(255, 183, 77, 0.1);
+        }
+
+        /* User Switcher */
+        .user-switcher {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 20px;
+            padding: 12px 16px;
+            background: #252542;
+            border-radius: 8px;
+            width: fit-content;
+        }
+
+        .user-switcher-label {
+            color: #888;
+            font-size: 13px;
+        }
+
+        .user-switcher-buttons {
+            display: flex;
+            gap: 8px;
+        }
+
+        .user-switch-btn {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            cursor: pointer;
+            border: 1px solid transparent;
+            background: transparent;
+            transition: all 0.2s;
+        }
+
+        .user-switch-btn:hover {
+            background: rgba(255,255,255,0.05);
+        }
+
+        .user-switch-btn.active {
+            background: rgba(126, 184, 255, 0.15);
+            border-color: #7eb8ff;
+        }
+
+        .user-switch-avatar {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            color: white;
+        }
+
+        .user-switch-name {
+            font-size: 13px;
+            color: #ccc;
+        }
+
+        .user-switch-btn.active .user-switch-name {
+            color: #7eb8ff;
+        }
+
+        /* Inline Header / Signup */
+        .app-header {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .app-logo {
+            font-size: 24px;
+            font-weight: 300;
+            color: #7eb8ff;
+            margin-right: 8px;
+        }
+
+        .header-form {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .header-form.hidden {
+            display: none;
+        }
+
+        .header-input {
+            padding: 8px 12px;
+            border: 1px solid #3a3a5a;
+            border-radius: 6px;
+            background: #1a1a2e;
+            color: #eee;
+            font-size: 14px;
+            width: 160px;
+        }
+
+        .header-input:focus {
+            outline: none;
+            border-color: #5a5a8a;
+        }
+
+        .header-input::placeholder {
+            color: #555;
+        }
+
+        .header-input.auto-generated {
+            color: #888;
+        }
+
+        .header-input.auto-generated.user-edited {
+            color: #eee;
+        }
+
+        .btn-go {
+            padding: 8px 20px;
+            border-radius: 6px;
+            border: none;
+            font-size: 14px;
+            cursor: pointer;
+            background: #7eb8ff;
+            color: #1a1a2e;
+            font-weight: 500;
+            transition: all 0.2s;
+        }
+
+        .btn-go:hover {
+            background: #9ec8ff;
+        }
+
+        .btn-go:disabled {
+            background: #4a4a6a;
+            color: #666;
+            cursor: not-allowed;
+        }
+
+        .header-display {
+            display: none;
+            align-items: center;
+            gap: 16px;
+        }
+
+        .header-display.visible {
+            display: flex;
+        }
+
+        .header-label {
+            font-size: 14px;
+            color: #888;
+        }
+
+        .header-value {
+            font-size: 14px;
+            color: #ddd;
+            font-weight: 500;
+        }
+
+        .header-separator {
+            color: #3a3a5a;
+        }
+
+        .header-spacer {
+            flex: 1;
+        }
+
+        .btn-new-board {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+            border: 1px solid #3a3a5a;
+            background: transparent;
+            color: #888;
+            font-size: 20px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .btn-new-board:hover {
+            border-color: #7eb8ff;
+            color: #7eb8ff;
+            background: rgba(126, 184, 255, 0.1);
+        }
+
+        .task-arrow {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            color: #666;
+            font-size: 16px;
+            border-radius: 4px;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            user-select: none;
+        }
+
+        .task-arrow:hover {
+            color: #7eb8ff;
+            background: rgba(126, 184, 255, 0.1);
+        }
+
+        .task-description {
+            flex: 1;
+            font-size: 14px;
+            line-height: 1.4;
+            cursor: pointer;
+        }
+
+        .task-description:hover {
+            color: #7eb8ff;
+        }
+
+        /* Team Popup */
+        .team-popup {
+            position: absolute;
+            background: #252542;
+            border: 1px solid #3a3a5a;
+            border-radius: 8px;
+            padding: 12px;
+            z-index: 1000;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            display: none;
+            user-select: none;
+        }
+
+        .team-popup.visible {
+            display: block;
+        }
+
+        .team-member {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+        }
+
+        .team-member:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .team-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 16px;
+            margin-bottom: 4px;
+        }
+
+        .team-name {
+            font-size: 11px;
+            color: #aaa;
+        }
+
+        /* Toast notification */
+        .toast {
+            position: fixed;
+            bottom: 40px;
+            right: 20px;
+            background: #3a3a6a;
+            padding: 12px 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            transform: translateY(100px);
+            opacity: 0;
+            transition: all 0.3s;
+            z-index: 3000;
+        }
+
+        .toast.visible {
+            transform: translateY(0);
+            opacity: 1;
+        }
+
+        /* Scrollbar styling */
+        .board-container::-webkit-scrollbar {
+            height: 8px;
+        }
+
+        .board-container::-webkit-scrollbar-track {
+            background: #1a1a2e;
+            border-radius: 4px;
+        }
+
+        .board-container::-webkit-scrollbar-thumb {
+            background: #3a3a5a;
+            border-radius: 4px;
+        }
+
+        .board-container::-webkit-scrollbar-thumb:hover {
+            background: #4a4a6a;
+        }
+
+        .instructions {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            padding: 6px 20px;
+            background: #1e1e38;
+            border-top: 1px solid #2a2a4a;
+            font-size: 12px;
+            color: #666;
+            z-index: 100;
+        }
+
+        .instructions ul {
+            list-style: none;
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            flex-wrap: wrap;
+        }
+
+        .instructions li {
+            white-space: nowrap;
+        }
+
+        .instructions code {
+            padding: 1px 4px;
+            border-radius: 3px;
+            color: #7eb8ff;
+            font-size: 11px;
+        }
+
+        /* Form elements (used in modal) */
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            font-size: 13px;
+            color: #888;
+            margin-bottom: 6px;
+        }
+
+        .form-input {
+            width: 100%;
+            padding: 12px 14px;
+            border: 1px solid #3a3a5a;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #eee;
+            font-size: 15px;
+        }
+
+        .form-input:focus {
+            outline: none;
+            border-color: #5a5a8a;
+        }
+
+        .form-input::placeholder {
+            color: #555;
+        }
+
+        .btn {
+            padding: 12px 24px;
+            border-radius: 8px;
+            border: none;
+            font-size: 15px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-primary {
+            background: #7eb8ff;
+            color: #1a1a2e;
+            font-weight: 500;
+        }
+
+        .btn-primary:hover {
+            background: #9ec8ff;
+        }
+
+        .btn-primary:disabled {
+            background: #4a4a6a;
+            color: #888;
+            cursor: not-allowed;
+        }
+
+        /* App container */
+        .app-container {
+            display: block;
+        }
+
+        /* Add new user modal */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+            opacity: 0;
+            visibility: hidden;
+            transition: all 0.2s;
+        }
+
+        .modal-overlay.visible {
+            opacity: 1;
+            visibility: visible;
+        }
+
+        .modal {
+            background: #252542;
+            border-radius: 12px;
+            padding: 24px;
+            width: 100%;
+            max-width: 360px;
+            transform: scale(0.95);
+            transition: transform 0.2s;
+        }
+
+        .modal-overlay.visible .modal {
+            transform: scale(1);
+        }
+
+        .modal h3 {
+            margin-bottom: 20px;
+            font-weight: 500;
+            color: #ddd;
+        }
+
+        .modal-actions {
+            display: flex;
+            gap: 12px;
+            margin-top: 24px;
+        }
+
+        .btn-secondary {
+            background: transparent;
+            border: 1px solid #3a3a5a;
+            color: #aaa;
+            flex: 1;
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255,255,255,0.05);
+            border-color: #5a5a8a;
+        }
+
+        .btn-small {
+            padding: 10px 16px;
+            font-size: 14px;
+            flex: 1;
+        }
+
+        /* Copy link display */
+        .link-display {
+            background: #1a1a2e;
+            border: 1px solid #3a3a5a;
+            border-radius: 8px;
+            padding: 12px;
+            margin-top: 16px;
+        }
+
+        .link-display-label {
+            font-size: 12px;
+            color: #888;
+            margin-bottom: 8px;
+        }
+
+        .link-display-row {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+
+        .link-display-url {
+            flex: 1;
+            font-family: monospace;
+            font-size: 13px;
+            color: #7eb8ff;
+            word-break: break-all;
+        }
+
+        .btn-copy {
+            padding: 6px 12px;
+            font-size: 12px;
+            background: #3a3a5a;
+            border: none;
+            color: #ddd;
+            border-radius: 4px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .btn-copy:hover {
+            background: #4a4a6a;
+        }
+
+        .btn-copy.copied {
+            background: #4a9a4a;
+        }
+
+        /* Updated team popup with + button */
+        .team-popup-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            max-width: 280px;
+        }
+
+        .add-new-member {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            padding: 8px;
+            border-radius: 8px;
+            border: 2px dashed #3a3a5a;
+            min-width: 56px;
+        }
+
+        .add-new-member:hover {
+            border-color: #7eb8ff;
+            background: rgba(126, 184, 255, 0.1);
+        }
+
+        .add-new-icon {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: #3a3a5a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            color: #888;
+            margin-bottom: 4px;
+        }
+
+        .add-new-member:hover .add-new-icon {
+            background: #4a4a6a;
+            color: #7eb8ff;
+        }
+
+        .add-new-label {
+            font-size: 11px;
+            color: #888;
+        }
+
+        /* ============================================
+           PROJECT BAR
+           ============================================ */
+        .project-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 16px;
+            padding: 8px 12px;
+            background: #1e1e38;
+            border-radius: 8px;
+            overflow-x: auto;
+        }
+
+        .project-tab {
+            padding: 6px 14px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #aaa;
+            white-space: nowrap;
+            transition: all 0.2s;
+            border: 1px solid transparent;
+        }
+
+        .project-tab:hover {
+            background: rgba(255,255,255,0.05);
+            color: #ddd;
+        }
+
+        .project-tab.active {
+            background: rgba(126, 184, 255, 0.15);
+            border-color: #7eb8ff;
+            color: #7eb8ff;
+        }
+
+        .project-add-btn {
+            width: 28px;
+            height: 28px;
+            border-radius: 6px;
+            border: 1px dashed #3a3a5a;
+            background: transparent;
+            color: #888;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            transition: all 0.2s;
+        }
+
+        .project-add-btn:hover {
+            border-color: #7eb8ff;
+            color: #7eb8ff;
+        }
+
+        /* View toggle */
+        .view-toggle {
+            display: flex;
+            gap: 4px;
+            margin-left: auto;
+        }
+
+        .view-toggle-btn {
+            padding: 4px 12px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            color: #888;
+            background: transparent;
+            border: none;
+            transition: all 0.2s;
+        }
+
+        .view-toggle-btn:hover {
+            color: #ddd;
+        }
+
+        .view-toggle-btn.active {
+            background: rgba(126, 184, 255, 0.15);
+            color: #7eb8ff;
+        }
+
+        /* ============================================
+           SUBTASK PANE
+           ============================================ */
+        .subtask-pane {
+            margin-top: 4px;
+            margin-left: 28px;
+            padding: 8px 0;
+            border-left: 2px solid #3a3a5a;
+            padding-left: 12px;
+            animation: slideDown 0.15s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; max-height: 0; }
+            to { opacity: 1; max-height: 500px; }
+        }
+
+        .subtask-header {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        .subtask-header-label {
+            font-size: 11px;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .subtask-regenerate {
+            width: 20px;
+            height: 20px;
+            border: none;
+            background: transparent;
+            color: #666;
+            cursor: pointer;
+            font-size: 14px;
+            border-radius: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+
+        .subtask-regenerate:hover {
+            color: #7eb8ff;
+            background: rgba(126, 184, 255, 0.1);
+        }
+
+        .subtask-item {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 4px 0;
+            font-size: 13px;
+        }
+
+        .subtask-item.dependent {
+            margin-left: 16px;
+            color: #888;
+        }
+
+        .subtask-item.assigned-subtask {
+            opacity: 0.5;
+        }
+
+        .subtask-check {
+            width: 16px;
+            height: 16px;
+            border: 1.5px solid #5a5a8a;
+            border-radius: 3px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 10px;
+            transition: all 0.2s;
+        }
+
+        .subtask-check:hover {
+            border-color: #7eb8ff;
+        }
+
+        .subtask-check.checked {
+            background: #4a9a4a;
+            border-color: #4a9a4a;
+            color: white;
+        }
+
+        .subtask-emoji {
+            cursor: pointer;
+            font-size: 14px;
+            flex-shrink: 0;
+            padding: 2px;
+            border-radius: 4px;
+            transition: background 0.2s;
+        }
+
+        .subtask-emoji:hover {
+            background: rgba(255,255,255,0.1);
+        }
+
+        .subtask-desc {
+            flex: 1;
+            line-height: 1.3;
+        }
+
+        .subtask-desc.completed-subtask {
+            text-decoration: line-through;
+            color: #666;
+        }
+
+        .subtask-assigned-label {
+            font-size: 11px;
+            color: #c4a235;
+            font-style: italic;
+        }
+
+        .subtask-input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #2a2a4a;
+            border-radius: 4px;
+            background: transparent;
+            color: #ccc;
+            font-size: 12px;
+            margin-top: 4px;
+        }
+
+        .subtask-input:focus {
+            outline: none;
+            border-color: #5a5a8a;
+        }
+
+        .subtask-input::placeholder {
+            color: #444;
+        }
+
+        .subtask-loading {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            color: #666;
+            font-size: 12px;
+        }
+
+        .dot-pulse {
+            display: inline-flex;
+            gap: 4px;
+        }
+
+        .dot-pulse span {
+            width: 4px;
+            height: 4px;
+            background: #666;
+            border-radius: 50%;
+            animation: dotPulse 1.2s ease-in-out infinite;
+        }
+
+        .dot-pulse span:nth-child(2) { animation-delay: 0.2s; }
+        .dot-pulse span:nth-child(3) { animation-delay: 0.4s; }
+
+        @keyframes dotPulse {
+            0%, 80%, 100% { opacity: 0.3; transform: scale(0.8); }
+            40% { opacity: 1; transform: scale(1.2); }
+        }
+
+        /* ============================================
+           MASTER PROJECT PAGE
+           ============================================ */
+        .master-container {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            max-width: 800px;
+        }
+
+        .project-section {
+            background: #252542;
+            border-radius: 12px;
+            padding: 20px;
+        }
+
+        .project-section-header {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 12px;
+        }
+
+        .project-section-name {
+            font-size: 16px;
+            font-weight: 600;
+            color: #ddd;
+        }
+
+        .project-section-count {
+            font-size: 12px;
+            color: #888;
+            background: #1a1a2e;
+            padding: 2px 8px;
+            border-radius: 10px;
+        }
+
+        .project-task-list {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .project-task-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 0;
+            border-bottom: 1px solid #1e1e38;
+        }
+
+        .project-task-item:last-child {
+            border-bottom: none;
+        }
+
+        .project-task-desc {
+            flex: 1;
+            font-size: 14px;
+            cursor: pointer;
+        }
+
+        .project-task-desc:hover {
+            color: #7eb8ff;
+        }
+
+        .project-task-date {
+            font-size: 12px;
+            color: #888;
+        }
+
+        .subtask-progress {
+            font-size: 11px;
+            color: #666;
+            background: #1a1a2e;
+            padding: 2px 6px;
+            border-radius: 4px;
+        }
+
+        .project-task-input {
+            width: 100%;
+            padding: 10px 12px;
+            border: 1px solid #3a3a5a;
+            border-radius: 8px;
+            background: #1a1a2e;
+            color: #eee;
+            font-size: 14px;
+            margin-bottom: 12px;
+        }
+
+        .project-task-input:focus {
+            outline: none;
+            border-color: #5a5a8a;
+        }
+
+        .project-task-input::placeholder {
+            color: #555;
+        }
+
+        .empty-project {
+            color: #555;
+            font-size: 13px;
+            padding: 8px 0;
+            font-style: italic;
+        }
+    </style>
+</head>
+<body>
+    <!-- Main App -->
+    <div class="app-container" id="appContainer">
+        <div class="app-header">
+            <div class="app-logo">Move Along</div>
+
+            <!-- Signup form (before Go) -->
+            <div class="header-form" id="headerForm">
+                <input type="text" class="header-input" id="signupName" placeholder="Your username">
+                <input type="text" class="header-input auto-generated" id="signupCompany" placeholder="Team name">
+                <button class="btn-go" id="signupBtn" disabled>Go</button>
+            </div>
+
+            <!-- Display (after Go) -->
+            <div class="header-display" id="headerDisplay">
+                <span class="header-value" id="displayUsername"></span>
+                <span class="header-separator">&bull;</span>
+                <span class="header-value" id="displayTeamName"></span>
+            </div>
+
+            <div class="header-spacer"></div>
+
+            <button class="btn-new-board" id="newBoardBtn" title="Create new board">+</button>
+        </div>
+
+        <div class="user-switcher" id="userSwitcher" style="display: none;">
+            <span class="user-switcher-label">Viewing as:</span>
+            <div class="user-switcher-buttons" id="userSwitcherButtons">
+            </div>
+        </div>
+
+        <!-- Project bar -->
+        <div class="project-bar" id="projectBar" style="display: none;">
+            <div id="projectTabs"></div>
+            <button class="project-add-btn" id="projectAddBtn" title="New project">+</button>
+            <div class="view-toggle">
+                <button class="view-toggle-btn active" id="viewCalendarBtn">Calendar</button>
+                <button class="view-toggle-btn" id="viewMasterBtn">Master</button>
+            </div>
+        </div>
+
+        <div class="board-container" id="board">
+        </div>
+
+        <div class="master-container" id="masterContainer" style="display: none;">
+        </div>
+
+        <div class="team-popup" id="teamPopup">
+        </div>
+
+        <div class="toast" id="toast"></div>
+
+        <div class="instructions">
+            <ul>
+                <li><code>&larr; &rarr;</code> Navigate days</li>
+                <li><code>Click &cir;</code> Complete</li>
+                <li><code>Click &rarr;</code> Move to next day</li>
+                <li><code>Shift+Click &rarr;</code> +1 week</li>
+                <li><code>Click task</code> Show subtasks</li>
+                <li><code>Click emoji</code> Assign</li>
+                <li><code>Click &cularr;</code> Return to sender</li>
+            </ul>
+        </div>
+    </div>
+
+    <!-- Add New User Modal -->
+    <div class="modal-overlay" id="addUserModal">
+        <div class="modal">
+            <h3>Add team member</h3>
+            <div class="form-group">
+                <label>Name</label>
+                <input type="text" class="form-input" id="newUserName" placeholder="Katy T">
+            </div>
+            <div class="link-display" id="newUserLinkDisplay" style="display: none;">
+                <div class="link-display-label">Send this link to them:</div>
+                <div class="link-display-row">
+                    <span class="link-display-url" id="newUserLink"></span>
+                    <button class="btn-copy" id="copyLinkBtn">Copy</button>
+                </div>
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary btn-small" id="cancelAddUser">Cancel</button>
+                <button class="btn btn-primary btn-small" id="confirmAddUser">Add & get link</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create Project Modal -->
+    <div class="modal-overlay" id="createProjectModal">
+        <div class="modal">
+            <h3>New project</h3>
+            <div class="form-group">
+                <label>Project name</label>
+                <input type="text" class="form-input" id="newProjectName" placeholder="e.g., Birthday Party">
+            </div>
+            <div class="modal-actions">
+                <button class="btn btn-secondary btn-small" id="cancelCreateProject">Cancel</button>
+                <button class="btn btn-primary btn-small" id="confirmCreateProject">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ============================================
+        // API CONFIGURATION
+        // ============================================
+        const API_BASE = 'http://localhost:3000/api';
+
+        // ============================================
+        // APP STATE
+        // ============================================
+        let isSignedUp = false;
+        let company = { name: '', subdomain: '' };
+        let allUsers = [];
+        let currentUser = null;
+        let tasks = [];
+        let selectedDayIndex = 0;
+        let projects = [];
+        let currentProject = null;
+        let viewMode = 'calendar'; // 'calendar' or 'master'
+        let expandedTaskId = null;
+        let taskSubtasks = new Map();
+        let generatingSubtasksFor = null; // taskId currently generating
+
+        // ============================================
+        // API HELPERS
+        // ============================================
+        async function api(endpoint, options = {}) {
+            const url = `${API_BASE}${endpoint}`;
+            const config = {
+                headers: { 'Content-Type': 'application/json' },
+                ...options
+            };
+            if (config.body && typeof config.body === 'object') {
+                config.body = JSON.stringify(config.body);
+            }
+            const response = await fetch(url, config);
+            if (!response.ok) {
+                const error = await response.json();
+                throw new Error(error.error || 'API error');
+            }
+            return response.json();
+        }
+
+        // ============================================
+        // DATE HELPERS
+        // ============================================
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+        function generateDays() {
+            const days = [];
+            for (let i = 0; i < 30; i++) {
+                const date = new Date();
+                date.setDate(date.getDate() + i);
+                days.push({
+                    date: date,
+                    dayName: dayNames[date.getDay()],
+                    dateStr: `${monthNames[date.getMonth()]} ${date.getDate()}`,
+                    key: date.toISOString().split('T')[0],
+                    isToday: i === 0
+                });
+            }
+            return days;
+        }
+
+        const days = generateDays();
+
+        function getTodayKey() {
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function getTomorrowKey() {
+            const tomorrow = new Date();
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            return tomorrow.toISOString().split('T')[0];
+        }
+
+        // ============================================
+        // SIGNUP FLOW
+        // ============================================
+        const signupName = document.getElementById('signupName');
+        const signupCompany = document.getElementById('signupCompany');
+        const signupBtn = document.getElementById('signupBtn');
+        const headerForm = document.getElementById('headerForm');
+        const headerDisplay = document.getElementById('headerDisplay');
+        const displayUsername = document.getElementById('displayUsername');
+        const displayTeamName = document.getElementById('displayTeamName');
+        let companyManuallyEdited = false;
+
+        signupName.addEventListener('input', () => {
+            const name = signupName.value.trim();
+            if (!companyManuallyEdited && name) {
+                signupCompany.value = `${name}'s Move Along`;
+                signupCompany.classList.remove('user-edited');
+            }
+            validateSignup();
+        });
+
+        signupCompany.addEventListener('input', () => {
+            companyManuallyEdited = true;
+            signupCompany.classList.add('user-edited');
+            validateSignup();
+        });
+
+        signupName.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                if (signupName.value.trim() && !signupCompany.value.trim()) {
+                    signupCompany.focus();
+                } else if (!signupBtn.disabled) {
+                    signupBtn.click();
+                }
+            }
+        });
+
+        signupCompany.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !signupBtn.disabled) {
+                e.preventDefault();
+                signupBtn.click();
+            }
+        });
+
+        function validateSignup() {
+            const nameValid = signupName.value.trim().length > 0;
+            const companyValid = signupCompany.value.trim().length > 0;
+            signupBtn.disabled = !(nameValid && companyValid);
+        }
+
+        signupBtn.addEventListener('click', async () => {
+            const userName = signupName.value.trim();
+            const companyName = signupCompany.value.trim();
+
+            signupBtn.disabled = true;
+            signupBtn.textContent = '...';
+
+            try {
+                const result = await api('/companies', {
+                    method: 'POST',
+                    body: { companyName, userName }
+                });
+
+                company = result.company;
+                currentUser = result.user;
+                allUsers = [currentUser];
+                isSignedUp = true;
+
+                // Transform header
+                headerForm.classList.add('hidden');
+                headerDisplay.classList.add('visible');
+                displayUsername.textContent = currentUser.name;
+                displayTeamName.textContent = company.name;
+
+                // Auto-create "Personal" project
+                try {
+                    const proj = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/projects`, {
+                        method: 'POST',
+                        body: { name: 'Personal' }
+                    });
+                    projects = [proj];
+                    currentProject = proj;
+                } catch (e) {
+                    console.error('Failed to create default project:', e);
+                }
+
+                renderProjectBar();
+                renderBoard();
+                showToast('Ready to go!');
+
+                const taskInput = document.querySelector('.task-input');
+                if (taskInput) taskInput.focus();
+
+            } catch (err) {
+                showToast('Error: ' + err.message);
+                signupBtn.disabled = false;
+                signupBtn.textContent = 'Go';
+            }
+        });
+
+        // ============================================
+        // LOAD DATA
+        // ============================================
+        async function loadUsers() {
+            try {
+                allUsers = await api(`/companies/${company.subdomain}/users`);
+            } catch (err) {
+                console.error('Failed to load users:', err);
+            }
+        }
+
+        async function loadProjects() {
+            if (!currentUser) return;
+            try {
+                projects = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/projects`);
+                if (projects.length > 0 && !currentProject) {
+                    currentProject = projects[0];
+                }
+            } catch (err) {
+                console.error('Failed to load projects:', err);
+            }
+        }
+
+        async function loadTasks() {
+            if (!currentUser) return;
+            try {
+                let endpoint = `/companies/${company.subdomain}/users/${currentUser.slug}/tasks`;
+                if (currentProject) {
+                    endpoint += `?project_id=${currentProject.id}`;
+                }
+                tasks = await api(endpoint);
+            } catch (err) {
+                console.error('Failed to load tasks:', err);
+                tasks = [];
+            }
+        }
+
+        async function loadSubtasks(taskId) {
+            try {
+                const subtasks = await api(`/tasks/${taskId}/subtasks`);
+                taskSubtasks.set(taskId, subtasks);
+                return subtasks;
+            } catch (err) {
+                console.error('Failed to load subtasks:', err);
+                return [];
+            }
+        }
+
+        // ============================================
+        // PROJECT OPERATIONS
+        // ============================================
+        async function createProject(name) {
+            try {
+                const proj = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/projects`, {
+                    method: 'POST',
+                    body: { name }
+                });
+                projects.push(proj);
+                currentProject = proj;
+                await loadTasks();
+                renderProjectBar();
+                renderView();
+                showToast(`Project "${name}" created`);
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        async function switchProject(projectId) {
+            currentProject = projects.find(p => p.id === projectId) || null;
+            expandedTaskId = null;
+            taskSubtasks.clear();
+            await loadTasks();
+            renderProjectBar();
+            renderView();
+        }
+
+        // ============================================
+        // TASK OPERATIONS
+        // ============================================
+        let shouldRefocusInput = false;
+
+        async function addTask(description, dateKey) {
+            try {
+                const body = { description, scheduled_date: dateKey };
+                if (currentProject) body.project_id = currentProject.id;
+
+                const newTask = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/tasks`, {
+                    method: 'POST',
+                    body
+                });
+                tasks.push(newTask);
+                shouldRefocusInput = true;
+
+                // Auto-generate subtasks
+                expandedTaskId = newTask.id;
+                generatingSubtasksFor = newTask.id;
+                renderView();
+
+                try {
+                    const subtasks = await api(`/tasks/${newTask.id}/generate-subtasks`, { method: 'POST' });
+                    taskSubtasks.set(newTask.id, subtasks);
+                } catch (e) {
+                    console.error('Failed to generate subtasks:', e);
+                    taskSubtasks.set(newTask.id, []);
+                }
+                generatingSubtasksFor = null;
+                renderView();
+
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        async function addTaskFromMaster(description, projectId) {
+            try {
+                const project = projects.find(p => p.id === projectId);
+                if (!project) return;
+
+                const body = { description, scheduled_date: getTodayKey(), project_id: projectId };
+                const newTask = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/tasks`, {
+                    method: 'POST',
+                    body
+                });
+                tasks.push(newTask);
+
+                // Auto-generate subtasks
+                generatingSubtasksFor = newTask.id;
+                expandedTaskId = newTask.id;
+                renderMasterPage();
+
+                try {
+                    const subtasks = await api(`/tasks/${newTask.id}/generate-subtasks`, { method: 'POST' });
+                    taskSubtasks.set(newTask.id, subtasks);
+                } catch (e) {
+                    taskSubtasks.set(newTask.id, []);
+                }
+                generatingSubtasksFor = null;
+                renderMasterPage();
+
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        async function toggleComplete(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            try {
+                const updated = await api(`/tasks/${taskId}`, {
+                    method: 'PUT',
+                    body: { completed: !task.completed }
+                });
+                Object.assign(task, updated);
+                renderView();
+                showToast(task.completed ? 'Task completed!' : 'Task reopened');
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        async function moveTaskToDate(taskId, newDateKey) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            try {
+                const updated = await api(`/tasks/${taskId}`, {
+                    method: 'PUT',
+                    body: { scheduled_date: newDateKey }
+                });
+                Object.assign(task, updated);
+                renderView();
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        async function assignTaskToMember(taskId, toUserId) {
+            try {
+                const result = await api(`/tasks/${taskId}/assign`, {
+                    method: 'POST',
+                    body: { to_user_id: toUserId, scheduled_date: getTomorrowKey() }
+                });
+                // Update local task to show as assigned (forwarded) — keep it visible
+                const task = tasks.find(t => t.id === taskId);
+                if (task) {
+                    task.assigned_to_id = toUserId;
+                    const assignee = allUsers.find(u => u.id === toUserId);
+                    task.assigned_to_name = assignee ? assignee.name : 'Someone';
+                }
+                renderView();
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        async function returnTask(taskId) {
+            try {
+                await api(`/tasks/${taskId}/return`, {
+                    method: 'POST',
+                    body: { scheduled_date: getTodayKey() }
+                });
+                tasks = tasks.filter(t => t.id !== taskId);
+                renderView();
+                showToast('Task returned');
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        async function createUserAndAssign(name, taskId) {
+            try {
+                const newUser = await api(`/companies/${company.subdomain}/users`, {
+                    method: 'POST',
+                    body: { name }
+                });
+                allUsers.push(newUser);
+                await assignTaskToMember(taskId, newUser.id);
+                return newUser;
+            } catch (err) {
+                showToast('Error: ' + err.message);
+                throw err;
+            }
+        }
+
+        // ============================================
+        // SUBTASK OPERATIONS
+        // ============================================
+        async function toggleSubtaskComplete(subtaskId, taskId) {
+            const subtasks = taskSubtasks.get(taskId);
+            if (!subtasks) return;
+            const st = subtasks.find(s => s.id === subtaskId);
+            if (!st) return;
+
+            try {
+                const updated = await api(`/subtasks/${subtaskId}`, {
+                    method: 'PUT',
+                    body: { completed: !st.completed }
+                });
+                Object.assign(st, updated);
+                renderView();
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        async function addSubtask(taskId, description) {
+            try {
+                const subtask = await api(`/tasks/${taskId}/subtasks`, {
+                    method: 'POST',
+                    body: { description, assignee_type: 'human' }
+                });
+                const existing = taskSubtasks.get(taskId) || [];
+                existing.push(subtask);
+                taskSubtasks.set(taskId, existing);
+                renderView();
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        async function regenerateSubtasks(taskId) {
+            generatingSubtasksFor = taskId;
+            renderView();
+
+            try {
+                const subtasks = await api(`/tasks/${taskId}/generate-subtasks`, { method: 'POST' });
+                taskSubtasks.set(taskId, subtasks);
+            } catch (e) {
+                console.error('Failed to regenerate subtasks:', e);
+            }
+            generatingSubtasksFor = null;
+            renderView();
+        }
+
+        async function assignSubtask(subtaskId, taskId, toUserId) {
+            try {
+                await api(`/subtasks/${subtaskId}/assign`, {
+                    method: 'POST',
+                    body: { to_user_id: toUserId, scheduled_date: getTomorrowKey() }
+                });
+                // Reload subtasks for this task
+                await loadSubtasks(taskId);
+                renderView();
+                const member = allUsers.find(u => u.id === toUserId);
+                showToast(`Assigned to ${member ? member.name : 'team member'}`);
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        // ============================================
+        // RENDER VIEW (dispatches to calendar or master)
+        // ============================================
+        function renderView() {
+            if (viewMode === 'master') {
+                document.getElementById('board').style.display = 'none';
+                document.getElementById('masterContainer').style.display = 'flex';
+                renderMasterPage();
+            } else {
+                document.getElementById('board').style.display = 'flex';
+                document.getElementById('masterContainer').style.display = 'none';
+                renderBoard();
+            }
+        }
+
+        // ============================================
+        // RENDER PROJECT BAR
+        // ============================================
+        function renderProjectBar() {
+            const bar = document.getElementById('projectBar');
+            const tabs = document.getElementById('projectTabs');
+            if (!isSignedUp || projects.length === 0) {
+                bar.style.display = 'none';
+                return;
+            }
+            bar.style.display = 'flex';
+            tabs.innerHTML = projects.map(p => `
+                <span class="project-tab ${currentProject && currentProject.id === p.id ? 'active' : ''}" data-project-id="${p.id}">${p.name}</span>
+            `).join('');
+
+            tabs.querySelectorAll('.project-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    switchProject(parseInt(tab.dataset.projectId));
+                });
+            });
+        }
+
+        // ============================================
+        // RENDER BOARD (Calendar View)
+        // ============================================
+        function renderBoard() {
+            const board = document.getElementById('board');
+            board.innerHTML = '';
+
+            const myTasks = isSignedUp ? tasks : [];
+
+            const placeholderTasks = [
+                { id: 'p1', description: 'Add your username above', isPlaceholder: true },
+                { id: 'p2', description: 'Add your team name above, e.g., Big Time Donuts Crew', isPlaceholder: true }
+            ];
+
+            days.forEach((day, index) => {
+                const dayTasks = myTasks.filter(t => t.scheduled_date === day.key);
+                const pendingTasks = dayTasks.filter(t => !t.completed && !t.assigned_to_id);
+                const completedTasks = dayTasks.filter(t => t.completed);
+                const assignedTasks = dayTasks.filter(t => t.assigned_to_id && !t.completed);
+
+                const showPlaceholders = day.isToday && !isSignedUp;
+                const showInput = isSignedUp && index === selectedDayIndex;
+                const isSelected = isSignedUp && index === selectedDayIndex;
+
+                const card = document.createElement('div');
+                card.className = `day-card ${day.isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
+                card.dataset.dayIndex = index;
+
+                let tasksHtml = '';
+
+                // Pending tasks
+                if (showPlaceholders) {
+                    tasksHtml += placeholderTasks.map(t => renderPlaceholderTask(t)).join('');
+                }
+                tasksHtml += pendingTasks.map(t => renderTask(t)).join('');
+
+                // Divider + completed
+                const hasCompleted = completedTasks.length > 0;
+                const hasAssigned = assignedTasks.length > 0;
+                if (hasCompleted || hasAssigned) {
+                    tasksHtml += '<hr class="task-divider">';
+                    if (hasCompleted) {
+                        tasksHtml += `<div class="completed-tasks">${completedTasks.map(t => renderTask(t)).join('')}</div>`;
+                    }
+                    if (hasAssigned) {
+                        tasksHtml += `<div class="assigned-tasks">${assignedTasks.map(t => renderForwardedTask(t)).join('')}</div>`;
+                    }
+                }
+
+                card.innerHTML = `
+                    <div class="day-header">${day.dayName}</div>
+                    <div class="day-date">${day.dateStr}</div>
+                    ${showInput ? `
+                        <div class="task-input-container">
+                            <input type="text" class="task-input" placeholder="Add a task..." data-date="${day.key}">
+                        </div>
+                    ` : ''}
+                    <div class="tasks-container">
+                        <div class="pending-tasks">${tasksHtml}</div>
+                    </div>
+                `;
+                board.appendChild(card);
+            });
+
+            if (isSignedUp) {
+                renderUserSwitcher();
+            }
+
+            attachBoardListeners();
+        }
+
+        function attachBoardListeners() {
+            // Task input
+            document.querySelectorAll('.task-input').forEach(input => {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                        addTask(e.target.value.trim(), e.target.dataset.date);
+                        e.target.value = '';
+                    }
+                });
+                if (shouldRefocusInput) {
+                    input.focus();
+                    shouldRefocusInput = false;
+                }
+            });
+
+            // Click on day card to select it
+            document.querySelectorAll('.day-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    if (e.target.closest('.task-item') || e.target.closest('.task-input') || e.target.closest('.subtask-pane')) return;
+                    const dayIndex = parseInt(card.dataset.dayIndex);
+                    selectDay(dayIndex);
+                });
+            });
+
+            // Task circles
+            document.querySelectorAll('.task-circle[data-task-id]').forEach(circle => {
+                circle.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleComplete(parseInt(circle.dataset.taskId));
+                });
+            });
+
+            // Arrows
+            document.querySelectorAll('.task-arrow[data-task-id]').forEach(arrow => {
+                arrow.addEventListener('click', handleArrowClick);
+            });
+
+            // Return buttons
+            document.querySelectorAll('.task-return[data-task-id]').forEach(returnBtn => {
+                returnBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    returnTask(parseInt(returnBtn.dataset.taskId));
+                });
+            });
+
+            // Task description click → toggle subtask pane
+            document.querySelectorAll('.task-description[data-task-id]').forEach(desc => {
+                desc.addEventListener('click', async (e) => {
+                    e.stopPropagation();
+                    const taskId = parseInt(desc.dataset.taskId);
+                    if (expandedTaskId === taskId) {
+                        expandedTaskId = null;
+                        renderView();
+                    } else {
+                        expandedTaskId = taskId;
+                        if (!taskSubtasks.has(taskId)) {
+                            await loadSubtasks(taskId);
+                        }
+                        renderView();
+                    }
+                });
+            });
+
+            // Subtask listeners
+            attachSubtaskListeners();
+        }
+
+        function attachSubtaskListeners() {
+            // Subtask checkboxes
+            document.querySelectorAll('.subtask-check[data-subtask-id]').forEach(check => {
+                check.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const subtaskId = parseInt(check.dataset.subtaskId);
+                    const taskId = parseInt(check.dataset.taskId);
+                    toggleSubtaskComplete(subtaskId, taskId);
+                });
+            });
+
+            // Subtask emoji click → show team popup for assignment
+            document.querySelectorAll('.subtask-emoji[data-subtask-id]').forEach(emoji => {
+                emoji.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const subtaskId = parseInt(emoji.dataset.subtaskId);
+                    const taskId = parseInt(emoji.dataset.taskId);
+                    showSubtaskAssignPopup(e, subtaskId, taskId);
+                });
+            });
+
+            // Subtask input
+            document.querySelectorAll('.subtask-input[data-task-id]').forEach(input => {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                        addSubtask(parseInt(e.target.dataset.taskId), e.target.value.trim());
+                        e.target.value = '';
+                    }
+                });
+            });
+
+            // Regenerate button
+            document.querySelectorAll('.subtask-regenerate[data-task-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    regenerateSubtasks(parseInt(btn.dataset.taskId));
+                });
+            });
+        }
+
+        function selectDay(index) {
+            if (index < 0 || index >= days.length) return;
+            selectedDayIndex = index;
+            renderView();
+            setTimeout(() => {
+                const input = document.querySelector('.task-input');
+                if (input) input.focus();
+            }, 0);
+        }
+
+        function renderTask(task) {
+            const assignedLabel = task.assigned_by_name ? ` <span class="assigned-from">(from: ${task.assigned_by_name})</span>` : '';
+            const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
+            const isExpanded = expandedTaskId === task.id;
+
+            let subtaskHtml = '';
+            if (isExpanded) {
+                subtaskHtml = renderSubtaskPane(task.id);
+            }
+
+            return `
+                <div class="task-item ${task.completed ? 'completed' : ''}" data-id="${task.id}">
+                    <div class="task-circle" data-task-id="${task.id}"></div>
+                    <div class="task-arrow" data-task-id="${task.id}">&rarr;</div>
+                    <div class="task-description" data-task-id="${task.id}">${task.description}${assignedLabel}</div>
+                    ${returnButton}
+                </div>
+                ${subtaskHtml}
+            `;
+        }
+
+        function renderForwardedTask(task) {
+            const assigneeName = task.assigned_to_name || 'someone';
+            return `
+                <div class="task-item forwarded" data-id="${task.id}">
+                    <div class="task-circle"></div>
+                    <div class="task-description">${task.description} <span class="assigned-to-label">&rarr; ${assigneeName}</span></div>
+                </div>
+            `;
+        }
+
+        function renderPlaceholderTask(task) {
+            return `
+                <div class="task-item placeholder">
+                    <div class="task-circle"></div>
+                    <div class="task-arrow">&rarr;</div>
+                    <div class="task-description">${task.description}</div>
+                </div>
+            `;
+        }
+
+        // ============================================
+        // RENDER SUBTASK PANE
+        // ============================================
+        function renderSubtaskPane(taskId) {
+            const isGenerating = generatingSubtasksFor === taskId;
+            const subtasks = taskSubtasks.get(taskId) || [];
+
+            let content = '';
+
+            if (isGenerating) {
+                content = `
+                    <div class="subtask-loading">
+                        <div class="dot-pulse"><span></span><span></span><span></span></div>
+                        Generating steps...
+                    </div>
+                `;
+            } else {
+                content = subtasks.map(st => {
+                    const isDependent = st.parent_subtask_id !== null;
+                    const isAssigned = st.assigned_to !== null;
+                    const emoji = st.assignee_type === 'ai' ? '\uD83E\uDDE0' : '\uD83D\uDC69';
+                    const assignedLabel = isAssigned ? `<span class="subtask-assigned-label">&rarr; assigned</span>` : '';
+
+                    return `
+                        <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''}">
+                            <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
+                            ${!isAssigned ? `<span class="subtask-emoji" data-subtask-id="${st.id}" data-task-id="${taskId}">${emoji}</span>` : ''}
+                            <span class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${st.description}</span>
+                            ${assignedLabel}
+                        </div>
+                    `;
+                }).join('');
+
+                content += `<input type="text" class="subtask-input" data-task-id="${taskId}" placeholder="Add a step...">`;
+            }
+
+            return `
+                <div class="subtask-pane">
+                    <div class="subtask-header">
+                        <span class="subtask-header-label">Steps</span>
+                        <button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate">&orarr;</button>
+                    </div>
+                    ${content}
+                </div>
+            `;
+        }
+
+        // ============================================
+        // RENDER MASTER PAGE
+        // ============================================
+        async function renderMasterPage() {
+            const container = document.getElementById('masterContainer');
+
+            if (!isSignedUp) {
+                container.innerHTML = '<div class="empty-project">Sign up to see your projects</div>';
+                return;
+            }
+
+            // Load master data
+            try {
+                const data = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/master`);
+                const masterProjects = data.projects;
+
+                if (masterProjects.length === 0) {
+                    container.innerHTML = '<div class="empty-project">No projects yet. Create one above!</div>';
+                    return;
+                }
+
+                container.innerHTML = masterProjects.map(proj => {
+                    const taskListHtml = proj.tasks.length > 0
+                        ? proj.tasks.map(t => {
+                            const progress = t.subtask_count > 0
+                                ? `<span class="subtask-progress">${t.completed_subtask_count}/${t.subtask_count}</span>`
+                                : '';
+                            const isExpanded = expandedTaskId === t.id;
+
+                            let subtaskHtml = '';
+                            if (isExpanded) {
+                                subtaskHtml = renderSubtaskPane(t.id);
+                            }
+
+                            return `
+                                <div class="project-task-item">
+                                    <div class="task-circle" data-task-id="${t.id}"></div>
+                                    <div class="project-task-desc" data-task-id="${t.id}">${t.description}</div>
+                                    <span class="project-task-date">${t.scheduled_date}</span>
+                                    ${progress}
+                                </div>
+                                ${subtaskHtml}
+                            `;
+                        }).join('')
+                        : '<div class="empty-project">All caught up!</div>';
+
+                    return `
+                        <div class="project-section">
+                            <div class="project-section-header">
+                                <span class="project-section-name">${proj.name}</span>
+                                <span class="project-section-count">${proj.tasks.length} open</span>
+                            </div>
+                            <input type="text" class="project-task-input" data-project-id="${proj.id}" placeholder="Add a task to ${proj.name}...">
+                            <div class="project-task-list">${taskListHtml}</div>
+                        </div>
+                    `;
+                }).join('');
+
+                // Attach master page listeners
+                container.querySelectorAll('.project-task-input').forEach(input => {
+                    input.addEventListener('keypress', (e) => {
+                        if (e.key === 'Enter' && e.target.value.trim()) {
+                            addTaskFromMaster(e.target.value.trim(), parseInt(e.target.dataset.projectId));
+                            e.target.value = '';
+                        }
+                    });
+                });
+
+                container.querySelectorAll('.task-circle[data-task-id]').forEach(circle => {
+                    circle.addEventListener('click', () => {
+                        toggleComplete(parseInt(circle.dataset.taskId));
+                    });
+                });
+
+                container.querySelectorAll('.project-task-desc[data-task-id]').forEach(desc => {
+                    desc.addEventListener('click', async () => {
+                        const taskId = parseInt(desc.dataset.taskId);
+                        if (expandedTaskId === taskId) {
+                            expandedTaskId = null;
+                        } else {
+                            expandedTaskId = taskId;
+                            if (!taskSubtasks.has(taskId)) {
+                                await loadSubtasks(taskId);
+                            }
+                        }
+                        renderMasterPage();
+                    });
+                });
+
+                attachSubtaskListeners();
+            } catch (err) {
+                container.innerHTML = `<div class="empty-project">Error loading: ${err.message}</div>`;
+            }
+        }
+
+        // ============================================
+        // USER SWITCHER
+        // ============================================
+        function renderUserSwitcher() {
+            const switcher = document.getElementById('userSwitcher');
+            const container = document.getElementById('userSwitcherButtons');
+
+            if (allUsers.length <= 1) {
+                switcher.style.display = 'none';
+                return;
+            }
+
+            switcher.style.display = 'flex';
+            container.innerHTML = allUsers.map(user => `
+                <div class="user-switch-btn ${user.id === currentUser.id ? 'active' : ''}" data-user-id="${user.id}">
+                    <div class="user-switch-avatar" style="background: ${user.color}">${user.initials}</div>
+                    <span class="user-switch-name">${user.name}</span>
+                </div>
+            `).join('');
+
+            container.querySelectorAll('.user-switch-btn').forEach(btn => {
+                btn.addEventListener('click', async () => {
+                    const userId = parseInt(btn.dataset.userId);
+                    currentUser = allUsers.find(u => u.id === userId);
+                    expandedTaskId = null;
+                    taskSubtasks.clear();
+                    await loadProjects();
+                    await loadTasks();
+                    renderProjectBar();
+                    renderView();
+                    showToast(`Viewing as ${currentUser.name}`);
+                });
+            });
+        }
+
+        // ============================================
+        // ARROW HANDLERS
+        // ============================================
+        function handleArrowClick(e) {
+            e.stopPropagation();
+            const taskId = parseInt(e.target.closest('.task-arrow').dataset.taskId);
+
+            // Shift+click: move forward one week
+            if (e.shiftKey) {
+                const task = tasks.find(t => t.id === taskId);
+                if (task) {
+                    const currentDate = new Date(task.scheduled_date);
+                    currentDate.setDate(currentDate.getDate() + 7);
+                    moveTaskToDate(taskId, currentDate.toISOString().split('T')[0]);
+                    showToast('Moved forward one week');
+                }
+                return;
+            }
+
+            // Regular click: move to next day
+            const task = tasks.find(t => t.id === taskId);
+            if (task) {
+                const currentIndex = days.findIndex(d => d.key === task.scheduled_date);
+                if (currentIndex < days.length - 1) {
+                    moveTaskToDate(taskId, days[currentIndex + 1].key);
+                    showToast(`Moved to ${days[currentIndex + 1].dayName}`);
+                }
+            }
+        }
+
+        // ============================================
+        // TEAM POPUP (for subtask assignment)
+        // ============================================
+        let activeSubtaskId = null;
+        let activeSubtaskTaskId = null;
+        let activeTaskId = null;
+
+        function showSubtaskAssignPopup(e, subtaskId, taskId) {
+            activeSubtaskId = subtaskId;
+            activeSubtaskTaskId = taskId;
+            activeTaskId = null;
+            showTeamPopupAt(e);
+        }
+
+        function showTeamPopup(e, taskId) {
+            activeTaskId = taskId;
+            activeSubtaskId = null;
+            activeSubtaskTaskId = null;
+            showTeamPopupAt(e);
+        }
+
+        function showTeamPopupAt(e) {
+            const popup = document.getElementById('teamPopup');
+            const teamMembers = allUsers.filter(u => u.id !== currentUser.id);
+
+            let html = `<div class="team-popup-grid">
+                <div class="add-new-member" id="addNewMemberBtn">
+                    <div class="add-new-icon">+</div>
+                    <div class="add-new-label">New</div>
+                </div>`;
+
+            html += teamMembers.map(member => `
+                <div class="team-member" data-member-id="${member.id}">
+                    <div class="team-avatar" style="background: ${member.color}">${member.initials}</div>
+                    <div class="team-name">${member.name}</div>
+                </div>
+            `).join('');
+
+            html += '</div>';
+            popup.innerHTML = html;
+
+            const rect = e.target.getBoundingClientRect();
+            popup.style.left = rect.left + 'px';
+            popup.style.top = (rect.bottom + 5) + 'px';
+            popup.classList.add('visible');
+
+            document.getElementById('addNewMemberBtn').addEventListener('click', () => {
+                hidePopups();
+                if (activeTaskId) {
+                    showAddUserModal(activeTaskId);
+                }
+            });
+
+            popup.querySelectorAll('.team-member').forEach(memberEl => {
+                memberEl.addEventListener('click', async () => {
+                    const memberId = parseInt(memberEl.dataset.memberId);
+                    const member = allUsers.find(m => m.id === memberId);
+
+                    if (activeSubtaskId && activeSubtaskTaskId) {
+                        await assignSubtask(activeSubtaskId, activeSubtaskTaskId, memberId);
+                    } else if (activeTaskId) {
+                        await assignTaskToMember(activeTaskId, memberId);
+                    }
+
+                    hidePopups();
+                    if (member) showToast(`Assigned to ${member.name}`);
+                });
+            });
+
+            document.addEventListener('click', hidePopupsOnClickOutside);
+        }
+
+        // ============================================
+        // ADD USER MODAL
+        // ============================================
+        const addUserModal = document.getElementById('addUserModal');
+        const newUserName = document.getElementById('newUserName');
+        const newUserLinkDisplay = document.getElementById('newUserLinkDisplay');
+        const newUserLink = document.getElementById('newUserLink');
+        const copyLinkBtn = document.getElementById('copyLinkBtn');
+        const confirmAddUser = document.getElementById('confirmAddUser');
+        const cancelAddUser = document.getElementById('cancelAddUser');
+        let pendingAssignTaskId = null;
+        let newUserCreated = null;
+
+        function showAddUserModal(taskId) {
+            pendingAssignTaskId = taskId;
+            newUserCreated = null;
+            newUserName.value = '';
+            newUserLinkDisplay.style.display = 'none';
+            confirmAddUser.textContent = 'Add & get link';
+            confirmAddUser.disabled = false;
+            addUserModal.classList.add('visible');
+            newUserName.focus();
+        }
+
+        function hideAddUserModal() {
+            addUserModal.classList.remove('visible');
+            pendingAssignTaskId = null;
+            newUserCreated = null;
+        }
+
+        cancelAddUser.addEventListener('click', hideAddUserModal);
+
+        confirmAddUser.addEventListener('click', async () => {
+            if (newUserCreated) {
+                hideAddUserModal();
+                showToast(`Assigned to ${newUserCreated.name}`);
+                return;
+            }
+
+            const name = newUserName.value.trim();
+            if (!name) { showToast('Please enter a name'); return; }
+
+            confirmAddUser.disabled = true;
+            confirmAddUser.textContent = '...';
+
+            try {
+                newUserCreated = await createUserAndAssign(name, pendingAssignTaskId);
+
+                const fullUrl = `${company.subdomain}.movealong.com/${newUserCreated.slug}`;
+                newUserLink.textContent = fullUrl;
+                newUserLinkDisplay.style.display = 'block';
+                confirmAddUser.textContent = 'Done';
+                confirmAddUser.disabled = false;
+                copyLinkBtn.textContent = 'Copy';
+                copyLinkBtn.classList.remove('copied');
+            } catch (err) {
+                confirmAddUser.disabled = false;
+                confirmAddUser.textContent = 'Add & get link';
+            }
+        });
+
+        copyLinkBtn.addEventListener('click', () => {
+            const url = newUserLink.textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                copyLinkBtn.textContent = 'Copied!';
+                copyLinkBtn.classList.add('copied');
+            });
+        });
+
+        addUserModal.addEventListener('click', (e) => {
+            if (e.target === addUserModal) hideAddUserModal();
+        });
+
+        // ============================================
+        // CREATE PROJECT MODAL
+        // ============================================
+        const createProjectModal = document.getElementById('createProjectModal');
+        const newProjectName = document.getElementById('newProjectName');
+        const confirmCreateProject = document.getElementById('confirmCreateProject');
+        const cancelCreateProject = document.getElementById('cancelCreateProject');
+
+        document.getElementById('projectAddBtn').addEventListener('click', () => {
+            newProjectName.value = '';
+            createProjectModal.classList.add('visible');
+            newProjectName.focus();
+        });
+
+        cancelCreateProject.addEventListener('click', () => {
+            createProjectModal.classList.remove('visible');
+        });
+
+        confirmCreateProject.addEventListener('click', async () => {
+            const name = newProjectName.value.trim();
+            if (!name) { showToast('Please enter a name'); return; }
+            createProjectModal.classList.remove('visible');
+            await createProject(name);
+        });
+
+        newProjectName.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                confirmCreateProject.click();
+            }
+        });
+
+        createProjectModal.addEventListener('click', (e) => {
+            if (e.target === createProjectModal) createProjectModal.classList.remove('visible');
+        });
+
+        // ============================================
+        // VIEW TOGGLE
+        // ============================================
+        document.getElementById('viewCalendarBtn').addEventListener('click', () => {
+            viewMode = 'calendar';
+            document.getElementById('viewCalendarBtn').classList.add('active');
+            document.getElementById('viewMasterBtn').classList.remove('active');
+            renderView();
+        });
+
+        document.getElementById('viewMasterBtn').addEventListener('click', () => {
+            viewMode = 'master';
+            document.getElementById('viewMasterBtn').classList.add('active');
+            document.getElementById('viewCalendarBtn').classList.remove('active');
+            renderView();
+        });
+
+        // ============================================
+        // POPUP HELPERS
+        // ============================================
+        function hidePopups() {
+            document.getElementById('teamPopup').classList.remove('visible');
+            document.removeEventListener('click', hidePopupsOnClickOutside);
+        }
+
+        function hidePopupsOnClickOutside(e) {
+            if (!e.target.closest('.team-popup') &&
+                !e.target.closest('.subtask-emoji') &&
+                !e.target.closest('.task-arrow') &&
+                !e.target.closest('.modal')) {
+                hidePopups();
+            }
+        }
+
+        // ============================================
+        // TOAST
+        // ============================================
+        function showToast(message) {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.classList.add('visible');
+            setTimeout(() => {
+                toast.classList.remove('visible');
+            }, 2000);
+        }
+
+        // ============================================
+        // INITIALIZE
+        // ============================================
+        renderBoard();
+
+        // New board button
+        document.getElementById('newBoardBtn').addEventListener('click', () => {
+            isSignedUp = false;
+            company = { name: '', subdomain: '' };
+            allUsers = [];
+            currentUser = null;
+            tasks = [];
+            projects = [];
+            currentProject = null;
+            companyManuallyEdited = false;
+            selectedDayIndex = 0;
+            viewMode = 'calendar';
+            expandedTaskId = null;
+            taskSubtasks.clear();
+
+            signupName.value = '';
+            signupCompany.value = '';
+            signupCompany.classList.remove('user-edited');
+            signupBtn.disabled = true;
+            signupBtn.textContent = 'Go';
+
+            headerForm.classList.remove('hidden');
+            headerDisplay.classList.remove('visible');
+            document.getElementById('projectBar').style.display = 'none';
+            document.getElementById('viewCalendarBtn').classList.add('active');
+            document.getElementById('viewMasterBtn').classList.remove('active');
+            document.getElementById('board').style.display = 'flex';
+            document.getElementById('masterContainer').style.display = 'none';
+
+            renderBoard();
+            signupName.focus();
+        });
+
+        // Keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (!isSignedUp) return;
+
+            // Escape closes subtask pane and modals
+            if (e.key === 'Escape') {
+                if (addUserModal.classList.contains('visible')) {
+                    hideAddUserModal();
+                } else if (createProjectModal.classList.contains('visible')) {
+                    createProjectModal.classList.remove('visible');
+                } else if (expandedTaskId) {
+                    expandedTaskId = null;
+                    renderView();
+                }
+                return;
+            }
+
+            // Arrow keys for day navigation (only in calendar view)
+            if (viewMode !== 'calendar') return;
+            if (e.key === 'ArrowRight') {
+                e.preventDefault();
+                selectDay(selectedDayIndex + 1);
+            } else if (e.key === 'ArrowLeft') {
+                e.preventDefault();
+                selectDay(selectedDayIndex - 1);
+            }
+        });
+    </script>
+</body>
+</html>
