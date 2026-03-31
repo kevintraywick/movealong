@@ -57,12 +57,12 @@ Subtasks must be **specific, actionable, and research-backed** — never vague p
 ## Project Structure
 
 ```
-public/index.html     - Single-page frontend (vanilla JS, dark theme)
-server/src/server.js  - Express API server
-server/src/db.js      - SQLite database layer (sql.js, pure JS)
-server/movealong.db   - SQLite database file (gitignored)
-reference/            - Design docs, specs, and planning notes
-archive/              - Old prototypes and mockups (gitignored)
+server/public/index.html - Single-page frontend (vanilla JS, dark theme)
+server/src/server.js     - Express API server
+server/src/db.js         - SQLite database layer (sql.js, pure JS)
+server/movealong.db      - SQLite database file (gitignored)
+reference/               - Design docs, specs, and planning notes
+archive/                 - Old prototypes and mockups (gitignored)
 ```
 
 ## Running Locally
