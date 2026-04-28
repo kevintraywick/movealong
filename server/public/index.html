@@ -91,17 +91,19 @@
             color: #6a6a80;
         }
 
-        .day-card.today {
-            border: 2px solid #5a64c8;
-            box-shadow: 0 4px 16px rgba(90, 100, 200, 0.15);
-        }
-
         .day-card.today .day-header {
             color: #3b46a8;
+            font-weight: 700;
+        }
+
+        .day-card.today .day-date {
+            color: #3b46a8;
+            font-weight: 600;
         }
 
         .day-card.selected {
             border: 2px solid #5a64c8;
+            box-shadow: 0 4px 16px rgba(90, 100, 200, 0.18);
         }
 
         .day-card:not(.selected) {
@@ -970,7 +972,7 @@
             position: absolute;
             top: calc(100% + 12px);
             left: 0;
-            width: calc(300% + 32px);
+            width: calc(300% + 40px);
             z-index: 5;
         }
 
@@ -1134,12 +1136,12 @@
         .subtask-stack {
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 32px;
             padding-top: 8px;
         }
 
         .subtask-row {
-            transition: margin-left 0.2s ease-out;
+            display: block;
         }
 
         .subtask-card-wrapper {
@@ -2435,12 +2437,10 @@
                     const emoji = st.assignee_type === 'ai' ? '\uD83E\uDDE0' : '\uD83D\uDC69';
                     const roleLabel = st.assignee_type === 'ai' ? 'AI Agent' : 'You';
                     const agentTitle = extractAgentTitle(st.description);
-                    const offset = Math.min(i * 14, 96);
-                    const tilts = [-3, -1.5, 1, 2.5, -2, 1.5, -1, 3];
-                    const tilt = tilts[i % tilts.length];
+                    const tilt = 0;
 
                     return `
-                        <div class="subtask-row" style="margin-left: ${offset}px;">
+                        <div class="subtask-row">
                             <div class="subtask-card-wrapper">
                                 <div class="subtask-card ${dowClass} ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''}" style="transform: rotate(${tilt}deg);">
                                     <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
