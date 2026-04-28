@@ -14,10 +14,12 @@
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
             background: #1a1a2e;
-            color: #eee;
+            color: #f5f5f7;
             min-height: 100vh;
             padding: 20px;
             padding-bottom: 40px;
+            font-size: 16px;
+            line-height: 1.5;
         }
 
         h1 {
@@ -29,13 +31,20 @@
         .board-container {
             display: flex;
             gap: 16px;
-            overflow-x: auto;
             padding-bottom: 20px;
+            align-items: flex-start;
+            width: 100%;
+        }
+
+        .day-column {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            flex: 1 1 0;
+            min-width: 0;
         }
 
         .day-card {
-            min-width: 280px;
-            max-width: 280px;
             background: #252542;
             border-radius: 12px;
             padding: 16px;
@@ -44,15 +53,15 @@
         }
 
         .day-header {
-            font-size: 18px;
+            font-size: 20px;
             font-weight: 600;
             margin-bottom: 4px;
             color: #fff;
         }
 
         .day-date {
-            font-size: 12px;
-            color: #888;
+            font-size: 14px;
+            color: #b8b8cc;
             margin-bottom: 16px;
         }
 
@@ -442,9 +451,11 @@
 
         .task-description {
             flex: 1;
-            font-size: 14px;
-            line-height: 1.4;
+            font-size: 15px;
+            line-height: 1.45;
+            color: #f0f0f5;
             cursor: pointer;
+            overflow-wrap: anywhere;
         }
 
         .task-description:hover {
@@ -879,12 +890,21 @@
            SUBTASK PANE
            ============================================ */
         .subtask-pane {
-            margin-top: 4px;
-            margin-left: 28px;
-            padding: 8px 0;
-            border-left: 2px solid #3a3a5a;
-            padding-left: 12px;
+            background: #252542;
+            border: 1px solid #3a3a5a;
+            border-radius: 12px;
+            padding: 14px 16px;
             animation: slideDown 0.15s ease-out;
+        }
+
+        .subtask-pane .subtask-task-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #7eb8ff;
+            margin-bottom: 10px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
 
         @keyframes slideDown {
@@ -900,8 +920,8 @@
         }
 
         .subtask-header-label {
-            font-size: 11px;
-            color: #666;
+            font-size: 12px;
+            color: #9090a8;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -929,14 +949,15 @@
         .subtask-item {
             display: flex;
             align-items: flex-start;
-            gap: 6px;
-            padding: 4px 0;
-            font-size: 13px;
+            gap: 8px;
+            padding: 6px 0;
+            font-size: 15px;
+            color: #e6e6ec;
         }
 
         .subtask-item.dependent {
             margin-left: 16px;
-            color: #888;
+            color: #b0b0c4;
         }
 
         .subtask-item.assigned-subtask {
@@ -983,7 +1004,7 @@
         .subtask-desc {
             flex: 1;
             min-width: 0;
-            line-height: 1.3;
+            line-height: 1.45;
             overflow-wrap: anywhere;
             display: -webkit-box;
             -webkit-line-clamp: 3;
@@ -1310,7 +1331,7 @@
 
         function generateDays() {
             const days = [];
-            for (let i = 0; i < 30; i++) {
+            for (let i = 0; i < 7; i++) {
                 const date = new Date();
                 date.setDate(date.getDate() + i);
                 days.push({
@@ -1827,7 +1848,19 @@
                         <div class="pending-tasks">${tasksHtml}</div>
                     </div>
                 `;
-                board.appendChild(card);
+
+                const column = document.createElement('div');
+                column.className = 'day-column';
+                column.appendChild(card);
+
+                const expandedTask = dayTasks.find(t => t.id === expandedTaskId);
+                if (expandedTask) {
+                    const paneWrapper = document.createElement('div');
+                    paneWrapper.innerHTML = renderSubtaskPane(expandedTask.id, expandedTask.description);
+                    column.appendChild(paneWrapper.firstElementChild);
+                }
+
+                board.appendChild(column);
             });
 
             if (isSignedUp) {
@@ -1959,19 +1992,13 @@
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
             const isExpanded = expandedTaskId === task.id;
 
-            let subtaskHtml = '';
-            if (isExpanded) {
-                subtaskHtml = renderSubtaskPane(task.id);
-            }
-
             return `
-                <div class="task-item ${task.completed ? 'completed' : ''}" data-id="${task.id}">
+                <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''}" data-id="${task.id}">
                     <div class="task-circle" data-task-id="${task.id}"></div>
                     <div class="task-arrow" data-task-id="${task.id}">&rarr;</div>
                     <div class="task-description" data-task-id="${task.id}">${task.description}${assignedLabel}</div>
                     ${returnButton}
                 </div>
-                ${subtaskHtml}
             `;
         }
 
@@ -1998,9 +2025,12 @@
         // ============================================
         // RENDER SUBTASK PANE
         // ============================================
-        function renderSubtaskPane(taskId) {
+        function renderSubtaskPane(taskId, taskTitle) {
             const isGenerating = generatingSubtasksFor === taskId;
             const subtasks = taskSubtasks.get(taskId) || [];
+            const titleHtml = taskTitle
+                ? `<div class="subtask-task-title" title="${taskTitle.replace(/"/g, '&quot;')}">${taskTitle}</div>`
+                : '';
 
             let content = '';
 
@@ -2033,6 +2063,7 @@
 
             return `
                 <div class="subtask-pane">
+                    ${titleHtml}
                     <div class="subtask-header">
                         <span class="subtask-header-label">Steps</span>
                         <button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate">&orarr;</button>
@@ -2073,7 +2104,7 @@
 
                             let subtaskHtml = '';
                             if (isExpanded) {
-                                subtaskHtml = renderSubtaskPane(t.id);
+                                subtaskHtml = renderSubtaskPane(t.id, t.description);
                             }
 
                             return `

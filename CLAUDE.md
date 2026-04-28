@@ -8,6 +8,8 @@ Two goals:
 1. **Move ideas into action** — When a task is added, Claude immediately populates a subtask pane with the steps needed to complete it, so the user instantly sees what's involved.
 2. **Reduce decision-fatigue** — Every subtask has a default assignee (AI or human), and the user can assign with a single click. AI agents research options, fetch prices, check weather, and return actionable information so the user doesn't have to.
 
+Tasks can also be sent to an AI agent for execution, not just humans. Cross-user collaboration (assigning to other people) is currently back-burnered — focus is on the single-user + AI-agent loop.
+
 ## Core Concepts
 
 ### Projects
@@ -57,21 +59,43 @@ Subtasks must be **specific, actionable, and research-backed** — never vague p
 ## Project Structure
 
 ```
-server/public/index.html - Single-page frontend (vanilla JS, dark theme)
-server/src/server.js     - Express API server
-server/src/db.js         - SQLite database layer (sql.js, pure JS)
-server/movealong.db      - SQLite database file (gitignored)
-reference/               - Design docs, specs, and planning notes
-archive/                 - Old prototypes and mockups (gitignored)
+server/public/index.html     - Single-page frontend (vanilla JS, dark theme)
+server/src/server.js         - Express API server
+server/src/db.js             - SQLite database layer (sql.js, pure JS)
+server/src/ai.js             - Anthropic API client; generates subtasks from a task description
+server/movealong.db          - SQLite database file (gitignored)
+server/package.json          - Backend deps + scripts (`start`, `dev`)
+reference/api-reference.md   - HTTP endpoint reference
+reference/data-model.md      - SQLite schema (companies, users, tasks, indexes)
+reference/roadmap.md         - Done / Next checklist
+.claude/                     - Editor launch config + local settings; not shipped
+archive/                     - Old prototypes and mockups (gitignored)
 ```
+
+Unrelated files in the repo root (`create_monster_cards.py`, `create_monster_cards_pdf`) are leftovers from another project — ignore them for MoveAlong work.
 
 ## Running Locally
 
+First-time setup:
+
 ```bash
-cd server && node src/server.js
+cd server
+npm install
+export ANTHROPIC_API_KEY=sk-ant-...   # required — ai.js throws on boot without it
+npm start                             # or: npm run dev  (uses node --watch for auto-restart)
 ```
 
 Server starts on `http://localhost:3000`, serves both the API and frontend.
+
+## Environment Variables
+
+- `ANTHROPIC_API_KEY` — **required**. `server/src/ai.js` throws at startup if unset. Used to call the Anthropic API for subtask generation (currently `claude-sonnet-4-20250514`).
+- `DB_PATH` — optional. Override default `./movealong.db` location.
+- `PORT` — optional. Defaults to 3000.
+
+## Testing
+
+No test suite yet. No linter configured. Manual testing via `http://localhost:3000`.
 
 ## Tech Stack
 
@@ -94,6 +118,16 @@ All endpoints under `/api`. RESTful. JSON in/out.
 - Tasks: `GET|POST /api/companies/:subdomain/users/:slug/tasks`
 - Task actions: `PUT /api/tasks/:id`, `POST /api/tasks/:id/assign`, `POST /api/tasks/:id/return`, `DELETE /api/tasks/:id`
 
+Full endpoint reference lives in `reference/api-reference.md`. Schema lives in `reference/data-model.md`. Check those before re-deriving from code.
+
+## Deployment
+
+- **GitHub:** [kevintraywick/movealong](https://github.com/kevintraywick/movealong), default branch `main`. No PR/commit conventions formalized yet.
+- **Railway:** Auto-deploy on push to `main`. Build/start uses `npm start` (which runs `node src/server.js` from `server/`).
+- **Env vars in Railway:** `ANTHROPIC_API_KEY` must be set, or the server crashes on boot (`ai.js` throws). No other env vars configured yet.
+- **Database persistence:** No volume attached. `server/movealong.db` lives on the ephemeral container filesystem, so every deploy wipes all data. Attach a Railway volume (e.g. mount at `/data`) and set `DB_PATH=/data/movealong.db` before this is usable for real users.
+- **Custom domain:** Not configured. The `*.movealong.com` subdomain pattern in the code is aspirational until DNS + a proxy are set up.
+
 ## Key Design Decisions
 
 - No authentication yet (URL-based access, auth is a planned next step)
@@ -107,6 +141,6 @@ All endpoints under `/api`. RESTful. JSON in/out.
 ## Conventions
 
 - Keep the frontend as a single `public/index.html` file
-- Server restart required after backend changes (no hot reload)
+- Backend changes require a restart under `npm start`. Use `npm run dev` (node `--watch`) if you want auto-restart during development.
 - Database file is gitignored; it recreates on first run
 - When editing the frontend, test via `http://localhost:3000` not `file://`
