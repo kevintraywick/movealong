@@ -928,7 +928,7 @@
 
         .subtask-item {
             display: flex;
-            align-items: center;
+            align-items: flex-start;
             gap: 6px;
             padding: 4px 0;
             font-size: 13px;
@@ -982,7 +982,14 @@
 
         .subtask-desc {
             flex: 1;
+            min-width: 0;
             line-height: 1.3;
+            overflow-wrap: anywhere;
+            display: -webkit-box;
+            -webkit-line-clamp: 3;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+            cursor: help;
         }
 
         .subtask-desc.completed-subtask {
@@ -2015,7 +2022,7 @@
                         <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''}">
                             <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
                             ${!isAssigned ? `<span class="subtask-emoji" data-subtask-id="${st.id}" data-task-id="${taskId}">${emoji}</span>` : ''}
-                            <span class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${st.description}</span>
+                            <span class="subtask-desc ${st.completed ? 'completed-subtask' : ''}" title="${st.description.replace(/"/g, '&quot;')}">${st.description}</span>
                             ${assignedLabel}
                         </div>
                     `;
