@@ -13,12 +13,12 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #1a1a2e;
-            color: #f5f5f7;
+            background: #d8def5;
+            color: #2c2c3a;
             min-height: 100vh;
             padding: 20px;
             padding-bottom: 40px;
-            font-size: 16px;
+            font-size: 22px;
             line-height: 1.5;
         }
 
@@ -35,6 +35,7 @@
             align-items: flex-start;
             width: 100%;
             position: relative;
+            overflow-x: auto;
         }
 
         .board-container.has-expanded {
@@ -44,44 +45,63 @@
         .day-column {
             display: flex;
             flex-direction: column;
-            flex: 1 1 0;
-            min-width: 0;
+            flex: 0 0 400px;
+            width: 400px;
             position: relative;
         }
 
         .day-card {
-            background: #252542;
+            background: #fff5e0;
             border-radius: 12px;
             padding: 16px;
             display: flex;
             flex-direction: column;
-            min-width: 0;
+            width: 400px;
+            height: 400px;
+            box-sizing: border-box;
+            overflow: hidden;
+            border: 1px solid transparent;
+        }
+
+        /* Weekday color variations — subtle warm pastels that complement periwinkle bg */
+        .day-card.dow-sunday    { background: #ffe0ea; }
+        .day-card.dow-monday    { background: #ffe5d4; }
+        .day-card.dow-tuesday   { background: #fff2c8; }
+        .day-card.dow-wednesday { background: #e8f4d6; }
+        .day-card.dow-thursday  { background: #d6f0e6; }
+        .day-card.dow-friday    { background: #ffd8d0; }
+        .day-card.dow-saturday  { background: #f0d8f0; }
+
+        .day-header-row {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            margin-bottom: 16px;
+            flex-wrap: wrap;
         }
 
         .day-header {
-            font-size: 20px;
+            font-size: 26px;
             font-weight: 600;
-            margin-bottom: 4px;
-            color: #fff;
+            color: #2c2c3a;
         }
 
         .day-date {
-            font-size: 14px;
-            color: #b8b8cc;
-            margin-bottom: 16px;
+            font-size: 18px;
+            color: #6a6a80;
         }
 
         .day-card.today {
-            background: #2a2a4a;
-            border: 1px solid #4a4a7a;
+            border: 2px solid #5a64c8;
+            box-shadow: 0 4px 16px rgba(90, 100, 200, 0.15);
         }
 
         .day-card.today .day-header {
-            color: #7eb8ff;
+            color: #3b46a8;
         }
 
         .day-card.selected {
-            border: 1px solid #7eb8ff;
+            border: 2px solid #5a64c8;
         }
 
         .day-card:not(.selected) {
@@ -89,7 +109,7 @@
         }
 
         .day-card:not(.selected):hover {
-            background: #2d2d4d;
+            filter: brightness(1.04);
         }
 
         .task-input-container {
@@ -99,20 +119,21 @@
         .task-input {
             width: 100%;
             padding: 10px 12px;
-            border: 1px solid #3a3a5a;
+            border: 1px solid rgba(0,0,0,0.12);
             border-radius: 8px;
-            background: #1a1a2e;
-            color: #eee;
-            font-size: 14px;
+            background: rgba(255,255,255,0.7);
+            color: #2c2c3a;
+            font-size: 20px;
         }
 
         .task-input:focus {
             outline: none;
-            border-color: #5a5a8a;
+            border-color: #5a64c8;
+            background: #fff;
         }
 
         .task-input::placeholder {
-            color: #666;
+            color: #8a8a9a;
         }
 
         .tasks-container {
@@ -190,7 +211,7 @@
         .task-item.completed .task-circle::after {
             content: '\2713';
             color: white;
-            font-size: 12px;
+            font-size: 18px;
         }
 
         .task-item.completed .task-description {
@@ -207,7 +228,7 @@
         .task-item.forwarded .task-circle::after {
             content: '\2794';
             color: white;
-            font-size: 11px;
+            font-size: 17px;
         }
 
         .task-item.forwarded .task-description {
@@ -216,13 +237,13 @@
 
         .assigned-from {
             color: #888;
-            font-size: 12px;
+            font-size: 18px;
             font-style: italic;
         }
 
         .assigned-to-label {
             color: #c4a235;
-            font-size: 12px;
+            font-size: 18px;
             font-style: italic;
         }
 
@@ -234,7 +255,7 @@
             justify-content: center;
             cursor: pointer;
             color: #666;
-            font-size: 14px;
+            font-size: 20px;
             border-radius: 4px;
             transition: all 0.2s;
             flex-shrink: 0;
@@ -260,7 +281,7 @@
 
         .user-switcher-label {
             color: #888;
-            font-size: 13px;
+            font-size: 19px;
         }
 
         .user-switcher-buttons {
@@ -296,12 +317,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 17px;
             color: white;
         }
 
         .user-switch-name {
-            font-size: 13px;
+            font-size: 19px;
             color: #ccc;
         }
 
@@ -319,9 +340,9 @@
         }
 
         .app-logo {
-            font-size: 24px;
+            font-size: 30px;
             font-weight: 300;
-            color: #7eb8ff;
+            color: #3b46a8;
             margin-right: 8px;
         }
 
@@ -341,47 +362,50 @@
             border: 1px solid #3a3a5a;
             border-radius: 6px;
             background: #1a1a2e;
-            color: #eee;
-            font-size: 14px;
+            color: #fff;
+            font-size: 20px;
             width: 160px;
         }
 
         .header-input:focus {
             outline: none;
-            border-color: #5a5a8a;
+            border-color: #7eb8ff;
         }
 
         .header-input::placeholder {
-            color: #555;
+            color: #b8b8cc;
         }
 
         .header-input.auto-generated {
-            color: #888;
+            color: #fff;
+            opacity: 0.75;
         }
 
         .header-input.auto-generated.user-edited {
-            color: #eee;
+            color: #fff;
+            opacity: 1;
         }
 
         .btn-go {
             padding: 8px 20px;
             border-radius: 6px;
             border: none;
-            font-size: 14px;
+            font-size: 20px;
             cursor: pointer;
-            background: #7eb8ff;
-            color: #1a1a2e;
-            font-weight: 500;
+            background: #4caf50;
+            color: #fff;
+            font-weight: 600;
             transition: all 0.2s;
         }
 
-        .btn-go:hover {
-            background: #9ec8ff;
+        .btn-go:hover:not(:disabled) {
+            background: #43a047;
         }
 
         .btn-go:disabled {
             background: #4a4a6a;
-            color: #666;
+            color: #fff;
+            opacity: 0.5;
             cursor: not-allowed;
         }
 
@@ -396,13 +420,13 @@
         }
 
         .header-label {
-            font-size: 14px;
-            color: #888;
+            font-size: 20px;
+            color: #5a5a72;
         }
 
         .header-value {
-            font-size: 14px;
-            color: #ddd;
+            font-size: 20px;
+            color: #2c2c3a;
             font-weight: 500;
         }
 
@@ -418,10 +442,10 @@
             width: 32px;
             height: 32px;
             border-radius: 6px;
-            border: 1px solid #3a3a5a;
-            background: transparent;
-            color: #888;
-            font-size: 20px;
+            border: 1.5px solid #3b46a8;
+            background: #3b46a8;
+            color: #fff;
+            font-size: 26px;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -430,9 +454,8 @@
         }
 
         .btn-new-board:hover {
-            border-color: #7eb8ff;
-            color: #7eb8ff;
-            background: rgba(126, 184, 255, 0.1);
+            background: #2a3590;
+            border-color: #2a3590;
         }
 
         .task-arrow {
@@ -443,7 +466,7 @@
             justify-content: center;
             cursor: pointer;
             color: #666;
-            font-size: 16px;
+            font-size: 22px;
             border-radius: 4px;
             transition: all 0.2s;
             flex-shrink: 0;
@@ -457,15 +480,36 @@
 
         .task-description {
             flex: 1;
-            font-size: 15px;
+            font-size: 21px;
             line-height: 1.45;
-            color: #f0f0f5;
+            color: #2c2c3a;
             cursor: pointer;
             overflow-wrap: anywhere;
         }
 
+        .task-regenerate {
+            flex-shrink: 0;
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            border: none;
+            background: transparent;
+            color: #5a5a72;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+        }
+
+        .task-regenerate:hover {
+            color: #3b46a8;
+            background: rgba(60, 70, 160, 0.12);
+        }
+
         .task-description:hover {
-            color: #7eb8ff;
+            color: #3b46a8;
         }
 
         /* Team Popup */
@@ -506,12 +550,12 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 16px;
+            font-size: 22px;
             margin-bottom: 4px;
         }
 
         .team-name {
-            font-size: 11px;
+            font-size: 17px;
             color: #aaa;
         }
 
@@ -535,23 +579,12 @@
             opacity: 1;
         }
 
-        /* Scrollbar styling */
+        /* Hide horizontal scrollbar (scrolling still works via trackpad/wheel) */
+        .board-container {
+            scrollbar-width: none;
+        }
         .board-container::-webkit-scrollbar {
-            height: 8px;
-        }
-
-        .board-container::-webkit-scrollbar-track {
-            background: #1a1a2e;
-            border-radius: 4px;
-        }
-
-        .board-container::-webkit-scrollbar-thumb {
-            background: #3a3a5a;
-            border-radius: 4px;
-        }
-
-        .board-container::-webkit-scrollbar-thumb:hover {
-            background: #4a4a6a;
+            display: none;
         }
 
         .instructions {
@@ -562,7 +595,7 @@
             padding: 6px 20px;
             background: #1e1e38;
             border-top: 1px solid #2a2a4a;
-            font-size: 12px;
+            font-size: 18px;
             color: #666;
             z-index: 100;
         }
@@ -583,7 +616,7 @@
             padding: 1px 4px;
             border-radius: 3px;
             color: #7eb8ff;
-            font-size: 11px;
+            font-size: 17px;
         }
 
         /* Form elements (used in modal) */
@@ -593,7 +626,7 @@
 
         .form-group label {
             display: block;
-            font-size: 13px;
+            font-size: 19px;
             color: #888;
             margin-bottom: 6px;
         }
@@ -605,7 +638,7 @@
             border-radius: 8px;
             background: #1a1a2e;
             color: #eee;
-            font-size: 15px;
+            font-size: 21px;
         }
 
         .form-input:focus {
@@ -621,7 +654,7 @@
             padding: 12px 24px;
             border-radius: 8px;
             border: none;
-            font-size: 15px;
+            font-size: 21px;
             cursor: pointer;
             transition: all 0.2s;
         }
@@ -709,7 +742,7 @@
 
         .btn-small {
             padding: 10px 16px;
-            font-size: 14px;
+            font-size: 20px;
             flex: 1;
         }
 
@@ -723,7 +756,7 @@
         }
 
         .link-display-label {
-            font-size: 12px;
+            font-size: 18px;
             color: #888;
             margin-bottom: 8px;
         }
@@ -737,14 +770,14 @@
         .link-display-url {
             flex: 1;
             font-family: monospace;
-            font-size: 13px;
+            font-size: 19px;
             color: #7eb8ff;
             word-break: break-all;
         }
 
         .btn-copy {
             padding: 6px 12px;
-            font-size: 12px;
+            font-size: 18px;
             background: #3a3a5a;
             border: none;
             color: #ddd;
@@ -793,7 +826,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 24px;
+            font-size: 30px;
             color: #888;
             margin-bottom: 4px;
         }
@@ -804,7 +837,7 @@
         }
 
         .add-new-label {
-            font-size: 11px;
+            font-size: 17px;
             color: #888;
         }
 
@@ -826,43 +859,71 @@
             padding: 6px 14px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 13px;
-            color: #aaa;
+            font-size: 19px;
+            color: #5a5a72;
             white-space: nowrap;
             transition: all 0.2s;
             border: 1px solid transparent;
         }
 
         .project-tab:hover {
-            background: rgba(255,255,255,0.05);
-            color: #ddd;
+            background: rgba(255,255,255,0.5);
+            color: #2c2c3a;
         }
 
         .project-tab.active {
-            background: rgba(126, 184, 255, 0.15);
-            border-color: #7eb8ff;
-            color: #7eb8ff;
+            background: #fff;
+            border-color: #3b46a8;
+            color: #2a3590;
+            font-weight: 600;
+        }
+
+        #projectTabsOther {
+            display: flex;
+            gap: 6px;
+            margin-left: auto;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .project-tab.other {
+            padding: 3px 10px;
+            font-size: 18px;
+            border: 1px solid rgba(60, 70, 160, 0.3);
+            background: rgba(255,255,255,0.5);
+            color: #3b46a8;
+        }
+
+        .project-tab.other:hover {
+            border-color: #3b46a8;
+            color: #2a3590;
+            background: rgba(255,255,255,0.85);
         }
 
         .project-add-btn {
-            width: 28px;
-            height: 28px;
-            border-radius: 6px;
-            border: 1px dashed #3a3a5a;
-            background: transparent;
-            color: #888;
-            font-size: 18px;
+            padding: 6px 14px;
+            height: 32px;
+            border-radius: 16px;
+            border: 1.5px dashed #5a64c8;
+            background: rgba(255,255,255,0.5);
+            color: #3b46a8;
+            font-size: 16px;
+            font-weight: 600;
             cursor: pointer;
             display: flex;
             align-items: center;
-            justify-content: center;
+            gap: 4px;
             flex-shrink: 0;
             transition: all 0.2s;
+            white-space: nowrap;
         }
 
         .project-add-btn:hover {
-            border-color: #7eb8ff;
-            color: #7eb8ff;
+            border-style: solid;
+            border-color: #3b46a8;
+            color: #fff;
+            background: #3b46a8;
         }
 
         /* View toggle */
@@ -876,32 +937,33 @@
             padding: 4px 12px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 12px;
-            color: #888;
+            font-size: 18px;
+            color: #5a5a72;
             background: transparent;
             border: none;
             transition: all 0.2s;
         }
 
         .view-toggle-btn:hover {
-            color: #ddd;
+            color: #2c2c3a;
         }
 
         .view-toggle-btn.active {
-            background: rgba(126, 184, 255, 0.15);
-            color: #7eb8ff;
+            background: #fff;
+            color: #3b46a8;
+            font-weight: 600;
         }
 
         /* ============================================
            SUBTASK PANE
            ============================================ */
         .subtask-pane {
-            background: #252542;
-            border: 1px solid #3a3a5a;
-            border-radius: 12px;
-            padding: 18px 20px;
-            animation: slideDown 0.15s ease-out;
+            background: transparent;
+            border: none;
+            padding: 0;
+            animation: slideDown 0.18s ease-out;
             min-width: 0;
+            color: #2c2c3a;
         }
 
         .subtask-pane.board-pane {
@@ -909,7 +971,6 @@
             top: calc(100% + 12px);
             left: 0;
             width: calc(300% + 32px);
-            min-height: 360px;
             z-index: 5;
         }
 
@@ -919,9 +980,9 @@
         }
 
         .subtask-pane .subtask-task-title {
-            font-size: 14px;
+            font-size: 20px;
             font-weight: 600;
-            color: #7eb8ff;
+            color: #3b46a8;
             margin-bottom: 10px;
             white-space: nowrap;
             overflow: hidden;
@@ -929,33 +990,34 @@
         }
 
         @keyframes slideDown {
-            from { opacity: 0; max-height: 0; }
-            to { opacity: 1; max-height: 1200px; }
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
         }
 
         .subtask-header {
             display: flex;
             align-items: center;
-            gap: 8px;
-            margin-bottom: 6px;
+            gap: 10px;
+            margin-bottom: 8px;
         }
 
         .subtask-header-label {
-            font-size: 12px;
-            color: #9090a8;
+            font-size: 14px;
+            color: #5a5a72;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
+            letter-spacing: 0.6px;
+            font-weight: 600;
         }
 
         .subtask-regenerate {
-            width: 20px;
-            height: 20px;
+            width: 28px;
+            height: 28px;
             border: none;
             background: transparent;
-            color: #666;
+            color: #5a5a72;
             cursor: pointer;
-            font-size: 14px;
-            border-radius: 4px;
+            font-size: 18px;
+            border-radius: 6px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -963,8 +1025,8 @@
         }
 
         .subtask-regenerate:hover {
-            color: #7eb8ff;
-            background: rgba(126, 184, 255, 0.1);
+            color: #3b46a8;
+            background: rgba(90, 100, 200, 0.12);
         }
 
         .subtask-item {
@@ -972,13 +1034,13 @@
             align-items: flex-start;
             gap: 8px;
             padding: 6px 0;
-            font-size: 15px;
-            color: #e6e6ec;
+            font-size: 21px;
+            color: #2c2c3a;
         }
 
         .subtask-item.dependent {
             margin-left: 16px;
-            color: #b0b0c4;
+            color: #6a6a80;
         }
 
         .subtask-item.assigned-subtask {
@@ -995,7 +1057,7 @@
             align-items: center;
             justify-content: center;
             flex-shrink: 0;
-            font-size: 10px;
+            font-size: 16px;
             transition: all 0.2s;
         }
 
@@ -1011,7 +1073,7 @@
 
         .subtask-emoji {
             cursor: pointer;
-            font-size: 14px;
+            font-size: 20px;
             flex-shrink: 0;
             padding: 2px;
             border-radius: 4px;
@@ -1040,29 +1102,241 @@
         }
 
         .subtask-assigned-label {
-            font-size: 11px;
+            font-size: 17px;
             color: #c4a235;
             font-style: italic;
         }
 
         .subtask-input {
             width: 100%;
-            padding: 6px 8px;
-            border: 1px solid #2a2a4a;
-            border-radius: 4px;
-            background: transparent;
-            color: #ccc;
-            font-size: 12px;
-            margin-top: 4px;
+            padding: 8px 12px;
+            border: 1px solid rgba(60, 70, 160, 0.25);
+            border-radius: 6px;
+            background: rgba(255,255,255,0.7);
+            color: #2c2c3a;
+            font-size: 18px;
+            margin-top: 10px;
         }
 
         .subtask-input:focus {
             outline: none;
-            border-color: #5a5a8a;
+            border-color: #3b46a8;
+            background: #fff;
         }
 
         .subtask-input::placeholder {
-            color: #444;
+            color: #8a8a9a;
+        }
+
+        /* ============================================
+           SUBTASK CARDS (fanned/offset agent cards — square, WUPHF-style)
+           ============================================ */
+        .subtask-stack {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+            padding-top: 8px;
+        }
+
+        .subtask-row {
+            transition: margin-left 0.2s ease-out;
+        }
+
+        .subtask-card-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
+
+        .subtask-card {
+            position: relative;
+            width: 400px;
+            height: 400px;
+            flex-shrink: 0;
+            padding: 28px 28px 24px;
+            background: #fff;
+            border-radius: 24px;
+            box-shadow: 0 10px 28px rgba(60, 70, 160, 0.14), 0 3px 6px rgba(0,0,0,0.05);
+            border: 1px solid rgba(60, 70, 160, 0.08);
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.18s ease-out, box-shadow 0.18s;
+            transform-origin: center;
+        }
+
+        .subtask-card:hover {
+            transform: rotate(0deg) translateY(-2px) !important;
+            box-shadow: 0 12px 28px rgba(60, 70, 160, 0.18), 0 2px 6px rgba(0,0,0,0.06);
+            z-index: 2;
+        }
+
+        .subtask-card.dependent {
+            background: #f7f2ff;
+        }
+
+        /* Tint each card by its source day so multi-day expansions stay traceable */
+        .subtask-card.dow-sunday    { background: #ffe0ea; }
+        .subtask-card.dow-monday    { background: #ffe5d4; }
+        .subtask-card.dow-tuesday   { background: #fff2c8; }
+        .subtask-card.dow-wednesday { background: #e8f4d6; }
+        .subtask-card.dow-thursday  { background: #d6f0e6; }
+        .subtask-card.dow-friday    { background: #ffd8d0; }
+        .subtask-card.dow-saturday  { background: #f0d8f0; }
+
+        .subtask-card.assigned-subtask {
+            opacity: 0.55;
+        }
+
+        .subtask-card-title-row {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-top: 14px;
+        }
+
+        .subtask-card-title-row .subtask-card-title {
+            margin-top: 0;
+        }
+
+        .subtask-send {
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            border: none;
+            background: rgba(90, 100, 200, 0.14);
+            color: #3b46a8;
+            font-size: 22px;
+            line-height: 1;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            flex-shrink: 0;
+        }
+
+        .subtask-send:hover {
+            background: #3b46a8;
+            color: #fff;
+            transform: translateX(3px);
+        }
+
+        .subtask-card .subtask-emoji {
+            font-size: 44px;
+            line-height: 1;
+            padding: 0;
+            border-radius: 6px;
+        }
+
+        .subtask-card-icon-row {
+            display: flex;
+            align-items: center;
+            gap: 14px;
+            min-width: 0;
+        }
+
+        .subtask-card-parent {
+            font-size: 22px;
+            font-weight: 600;
+            color: #6ea7ff;
+            line-height: 1.15;
+            letter-spacing: -0.2px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            min-width: 0;
+        }
+
+        .subtask-card-title {
+            font-size: 30px;
+            font-weight: 700;
+            color: #2a2c4a;
+            margin-top: 14px;
+            line-height: 1.15;
+            letter-spacing: -0.4px;
+        }
+
+        .subtask-card-role {
+            font-size: 14px;
+            color: #6a6a85;
+            text-transform: uppercase;
+            letter-spacing: 0.8px;
+            margin-top: 4px;
+            font-weight: 600;
+        }
+
+        .subtask-card .subtask-desc {
+            font-size: 19px;
+            color: #4a4a60;
+            overflow-wrap: anywhere;
+            line-height: 1.4;
+            margin-top: 14px;
+            flex: 1;
+            display: -webkit-box;
+            -webkit-line-clamp: 6;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .subtask-card .subtask-desc.completed-subtask {
+            text-decoration: line-through;
+            opacity: 0.5;
+        }
+
+        .subtask-card .subtask-check {
+            position: absolute;
+            top: 22px;
+            right: 22px;
+            width: 32px;
+            height: 32px;
+            border: 2px solid rgba(60, 70, 160, 0.35);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.9);
+            color: transparent;
+            font-size: 18px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.15s;
+            z-index: 3;
+        }
+
+        .subtask-card .subtask-check:hover {
+            border-color: #3b46a8;
+        }
+
+        .subtask-card .subtask-check.checked {
+            background: #4caf50;
+            border-color: #4caf50;
+            color: #fff;
+        }
+
+        .subtask-refine {
+            display: block;
+            width: 100%;
+            margin-top: 14px;
+            padding: 8px 14px;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 1px dashed rgba(60, 70, 160, 0.35);
+            background: rgba(120, 130, 200, 0.06);
+            color: #2c2c3a;
+        }
+
+        .subtask-refine:focus {
+            outline: none;
+            border-style: solid;
+            border-color: #3b46a8;
+            background: #fff;
+        }
+
+        .subtask-refine::placeholder {
+            color: #8a8a9a;
+            font-size: 16px;
+            font-style: italic;
         }
 
         .subtask-loading {
@@ -1071,7 +1345,7 @@
             gap: 8px;
             padding: 8px 0;
             color: #666;
-            font-size: 12px;
+            font-size: 18px;
         }
 
         .dot-pulse {
@@ -1119,13 +1393,13 @@
         }
 
         .project-section-name {
-            font-size: 16px;
+            font-size: 22px;
             font-weight: 600;
             color: #ddd;
         }
 
         .project-section-count {
-            font-size: 12px;
+            font-size: 18px;
             color: #888;
             background: #1a1a2e;
             padding: 2px 8px;
@@ -1151,7 +1425,7 @@
 
         .project-task-desc {
             flex: 1;
-            font-size: 14px;
+            font-size: 20px;
             cursor: pointer;
         }
 
@@ -1160,12 +1434,12 @@
         }
 
         .project-task-date {
-            font-size: 12px;
+            font-size: 18px;
             color: #888;
         }
 
         .subtask-progress {
-            font-size: 11px;
+            font-size: 17px;
             color: #666;
             background: #1a1a2e;
             padding: 2px 6px;
@@ -1179,7 +1453,7 @@
             border-radius: 8px;
             background: #1a1a2e;
             color: #eee;
-            font-size: 14px;
+            font-size: 20px;
             margin-bottom: 12px;
         }
 
@@ -1194,7 +1468,7 @@
 
         .empty-project {
             color: #555;
-            font-size: 13px;
+            font-size: 19px;
             padding: 8px 0;
             font-style: italic;
         }
@@ -1209,7 +1483,7 @@
             <!-- Signup form (before Go) -->
             <div class="header-form" id="headerForm">
                 <input type="text" class="header-input" id="signupName" placeholder="Your username">
-                <input type="text" class="header-input auto-generated" id="signupCompany" placeholder="Team name">
+                <input type="text" class="header-input auto-generated" id="signupCompany" placeholder="Project name">
                 <button class="btn-go" id="signupBtn" disabled>Go</button>
             </div>
 
@@ -1220,24 +1494,28 @@
                 <span class="header-value" id="displayTeamName"></span>
             </div>
 
-            <div class="header-spacer"></div>
+            <!-- Active project tab -->
+            <div id="projectTabs"></div>
 
+            <!-- Other open projects (right-justified before [+]) -->
+            <div id="projectTabsOther"></div>
+
+            <!-- New project [+] -->
+            <button class="project-add-btn" id="projectAddBtn" title="New project"><span style="font-size:18px;line-height:1;">+</span> New project</button>
+
+            <!-- View toggle -->
+            <div class="view-toggle">
+                <button class="view-toggle-btn active" id="viewCalendarBtn">Calendar</button>
+                <button class="view-toggle-btn" id="viewMasterBtn">Master</button>
+            </div>
+
+            <!-- New board (start fresh team) -->
             <button class="btn-new-board" id="newBoardBtn" title="Create new board">+</button>
         </div>
 
         <div class="user-switcher" id="userSwitcher" style="display: none;">
             <span class="user-switcher-label">Viewing as:</span>
             <div class="user-switcher-buttons" id="userSwitcherButtons">
-            </div>
-        </div>
-
-        <!-- Project bar -->
-        <div class="project-bar" id="projectBar" style="display: none;">
-            <div id="projectTabs"></div>
-            <button class="project-add-btn" id="projectAddBtn" title="New project">+</button>
-            <div class="view-toggle">
-                <button class="view-toggle-btn active" id="viewCalendarBtn">Calendar</button>
-                <button class="view-toggle-btn" id="viewMasterBtn">Master</button>
             </div>
         </div>
 
@@ -1320,13 +1598,45 @@
         let projects = [];
         let currentProject = null;
         let viewMode = 'calendar'; // 'calendar' or 'master'
-        let expandedTaskId = null;
+        let expandedTaskIds = new Set();
         let taskSubtasks = new Map();
+        function isExpandedTask(id) { return expandedTaskIds.has(id); }
+        function toggleExpandedTask(id) {
+            if (expandedTaskIds.has(id)) expandedTaskIds.delete(id);
+            else expandedTaskIds.add(id);
+        }
         let generatingSubtasksFor = null; // taskId currently generating
 
         // ============================================
         // API HELPERS
         // ============================================
+        // ============================================
+        // SESSION PERSISTENCE (localStorage)
+        // ============================================
+        const SESSION_KEY = 'movealong.session';
+        function saveSession() {
+            try {
+                if (!isSignedUp || !company.subdomain || !currentUser) {
+                    localStorage.removeItem(SESSION_KEY);
+                    return;
+                }
+                localStorage.setItem(SESSION_KEY, JSON.stringify({
+                    subdomain: company.subdomain,
+                    slug: currentUser.slug,
+                    projectId: currentProject ? currentProject.id : null
+                }));
+            } catch (e) { /* ignore quota / disabled */ }
+        }
+        function loadSession() {
+            try {
+                const raw = localStorage.getItem(SESSION_KEY);
+                return raw ? JSON.parse(raw) : null;
+            } catch (e) { return null; }
+        }
+        function clearSession() {
+            try { localStorage.removeItem(SESSION_KEY); } catch (e) { /* ignore */ }
+        }
+
         async function api(endpoint, options = {}) {
             const url = `${API_BASE}${endpoint}`;
             const config = {
@@ -1467,6 +1777,7 @@
 
                 renderProjectBar();
                 renderBoard();
+                saveSession();
                 showToast('Ready to go!');
 
                 const taskInput = document.querySelector('.task-input');
@@ -1541,6 +1852,7 @@
                 await loadTasks();
                 renderProjectBar();
                 renderView();
+                saveSession();
                 showToast(`Project "${name}" created`);
             } catch (err) {
                 showToast('Error: ' + err.message);
@@ -1549,11 +1861,12 @@
 
         async function switchProject(projectId) {
             currentProject = projects.find(p => p.id === projectId) || null;
-            expandedTaskId = null;
+            expandedTaskIds.clear();
             taskSubtasks.clear();
             await loadTasks();
             renderProjectBar();
             renderView();
+            saveSession();
         }
 
         // ============================================
@@ -1574,7 +1887,7 @@
                 shouldRefocusInput = true;
 
                 // Auto-generate subtasks
-                expandedTaskId = newTask.id;
+                expandedTaskIds.add(newTask.id);
                 generatingSubtasksFor = newTask.id;
                 renderView();
 
@@ -1607,7 +1920,7 @@
 
                 // Auto-generate subtasks
                 generatingSubtasksFor = newTask.id;
-                expandedTaskId = newTask.id;
+                expandedTaskIds.add(newTask.id);
                 renderMasterPage();
 
                 try {
@@ -1790,18 +2103,28 @@
         // RENDER PROJECT BAR
         // ============================================
         function renderProjectBar() {
-            const bar = document.getElementById('projectBar');
             const tabs = document.getElementById('projectTabs');
+            const otherTabs = document.getElementById('projectTabsOther');
+
             if (!isSignedUp || projects.length === 0) {
-                bar.style.display = 'none';
+                tabs.innerHTML = '';
+                otherTabs.innerHTML = '';
                 return;
             }
-            bar.style.display = 'flex';
-            tabs.innerHTML = projects.map(p => `
-                <span class="project-tab ${currentProject && currentProject.id === p.id ? 'active' : ''}" data-project-id="${p.id}">${p.name}</span>
+
+            const activeId = currentProject ? currentProject.id : null;
+            const activeProject = projects.find(p => p.id === activeId);
+            const otherProjects = projects.filter(p => p.id !== activeId);
+
+            tabs.innerHTML = activeProject
+                ? `<span class="project-tab active" data-project-id="${activeProject.id}">${activeProject.name}</span>`
+                : '';
+
+            otherTabs.innerHTML = otherProjects.map(p => `
+                <span class="project-tab other" data-project-id="${p.id}" title="Switch to ${p.name}">${p.name}</span>
             `).join('');
 
-            tabs.querySelectorAll('.project-tab').forEach(tab => {
+            document.querySelectorAll('.project-tab').forEach(tab => {
                 tab.addEventListener('click', () => {
                     switchProject(parseInt(tab.dataset.projectId));
                 });
@@ -1830,11 +2153,11 @@
                 const assignedTasks = dayTasks.filter(t => t.assigned_to_id && !t.completed);
 
                 const showPlaceholders = day.isToday && !isSignedUp;
-                const showInput = isSignedUp && index === selectedDayIndex;
+                const showInput = isSignedUp;
                 const isSelected = isSignedUp && index === selectedDayIndex;
 
                 const card = document.createElement('div');
-                card.className = `day-card ${day.isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
+                card.className = `day-card dow-${day.dayName.toLowerCase()} ${day.isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
                 card.dataset.dayIndex = index;
 
                 let tasksHtml = '';
@@ -1859,8 +2182,10 @@
                 }
 
                 card.innerHTML = `
-                    <div class="day-header">${day.dayName}</div>
-                    <div class="day-date">${day.dateStr}</div>
+                    <div class="day-header-row">
+                        <div class="day-header">${day.dayName}</div>
+                        <div class="day-date">${day.dateStr}</div>
+                    </div>
                     ${showInput ? `
                         <div class="task-input-container">
                             <input type="text" class="task-input" placeholder="Add a task..." data-date="${day.key}">
@@ -1875,10 +2200,10 @@
                 column.className = 'day-column';
                 column.appendChild(card);
 
-                const expandedTask = dayTasks.find(t => t.id === expandedTaskId);
-                if (expandedTask) {
+                const expandedDayTasks = dayTasks.filter(t => expandedTaskIds.has(t.id));
+                expandedDayTasks.forEach((expandedTask, paneIdx) => {
                     const paneWrapper = document.createElement('div');
-                    paneWrapper.innerHTML = renderSubtaskPane(expandedTask.id, expandedTask.description);
+                    paneWrapper.innerHTML = renderSubtaskPane(expandedTask.id, expandedTask.description, day.dayName);
                     const pane = paneWrapper.firstElementChild;
                     pane.classList.add('board-pane');
                     if (index >= days.length - 2) {
@@ -1886,7 +2211,7 @@
                     }
                     column.appendChild(pane);
                     board.classList.add('has-expanded');
-                }
+                });
 
                 board.appendChild(column);
             });
@@ -1948,11 +2273,11 @@
                 desc.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     const taskId = parseInt(desc.dataset.taskId);
-                    if (expandedTaskId === taskId) {
-                        expandedTaskId = null;
+                    if (expandedTaskIds.has(taskId)) {
+                        expandedTaskIds.delete(taskId);
                         renderView();
                     } else {
-                        expandedTaskId = taskId;
+                        expandedTaskIds.add(taskId);
                         if (!taskSubtasks.has(taskId)) {
                             await loadSubtasks(taskId);
                         }
@@ -1996,8 +2321,26 @@
                 });
             });
 
-            // Regenerate button
-            document.querySelectorAll('.subtask-regenerate[data-task-id]').forEach(btn => {
+            // Send-agent button (placeholder behavior — wires real dispatch later)
+            document.querySelectorAll('.subtask-send[data-subtask-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showToast('Agent dispatched');
+                });
+            });
+
+            // Per-card refine input (placeholder — Enter just clears for now)
+            document.querySelectorAll('.subtask-refine[data-subtask-id]').forEach(input => {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                        showToast('Refinement saved');
+                        e.target.value = '';
+                    }
+                });
+            });
+
+            // Regenerate button (now lives on the expanded task row in the day card)
+            document.querySelectorAll('.task-regenerate[data-task-id], .subtask-regenerate[data-task-id]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     regenerateSubtasks(parseInt(btn.dataset.taskId));
@@ -2010,7 +2353,9 @@
             selectedDayIndex = index;
             renderView();
             setTimeout(() => {
-                const input = document.querySelector('.task-input');
+                const card = document.querySelector(`.day-card[data-day-index="${index}"]`);
+                if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });
+                const input = document.querySelector(`.task-input[data-date="${days[index].key}"]`);
                 if (input) input.focus();
             }, 0);
         }
@@ -2018,13 +2363,17 @@
         function renderTask(task) {
             const assignedLabel = task.assigned_by_name ? ` <span class="assigned-from">(from: ${task.assigned_by_name})</span>` : '';
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
-            const isExpanded = expandedTaskId === task.id;
+            const isExpanded = expandedTaskIds.has(task.id);
+            const regenerateButton = isExpanded
+                ? `<button class="task-regenerate" data-task-id="${task.id}" title="Regenerate steps">&orarr;</button>`
+                : '';
 
             return `
                 <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''}" data-id="${task.id}">
                     <div class="task-circle" data-task-id="${task.id}"></div>
                     <div class="task-arrow" data-task-id="${task.id}">&rarr;</div>
                     <div class="task-description" data-task-id="${task.id}">${task.description}${assignedLabel}</div>
+                    ${regenerateButton}
                     ${returnButton}
                 </div>
             `;
@@ -2050,15 +2399,25 @@
             `;
         }
 
+        // Extract a short bold "agent title" (verb-ish) from a subtask description.
+        // Picks the first word, strips trailing punctuation, capitalizes. Falls back to "Step".
+        const TITLE_STOPWORDS = new Set(['the', 'a', 'an', 'to', 'for', 'of', 'in', 'on', 'with', 'and', 'or', 'but']);
+        function extractAgentTitle(description) {
+            if (!description) return 'Step';
+            const cleaned = description.replace(/^[^A-Za-z]+/, '');
+            const firstWord = cleaned.split(/[\s—\-:,]/, 1)[0] || 'Step';
+            const stripped = firstWord.replace(/[^A-Za-z]+$/, '');
+            if (!stripped || TITLE_STOPWORDS.has(stripped.toLowerCase())) return 'Step';
+            return stripped.charAt(0).toUpperCase() + stripped.slice(1).toLowerCase();
+        }
+
         // ============================================
         // RENDER SUBTASK PANE
         // ============================================
-        function renderSubtaskPane(taskId, taskTitle) {
+        function renderSubtaskPane(taskId, taskTitle, dayName) {
             const isGenerating = generatingSubtasksFor === taskId;
             const subtasks = taskSubtasks.get(taskId) || [];
-            const titleHtml = taskTitle
-                ? `<div class="subtask-task-title" title="${taskTitle.replace(/"/g, '&quot;')}">${taskTitle}</div>`
-                : '';
+            const dowClass = dayName ? `dow-${dayName.toLowerCase()}` : '';
 
             let content = '';
 
@@ -2070,32 +2429,44 @@
                     </div>
                 `;
             } else {
-                content = subtasks.map(st => {
+                const cards = subtasks.map((st, i) => {
                     const isDependent = st.parent_subtask_id !== null;
                     const isAssigned = st.assigned_to !== null;
                     const emoji = st.assignee_type === 'ai' ? '\uD83E\uDDE0' : '\uD83D\uDC69';
-                    const assignedLabel = isAssigned ? `<span class="subtask-assigned-label">&rarr; assigned</span>` : '';
+                    const roleLabel = st.assignee_type === 'ai' ? 'AI Agent' : 'You';
+                    const agentTitle = extractAgentTitle(st.description);
+                    const offset = Math.min(i * 14, 96);
+                    const tilts = [-3, -1.5, 1, 2.5, -2, 1.5, -1, 3];
+                    const tilt = tilts[i % tilts.length];
 
                     return `
-                        <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''}">
-                            <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
-                            ${!isAssigned ? `<span class="subtask-emoji" data-subtask-id="${st.id}" data-task-id="${taskId}">${emoji}</span>` : ''}
-                            <span class="subtask-desc ${st.completed ? 'completed-subtask' : ''}" title="${st.description.replace(/"/g, '&quot;')}">${st.description}</span>
-                            ${assignedLabel}
+                        <div class="subtask-row" style="margin-left: ${offset}px;">
+                            <div class="subtask-card-wrapper">
+                                <div class="subtask-card ${dowClass} ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''}" style="transform: rotate(${tilt}deg);">
+                                    <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
+                                    <div class="subtask-card-icon-row">
+                                        ${!isAssigned ? `<span class="subtask-emoji" data-subtask-id="${st.id}" data-task-id="${taskId}">${emoji}</span>` : ''}
+                                        ${taskTitle ? `<span class="subtask-card-parent" title="${taskTitle.replace(/"/g, '&quot;')}">${taskTitle}</span>` : ''}
+                                    </div>
+                                    <div class="subtask-card-title-row">
+                                        <div class="subtask-card-title">${agentTitle}</div>
+                                        <button class="subtask-send" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Send agent off">&rarr;</button>
+                                    </div>
+                                    <div class="subtask-card-role">${roleLabel}</div>
+                                    <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}" title="${st.description.replace(/"/g, '&quot;')}">${st.description}</div>
+                                    <input type="text" class="subtask-refine" data-subtask-id="${st.id}" data-task-id="${taskId}" placeholder="Add to this task...">
+                                </div>
+                            </div>
                         </div>
                     `;
                 }).join('');
 
+                content = `<div class="subtask-stack">${cards}</div>`;
                 content += `<input type="text" class="subtask-input" data-task-id="${taskId}" placeholder="Add a step...">`;
             }
 
             return `
                 <div class="subtask-pane">
-                    ${titleHtml}
-                    <div class="subtask-header">
-                        <span class="subtask-header-label">Steps</span>
-                        <button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate">&orarr;</button>
-                    </div>
                     ${content}
                 </div>
             `;
@@ -2128,7 +2499,7 @@
                             const progress = t.subtask_count > 0
                                 ? `<span class="subtask-progress">${t.completed_subtask_count}/${t.subtask_count}</span>`
                                 : '';
-                            const isExpanded = expandedTaskId === t.id;
+                            const isExpanded = expandedTaskIds.has(t.id);
 
                             let subtaskHtml = '';
                             if (isExpanded) {
@@ -2178,10 +2549,10 @@
                 container.querySelectorAll('.project-task-desc[data-task-id]').forEach(desc => {
                     desc.addEventListener('click', async () => {
                         const taskId = parseInt(desc.dataset.taskId);
-                        if (expandedTaskId === taskId) {
-                            expandedTaskId = null;
+                        if (expandedTaskIds.has(taskId)) {
+                            expandedTaskIds.delete(taskId);
                         } else {
-                            expandedTaskId = taskId;
+                            expandedTaskIds.add(taskId);
                             if (!taskSubtasks.has(taskId)) {
                                 await loadSubtasks(taskId);
                             }
@@ -2220,7 +2591,7 @@
                 btn.addEventListener('click', async () => {
                     const userId = parseInt(btn.dataset.userId);
                     currentUser = allUsers.find(u => u.id === userId);
-                    expandedTaskId = null;
+                    expandedTaskIds.clear();
                     taskSubtasks.clear();
                     await loadProjects();
                     await loadTasks();
@@ -2491,10 +2862,46 @@
         // ============================================
         // INITIALIZE
         // ============================================
-        renderBoard();
+        async function restoreSession() {
+            const saved = loadSession();
+            if (!saved || !saved.subdomain || !saved.slug) {
+                renderBoard();
+                return;
+            }
+            try {
+                const [companyData, userData] = await Promise.all([
+                    api(`/companies/${saved.subdomain}`),
+                    api(`/companies/${saved.subdomain}/users/${saved.slug}`)
+                ]);
+                company = companyData;
+                currentUser = userData;
+                allUsers = [currentUser];
+                isSignedUp = true;
+
+                headerForm.classList.add('hidden');
+                headerDisplay.classList.add('visible');
+                displayUsername.textContent = currentUser.name;
+                displayTeamName.textContent = company.name;
+
+                await loadProjects();
+                if (saved.projectId) {
+                    const match = projects.find(p => p.id === saved.projectId);
+                    if (match) currentProject = match;
+                }
+                await loadTasks();
+                renderProjectBar();
+                renderBoard();
+            } catch (err) {
+                console.error('Failed to restore session:', err);
+                clearSession();
+                renderBoard();
+            }
+        }
+        restoreSession();
 
         // New board button
         document.getElementById('newBoardBtn').addEventListener('click', () => {
+            clearSession();
             isSignedUp = false;
             company = { name: '', subdomain: '' };
             allUsers = [];
@@ -2505,7 +2912,7 @@
             companyManuallyEdited = false;
             selectedDayIndex = 0;
             viewMode = 'calendar';
-            expandedTaskId = null;
+            expandedTaskIds.clear();
             taskSubtasks.clear();
 
             signupName.value = '';
@@ -2536,8 +2943,8 @@
                     hideAddUserModal();
                 } else if (createProjectModal.classList.contains('visible')) {
                     createProjectModal.classList.remove('visible');
-                } else if (expandedTaskId) {
-                    expandedTaskId = null;
+                } else if (expandedTaskIds.size > 0) {
+                    expandedTaskIds.clear();
                     renderView();
                 }
                 return;
@@ -2548,10 +2955,24 @@
             if (e.key === 'ArrowRight') {
                 e.preventDefault();
                 selectDay(selectedDayIndex + 1);
+                return;
             } else if (e.key === 'ArrowLeft') {
                 e.preventDefault();
                 selectDay(selectedDayIndex - 1);
+                return;
             }
+
+            // If user starts typing a printable character anywhere, focus the
+            // currently selected day's task input so the keystroke lands there.
+            const isPrintable = e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey;
+            if (!isPrintable) return;
+            const tag = (document.activeElement && document.activeElement.tagName) || '';
+            const editable = document.activeElement && document.activeElement.isContentEditable;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || editable) return;
+            const selectedKey = days[selectedDayIndex] && days[selectedDayIndex].key;
+            if (!selectedKey) return;
+            const input = document.querySelector(`.task-input[data-date="${selectedKey}"]`);
+            if (input) input.focus();
         });
     </script>
 </body>
