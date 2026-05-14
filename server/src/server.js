@@ -424,16 +424,29 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
+  let effectiveDate;
+  try {
+    effectiveDate = findDayWithCapacity({
+      ownerId: user.id,
+      projectId: project_id ?? null,
+      requestedDate: scheduled_date,
+    });
+  } catch (err) {
+    console.error('Capacity helper failed:', err);
+    return res.status(500).json({ error: err.message });
+  }
+
   try {
     const result = runSql(
       'INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date) VALUES (?, ?, ?, ?, ?)',
-      [company.id, user.id, project_id || null, description, scheduled_date]
+      [company.id, user.id, project_id || null, description, effectiveDate]
     );
 
     res.status(201).json({
       id: result.lastInsertRowid,
       description,
-      scheduled_date,
+      scheduled_date: effectiveDate,
+      requested_date: scheduled_date,
       project_id: project_id || null,
       completed: 0,
       assigned_by: null,
