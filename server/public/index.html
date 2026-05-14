@@ -45,19 +45,19 @@
         .day-column {
             display: flex;
             flex-direction: column;
-            flex: 0 0 400px;
-            width: 400px;
+            flex: 0 0 200px;
+            width: 200px;
             position: relative;
         }
 
         .day-card {
             background: #ffffff;
-            border-radius: 12px;
-            padding: 16px;
+            border-radius: 8px;
+            padding: 8px;
             display: flex;
             flex-direction: column;
-            width: 400px;
-            min-height: 400px;
+            width: 200px;
+            min-height: 200px;
             box-sizing: border-box;
             overflow: visible;
             border: 1px solid #e2e8f0;
@@ -66,19 +66,19 @@
         .day-header-row {
             display: flex;
             align-items: baseline;
-            gap: 10px;
-            margin-bottom: 16px;
+            gap: 6px;
+            margin-bottom: 8px;
             flex-wrap: wrap;
         }
 
         .day-header {
-            font-size: 26px;
+            font-size: 14px;
             font-weight: 600;
             color: #0f172a;
         }
 
         .day-date {
-            font-size: 18px;
+            font-size: 11px;
             color: #64748b;
         }
 
@@ -106,17 +106,17 @@
         }
 
         .task-input-container {
-            margin-bottom: 12px;
+            margin-bottom: 6px;
         }
 
         .task-input {
             width: 100%;
-            padding: 10px 12px;
+            padding: 6px 8px;
             border: 1px solid #e2e8f0;
-            border-radius: 8px;
+            border-radius: 6px;
             background: #ffffff;
             color: #0f172a;
-            font-size: 20px;
+            font-size: 12px;
         }
 
         .task-input:focus {
@@ -137,7 +137,7 @@
 
         .pending-tasks {
             flex: 1;
-            min-height: 100px;
+            min-height: 50px;
         }
 
         .task-divider {
@@ -157,9 +157,9 @@
         .task-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            padding: 8px 0;
-            border-radius: 6px;
+            gap: 5px;
+            padding: 4px 0;
+            border-radius: 4px;
             transition: background 0.2s;
             user-select: none;
         }
@@ -179,8 +179,8 @@
         }
 
         .task-circle {
-            width: 20px;
-            height: 20px;
+            width: 14px;
+            height: 14px;
             border: 2px solid #cbd5e1;
             border-radius: 50%;
             cursor: pointer;
@@ -204,7 +204,7 @@
         .task-item.completed .task-circle::after {
             content: '\2713';
             color: white;
-            font-size: 18px;
+            font-size: 11px;
         }
 
         .task-item.completed .task-description {
@@ -221,7 +221,7 @@
         .task-item.forwarded .task-circle::after {
             content: '\2794';
             color: white;
-            font-size: 17px;
+            font-size: 10px;
         }
 
         .task-item.forwarded .task-description {
@@ -474,8 +474,8 @@
 
         .task-description {
             flex: 1;
-            font-size: 21px;
-            line-height: 1.45;
+            font-size: 13px;
+            line-height: 1.4;
             color: #0f172a;
             cursor: pointer;
             overflow-wrap: anywhere;
