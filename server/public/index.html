@@ -1876,6 +1876,19 @@
                 tasks.push(newTask);
                 shouldRefocusInput = true;
 
+                if (newTask.scheduled_date !== dateKey) {
+                    const requestedDay = days.find(d => d.key === dateKey);
+                    const effectiveDay = days.find(d => d.key === newTask.scheduled_date);
+                    const requestedName = requestedDay ? requestedDay.dayName : dateKey;
+                    if (effectiveDay) {
+                        showToast(`${requestedName} full — moved to ${effectiveDay.dayName}`);
+                    } else {
+                        const d = new Date(newTask.scheduled_date + 'T00:00:00.000Z');
+                        const formatted = `${monthNames[d.getUTCMonth()]} ${d.getUTCDate()}`;
+                        showToast(`All 7 days full — scheduled for ${formatted}`);
+                    }
+                }
+
                 // Auto-generate subtasks
                 expandedTaskIds.add(newTask.id);
                 generatingSubtasksFor = newTask.id;
