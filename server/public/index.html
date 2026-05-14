@@ -13,8 +13,8 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
-            background: #d8def5;
-            color: #2c2c3a;
+            background: #f1f5f9;
+            color: #0f172a;
             min-height: 100vh;
             padding: 20px;
             padding-bottom: 40px;
@@ -25,7 +25,7 @@
         h1 {
             margin-bottom: 20px;
             font-weight: 300;
-            color: #a0a0c0;
+            color: #94a3b8;
         }
 
         .board-container {
@@ -51,26 +51,17 @@
         }
 
         .day-card {
-            background: #fff5e0;
+            background: #ffffff;
             border-radius: 12px;
             padding: 16px;
             display: flex;
             flex-direction: column;
             width: 400px;
-            height: 400px;
+            min-height: 400px;
             box-sizing: border-box;
-            overflow: hidden;
-            border: 1px solid transparent;
+            overflow: visible;
+            border: 1px solid #e2e8f0;
         }
-
-        /* Weekday color variations — subtle warm pastels that complement periwinkle bg */
-        .day-card.dow-sunday    { background: #ffe0ea; }
-        .day-card.dow-monday    { background: #ffe5d4; }
-        .day-card.dow-tuesday   { background: #fff2c8; }
-        .day-card.dow-wednesday { background: #e8f4d6; }
-        .day-card.dow-thursday  { background: #d6f0e6; }
-        .day-card.dow-friday    { background: #ffd8d0; }
-        .day-card.dow-saturday  { background: #f0d8f0; }
 
         .day-header-row {
             display: flex;
@@ -83,27 +74,27 @@
         .day-header {
             font-size: 26px;
             font-weight: 600;
-            color: #2c2c3a;
+            color: #0f172a;
         }
 
         .day-date {
             font-size: 18px;
-            color: #6a6a80;
+            color: #64748b;
         }
 
         .day-card.today .day-header {
-            color: #3b46a8;
+            color: #059669;
             font-weight: 700;
         }
 
         .day-card.today .day-date {
-            color: #3b46a8;
+            color: #059669;
             font-weight: 600;
         }
 
         .day-card.selected {
-            border: 2px solid #5a64c8;
-            box-shadow: 0 4px 16px rgba(90, 100, 200, 0.18);
+            border: 2px solid #059669;
+            box-shadow: 0 4px 16px rgba(5, 150, 105, 0.18);
         }
 
         .day-card:not(.selected) {
@@ -111,7 +102,7 @@
         }
 
         .day-card:not(.selected):hover {
-            filter: brightness(1.04);
+            border-color: #cbd5e1;
         }
 
         .task-input-container {
@@ -121,21 +112,21 @@
         .task-input {
             width: 100%;
             padding: 10px 12px;
-            border: 1px solid rgba(0,0,0,0.12);
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
-            background: rgba(255,255,255,0.7);
-            color: #2c2c3a;
+            background: #ffffff;
+            color: #0f172a;
             font-size: 20px;
         }
 
         .task-input:focus {
             outline: none;
-            border-color: #5a64c8;
+            border-color: #10b981;
             background: #fff;
         }
 
         .task-input::placeholder {
-            color: #8a8a9a;
+            color: #94a3b8;
         }
 
         .tasks-container {
@@ -151,7 +142,7 @@
 
         .task-divider {
             border: none;
-            border-top: 1px dashed #3a3a5a;
+            border-top: 1px dashed #cbd5e1;
             margin: 12px 0;
         }
 
@@ -190,7 +181,7 @@
         .task-circle {
             width: 20px;
             height: 20px;
-            border: 2px solid #5a5a8a;
+            border: 2px solid #cbd5e1;
             border-radius: 50%;
             cursor: pointer;
             display: flex;
@@ -201,13 +192,13 @@
         }
 
         .task-circle:hover {
-            border-color: #7eb8ff;
-            background: rgba(126, 184, 255, 0.1);
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
         }
 
         .task-item.completed .task-circle {
-            background: #4a9a4a;
-            border-color: #4a9a4a;
+            background: #10b981;
+            border-color: #10b981;
         }
 
         .task-item.completed .task-circle::after {
@@ -218,13 +209,13 @@
 
         .task-item.completed .task-description {
             text-decoration: line-through;
-            color: #888;
+            color: #94a3b8;
         }
 
         /* Assigned (forwarded) task styling */
         .task-item.forwarded .task-circle {
-            background: #c4a235;
-            border-color: #c4a235;
+            background: #f59e0b;
+            border-color: #f59e0b;
         }
 
         .task-item.forwarded .task-circle::after {
@@ -234,17 +225,17 @@
         }
 
         .task-item.forwarded .task-description {
-            color: #888;
+            color: #94a3b8;
         }
 
         .assigned-from {
-            color: #888;
+            color: #94a3b8;
             font-size: 18px;
             font-style: italic;
         }
 
         .assigned-to-label {
-            color: #c4a235;
+            color: #f59e0b;
             font-size: 18px;
             font-style: italic;
         }
@@ -256,7 +247,7 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            color: #666;
+            color: #64748b;
             font-size: 20px;
             border-radius: 4px;
             transition: all 0.2s;
@@ -265,8 +256,8 @@
         }
 
         .task-return:hover {
-            color: #ffb74d;
-            background: rgba(255, 183, 77, 0.1);
+            color: #f59e0b;
+            background: rgba(245, 158, 11, 0.1);
         }
 
         /* User Switcher */
@@ -276,13 +267,14 @@
             gap: 12px;
             margin-bottom: 20px;
             padding: 12px 16px;
-            background: #252542;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
             width: fit-content;
         }
 
         .user-switcher-label {
-            color: #888;
+            color: #64748b;
             font-size: 19px;
         }
 
@@ -304,12 +296,12 @@
         }
 
         .user-switch-btn:hover {
-            background: rgba(255,255,255,0.05);
+            background: #f1f5f9;
         }
 
         .user-switch-btn.active {
-            background: rgba(126, 184, 255, 0.15);
-            border-color: #7eb8ff;
+            background: #ecfdf5;
+            border-color: #10b981;
         }
 
         .user-switch-avatar {
@@ -325,11 +317,11 @@
 
         .user-switch-name {
             font-size: 19px;
-            color: #ccc;
+            color: #475569;
         }
 
         .user-switch-btn.active .user-switch-name {
-            color: #7eb8ff;
+            color: #047857;
         }
 
         /* Inline Header / Signup */
@@ -344,7 +336,7 @@
         .app-logo {
             font-size: 30px;
             font-weight: 300;
-            color: #3b46a8;
+            color: #059669;
             margin-right: 8px;
         }
 
@@ -361,30 +353,30 @@
 
         .header-input {
             padding: 8px 12px;
-            border: 1px solid #3a3a5a;
+            border: 1px solid #e2e8f0;
             border-radius: 6px;
-            background: #1a1a2e;
-            color: #fff;
+            background: #ffffff;
+            color: #0f172a;
             font-size: 20px;
             width: 160px;
         }
 
         .header-input:focus {
             outline: none;
-            border-color: #7eb8ff;
+            border-color: #10b981;
         }
 
         .header-input::placeholder {
-            color: #b8b8cc;
+            color: #94a3b8;
         }
 
         .header-input.auto-generated {
-            color: #fff;
-            opacity: 0.75;
+            color: #0f172a;
+            opacity: 0.6;
         }
 
         .header-input.auto-generated.user-edited {
-            color: #fff;
+            color: #0f172a;
             opacity: 1;
         }
 
@@ -394,20 +386,20 @@
             border: none;
             font-size: 20px;
             cursor: pointer;
-            background: #4caf50;
+            background: #059669;
             color: #fff;
             font-weight: 600;
             transition: all 0.2s;
         }
 
         .btn-go:hover:not(:disabled) {
-            background: #43a047;
+            background: #047857;
         }
 
         .btn-go:disabled {
-            background: #4a4a6a;
+            background: #cbd5e1;
             color: #fff;
-            opacity: 0.5;
+            opacity: 0.7;
             cursor: not-allowed;
         }
 
@@ -423,17 +415,17 @@
 
         .header-label {
             font-size: 20px;
-            color: #5a5a72;
+            color: #64748b;
         }
 
         .header-value {
             font-size: 20px;
-            color: #2c2c3a;
+            color: #0f172a;
             font-weight: 500;
         }
 
         .header-separator {
-            color: #3a3a5a;
+            color: #cbd5e1;
         }
 
         .header-spacer {
@@ -444,8 +436,8 @@
             width: 32px;
             height: 32px;
             border-radius: 6px;
-            border: 1.5px solid #3b46a8;
-            background: #3b46a8;
+            border: 1.5px solid #059669;
+            background: #059669;
             color: #fff;
             font-size: 26px;
             cursor: pointer;
@@ -456,8 +448,8 @@
         }
 
         .btn-new-board:hover {
-            background: #2a3590;
-            border-color: #2a3590;
+            background: #047857;
+            border-color: #047857;
         }
 
         .task-arrow {
@@ -467,7 +459,7 @@
             align-items: center;
             justify-content: center;
             cursor: pointer;
-            color: #666;
+            color: #64748b;
             font-size: 22px;
             border-radius: 4px;
             transition: all 0.2s;
@@ -476,15 +468,15 @@
         }
 
         .task-arrow:hover {
-            color: #7eb8ff;
-            background: rgba(126, 184, 255, 0.1);
+            color: #10b981;
+            background: rgba(16, 185, 129, 0.1);
         }
 
         .task-description {
             flex: 1;
             font-size: 21px;
             line-height: 1.45;
-            color: #2c2c3a;
+            color: #0f172a;
             cursor: pointer;
             overflow-wrap: anywhere;
         }
@@ -496,7 +488,7 @@
             border-radius: 6px;
             border: none;
             background: transparent;
-            color: #5a5a72;
+            color: #64748b;
             font-size: 18px;
             cursor: pointer;
             display: flex;
@@ -506,23 +498,23 @@
         }
 
         .task-regenerate:hover {
-            color: #3b46a8;
-            background: rgba(60, 70, 160, 0.12);
+            color: #059669;
+            background: rgba(5, 150, 105, 0.12);
         }
 
         .task-description:hover {
-            color: #3b46a8;
+            color: #059669;
         }
 
         /* Team Popup */
         .team-popup {
             position: absolute;
-            background: #252542;
-            border: 1px solid #3a3a5a;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
             padding: 12px;
             z-index: 1000;
-            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            box-shadow: 0 10px 40px rgba(15, 23, 42, 0.15);
             display: none;
             user-select: none;
         }
@@ -541,14 +533,14 @@
         }
 
         .team-member:hover {
-            background: rgba(255,255,255,0.1);
+            background: #f1f5f9;
         }
 
         .team-avatar {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -558,7 +550,7 @@
 
         .team-name {
             font-size: 17px;
-            color: #aaa;
+            color: #475569;
         }
 
         /* Toast notification */
@@ -566,10 +558,11 @@
             position: fixed;
             bottom: 40px;
             right: 20px;
-            background: #3a3a6a;
+            background: #0f172a;
+            color: #ffffff;
             padding: 12px 20px;
             border-radius: 8px;
-            box-shadow: 0 4px 20px rgba(0,0,0,0.3);
+            box-shadow: 0 4px 20px rgba(15, 23, 42, 0.25);
             transform: translateY(100px);
             opacity: 0;
             transition: all 0.3s;
@@ -595,10 +588,10 @@
             left: 0;
             right: 0;
             padding: 6px 20px;
-            background: #1e1e38;
-            border-top: 1px solid #2a2a4a;
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
             font-size: 18px;
-            color: #666;
+            color: #64748b;
             z-index: 100;
         }
 
@@ -617,7 +610,7 @@
         .instructions code {
             padding: 1px 4px;
             border-radius: 3px;
-            color: #7eb8ff;
+            color: #059669;
             font-size: 17px;
         }
 
@@ -629,27 +622,27 @@
         .form-group label {
             display: block;
             font-size: 19px;
-            color: #888;
+            color: #64748b;
             margin-bottom: 6px;
         }
 
         .form-input {
             width: 100%;
             padding: 12px 14px;
-            border: 1px solid #3a3a5a;
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
-            background: #1a1a2e;
-            color: #eee;
+            background: #ffffff;
+            color: #0f172a;
             font-size: 21px;
         }
 
         .form-input:focus {
             outline: none;
-            border-color: #5a5a8a;
+            border-color: #10b981;
         }
 
         .form-input::placeholder {
-            color: #555;
+            color: #94a3b8;
         }
 
         .btn {
@@ -662,18 +655,18 @@
         }
 
         .btn-primary {
-            background: #7eb8ff;
-            color: #1a1a2e;
+            background: #059669;
+            color: #ffffff;
             font-weight: 500;
         }
 
         .btn-primary:hover {
-            background: #9ec8ff;
+            background: #047857;
         }
 
         .btn-primary:disabled {
-            background: #4a4a6a;
-            color: #888;
+            background: #cbd5e1;
+            color: #ffffff;
             cursor: not-allowed;
         }
 
@@ -705,13 +698,14 @@
         }
 
         .modal {
-            background: #252542;
+            background: #ffffff;
             border-radius: 12px;
             padding: 24px;
             width: 100%;
             max-width: 360px;
             transform: scale(0.95);
             transition: transform 0.2s;
+            box-shadow: 0 10px 40px rgba(15, 23, 42, 0.18);
         }
 
         .modal-overlay.visible .modal {
@@ -721,7 +715,7 @@
         .modal h3 {
             margin-bottom: 20px;
             font-weight: 500;
-            color: #ddd;
+            color: #0f172a;
         }
 
         .modal-actions {
@@ -732,14 +726,14 @@
 
         .btn-secondary {
             background: transparent;
-            border: 1px solid #3a3a5a;
-            color: #aaa;
+            border: 1px solid #e2e8f0;
+            color: #475569;
             flex: 1;
         }
 
         .btn-secondary:hover {
-            background: rgba(255,255,255,0.05);
-            border-color: #5a5a8a;
+            background: #f1f5f9;
+            border-color: #cbd5e1;
         }
 
         .btn-small {
@@ -750,8 +744,8 @@
 
         /* Copy link display */
         .link-display {
-            background: #1a1a2e;
-            border: 1px solid #3a3a5a;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
             padding: 12px;
             margin-top: 16px;
@@ -759,7 +753,7 @@
 
         .link-display-label {
             font-size: 18px;
-            color: #888;
+            color: #64748b;
             margin-bottom: 8px;
         }
 
@@ -773,27 +767,28 @@
             flex: 1;
             font-family: monospace;
             font-size: 19px;
-            color: #7eb8ff;
+            color: #059669;
             word-break: break-all;
         }
 
         .btn-copy {
             padding: 6px 12px;
             font-size: 18px;
-            background: #3a3a5a;
+            background: #e2e8f0;
             border: none;
-            color: #ddd;
+            color: #0f172a;
             border-radius: 4px;
             cursor: pointer;
             white-space: nowrap;
         }
 
         .btn-copy:hover {
-            background: #4a4a6a;
+            background: #cbd5e1;
         }
 
         .btn-copy.copied {
-            background: #4a9a4a;
+            background: #10b981;
+            color: #ffffff;
         }
 
         /* Updated team popup with + button */
@@ -811,36 +806,36 @@
             cursor: pointer;
             padding: 8px;
             border-radius: 8px;
-            border: 2px dashed #3a3a5a;
+            border: 2px dashed #cbd5e1;
             min-width: 56px;
         }
 
         .add-new-member:hover {
-            border-color: #7eb8ff;
-            background: rgba(126, 184, 255, 0.1);
+            border-color: #10b981;
+            background: rgba(16, 185, 129, 0.08);
         }
 
         .add-new-icon {
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: #3a3a5a;
+            background: #e2e8f0;
             display: flex;
             align-items: center;
             justify-content: center;
             font-size: 30px;
-            color: #888;
+            color: #64748b;
             margin-bottom: 4px;
         }
 
         .add-new-member:hover .add-new-icon {
-            background: #4a4a6a;
-            color: #7eb8ff;
+            background: #d1fae5;
+            color: #059669;
         }
 
         .add-new-label {
             font-size: 17px;
-            color: #888;
+            color: #64748b;
         }
 
         /* ============================================
@@ -852,7 +847,8 @@
             gap: 8px;
             margin-bottom: 16px;
             padding: 8px 12px;
-            background: #1e1e38;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
             overflow-x: auto;
         }
@@ -862,21 +858,21 @@
             border-radius: 6px;
             cursor: pointer;
             font-size: 19px;
-            color: #5a5a72;
+            color: #64748b;
             white-space: nowrap;
             transition: all 0.2s;
             border: 1px solid transparent;
         }
 
         .project-tab:hover {
-            background: rgba(255,255,255,0.5);
-            color: #2c2c3a;
+            background: #f1f5f9;
+            color: #0f172a;
         }
 
         .project-tab.active {
-            background: #fff;
-            border-color: #3b46a8;
-            color: #2a3590;
+            background: #ecfdf5;
+            border-color: #10b981;
+            color: #047857;
             font-weight: 600;
         }
 
@@ -892,24 +888,24 @@
         .project-tab.other {
             padding: 3px 10px;
             font-size: 18px;
-            border: 1px solid rgba(60, 70, 160, 0.3);
-            background: rgba(255,255,255,0.5);
-            color: #3b46a8;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #475569;
         }
 
         .project-tab.other:hover {
-            border-color: #3b46a8;
-            color: #2a3590;
-            background: rgba(255,255,255,0.85);
+            border-color: #10b981;
+            color: #047857;
+            background: #ecfdf5;
         }
 
         .project-add-btn {
             padding: 6px 14px;
             height: 32px;
             border-radius: 16px;
-            border: 1.5px dashed #5a64c8;
-            background: rgba(255,255,255,0.5);
-            color: #3b46a8;
+            border: 1.5px dashed #10b981;
+            background: #ffffff;
+            color: #059669;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
@@ -923,9 +919,9 @@
 
         .project-add-btn:hover {
             border-style: solid;
-            border-color: #3b46a8;
+            border-color: #059669;
             color: #fff;
-            background: #3b46a8;
+            background: #059669;
         }
 
         /* View toggle */
@@ -940,19 +936,19 @@
             border-radius: 4px;
             cursor: pointer;
             font-size: 18px;
-            color: #5a5a72;
+            color: #64748b;
             background: transparent;
             border: none;
             transition: all 0.2s;
         }
 
         .view-toggle-btn:hover {
-            color: #2c2c3a;
+            color: #0f172a;
         }
 
         .view-toggle-btn.active {
-            background: #fff;
-            color: #3b46a8;
+            background: #ecfdf5;
+            color: #047857;
             font-weight: 600;
         }
 
@@ -965,7 +961,7 @@
             padding: 0;
             animation: slideDown 0.18s ease-out;
             min-width: 0;
-            color: #2c2c3a;
+            color: #0f172a;
         }
 
         .subtask-pane.board-pane {
@@ -984,7 +980,7 @@
         .subtask-pane .subtask-task-title {
             font-size: 20px;
             font-weight: 600;
-            color: #3b46a8;
+            color: #059669;
             margin-bottom: 10px;
             white-space: nowrap;
             overflow: hidden;
@@ -1005,7 +1001,7 @@
 
         .subtask-header-label {
             font-size: 14px;
-            color: #5a5a72;
+            color: #64748b;
             text-transform: uppercase;
             letter-spacing: 0.6px;
             font-weight: 600;
@@ -1016,7 +1012,7 @@
             height: 28px;
             border: none;
             background: transparent;
-            color: #5a5a72;
+            color: #64748b;
             cursor: pointer;
             font-size: 18px;
             border-radius: 6px;
@@ -1027,8 +1023,8 @@
         }
 
         .subtask-regenerate:hover {
-            color: #3b46a8;
-            background: rgba(90, 100, 200, 0.12);
+            color: #059669;
+            background: rgba(5, 150, 105, 0.12);
         }
 
         .subtask-item {
@@ -1037,12 +1033,12 @@
             gap: 8px;
             padding: 6px 0;
             font-size: 21px;
-            color: #2c2c3a;
+            color: #0f172a;
         }
 
         .subtask-item.dependent {
             margin-left: 16px;
-            color: #6a6a80;
+            color: #64748b;
         }
 
         .subtask-item.assigned-subtask {
@@ -1052,7 +1048,7 @@
         .subtask-check {
             width: 16px;
             height: 16px;
-            border: 1.5px solid #5a5a8a;
+            border: 1.5px solid #cbd5e1;
             border-radius: 3px;
             cursor: pointer;
             display: flex;
@@ -1064,12 +1060,12 @@
         }
 
         .subtask-check:hover {
-            border-color: #7eb8ff;
+            border-color: #10b981;
         }
 
         .subtask-check.checked {
-            background: #4a9a4a;
-            border-color: #4a9a4a;
+            background: #10b981;
+            border-color: #10b981;
             color: white;
         }
 
@@ -1083,7 +1079,7 @@
         }
 
         .subtask-emoji:hover {
-            background: rgba(255,255,255,0.1);
+            background: #f1f5f9;
         }
 
         .subtask-desc {
@@ -1100,34 +1096,34 @@
 
         .subtask-desc.completed-subtask {
             text-decoration: line-through;
-            color: #666;
+            color: #94a3b8;
         }
 
         .subtask-assigned-label {
             font-size: 17px;
-            color: #c4a235;
+            color: #f59e0b;
             font-style: italic;
         }
 
         .subtask-input {
             width: 100%;
             padding: 8px 12px;
-            border: 1px solid rgba(60, 70, 160, 0.25);
+            border: 1px solid #e2e8f0;
             border-radius: 6px;
-            background: rgba(255,255,255,0.7);
-            color: #2c2c3a;
+            background: #ffffff;
+            color: #0f172a;
             font-size: 18px;
             margin-top: 10px;
         }
 
         .subtask-input:focus {
             outline: none;
-            border-color: #3b46a8;
+            border-color: #10b981;
             background: #fff;
         }
 
         .subtask-input::placeholder {
-            color: #8a8a9a;
+            color: #94a3b8;
         }
 
         /* ============================================
@@ -1158,8 +1154,8 @@
             padding: 28px 28px 24px;
             background: #fff;
             border-radius: 24px;
-            box-shadow: 0 10px 28px rgba(60, 70, 160, 0.14), 0 3px 6px rgba(0,0,0,0.05);
-            border: 1px solid rgba(60, 70, 160, 0.08);
+            box-shadow: 0 10px 28px rgba(15, 23, 42, 0.08), 0 3px 6px rgba(15, 23, 42, 0.04);
+            border: 1px solid #e2e8f0;
             display: flex;
             flex-direction: column;
             transition: transform 0.18s ease-out, box-shadow 0.18s;
@@ -1168,22 +1164,13 @@
 
         .subtask-card:hover {
             transform: rotate(0deg) translateY(-2px) !important;
-            box-shadow: 0 12px 28px rgba(60, 70, 160, 0.18), 0 2px 6px rgba(0,0,0,0.06);
+            box-shadow: 0 12px 28px rgba(15, 23, 42, 0.12), 0 2px 6px rgba(15, 23, 42, 0.05);
             z-index: 2;
         }
 
         .subtask-card.dependent {
-            background: #f7f2ff;
+            background: #f8fafc;
         }
-
-        /* Tint each card by its source day so multi-day expansions stay traceable */
-        .subtask-card.dow-sunday    { background: #ffe0ea; }
-        .subtask-card.dow-monday    { background: #ffe5d4; }
-        .subtask-card.dow-tuesday   { background: #fff2c8; }
-        .subtask-card.dow-wednesday { background: #e8f4d6; }
-        .subtask-card.dow-thursday  { background: #d6f0e6; }
-        .subtask-card.dow-friday    { background: #ffd8d0; }
-        .subtask-card.dow-saturday  { background: #f0d8f0; }
 
         .subtask-card.assigned-subtask {
             opacity: 0.55;
@@ -1205,8 +1192,8 @@
             height: 36px;
             border-radius: 50%;
             border: none;
-            background: rgba(90, 100, 200, 0.14);
-            color: #3b46a8;
+            background: #ecfdf5;
+            color: #059669;
             font-size: 22px;
             line-height: 1;
             cursor: pointer;
@@ -1218,7 +1205,7 @@
         }
 
         .subtask-send:hover {
-            background: #3b46a8;
+            background: #059669;
             color: #fff;
             transform: translateX(3px);
         }
@@ -1240,7 +1227,7 @@
         .subtask-card-parent {
             font-size: 22px;
             font-weight: 600;
-            color: #6ea7ff;
+            color: #10b981;
             line-height: 1.15;
             letter-spacing: -0.2px;
             overflow: hidden;
@@ -1254,7 +1241,7 @@
         .subtask-card-title {
             font-size: 30px;
             font-weight: 700;
-            color: #2a2c4a;
+            color: #0f172a;
             margin-top: 14px;
             line-height: 1.15;
             letter-spacing: -0.4px;
@@ -1262,7 +1249,7 @@
 
         .subtask-card-role {
             font-size: 14px;
-            color: #6a6a85;
+            color: #64748b;
             text-transform: uppercase;
             letter-spacing: 0.8px;
             margin-top: 4px;
@@ -1271,7 +1258,7 @@
 
         .subtask-card .subtask-desc {
             font-size: 19px;
-            color: #4a4a60;
+            color: #475569;
             overflow-wrap: anywhere;
             line-height: 1.4;
             margin-top: 14px;
@@ -1293,9 +1280,9 @@
             right: 22px;
             width: 32px;
             height: 32px;
-            border: 2px solid rgba(60, 70, 160, 0.35);
+            border: 2px solid #cbd5e1;
             border-radius: 8px;
-            background: rgba(255,255,255,0.9);
+            background: #ffffff;
             color: transparent;
             font-size: 18px;
             cursor: pointer;
@@ -1307,12 +1294,12 @@
         }
 
         .subtask-card .subtask-check:hover {
-            border-color: #3b46a8;
+            border-color: #10b981;
         }
 
         .subtask-card .subtask-check.checked {
-            background: #4caf50;
-            border-color: #4caf50;
+            background: #10b981;
+            border-color: #10b981;
             color: #fff;
         }
 
@@ -1323,20 +1310,20 @@
             padding: 8px 14px;
             font-size: 16px;
             border-radius: 8px;
-            border: 1px dashed rgba(60, 70, 160, 0.35);
-            background: rgba(120, 130, 200, 0.06);
-            color: #2c2c3a;
+            border: 1px dashed #cbd5e1;
+            background: #f8fafc;
+            color: #0f172a;
         }
 
         .subtask-refine:focus {
             outline: none;
             border-style: solid;
-            border-color: #3b46a8;
+            border-color: #10b981;
             background: #fff;
         }
 
         .subtask-refine::placeholder {
-            color: #8a8a9a;
+            color: #94a3b8;
             font-size: 16px;
             font-style: italic;
         }
@@ -1346,7 +1333,7 @@
             align-items: center;
             gap: 8px;
             padding: 8px 0;
-            color: #666;
+            color: #64748b;
             font-size: 18px;
         }
 
@@ -1358,7 +1345,7 @@
         .dot-pulse span {
             width: 4px;
             height: 4px;
-            background: #666;
+            background: #94a3b8;
             border-radius: 50%;
             animation: dotPulse 1.2s ease-in-out infinite;
         }
@@ -1382,7 +1369,8 @@
         }
 
         .project-section {
-            background: #252542;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
             border-radius: 12px;
             padding: 20px;
         }
@@ -1397,13 +1385,13 @@
         .project-section-name {
             font-size: 22px;
             font-weight: 600;
-            color: #ddd;
+            color: #0f172a;
         }
 
         .project-section-count {
             font-size: 18px;
-            color: #888;
-            background: #1a1a2e;
+            color: #64748b;
+            background: #f1f5f9;
             padding: 2px 8px;
             border-radius: 10px;
         }
@@ -1418,7 +1406,7 @@
             align-items: center;
             gap: 8px;
             padding: 8px 0;
-            border-bottom: 1px solid #1e1e38;
+            border-bottom: 1px solid #f1f5f9;
         }
 
         .project-task-item:last-child {
@@ -1432,18 +1420,18 @@
         }
 
         .project-task-desc:hover {
-            color: #7eb8ff;
+            color: #059669;
         }
 
         .project-task-date {
             font-size: 18px;
-            color: #888;
+            color: #64748b;
         }
 
         .subtask-progress {
             font-size: 17px;
-            color: #666;
-            background: #1a1a2e;
+            color: #64748b;
+            background: #f1f5f9;
             padding: 2px 6px;
             border-radius: 4px;
         }
@@ -1451,25 +1439,25 @@
         .project-task-input {
             width: 100%;
             padding: 10px 12px;
-            border: 1px solid #3a3a5a;
+            border: 1px solid #e2e8f0;
             border-radius: 8px;
-            background: #1a1a2e;
-            color: #eee;
+            background: #ffffff;
+            color: #0f172a;
             font-size: 20px;
             margin-bottom: 12px;
         }
 
         .project-task-input:focus {
             outline: none;
-            border-color: #5a5a8a;
+            border-color: #10b981;
         }
 
         .project-task-input::placeholder {
-            color: #555;
+            color: #94a3b8;
         }
 
         .empty-project {
-            color: #555;
+            color: #94a3b8;
             font-size: 19px;
             padding: 8px 0;
             font-style: italic;
