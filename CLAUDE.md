@@ -137,6 +137,7 @@ Full endpoint reference lives in `reference/api-reference.md`. Schema lives in `
 - Incomplete past tasks spill over to today automatically
 - Subtask pane: max 10 items, dependent subtasks indented under parents
 - AI agents do research and analysis after initial subtask generation so user gets immediate feedback first
+- Day capacity: max 10 pending tasks per (owner, project) per day. New tasks created on a saturated day overflow to the next day with capacity (creation-only; assign/return/move are not capped)
 
 ## Conventions
 

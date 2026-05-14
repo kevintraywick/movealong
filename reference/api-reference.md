@@ -72,8 +72,14 @@ Response: [{ id, description, scheduled_date, completed, assigned_by, assigned_b
 ```
 POST /api/companies/:subdomain/users/:slug/tasks
 Body: { "description": "Do the thing", "scheduled_date": "2024-12-19" }
-Response: { id, description, scheduled_date, completed, ... }
+Response: { id, description, scheduled_date, requested_date, completed, ... }
 ```
+
+The server caps pending tasks per (owner, project) per day at 10. If the
+requested day is already at the cap, the server places the task on the
+first subsequent day with capacity and returns that as `scheduled_date`.
+`requested_date` echoes the client's original input so clients can detect
+overflow by comparing the two.
 
 #### Update task (complete, reschedule)
 ```
