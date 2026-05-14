@@ -43,6 +43,35 @@ function getRandomColor() {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
+// Day capacity: max pending tasks per (owner, project) per day.
+const MAX_TASKS_PER_DAY = 10;
+
+// Add N days to a YYYY-MM-DD string, returning a new YYYY-MM-DD string. UTC-safe.
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00.000Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+// Find the first date >= requestedDate where (ownerId, projectId) holds fewer
+// than MAX_TASKS_PER_DAY pending tasks. The bucket is per-(owner, project);
+// project_id IS NULL is its own bucket. Searches up to 365 days forward.
+function findDayWithCapacity({ ownerId, projectId, requestedDate }) {
+  const hasProject = projectId !== null && projectId !== undefined;
+  const sql = hasProject
+    ? 'SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ? AND scheduled_date = ? AND completed = 0 AND project_id = ?'
+    : 'SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ? AND scheduled_date = ? AND completed = 0 AND project_id IS NULL';
+
+  let date = requestedDate;
+  for (let i = 0; i < 365; i++) {
+    const params = hasProject ? [ownerId, date, projectId] : [ownerId, date];
+    const row = queryOne(sql, params);
+    if (row.cnt < MAX_TASKS_PER_DAY) return date;
+    date = addDays(date, 1);
+  }
+  throw new Error('No day with capacity within search horizon');
+}
+
 // ============================================
 // COMPANY ROUTES
 // ============================================
