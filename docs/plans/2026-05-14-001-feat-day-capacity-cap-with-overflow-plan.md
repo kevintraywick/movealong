@@ -1,7 +1,7 @@
 ---
 title: "feat: Cap day at 10 pending tasks with overflow to next day with capacity"
 type: feat
-status: active
+status: completed
 date: 2026-05-14
 deepened: 2026-05-14
 ---
