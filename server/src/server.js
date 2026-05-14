@@ -43,6 +43,35 @@ function getRandomColor() {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
+// Day capacity: max pending tasks per (owner, project) per day.
+const MAX_TASKS_PER_DAY = 10;
+
+// Add N days to a YYYY-MM-DD string, returning a new YYYY-MM-DD string. UTC-safe.
+function addDays(dateStr, days) {
+  const d = new Date(dateStr + 'T00:00:00.000Z');
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().split('T')[0];
+}
+
+// Find the first date >= requestedDate where (ownerId, projectId) holds fewer
+// than MAX_TASKS_PER_DAY pending tasks. The bucket is per-(owner, project);
+// project_id IS NULL is its own bucket. Searches up to 365 days forward.
+function findDayWithCapacity({ ownerId, projectId, requestedDate }) {
+  const hasProject = projectId !== null && projectId !== undefined;
+  const sql = hasProject
+    ? 'SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ? AND scheduled_date = ? AND completed = 0 AND project_id = ?'
+    : 'SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ? AND scheduled_date = ? AND completed = 0 AND project_id IS NULL';
+
+  let date = requestedDate;
+  for (let i = 0; i < 365; i++) {
+    const params = hasProject ? [ownerId, date, projectId] : [ownerId, date];
+    const row = queryOne(sql, params);
+    if (row.cnt < MAX_TASKS_PER_DAY) return date;
+    date = addDays(date, 1);
+  }
+  throw new Error('No day with capacity within search horizon');
+}
+
 // ============================================
 // COMPANY ROUTES
 // ============================================
@@ -395,16 +424,29 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
+  let effectiveDate;
+  try {
+    effectiveDate = findDayWithCapacity({
+      ownerId: user.id,
+      projectId: project_id ?? null,
+      requestedDate: scheduled_date,
+    });
+  } catch (err) {
+    console.error('Capacity helper failed:', err);
+    return res.status(500).json({ error: err.message });
+  }
+
   try {
     const result = runSql(
       'INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date) VALUES (?, ?, ?, ?, ?)',
-      [company.id, user.id, project_id || null, description, scheduled_date]
+      [company.id, user.id, project_id || null, description, effectiveDate]
     );
 
     res.status(201).json({
       id: result.lastInsertRowid,
       description,
-      scheduled_date,
+      scheduled_date: effectiveDate,
+      requested_date: scheduled_date,
       project_id: project_id || null,
       completed: 0,
       assigned_by: null,
