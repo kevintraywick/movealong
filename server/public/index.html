@@ -1652,7 +1652,7 @@
 
         function generateDays() {
             const days = [];
-            for (let i = 0; i < 7; i++) {
+            for (let i = 0; i < 30; i++) {
                 const date = new Date();
                 date.setDate(date.getDate() + i);
                 days.push({
@@ -1885,7 +1885,7 @@
                     } else {
                         const d = new Date(newTask.scheduled_date + 'T00:00:00.000Z');
                         const formatted = `${monthNames[d.getUTCMonth()]} ${d.getUTCDate()}`;
-                        showToast(`All 7 days full — scheduled for ${formatted}`);
+                        showToast(`All 30 days full — scheduled for ${formatted}`);
                     }
                 }
 
