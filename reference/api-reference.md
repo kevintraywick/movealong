@@ -81,12 +81,17 @@ first subsequent day with capacity and returns that as `scheduled_date`.
 `requested_date` echoes the client's original input so clients can detect
 overflow by comparing the two.
 
-#### Update task (complete, reschedule)
+#### Update task (complete, reschedule, lock)
 ```
 PUT /api/tasks/:taskId
-Body: { "completed": true } or { "scheduled_date": "2024-12-20" }
+Body: { "completed": true } or { "scheduled_date": "2024-12-20" } or { "locked": true }
 Response: { updated task }
 ```
+
+`locked: true` pins the task to its `scheduled_date` (send `scheduled_date`
+too to lock to a future day). Locked tasks are exempt from the auto-spillover
+of incomplete past tasks, and a locked past-due task pulls the calendar's first
+visible day back to its lock date. Assigning or returning a task clears its lock.
 
 #### Assign task to another user
 ```

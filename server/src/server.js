@@ -366,6 +366,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     SET scheduled_date = ?, updated_at = ?
     WHERE owner_id = ?
       AND completed = 0
+      AND locked = 0
       AND scheduled_date < ?
   `;
   if (req.query.project_id) {
@@ -379,6 +380,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.id,
       t.description,
       t.scheduled_date,
+      t.locked,
       t.completed,
       t.completed_at,
       t.assigned_by,
@@ -448,6 +450,7 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       scheduled_date: effectiveDate,
       requested_date: scheduled_date,
       project_id: project_id || null,
+      locked: 0,
       completed: 0,
       assigned_by: null,
       assigned_by_name: null
@@ -461,7 +464,7 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
 // Update a task (complete, move date, etc.)
 app.put('/api/tasks/:taskId', (req, res) => {
   const { taskId } = req.params;
-  const { scheduled_date, completed } = req.body;
+  const { scheduled_date, completed, locked } = req.body;
 
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
   if (!task) {
@@ -474,6 +477,11 @@ app.put('/api/tasks/:taskId', (req, res) => {
   if (scheduled_date !== undefined) {
     updates.push('scheduled_date = ?');
     values.push(scheduled_date);
+  }
+
+  if (locked !== undefined) {
+    updates.push('locked = ?');
+    values.push(locked ? 1 : 0);
   }
 
   if (completed !== undefined) {
@@ -496,6 +504,7 @@ app.put('/api/tasks/:taskId', (req, res) => {
         t.id,
         t.description,
         t.scheduled_date,
+        t.locked,
         t.completed,
         t.completed_at,
         t.assigned_by,
@@ -536,8 +545,8 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
 
   try {
     runSql(`
-      UPDATE tasks 
-      SET owner_id = ?, assigned_by = ?, scheduled_date = ?, updated_at = ?
+      UPDATE tasks
+      SET owner_id = ?, assigned_by = ?, scheduled_date = ?, locked = 0, updated_at = ?
       WHERE id = ?
     `, [to_user_id, task.owner_id, scheduled_date, new Date().toISOString(), taskId]);
 
@@ -584,8 +593,8 @@ app.post('/api/tasks/:taskId/return', (req, res) => {
 
   try {
     runSql(`
-      UPDATE tasks 
-      SET owner_id = ?, assigned_by = ?, scheduled_date = ?, updated_at = ?
+      UPDATE tasks
+      SET owner_id = ?, assigned_by = ?, scheduled_date = ?, locked = 0, updated_at = ?
       WHERE id = ?
     `, [originalAssignerId, currentOwnerId, scheduled_date || task.scheduled_date, new Date().toISOString(), taskId]);
 

@@ -27,7 +27,8 @@
 | owner_id       | INTEGER  | FK → users (whose board) |
 | assigned_by    | INTEGER  | FK → users, nullable |
 | description    | TEXT     |                  |
-| scheduled_date | DATE     |                  |
+| scheduled_date | DATE     | when locked, this IS the lock date |
+| locked         | INTEGER  | 0 or 1; pinned to scheduled_date, exempt from spillover |
 | completed      | INTEGER  | 0 or 1           |
 | completed_at   | DATETIME | nullable         |
 | created_at     | DATETIME | auto             |

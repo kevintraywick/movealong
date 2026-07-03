@@ -506,6 +506,106 @@
             color: #059669;
         }
 
+        .task-lock {
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1;
+            border-radius: 4px;
+            opacity: 0.35;
+            transition: all 0.15s;
+            user-select: none;
+        }
+
+        .task-lock:hover {
+            opacity: 1;
+            background: rgba(245, 158, 11, 0.15);
+        }
+
+        .task-lock.locked {
+            opacity: 1;
+        }
+
+        /* Locked tasks get a deadline accent */
+        .task-item.locked {
+            border-left: 2px solid #f59e0b;
+            padding-left: 4px;
+            margin-left: -6px;
+        }
+
+        /* Lock Popup (reuses .team-popup box) */
+        .lock-popup-menu {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            min-width: 190px;
+        }
+
+        .lock-popup-menu .lock-opt {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 13px;
+            color: #0f172a;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+        }
+
+        .lock-popup-menu .lock-opt:hover {
+            background: #f1f5f9;
+            border-color: #cbd5e1;
+        }
+
+        .lock-popup-menu .lock-opt.danger {
+            color: #b45309;
+        }
+
+        .lock-popup-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+        }
+
+        .lock-popup-row input[type="date"] {
+            flex: 1;
+            padding: 6px 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 13px;
+            color: #0f172a;
+        }
+
+        .lock-popup-row button {
+            padding: 6px 10px;
+            border: none;
+            border-radius: 6px;
+            background: #f59e0b;
+            color: #fff;
+            font-size: 12px;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .lock-popup-row button:hover {
+            background: #d97706;
+        }
+
+        .lock-popup-title {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+            color: #64748b;
+            margin: 2px 0;
+        }
+
         /* Team Popup */
         .team-popup {
             position: absolute;
@@ -1571,6 +1671,9 @@
         <div class="team-popup" id="teamPopup">
         </div>
 
+        <div class="team-popup lock-popup" id="lockPopup">
+        </div>
+
         <div class="toast" id="toast"></div>
 
         <div class="instructions">
@@ -1580,6 +1683,8 @@
                 <li><code>Click &rarr;</code> Move to next day</li>
                 <li><code>Shift+Click &rarr;</code> +1 week</li>
                 <li><code>Click task</code> Show subtasks</li>
+                <li><code>Click 📅</code> Lock to a date</li>
+                <li><code>Shift+Opt+Click task</code> Lock to this day</li>
                 <li><code>Click emoji</code> Assign</li>
                 <li><code>Click &cularr;</code> Return to sender</li>
             </ul>
@@ -1716,27 +1821,47 @@
         const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
         const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-        function generateDays() {
+        // Build 30 day-cells starting from anchorKey (a YYYY-MM-DD string).
+        // The anchor is normally today, but a locked task with a past-due
+        // lock date pulls the anchor back so that day stays visible.
+        function generateDays(anchorKey) {
+            const todayKey = getTodayKey();
+            const start = new Date((anchorKey || todayKey) + 'T00:00:00.000Z');
             const days = [];
             for (let i = 0; i < 30; i++) {
-                const date = new Date();
-                date.setDate(date.getDate() + i);
+                const date = new Date(start);
+                date.setUTCDate(start.getUTCDate() + i);
+                const key = date.toISOString().split('T')[0];
                 days.push({
                     date: date,
-                    dayName: dayNames[date.getDay()],
-                    dateStr: `${monthNames[date.getMonth()]} ${date.getDate()}`,
-                    key: date.toISOString().split('T')[0],
-                    isToday: i === 0
+                    dayName: dayNames[date.getUTCDay()],
+                    dateStr: `${monthNames[date.getUTCMonth()]} ${date.getUTCDate()}`,
+                    key,
+                    isToday: key === todayKey
                 });
             }
             return days;
         }
 
-        const days = generateDays();
-
         function getTodayKey() {
             return new Date().toISOString().split('T')[0];
         }
+
+        // Earliest date the calendar should start on: today, unless a locked,
+        // incomplete task is due on an earlier (past-due) date.
+        function computeAnchorKey() {
+            let anchor = getTodayKey();
+            if (isSignedUp) {
+                for (const t of tasks) {
+                    if (t.locked && !t.completed && t.scheduled_date < anchor) {
+                        anchor = t.scheduled_date;
+                    }
+                }
+            }
+            return anchor;
+        }
+
+        let days = generateDays(getTodayKey());
 
         function getTomorrowKey() {
             const tomorrow = new Date();
@@ -2047,6 +2172,79 @@
             }
         }
 
+        // Lock or unlock a task. When newDateKey is given, the task also moves
+        // to that day and is pinned there (that date becomes the lock date).
+        async function setTaskLock(taskId, locked, newDateKey) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            try {
+                const body = { locked };
+                if (newDateKey) body.scheduled_date = newDateKey;
+                const updated = await api(`/tasks/${taskId}`, { method: 'PUT', body });
+                Object.assign(task, updated);
+                renderView();
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        // Popup for managing a task's lock: lock-to-this-day, pick a future
+        // date, or unlock. Anchored under the clicked 📅/🔒 icon.
+        function showLockPopup(e, taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            const popup = document.getElementById('lockPopup');
+            const isLocked = !!task.locked;
+            const minDate = getTodayKey();
+            const dateVal = task.scheduled_date >= minDate ? task.scheduled_date : minDate;
+
+            let html = '<div class="lock-popup-menu">';
+            if (isLocked) {
+                html += `<div class="lock-popup-title">Locked to ${task.scheduled_date}</div>`;
+            } else {
+                html += `<div class="lock-opt" data-act="lock-here">🔒 Lock to this day (${task.scheduled_date})</div>`;
+            }
+            html += `<div class="lock-popup-title">Lock to a future date</div>
+                <div class="lock-popup-row">
+                    <input type="date" id="lockDateInput" min="${minDate}" value="${dateVal}">
+                    <button data-act="lock-date">Lock</button>
+                </div>`;
+            if (isLocked) {
+                html += '<div class="lock-opt danger" data-act="unlock">🔓 Unlock</div>';
+            }
+            html += '</div>';
+            popup.innerHTML = html;
+
+            const rect = e.target.getBoundingClientRect();
+            popup.style.left = rect.left + 'px';
+            popup.style.top = (rect.bottom + 5) + 'px';
+            popup.classList.add('visible');
+
+            popup.querySelectorAll('[data-act]').forEach(el => {
+                el.addEventListener('click', async (ev) => {
+                    ev.stopPropagation();
+                    const act = el.dataset.act;
+                    if (act === 'lock-here') {
+                        hidePopups();
+                        await setTaskLock(taskId, true);
+                        showToast('Locked to ' + task.scheduled_date);
+                    } else if (act === 'lock-date') {
+                        const val = document.getElementById('lockDateInput').value;
+                        if (!val) { showToast('Pick a date'); return; }
+                        hidePopups();
+                        await setTaskLock(taskId, true, val);
+                        showToast('Locked to ' + val);
+                    } else if (act === 'unlock') {
+                        hidePopups();
+                        await setTaskLock(taskId, false);
+                        showToast('Unlocked');
+                    }
+                });
+            });
+
+            document.addEventListener('click', hidePopupsOnClickOutside);
+        }
+
         async function assignTaskToMember(taskId, toUserId) {
             try {
                 const result = await api(`/tasks/${taskId}/assign`, {
@@ -2216,6 +2414,9 @@
             board.innerHTML = '';
             board.classList.remove('has-expanded');
 
+            // Locked past-due tasks pull the calendar's first day back to their date.
+            days = generateDays(computeAnchorKey());
+
             const myTasks = isSignedUp ? tasks : [];
 
             const placeholderTasks = [
@@ -2345,11 +2546,34 @@
                 });
             });
 
+            // Lock icon → open lock popup
+            document.querySelectorAll('.task-lock[data-task-id]').forEach(lock => {
+                lock.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showLockPopup(e, parseInt(lock.dataset.taskId));
+                });
+            });
+
             // Task description click → toggle subtask pane
             document.querySelectorAll('.task-description[data-task-id]').forEach(desc => {
                 desc.addEventListener('click', async (e) => {
                     e.stopPropagation();
                     const taskId = parseInt(desc.dataset.taskId);
+
+                    // Shift+Option+Click → quick-lock to this day (with confirm)
+                    if (e.shiftKey && e.altKey) {
+                        const task = tasks.find(t => t.id === taskId);
+                        if (task && !task.completed) {
+                            if (task.locked) {
+                                showToast('Already locked to ' + task.scheduled_date);
+                            } else if (confirm(`Lock "${task.description}" to ${task.scheduled_date}? The calendar won't advance past this day until it's done or moved.`)) {
+                                await setTaskLock(taskId, true);
+                                showToast('Locked to ' + task.scheduled_date);
+                            }
+                        }
+                        return;
+                    }
+
                     if (expandedTaskIds.has(taskId)) {
                         expandedTaskIds.delete(taskId);
                         renderView();
@@ -2441,16 +2665,22 @@
             const assignedLabel = task.assigned_by_name ? ` <span class="assigned-from">(from: ${task.assigned_by_name})</span>` : '';
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
             const isExpanded = expandedTaskIds.has(task.id);
+            const isLocked = !!task.locked;
             const regenerateButton = isExpanded
                 ? `<button class="task-regenerate" data-task-id="${task.id}" title="Regenerate steps">&orarr;</button>`
                 : '';
+            // Lock control: only on pending (non-completed) tasks.
+            const lockButton = task.completed
+                ? ''
+                : `<div class="task-lock ${isLocked ? 'locked' : ''}" data-task-id="${task.id}" title="${isLocked ? 'Locked — click to manage' : 'Lock to a date'}">${isLocked ? '🔒' : '📅'}</div>`;
 
             return `
-                <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''}" data-id="${task.id}">
+                <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''}" data-id="${task.id}">
                     <div class="task-circle" data-task-id="${task.id}"></div>
                     <div class="task-arrow" data-task-id="${task.id}">&rarr;</div>
-                    <div class="task-description" data-task-id="${task.id}">${task.description}${assignedLabel}</div>
+                    <div class="task-description" data-task-id="${task.id}" title="Shift+Option+Click to lock to this day">${task.description}${assignedLabel}</div>
                     ${regenerateButton}
+                    ${lockButton}
                     ${returnButton}
                 </div>
             `;
@@ -2683,27 +2913,35 @@
         function handleArrowClick(e) {
             e.stopPropagation();
             const taskId = parseInt(e.target.closest('.task-arrow').dataset.taskId);
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+
+            // Locked tasks are deadlines — confirm before pushing them forward.
+            // The lock follows the task to its new day.
+            if (task.locked && !confirm(`"${task.description}" is locked to ${task.scheduled_date}. Move this deadline forward?`)) {
+                return;
+            }
 
             // Shift+click: move forward one week
             if (e.shiftKey) {
-                const task = tasks.find(t => t.id === taskId);
-                if (task) {
-                    const currentDate = new Date(task.scheduled_date);
-                    currentDate.setDate(currentDate.getDate() + 7);
-                    moveTaskToDate(taskId, currentDate.toISOString().split('T')[0]);
-                    showToast('Moved forward one week');
-                }
+                const currentDate = new Date(task.scheduled_date + 'T00:00:00.000Z');
+                currentDate.setUTCDate(currentDate.getUTCDate() + 7);
+                moveTaskToDate(taskId, currentDate.toISOString().split('T')[0]);
+                showToast('Moved forward one week');
                 return;
             }
 
             // Regular click: move to next day
-            const task = tasks.find(t => t.id === taskId);
-            if (task) {
-                const currentIndex = days.findIndex(d => d.key === task.scheduled_date);
-                if (currentIndex < days.length - 1) {
-                    moveTaskToDate(taskId, days[currentIndex + 1].key);
-                    showToast(`Moved to ${days[currentIndex + 1].dayName}`);
-                }
+            const currentIndex = days.findIndex(d => d.key === task.scheduled_date);
+            if (currentIndex !== -1 && currentIndex < days.length - 1) {
+                moveTaskToDate(taskId, days[currentIndex + 1].key);
+                showToast(`Moved to ${days[currentIndex + 1].dayName}`);
+            } else if (currentIndex === -1) {
+                // Task sits outside the current window — just add a day.
+                const currentDate = new Date(task.scheduled_date + 'T00:00:00.000Z');
+                currentDate.setUTCDate(currentDate.getUTCDate() + 1);
+                moveTaskToDate(taskId, currentDate.toISOString().split('T')[0]);
+                showToast('Moved to next day');
             }
         }
 
@@ -2928,6 +3166,7 @@
         // ============================================
         function hidePopups() {
             document.getElementById('teamPopup').classList.remove('visible');
+            document.getElementById('lockPopup').classList.remove('visible');
             document.removeEventListener('click', hidePopupsOnClickOutside);
         }
 
@@ -2935,6 +3174,7 @@
             if (!e.target.closest('.team-popup') &&
                 !e.target.closest('.subtask-emoji') &&
                 !e.target.closest('.task-arrow') &&
+                !e.target.closest('.task-lock') &&
                 !e.target.closest('.modal')) {
                 hidePopups();
             }

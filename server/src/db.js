@@ -76,6 +76,7 @@ async function initDb() {
       assigned_by INTEGER,
       description TEXT NOT NULL,
       scheduled_date DATE NOT NULL,
+      locked INTEGER DEFAULT 0,
       completed INTEGER DEFAULT 0,
       completed_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -108,6 +109,9 @@ async function initDb() {
     )
   `);
 
+  // Migrations for existing databases (ALTER TABLE is idempotent-guarded via table_info)
+  ensureColumn('tasks', 'locked', 'INTEGER DEFAULT 0');
+
   // Create indexes
   db.run('CREATE INDEX IF NOT EXISTS idx_users_company ON users(company_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_users_slug ON users(company_id, slug)');
@@ -124,6 +128,15 @@ async function initDb() {
 
   saveDb();
   return db;
+}
+
+// Add a column to a table if it doesn't already exist. sql.js has no
+// "ADD COLUMN IF NOT EXISTS", so we inspect the schema first.
+function ensureColumn(table, column, definition) {
+  const cols = queryAll(`PRAGMA table_info(${table})`);
+  if (!cols.some(c => c.name === column)) {
+    db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  }
 }
 
 function saveDb() {
