@@ -83,18 +83,18 @@
         }
 
         .day-card.today .day-header {
-            color: #059669;
+            color: #0ea5e9;
             font-weight: 700;
         }
 
         .day-card.today .day-date {
-            color: #059669;
+            color: #0ea5e9;
             font-weight: 600;
         }
 
         .day-card.selected {
-            border: 2px solid #059669;
-            box-shadow: 0 4px 16px rgba(5, 150, 105, 0.18);
+            border: 2px solid #0ea5e9;
+            box-shadow: 0 4px 16px rgba(14, 165, 233, 0.18);
         }
 
         .day-card:not(.selected) {
@@ -121,7 +121,7 @@
 
         .task-input:focus {
             outline: none;
-            border-color: #10b981;
+            border-color: #38bdf8;
             background: #fff;
         }
 
@@ -192,13 +192,13 @@
         }
 
         .task-circle:hover {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.1);
+            border-color: #38bdf8;
+            background: rgba(56, 189, 248, 0.1);
         }
 
         .task-item.completed .task-circle {
-            background: #10b981;
-            border-color: #10b981;
+            background: #38bdf8;
+            border-color: #38bdf8;
         }
 
         .task-item.completed .task-circle::after {
@@ -300,8 +300,8 @@
         }
 
         .user-switch-btn.active {
-            background: #ecfdf5;
-            border-color: #10b981;
+            background: #f0f9ff;
+            border-color: #38bdf8;
         }
 
         .user-switch-avatar {
@@ -321,7 +321,7 @@
         }
 
         .user-switch-btn.active .user-switch-name {
-            color: #047857;
+            color: #0284c7;
         }
 
         /* Inline Header / Signup */
@@ -336,7 +336,7 @@
         .app-logo {
             font-size: 30px;
             font-weight: 300;
-            color: #059669;
+            color: #0ea5e9;
             margin-right: 8px;
         }
 
@@ -363,7 +363,7 @@
 
         .header-input:focus {
             outline: none;
-            border-color: #10b981;
+            border-color: #38bdf8;
         }
 
         .header-input::placeholder {
@@ -386,14 +386,14 @@
             border: none;
             font-size: 20px;
             cursor: pointer;
-            background: #059669;
+            background: #0ea5e9;
             color: #fff;
             font-weight: 600;
             transition: all 0.2s;
         }
 
         .btn-go:hover:not(:disabled) {
-            background: #047857;
+            background: #0284c7;
         }
 
         .btn-go:disabled {
@@ -436,8 +436,8 @@
             width: 32px;
             height: 32px;
             border-radius: 6px;
-            border: 1.5px solid #059669;
-            background: #059669;
+            border: 1.5px solid #0ea5e9;
+            background: #0ea5e9;
             color: #fff;
             font-size: 26px;
             cursor: pointer;
@@ -448,8 +448,8 @@
         }
 
         .btn-new-board:hover {
-            background: #047857;
-            border-color: #047857;
+            background: #0284c7;
+            border-color: #0284c7;
         }
 
         .task-arrow {
@@ -468,8 +468,8 @@
         }
 
         .task-arrow:hover {
-            color: #10b981;
-            background: rgba(16, 185, 129, 0.1);
+            color: #38bdf8;
+            background: rgba(56, 189, 248, 0.1);
         }
 
         .task-description {
@@ -498,12 +498,12 @@
         }
 
         .task-regenerate:hover {
-            color: #059669;
-            background: rgba(5, 150, 105, 0.12);
+            color: #0ea5e9;
+            background: rgba(14, 165, 233, 0.12);
         }
 
         .task-description:hover {
-            color: #059669;
+            color: #0ea5e9;
         }
 
         .task-lock {
@@ -640,7 +640,7 @@
             width: 40px;
             height: 40px;
             border-radius: 50%;
-            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            background: linear-gradient(135deg, #38bdf8 0%, #0ea5e9 100%);
             display: flex;
             align-items: center;
             justify-content: center;
@@ -687,31 +687,53 @@
             bottom: 0;
             left: 0;
             right: 0;
-            padding: 6px 20px;
-            background: #ffffff;
-            border-top: 1px solid #e2e8f0;
-            font-size: 18px;
-            color: #64748b;
+            padding: 6px 16px;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid #e8edf3;
+            font-size: 11px;
+            color: #94a3b8;
             z-index: 100;
         }
 
         .instructions ul {
             list-style: none;
             display: flex;
+            align-items: center;
             justify-content: center;
-            gap: 20px;
-            flex-wrap: wrap;
+            gap: 6px;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+            scrollbar-width: none;
+            max-width: 100%;
         }
+
+        .instructions ul::-webkit-scrollbar { display: none; }
 
         .instructions li {
             white-space: nowrap;
+            display: inline-flex;
+            align-items: center;
+            gap: 5px;
+            padding: 2px 8px;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+
+        .instructions li:hover {
+            background: #f1f5f9;
         }
 
         .instructions code {
-            padding: 1px 4px;
-            border-radius: 3px;
-            color: #059669;
-            font-size: 17px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            padding: 1px 5px;
+            border-radius: 4px;
+            background: #eef2f7;
+            border: 1px solid #e2e8f0;
+            color: #475569;
+            font-size: 10px;
+            line-height: 1.5;
         }
 
         /* Form elements (used in modal) */
@@ -738,7 +760,7 @@
 
         .form-input:focus {
             outline: none;
-            border-color: #10b981;
+            border-color: #38bdf8;
         }
 
         .form-input::placeholder {
@@ -755,13 +777,13 @@
         }
 
         .btn-primary {
-            background: #059669;
+            background: #0ea5e9;
             color: #ffffff;
             font-weight: 500;
         }
 
         .btn-primary:hover {
-            background: #047857;
+            background: #0284c7;
         }
 
         .btn-primary:disabled {
@@ -867,7 +889,7 @@
             flex: 1;
             font-family: monospace;
             font-size: 19px;
-            color: #059669;
+            color: #0ea5e9;
             word-break: break-all;
         }
 
@@ -887,7 +909,7 @@
         }
 
         .btn-copy.copied {
-            background: #10b981;
+            background: #38bdf8;
             color: #ffffff;
         }
 
@@ -911,8 +933,8 @@
         }
 
         .add-new-member:hover {
-            border-color: #10b981;
-            background: rgba(16, 185, 129, 0.08);
+            border-color: #38bdf8;
+            background: rgba(56, 189, 248, 0.08);
         }
 
         .add-new-icon {
@@ -929,8 +951,8 @@
         }
 
         .add-new-member:hover .add-new-icon {
-            background: #d1fae5;
-            color: #059669;
+            background: #bae6fd;
+            color: #0ea5e9;
         }
 
         .add-new-label {
@@ -970,9 +992,9 @@
         }
 
         .project-tab.active {
-            background: #ecfdf5;
-            border-color: #10b981;
-            color: #047857;
+            background: #f0f9ff;
+            border-color: #38bdf8;
+            color: #0284c7;
             font-weight: 600;
         }
 
@@ -994,18 +1016,18 @@
         }
 
         .project-tab.other:hover {
-            border-color: #10b981;
-            color: #047857;
-            background: #ecfdf5;
+            border-color: #38bdf8;
+            color: #0284c7;
+            background: #f0f9ff;
         }
 
         .project-add-btn {
             padding: 6px 14px;
             height: 32px;
             border-radius: 16px;
-            border: 1.5px dashed #10b981;
+            border: 1.5px dashed #38bdf8;
             background: #ffffff;
-            color: #059669;
+            color: #0ea5e9;
             font-size: 16px;
             font-weight: 600;
             cursor: pointer;
@@ -1019,9 +1041,9 @@
 
         .project-add-btn:hover {
             border-style: solid;
-            border-color: #059669;
+            border-color: #0ea5e9;
             color: #fff;
-            background: #059669;
+            background: #0ea5e9;
         }
 
         /* View toggle */
@@ -1047,8 +1069,8 @@
         }
 
         .view-toggle-btn.active {
-            background: #ecfdf5;
-            color: #047857;
+            background: #f0f9ff;
+            color: #0284c7;
             font-weight: 600;
         }
 
@@ -1092,7 +1114,7 @@
         }
 
         .assistant-toggle.on {
-            background: #047857;
+            background: #0284c7;
         }
 
         .assistant-toggle.on::after {
@@ -1127,7 +1149,7 @@
         .subtask-pane .subtask-task-title {
             font-size: 20px;
             font-weight: 600;
-            color: #059669;
+            color: #0ea5e9;
             margin-bottom: 10px;
             white-space: nowrap;
             overflow: hidden;
@@ -1170,8 +1192,8 @@
         }
 
         .subtask-regenerate:hover {
-            color: #059669;
-            background: rgba(5, 150, 105, 0.12);
+            color: #0ea5e9;
+            background: rgba(14, 165, 233, 0.12);
         }
 
         .subtask-item {
@@ -1207,12 +1229,12 @@
         }
 
         .subtask-check:hover {
-            border-color: #10b981;
+            border-color: #38bdf8;
         }
 
         .subtask-check.checked {
-            background: #10b981;
-            border-color: #10b981;
+            background: #38bdf8;
+            border-color: #38bdf8;
             color: white;
         }
 
@@ -1265,7 +1287,7 @@
 
         .subtask-input:focus {
             outline: none;
-            border-color: #10b981;
+            border-color: #38bdf8;
             background: #fff;
         }
 
@@ -1339,8 +1361,8 @@
             height: 36px;
             border-radius: 50%;
             border: none;
-            background: #ecfdf5;
-            color: #059669;
+            background: #f0f9ff;
+            color: #0ea5e9;
             font-size: 22px;
             line-height: 1;
             cursor: pointer;
@@ -1352,7 +1374,7 @@
         }
 
         .subtask-send:hover {
-            background: #059669;
+            background: #0ea5e9;
             color: #fff;
             transform: translateX(3px);
         }
@@ -1374,7 +1396,7 @@
         .subtask-card-parent {
             font-size: 22px;
             font-weight: 600;
-            color: #10b981;
+            color: #38bdf8;
             line-height: 1.15;
             letter-spacing: -0.2px;
             overflow: hidden;
@@ -1441,12 +1463,12 @@
         }
 
         .subtask-card .subtask-check:hover {
-            border-color: #10b981;
+            border-color: #38bdf8;
         }
 
         .subtask-card .subtask-check.checked {
-            background: #10b981;
-            border-color: #10b981;
+            background: #38bdf8;
+            border-color: #38bdf8;
             color: #fff;
         }
 
@@ -1465,7 +1487,7 @@
         .subtask-refine:focus {
             outline: none;
             border-style: solid;
-            border-color: #10b981;
+            border-color: #38bdf8;
             background: #fff;
         }
 
@@ -1567,7 +1589,7 @@
         }
 
         .project-task-desc:hover {
-            color: #059669;
+            color: #0ea5e9;
         }
 
         .project-task-date {
@@ -1596,7 +1618,7 @@
 
         .project-task-input:focus {
             outline: none;
-            border-color: #10b981;
+            border-color: #38bdf8;
         }
 
         .project-task-input::placeholder {
@@ -1643,7 +1665,7 @@
             <!-- View toggle -->
             <div class="view-toggle">
                 <button class="view-toggle-btn active" id="viewCalendarBtn">Calendar</button>
-                <button class="view-toggle-btn" id="viewMasterBtn">Master</button>
+                <button class="view-toggle-btn" id="viewMasterBtn">Main</button>
             </div>
 
             <!-- AI assistant master switch -->
@@ -1678,15 +1700,15 @@
 
         <div class="instructions">
             <ul>
-                <li><code>&larr; &rarr;</code> Navigate days</li>
-                <li><code>Click &cir;</code> Complete</li>
-                <li><code>Click &rarr;</code> Move to next day</li>
-                <li><code>Shift+Click &rarr;</code> +1 week</li>
-                <li><code>Click task</code> Show subtasks</li>
-                <li><code>Click 📅</code> Lock to a date</li>
-                <li><code>Shift+Opt+Click task</code> Lock to this day</li>
-                <li><code>Click emoji</code> Assign</li>
-                <li><code>Click &cularr;</code> Return to sender</li>
+                <li><code>&larr; &rarr;</code> Navigate</li>
+                <li><code>&cir;</code> Complete</li>
+                <li><code>&rarr;</code> Next day</li>
+                <li><code>&#8679;&rarr;</code> +1 week</li>
+                <li><code>Task</code> Subtasks</li>
+                <li><code>📅</code> Lock</li>
+                <li><code>&#8679;&#8997; Task</code> Lock here</li>
+                <li><code>Emoji</code> Assign</li>
+                <li><code>&cularr;</code> Return</li>
             </ul>
         </div>
     </div>
