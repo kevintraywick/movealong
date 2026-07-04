@@ -145,6 +145,27 @@ app.get('/api/companies/:subdomain', (req, res) => {
   res.json(company);
 });
 
+// TEMP: one-off cleanup route, remove after use
+app.delete('/api/debug-cleanup/:subdomain', (req, res) => {
+  const { subdomain } = req.params;
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+
+  try {
+    runSql('DELETE FROM subtasks WHERE task_id NOT IN (SELECT id FROM tasks)');
+    runSql('DELETE FROM subtasks WHERE task_id IN (SELECT id FROM tasks WHERE company_id = ?)', [company.id]);
+    runSql('DELETE FROM tasks WHERE company_id = ?', [company.id]);
+    runSql('DELETE FROM project_members WHERE project_id IN (SELECT id FROM projects WHERE company_id = ?)', [company.id]);
+    runSql('DELETE FROM projects WHERE company_id = ?', [company.id]);
+    runSql('DELETE FROM users WHERE company_id = ?', [company.id]);
+    runSql('DELETE FROM companies WHERE id = ?', [company.id]);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Error in debug cleanup:', err);
+    res.status(500).json({ error: 'Cleanup failed' });
+  }
+});
+
 // ============================================
 // USER ROUTES
 // ============================================
