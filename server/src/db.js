@@ -17,6 +17,10 @@ async function initDb() {
     db = new SQL.Database();
   }
 
+  // sql.js defaults foreign_keys off like stock SQLite; without this, every
+  // ON DELETE CASCADE/SET NULL below is declared but never enforced.
+  db.run('PRAGMA foreign_keys = ON');
+
   // Create tables
   db.run(`
     CREATE TABLE IF NOT EXISTS companies (
@@ -144,6 +148,9 @@ function saveDb() {
     const data = db.export();
     const buffer = Buffer.from(data);
     fs.writeFileSync(dbPath, buffer);
+    // db.export() silently resets the foreign_keys pragma — reapply it
+    // so cascades keep working for the next statement on this connection.
+    db.run('PRAGMA foreign_keys = ON');
   }
 }
 
