@@ -148,6 +148,7 @@ Full endpoint reference lives in `reference/api-reference.md`. Schema lives in `
 - AI agents do research and analysis after initial subtask generation so user gets immediate feedback first
 - Day capacity: max 10 pending tasks per (owner, project) per day. New tasks created on a saturated day overflow to the next day with capacity (creation-only; assign/return/move are not capped)
 - **AI assistant master switch** (🧠 toggle, `localStorage` `movealong.assistant`, default on): when on, adding a task auto-generates subtasks and opens the pane; when off, the task is created bare with no AI call
+  - **Known gap:** the toggle only gates `addTask`/`addTaskFromMaster` (task creation). Expanding an existing task's row just re-reads stored subtasks (`GET /tasks/:id/subtasks`, no AI call either way). But the ↺ "Regenerate steps" button (`regenerateSubtasks()`) calls `POST /tasks/:id/generate-subtasks` unconditionally — it ignores the toggle. Fix both call sites together if closing this gap.
 
 ## Conventions
 
@@ -157,6 +158,7 @@ Full endpoint reference lives in `reference/api-reference.md`. Schema lives in `
 - When editing the frontend, test via `http://localhost:3000` not `file://`
 - New colors: use the sky-blue accent ramp above — do not introduce green
 - **Schema migrations:** sql.js has no `ADD COLUMN IF NOT EXISTS`. Add columns via `ensureColumn(table, col, def)` in `db.js` (checks `PRAGMA table_info`), and add the column to the `CREATE TABLE` too. Runs on every boot; safe to leave in.
+- **Foreign key cascades:** `db.js` sets `PRAGMA foreign_keys = ON` so the `ON DELETE CASCADE`/`SET NULL` clauses in the schema actually fire (sql.js defaults it off like stock SQLite). Gotcha: `db.export()` — called by `saveDb()` on every write — silently resets this pragma back off, so `saveDb()` reapplies it after every export. If cascades ever stop working again, this is the first thing to check.
 - **Local API testing:** boot a throwaway instance with `DB_PATH=<tmp> PORT=<free> ANTHROPIC_API_KEY=dummy node src/server.js` and curl the endpoints. Port 3000 is often taken by another local app — pick a free port. The frontend calls the API at a relative `/api`, so open it on whatever port serves `index.html`.
 - **Quick frontend syntax check** (no browser): extract the inline `<script>` and run it through `vm.Script` in Node to catch broken template literals before shipping.
 - zsh gotcha: don't name a shell variable `UID` in test scripts — it's read-only and the assignment errors out.
