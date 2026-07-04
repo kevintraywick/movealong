@@ -49,8 +49,14 @@ Subtasks must be **specific, actionable, and research-backed** — never vague p
 - A person assigned to a project gets a project page pre-filled with the project name if they aren't already on the project.
 - Any assignee may return a task, which reappears on the sender's board on the current day.
 
+### Locking tasks to a date (deadlines)
+- A task can be **locked** to a date (a deadline that forces overdue work back to the present). Backed by the `tasks.locked` column; the lock date is just the task's `scheduled_date` while locked.
+- **Lock gestures:** Shift+Option+Click the task body quick-locks it to its current day (with confirm); the 📅 icon on each pending task opens a popup to lock-to-this-day, pick a future date, or unlock. A locked task shows 🔒 and an amber left edge.
+- Locked tasks are **exempt from auto-spillover**. A past-due locked task **pulls the calendar's first visible day back to its lock date** (anchor = min(today, earliest locked-incomplete date)); "today" stays highlighted by real date, and other overdue tasks still spill to today.
+- Moving a locked task forward (the → arrow) asks for confirmation; the lock follows to the new day. Assigning or returning a task clears the lock.
+
 ### Master Project Page
-- Each username has a **master project page** that lists all their projects.
+- Each username has a **master project page** that lists all their projects. (The UI button for it is labeled **"Main"**; internally the view mode and API route are still `master`.)
 - Tasks are grouped by project (not by day) on this page.
 - If a user has 3 projects (e.g., "plan bday party", "build house", "prepare quarterly financials"), the master page shows 3 panes with all open, unassigned tasks for each project.
 - When a task is entered into any project, it is appended to the corresponding pane on the master page.
@@ -81,7 +87,7 @@ First-time setup:
 ```bash
 cd server
 npm install
-export ANTHROPIC_API_KEY=sk-ant-...   # required — ai.js throws on boot without it
+export ANTHROPIC_API_KEY=sk-ant-...   # optional — without it you get mock subtasks, not AI ones
 npm start                             # or: npm run dev  (uses node --watch for auto-restart)
 ```
 
@@ -89,7 +95,7 @@ Server starts on `http://localhost:3000`, serves both the API and frontend.
 
 ## Environment Variables
 
-- `ANTHROPIC_API_KEY` — **required**. `server/src/ai.js` throws at startup if unset. Used to call the Anthropic API for subtask generation (currently `claude-sonnet-4-20250514`).
+- `ANTHROPIC_API_KEY` — **optional** for local dev. Used for AI subtask generation (`claude-sonnet-5`). `server/src/ai.js` throws if it's `require()`d without a key, but it's only required lazily inside the generate-subtasks handler, which catches the error and falls back to `generateMockSubtasks`. The server boots fine without it (or with a dummy value) — you just get mock subtask lists. (Railway still sets it for real AI output.)
 - `DB_PATH` — optional. Override default `./movealong.db` location.
 - `PORT` — optional. Defaults to 3000.
 
@@ -124,7 +130,7 @@ Full endpoint reference lives in `reference/api-reference.md`. Schema lives in `
 
 - **GitHub:** [kevintraywick/movealong](https://github.com/kevintraywick/movealong), default branch `main`. No PR/commit conventions formalized yet.
 - **Railway:** Auto-deploy on push to `main`. Build/start uses `npm start` (which runs `node src/server.js` from `server/`).
-- **Env vars in Railway:** `ANTHROPIC_API_KEY` must be set, or the server crashes on boot (`ai.js` throws). No other env vars configured yet.
+- **Env vars in Railway:** set `ANTHROPIC_API_KEY` for real AI subtask generation. It is **not** required to boot — without it the server runs and falls back to mock subtasks (see Environment Variables). No other env vars configured yet.
 - **Database persistence:** No volume attached. `server/movealong.db` lives on the ephemeral container filesystem, so every deploy wipes all data. Attach a Railway volume (e.g. mount at `/data`) and set `DB_PATH=/data/movealong.db` before this is usable for real users.
 - **Custom domain:** Not configured. The `*.movealong.com` subdomain pattern in the code is aspirational until DNS + a proxy are set up.
 
@@ -134,10 +140,14 @@ Full endpoint reference lives in `reference/api-reference.md`. Schema lives in `
 - Frontend is a single HTML file with inline CSS and JS
 - sql.js chosen to avoid native compilation issues
 - 30-day calendar view with horizontal scroll
-- Incomplete past tasks spill over to today automatically
-- Subtask pane: max 10 items, dependent subtasks indented under parents
+- Incomplete past tasks spill over to today automatically — **except locked tasks**, which stay pinned to their date
+- Calendar day cells are **UTC-based** (`day.key` via `toISOString`), built by `generateDays(anchorKey)`; keep any date math UTC-consistent with `getTodayKey()` and the backend spillover
+- Day cards are **200px** wide (shrunk from 400px). The subtask pane hangs absolutely below its day column at `width: 100%` — **never wider than the day it's attached to**
+- Subtask pane: a single contained card listing up to 10 steps (AI + user-added together) as compact rows — check, assignee emoji, description, send-arrow on AI steps. Not one-card-per-subtask. Dependent subtasks indented under parents
+- Accent color is a **sky-blue ramp** (`#38bdf8` bright / `#0ea5e9` fills / `#0284c7` dark hover), tints `#f0f9ff`/`#bae6fd`. Replaced the old emerald green — use blue for any new UI, not green
 - AI agents do research and analysis after initial subtask generation so user gets immediate feedback first
 - Day capacity: max 10 pending tasks per (owner, project) per day. New tasks created on a saturated day overflow to the next day with capacity (creation-only; assign/return/move are not capped)
+- **AI assistant master switch** (🧠 toggle, `localStorage` `movealong.assistant`, default on): when on, adding a task auto-generates subtasks and opens the pane; when off, the task is created bare with no AI call
 
 ## Conventions
 
@@ -145,3 +155,8 @@ Full endpoint reference lives in `reference/api-reference.md`. Schema lives in `
 - Backend changes require a restart under `npm start`. Use `npm run dev` (node `--watch`) if you want auto-restart during development.
 - Database file is gitignored; it recreates on first run
 - When editing the frontend, test via `http://localhost:3000` not `file://`
+- New colors: use the sky-blue accent ramp above — do not introduce green
+- **Schema migrations:** sql.js has no `ADD COLUMN IF NOT EXISTS`. Add columns via `ensureColumn(table, col, def)` in `db.js` (checks `PRAGMA table_info`), and add the column to the `CREATE TABLE` too. Runs on every boot; safe to leave in.
+- **Local API testing:** boot a throwaway instance with `DB_PATH=<tmp> PORT=<free> ANTHROPIC_API_KEY=dummy node src/server.js` and curl the endpoints. Port 3000 is often taken by another local app — pick a free port. The frontend calls the API at a relative `/api`, so open it on whatever port serves `index.html`.
+- **Quick frontend syntax check** (no browser): extract the inline `<script>` and run it through `vm.Script` in Node to catch broken template literals before shipping.
+- zsh gotcha: don't name a shell variable `UID` in test scripts — it's read-only and the assignment errors out.
