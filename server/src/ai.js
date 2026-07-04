@@ -51,7 +51,9 @@ Return ONLY a JSON array. Example:
   }
 
   const data = await response.json();
-  const text = data.content[0].text;
+  const textBlock = data.content.find(block => block.type === 'text');
+  if (!textBlock) throw new Error('No text block in response');
+  const text = textBlock.text;
 
   // Extract JSON from response
   const jsonMatch = text.match(/\[[\s\S]*\]/);
