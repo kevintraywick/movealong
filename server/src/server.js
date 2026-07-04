@@ -888,6 +888,7 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
       subtaskList = await ai.generateSubtasks(task.description);
     } catch (e) {
       // Fall back to mock
+      console.error('AI subtask generation failed, falling back to mock:', e.message);
       subtaskList = generateMockSubtasks(task.description);
     }
 
