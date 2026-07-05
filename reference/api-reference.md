@@ -65,7 +65,7 @@ Response: { id, name, slug, initials, color }
 #### Get user's tasks
 ```
 GET /api/companies/:subdomain/users/:slug/tasks
-Response: [{ id, description, scheduled_date, completed, assigned_by, assigned_by_name, ... }, ...]
+Response: [{ id, description, scheduled_date, origin_date, locked, completed, assigned_by, assigned_by_name, ... }, ...]
 ```
 
 #### Create task
@@ -80,6 +80,11 @@ requested day is already at the cap, the server places the task on the
 first subsequent day with capacity and returns that as `scheduled_date`.
 `requested_date` echoes the client's original input so clients can detect
 overflow by comparing the two.
+
+`origin_date` is set to the requested day at creation and never changes
+afterward — spillover, reschedules, assign, and return all preserve it.
+It drives the frontend's days-pushed counter (inclusive days from origin
+to max(scheduled_date, today), hidden on the origin day).
 
 #### Update task (complete, reschedule, lock)
 ```
@@ -154,6 +159,8 @@ tasks
 ├── assigned_by (FK → users, nullable) - who assigned it
 ├── description
 ├── scheduled_date
+├── origin_date - day first requested for; immutable, drives days-pushed counter
+├── locked (0/1) - pinned to scheduled_date, exempt from spillover
 ├── completed (0/1)
 ├── completed_at
 ├── created_at

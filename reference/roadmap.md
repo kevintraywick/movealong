@@ -14,6 +14,7 @@
 - [x] Lock tasks to a date (deadlines) — anchor pulls the calendar back to a past-due lock date
 - [x] AI assistant master on/off switch (auto-generate subtasks on task add)
 - [x] Sky-blue theme refresh; single-list subtask pane capped to day width
+- [x] Day counter — small grey count of days a task has been pushed forward (via immutable `origin_date`)
 
 ## Next
 - [ ] Authentication (currently URL-based access only)

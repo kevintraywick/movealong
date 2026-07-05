@@ -55,6 +55,12 @@ Subtasks must be **specific, actionable, and research-backed** — never vague p
 - Locked tasks are **exempt from auto-spillover**. A past-due locked task **pulls the calendar's first visible day back to its lock date** (anchor = min(today, earliest locked-incomplete date)); "today" stays highlighted by real date, and other overdue tasks still spill to today.
 - Moving a locked task forward (the → arrow) asks for confirmation; the lock follows to the new day. Assigning or returning a task clears the lock.
 
+### Day counter (days pushed forward)
+- Each task stores `origin_date` — the day it was first **requested** for (capacity overflow counts as a push: origin = requested day, not the effective overflow day). It **never changes**: spillover, → moves, assign, and return all preserve it. Any new code that writes `scheduled_date` must leave `origin_date` alone.
+- The day board shows a small light-grey **inclusive** day count after the task text (added Monday → "5" on Friday): days from origin to `max(scheduled_date, today)` + 1, hidden when it would read 1 (the origin day). Rendered by `renderDayCounter()` in `index.html`; **day board only** — not the Main/master page.
+- Overdue **locked** tasks keep counting to today (they don't spill, but their age still climbs daily). **Completed** tasks freeze at the day they were completed.
+- Tasks created before the migration backfill `origin_date = scheduled_date` on boot (their earlier push history was never recorded).
+
 ### Master Project Page
 - Each username has a **master project page** that lists all their projects. (The UI button for it is labeled **"Main"**; internally the view mode and API route are still `master`.)
 - Tasks are grouped by project (not by day) on this page.
