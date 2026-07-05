@@ -1956,6 +1956,7 @@
 
                 // Auto-generate subtasks (only when the AI assistant is enabled)
                 if (assistantEnabled) {
+                    expandedTaskIds.clear();
                     expandedTaskIds.add(newTask.id);
                     generatingSubtasksFor = newTask.id;
                     renderView();
@@ -1993,6 +1994,7 @@
                 // Auto-generate subtasks (only when the AI assistant is enabled)
                 if (assistantEnabled) {
                     generatingSubtasksFor = newTask.id;
+                    expandedTaskIds.clear();
                     expandedTaskIds.add(newTask.id);
                     renderMasterPage();
 
@@ -2452,6 +2454,10 @@
                         expandedTaskIds.delete(taskId);
                         renderView();
                     } else {
+                        // Single-pane rule: opening a task closes any other open
+                        // pane. Same-day panes are absolutely positioned at the
+                        // same spot, so two open at once just occlude each other.
+                        expandedTaskIds.clear();
                         expandedTaskIds.add(taskId);
                         if (!taskSubtasks.has(taskId)) {
                             await loadSubtasks(taskId);
@@ -2728,6 +2734,8 @@
                         if (expandedTaskIds.has(taskId)) {
                             expandedTaskIds.delete(taskId);
                         } else {
+                            // Single-pane rule (matches the day board).
+                            expandedTaskIds.clear();
                             expandedTaskIds.add(taskId);
                             if (!taskSubtasks.has(taskId)) {
                                 await loadSubtasks(taskId);
