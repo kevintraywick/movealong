@@ -380,6 +380,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.id,
       t.description,
       t.scheduled_date,
+      t.origin_date,
       t.locked,
       t.completed,
       t.completed_at,
@@ -439,15 +440,18 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
   }
 
   try {
+    // origin_date is the requested day, not the effective one — if the day
+    // was full and the task overflowed forward, that bump counts as a push.
     const result = runSql(
-      'INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date) VALUES (?, ?, ?, ?, ?)',
-      [company.id, user.id, project_id || null, description, effectiveDate]
+      'INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date, origin_date) VALUES (?, ?, ?, ?, ?, ?)',
+      [company.id, user.id, project_id || null, description, effectiveDate, scheduled_date]
     );
 
     res.status(201).json({
       id: result.lastInsertRowid,
       description,
       scheduled_date: effectiveDate,
+      origin_date: scheduled_date,
       requested_date: scheduled_date,
       project_id: project_id || null,
       locked: 0,
@@ -504,6 +508,7 @@ app.put('/api/tasks/:taskId', (req, res) => {
         t.id,
         t.description,
         t.scheduled_date,
+        t.origin_date,
         t.locked,
         t.completed,
         t.completed_at,
@@ -552,10 +557,11 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
 
     const updated = queryOne(`
       SELECT 
-        t.id, 
-        t.description, 
-        t.scheduled_date, 
-        t.completed, 
+        t.id,
+        t.description,
+        t.scheduled_date,
+        t.origin_date,
+        t.completed,
         t.completed_at,
         t.assigned_by,
         t.owner_id,
@@ -600,10 +606,11 @@ app.post('/api/tasks/:taskId/return', (req, res) => {
 
     const updated = queryOne(`
       SELECT 
-        t.id, 
-        t.description, 
-        t.scheduled_date, 
-        t.completed, 
+        t.id,
+        t.description,
+        t.scheduled_date,
+        t.origin_date,
+        t.completed,
         t.completed_at,
         t.assigned_by,
         t.owner_id,
@@ -817,8 +824,8 @@ app.post('/api/subtasks/:subtaskId/assign', (req, res) => {
 
     // Create a task on the assignee's board
     const newTask = runSql(
-      'INSERT INTO tasks (company_id, owner_id, project_id, assigned_by, description, scheduled_date) VALUES (?, ?, ?, ?, ?, ?)',
-      [task.company_id, to_user_id, task.project_id, task.owner_id, subtask.description, scheduled_date]
+      'INSERT INTO tasks (company_id, owner_id, project_id, assigned_by, description, scheduled_date, origin_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [task.company_id, to_user_id, task.project_id, task.owner_id, subtask.description, scheduled_date, scheduled_date]
     );
 
     // Auto-add assignee to project if not already a member

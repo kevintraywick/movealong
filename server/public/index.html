@@ -481,6 +481,13 @@
             overflow-wrap: anywhere;
         }
 
+        /* Days-pushed counter: inclusive day count since the task's origin day */
+        .task-day-counter {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-left: 3px;
+        }
+
         .task-regenerate {
             flex-shrink: 0;
             width: 16px;
@@ -2518,6 +2525,19 @@
             }, 0);
         }
 
+        // Inclusive day count since the task's origin day (added Monday → "5" on
+        // Friday). Empty on the origin day itself. Locked tasks stay pinned to a
+        // past date instead of spilling, so pending tasks count to max(scheduled,
+        // today) — an overdue locked task keeps climbing daily. Completed tasks
+        // freeze at the day they were completed on.
+        function renderDayCounter(task) {
+            if (!task.origin_date) return '';
+            const todayKey = getTodayKey();
+            const end = (!task.completed && task.scheduled_date < todayKey) ? todayKey : task.scheduled_date;
+            const diff = Math.round((Date.parse(end + 'T00:00:00.000Z') - Date.parse(task.origin_date + 'T00:00:00.000Z')) / 86400000);
+            return diff >= 1 ? ` <span class="task-day-counter">${diff + 1}</span>` : '';
+        }
+
         function renderTask(task) {
             const assignedLabel = task.assigned_by_name ? ` <span class="assigned-from">(from: ${task.assigned_by_name})</span>` : '';
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
@@ -2535,7 +2555,7 @@
                 <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''}" data-id="${task.id}">
                     <div class="task-circle" data-task-id="${task.id}"></div>
                     <div class="task-arrow" data-task-id="${task.id}">&rarr;</div>
-                    <div class="task-description" data-task-id="${task.id}" title="Shift+Option+Click to lock to this day">${task.description}${assignedLabel}</div>
+                    <div class="task-description" data-task-id="${task.id}" title="Shift+Option+Click to lock to this day">${task.description}${renderDayCounter(task)}${assignedLabel}</div>
                     ${regenerateButton}
                     ${lockButton}
                     ${returnButton}

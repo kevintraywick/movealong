@@ -28,6 +28,7 @@
 | assigned_by    | INTEGER  | FK → users, nullable |
 | description    | TEXT     |                  |
 | scheduled_date | DATE     | when locked, this IS the lock date |
+| origin_date    | DATE     | day the task was first requested for; never changes (spillover, → moves, assign/return all preserve it). Drives the days-pushed counter: inclusive days from origin to max(scheduled, today), hidden when 1 |
 | locked         | INTEGER  | 0 or 1; pinned to scheduled_date, exempt from spillover |
 | completed      | INTEGER  | 0 or 1           |
 | completed_at   | DATETIME | nullable         |

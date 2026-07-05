@@ -80,6 +80,7 @@ async function initDb() {
       assigned_by INTEGER,
       description TEXT NOT NULL,
       scheduled_date DATE NOT NULL,
+      origin_date DATE,
       locked INTEGER DEFAULT 0,
       completed INTEGER DEFAULT 0,
       completed_at DATETIME,
@@ -115,6 +116,10 @@ async function initDb() {
 
   // Migrations for existing databases (ALTER TABLE is idempotent-guarded via table_info)
   ensureColumn('tasks', 'locked', 'INTEGER DEFAULT 0');
+  ensureColumn('tasks', 'origin_date', 'DATE');
+  // Pre-migration tasks never recorded their origin; the best available
+  // approximation is wherever they sit now (their true origin is lost).
+  db.run('UPDATE tasks SET origin_date = scheduled_date WHERE origin_date IS NULL');
 
   // Create indexes
   db.run('CREATE INDEX IF NOT EXISTS idx_users_company ON users(company_id)');
