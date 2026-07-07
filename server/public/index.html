@@ -92,6 +92,18 @@
             font-weight: 600;
         }
 
+        /* Overdue days: a locked past-due task pulls the row back before today.
+           Red border flags those days so the first pane reads as "not today". */
+        .day-card.overdue,
+        .day-card.overdue.selected {
+            border: 2px solid #ef4444;
+        }
+
+        .day-card.overdue .day-header,
+        .day-card.overdue .day-date {
+            color: #ef4444;
+        }
+
         .day-card.selected {
             border: 2px solid #0ea5e9;
             box-shadow: 0 4px 16px rgba(14, 165, 233, 0.18);
@@ -1711,7 +1723,8 @@
                     dayName: dayNames[date.getUTCDay()],
                     dateStr: `${monthNames[date.getUTCMonth()]} ${date.getUTCDate()}`,
                     key,
-                    isToday: key === todayKey
+                    isToday: key === todayKey,
+                    isOverdue: key < todayKey
                 });
             }
             return days;
@@ -2311,7 +2324,7 @@
                 const isSelected = isSignedUp && index === selectedDayIndex;
 
                 const card = document.createElement('div');
-                card.className = `day-card dow-${day.dayName.toLowerCase()} ${day.isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
+                card.className = `day-card dow-${day.dayName.toLowerCase()} ${day.isToday ? 'today' : ''} ${day.isOverdue ? 'overdue' : ''} ${isSelected ? 'selected' : ''}`;
                 card.dataset.dayIndex = index;
 
                 let tasksHtml = '';
