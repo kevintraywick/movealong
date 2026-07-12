@@ -98,6 +98,25 @@ too to lock to a future day). Locked tasks are exempt from the auto-spillover
 of incomplete past tasks, and a locked past-due task pulls the calendar's first
 visible day back to its lock date. Assigning or returning a task clears its lock.
 
+Changing `scheduled_date` on a series member cascades: every later step in
+the series shifts by the same number of days, stopping at (and before) the
+first locked step. Completed steps never move but don't stop the cascade.
+
+#### Link task into a series
+```
+POST /api/tasks/:taskId/link
+Body: { "parent_task_id": 7 }
+Response: { updated task }
+```
+
+Makes the task the step immediately after `parent_task_id` and moves it to
+that task's day + 1 (`origin_date` untouched). If the parent already had a
+next step, the task splices in between. Linking an already-chained task
+repositions it (it is spliced out of its old slot first). Both tasks must be
+pending, same owner, same project. There is no unlink endpoint yet; assign
+and delete both splice the task out automatically (successor re-links to
+predecessor).
+
 #### Assign task to another user
 ```
 POST /api/tasks/:taskId/assign
@@ -160,6 +179,7 @@ tasks
 ├── description
 ├── scheduled_date
 ├── origin_date - day first requested for; immutable, drives days-pushed counter
+├── parent_task_id (FK → tasks, nullable) - predecessor in a series (linked list)
 ├── locked (0/1) - pinned to scheduled_date, exempt from spillover
 ├── completed (0/1)
 ├── completed_at

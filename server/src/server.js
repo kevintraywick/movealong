@@ -73,6 +73,64 @@ function findDayWithCapacity({ ownerId, projectId, requestedDate }) {
 }
 
 // ============================================
+// SERIES (TASK CHAIN) HELPERS
+// ============================================
+// Tasks form linear series via tasks.parent_task_id (each task points at its
+// predecessor). Linking enforces a single successor per task, so a chain is a
+// simple linked list: A <- B <- C.
+
+// Days from a to b (positive when b is later). UTC-safe.
+function daysBetween(a, b) {
+  return Math.round((Date.parse(b + 'T00:00:00.000Z') - Date.parse(a + 'T00:00:00.000Z')) / 86400000);
+}
+
+function getChainChild(taskId) {
+  return queryOne('SELECT * FROM tasks WHERE parent_task_id = ?', [taskId]);
+}
+
+// All successors of a task in series order (nearest first). Cycle-safe.
+function getChainSuccessors(taskId) {
+  const out = [];
+  const seen = new Set([Number(taskId)]);
+  let cur = getChainChild(taskId);
+  while (cur && !seen.has(cur.id)) {
+    out.push(cur);
+    seen.add(cur.id);
+    cur = getChainChild(cur.id);
+  }
+  return out;
+}
+
+// After a series member moves by deltaDays, its successors move by the same
+// amount. The cascade stops at the first locked successor (deadlines never
+// drift); completed successors are frozen in place but don't stop the chain.
+function cascadeChainSuccessors(taskId, deltaDays) {
+  if (!deltaDays) return;
+  const now = new Date().toISOString();
+  for (const succ of getChainSuccessors(taskId)) {
+    if (succ.locked) break;
+    if (succ.completed) continue;
+    runSql('UPDATE tasks SET scheduled_date = ?, updated_at = ? WHERE id = ?',
+      [addDays(succ.scheduled_date, deltaDays), now, succ.id]);
+  }
+}
+
+// Remove a task from its series without breaking it: the task's successor
+// re-links to the task's predecessor. Used when a task is re-dropped
+// elsewhere, assigned away, or deleted.
+function spliceOutOfChain(task) {
+  const now = new Date().toISOString();
+  const child = getChainChild(task.id);
+  if (child) {
+    runSql('UPDATE tasks SET parent_task_id = ?, updated_at = ? WHERE id = ?',
+      [task.parent_task_id || null, now, child.id]);
+  }
+  if (task.parent_task_id) {
+    runSql('UPDATE tasks SET parent_task_id = NULL, updated_at = ? WHERE id = ?', [now, task.id]);
+  }
+}
+
+// ============================================
 // COMPANY ROUTES
 // ============================================
 
@@ -358,22 +416,40 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
-  // Spillover: move incomplete past tasks to today
+  // Spillover: incomplete past tasks move to today. Series members keep
+  // their spacing: an overdue member spills to today and drags its
+  // successors forward by the same delta (stopping at locked members).
   const today = new Date().toISOString().split('T')[0];
-  const spilloverParams = [today, new Date().toISOString(), user.id, today];
-  let spilloverSql = `
-    UPDATE tasks
-    SET scheduled_date = ?, updated_at = ?
+  let overdueSql = `
+    SELECT * FROM tasks
     WHERE owner_id = ?
       AND completed = 0
       AND locked = 0
       AND scheduled_date < ?
   `;
+  const overdueParams = [user.id, today];
   if (req.query.project_id) {
-    spilloverSql += ' AND project_id = ?';
-    spilloverParams.push(parseInt(req.query.project_id));
+    overdueSql += ' AND project_id = ?';
+    overdueParams.push(parseInt(req.query.project_id));
   }
-  runSql(spilloverSql, spilloverParams);
+  overdueSql += ' ORDER BY scheduled_date';
+
+  // A cascade can leave later chain members still overdue; loop until stable.
+  for (let pass = 0; pass < 50; pass++) {
+    const overdue = queryAll(overdueSql, overdueParams);
+    let changed = false;
+    for (const t of overdue) {
+      // An earlier cascade this pass may have already moved this task.
+      const fresh = queryOne('SELECT * FROM tasks WHERE id = ?', [t.id]);
+      if (!fresh || fresh.completed || fresh.locked || fresh.scheduled_date >= today) continue;
+      const delta = daysBetween(fresh.scheduled_date, today);
+      runSql('UPDATE tasks SET scheduled_date = ?, updated_at = ? WHERE id = ?',
+        [today, new Date().toISOString(), fresh.id]);
+      cascadeChainSuccessors(fresh.id, delta);
+      changed = true;
+    }
+    if (!changed) break;
+  }
 
   let taskSql = `
     SELECT
@@ -381,6 +457,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.description,
       t.scheduled_date,
       t.origin_date,
+      t.parent_task_id,
       t.locked,
       t.completed,
       t.completed_at,
@@ -503,12 +580,18 @@ app.put('/api/tasks/:taskId', (req, res) => {
   try {
     runSql(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`, values);
 
+    // Series cascade: moving a member drags its successors by the same delta.
+    if (scheduled_date !== undefined && scheduled_date !== task.scheduled_date) {
+      cascadeChainSuccessors(task.id, daysBetween(task.scheduled_date, scheduled_date));
+    }
+
     const updated = queryOne(`
       SELECT
         t.id,
         t.description,
         t.scheduled_date,
         t.origin_date,
+        t.parent_task_id,
         t.locked,
         t.completed,
         t.completed_at,
@@ -526,6 +609,94 @@ app.put('/api/tasks/:taskId', (req, res) => {
   } catch (err) {
     console.error('Error updating task:', err);
     res.status(500).json({ error: 'Failed to update task' });
+  }
+});
+
+// Link a task into a series: it becomes the step right after the task it was
+// dropped on, and moves to that task's day + 1 (origin_date untouched). If
+// the drop target already had a successor, the dragged task splices between
+// them. Re-dropping an already-chained task repositions it.
+app.post('/api/tasks/:taskId/link', (req, res) => {
+  const { taskId } = req.params;
+  const { parent_task_id } = req.body;
+
+  if (!parent_task_id) {
+    return res.status(400).json({ error: 'parent_task_id is required' });
+  }
+  if (Number(parent_task_id) === Number(taskId)) {
+    return res.status(400).json({ error: 'Cannot link a task to itself' });
+  }
+
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const parent = queryOne('SELECT * FROM tasks WHERE id = ?', [parent_task_id]);
+  if (!parent) return res.status(404).json({ error: 'Parent task not found' });
+
+  if (task.owner_id !== parent.owner_id) {
+    return res.status(400).json({ error: 'Tasks must belong to the same owner' });
+  }
+  if ((task.project_id || null) !== (parent.project_id || null)) {
+    return res.status(400).json({ error: 'Tasks must belong to the same project' });
+  }
+  if (task.completed || parent.completed) {
+    return res.status(400).json({ error: 'Completed tasks cannot be linked' });
+  }
+
+  try {
+    // Detach first so ancestor→descendant drops become simple repositioning.
+    spliceOutOfChain(task);
+
+    // Cycle guard (defense against pre-existing bad links): walking up from
+    // the parent must never reach the task being linked.
+    let cur = parent;
+    let hops = 0;
+    while (cur && cur.parent_task_id && hops++ < 1000) {
+      if (Number(cur.parent_task_id) === Number(taskId)) {
+        return res.status(400).json({ error: 'Link would create a cycle' });
+      }
+      cur = queryOne('SELECT id, parent_task_id FROM tasks WHERE id = ?', [cur.parent_task_id]);
+    }
+
+    const now = new Date().toISOString();
+
+    // The parent's existing successor now follows the dragged task instead.
+    const existing = queryOne(
+      'SELECT id FROM tasks WHERE parent_task_id = ? AND id != ?',
+      [parent.id, task.id]
+    );
+    if (existing) {
+      runSql('UPDATE tasks SET parent_task_id = ?, updated_at = ? WHERE id = ?',
+        [task.id, now, existing.id]);
+    }
+
+    runSql('UPDATE tasks SET parent_task_id = ?, scheduled_date = ?, updated_at = ? WHERE id = ?',
+      [parent.id, addDays(parent.scheduled_date, 1), now, task.id]);
+
+    const updated = queryOne(`
+      SELECT
+        t.id,
+        t.description,
+        t.scheduled_date,
+        t.origin_date,
+        t.parent_task_id,
+        t.locked,
+        t.completed,
+        t.completed_at,
+        t.assigned_by,
+        t.project_id,
+        t.created_at,
+        t.updated_at,
+        u.name as assigned_by_name
+      FROM tasks t
+      LEFT JOIN users u ON t.assigned_by = u.id
+      WHERE t.id = ?
+    `, [taskId]);
+
+    res.json(updated);
+  } catch (err) {
+    console.error('Error linking task:', err);
+    res.status(500).json({ error: 'Failed to link task' });
   }
 });
 
@@ -549,6 +720,9 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
   }
 
   try {
+    // Assigning moves the task to another board — it leaves its series.
+    spliceOutOfChain(task);
+
     runSql(`
       UPDATE tasks
       SET owner_id = ?, assigned_by = ?, scheduled_date = ?, locked = 0, updated_at = ?
@@ -633,12 +807,14 @@ app.post('/api/tasks/:taskId/return', (req, res) => {
 app.delete('/api/tasks/:taskId', (req, res) => {
   const { taskId } = req.params;
 
-  const task = queryOne('SELECT id FROM tasks WHERE id = ?', [taskId]);
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
   }
 
   try {
+    // Keep the series intact: successor re-links to predecessor.
+    spliceOutOfChain(task);
     runSql('DELETE FROM tasks WHERE id = ?', [taskId]);
     res.json({ success: true });
   } catch (err) {

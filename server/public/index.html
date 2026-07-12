@@ -201,6 +201,11 @@
             justify-content: center;
             transition: all 0.2s;
             flex-shrink: 0;
+            /* Series countdown number (empty for free-standing tasks) */
+            font-size: 8px;
+            font-weight: 700;
+            color: #475569;
+            line-height: 1;
         }
 
         .task-circle:hover {
@@ -500,6 +505,10 @@
             margin-left: 3px;
         }
 
+        .task-day-counter.lagging {
+            color: #ef4444;
+        }
+
         .task-regenerate {
             flex-shrink: 0;
             width: 16px;
@@ -555,6 +564,31 @@
             border-left: 2px solid #f59e0b;
             padding-left: 4px;
             margin-left: -6px;
+        }
+
+        /* Locked task whose deadline is today: the day has arrived. */
+        .task-item.locked-today .task-description {
+            color: #ef4444;
+        }
+
+        /* Series: drag a task onto another to chain them. */
+        .task-item.drop-target {
+            outline: 2px dashed #38bdf8;
+            outline-offset: -2px;
+        }
+
+        /* Series hover-thread: hovered chain lights up, the rest fades. */
+        .board-container.threading .task-item:not(.chain-active) {
+            opacity: 0.3;
+        }
+
+        #chainOverlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            pointer-events: none;
+            overflow: visible;
+            z-index: 15;
         }
 
         /* Lock Popup (reuses .team-popup box) */
@@ -2050,11 +2084,12 @@
             if (!task) return;
 
             try {
-                const updated = await api(`/tasks/${taskId}`, {
+                await api(`/tasks/${taskId}`, {
                     method: 'PUT',
                     body: { scheduled_date: newDateKey }
                 });
-                Object.assign(task, updated);
+                // Reload: moving a series member cascades to its successors.
+                await loadTasks();
                 renderView();
             } catch (err) {
                 showToast('Error: ' + err.message);
@@ -2069,8 +2104,9 @@
             try {
                 const body = { locked };
                 if (newDateKey) body.scheduled_date = newDateKey;
-                const updated = await api(`/tasks/${taskId}`, { method: 'PUT', body });
-                Object.assign(task, updated);
+                await api(`/tasks/${taskId}`, { method: 'PUT', body });
+                // Reload: a date change on a series member cascades.
+                await loadTasks();
                 renderView();
             } catch (err) {
                 showToast('Error: ' + err.message);
@@ -2302,6 +2338,8 @@
             const board = document.getElementById('board');
             board.innerHTML = '';
             board.classList.remove('has-expanded');
+            board.classList.remove('threading');
+            computeChains();
 
             // Locked past-due tasks pull the calendar's first day back to their date.
             days = generateDays(computeAnchorKey());
@@ -2383,6 +2421,11 @@
                 board.appendChild(column);
             });
 
+            // Series thread overlay (drawn on hover, scrolls with the board).
+            const overlay = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+            overlay.id = 'chainOverlay';
+            board.appendChild(overlay);
+
             if (isSignedUp) {
                 renderUserSwitcher();
             }
@@ -2420,6 +2463,41 @@
                     e.stopPropagation();
                     toggleComplete(parseInt(circle.dataset.taskId));
                 });
+            });
+
+            // Series: drag a task onto another to make it the next step.
+            document.querySelectorAll('.task-item[draggable="true"]').forEach(item => {
+                item.addEventListener('dragstart', (e) => {
+                    draggedTaskId = parseInt(item.dataset.id);
+                    e.dataTransfer.setData('text/plain', String(draggedTaskId));
+                    e.dataTransfer.effectAllowed = 'link';
+                });
+                item.addEventListener('dragend', () => {
+                    draggedTaskId = null;
+                    document.querySelectorAll('.drop-target').forEach(el => el.classList.remove('drop-target'));
+                });
+                item.addEventListener('dragover', (e) => {
+                    if (draggedTaskId && draggedTaskId !== parseInt(item.dataset.id)) {
+                        e.preventDefault();
+                        item.classList.add('drop-target');
+                    }
+                });
+                item.addEventListener('dragleave', () => item.classList.remove('drop-target'));
+                item.addEventListener('drop', (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    item.classList.remove('drop-target');
+                    const targetId = parseInt(item.dataset.id);
+                    if (draggedTaskId && draggedTaskId !== targetId) {
+                        linkTask(draggedTaskId, targetId);
+                    }
+                });
+            });
+
+            // Series: hover a chained task to reveal its thread.
+            document.querySelectorAll('.task-item[data-chain-id]').forEach(item => {
+                item.addEventListener('mouseenter', () => drawChainThread(parseInt(item.dataset.chainId)));
+                item.addEventListener('mouseleave', clearChainThread);
             });
 
             // Arrows
@@ -2549,12 +2627,142 @@
         // past date instead of spilling, so pending tasks count to max(scheduled,
         // today) — an overdue locked task keeps climbing daily. Completed tasks
         // freeze at the day they were completed on.
+        // ============================================
+        // SERIES (TASK CHAINS)
+        // ============================================
+        // Tasks link into linear series via parent_task_id (predecessor).
+        // chainInfo maps task id → { chainId, countdown, color, tint }.
+        // Countdown is position-from-end over the whole chain, so the first
+        // step shows the series size and the last shows 1; numbers stay
+        // stable when a middle step completes. No red/green: red is reserved
+        // for overdue signals, and thread colors only appear on hover.
+        const CHAIN_COLORS = [
+            { color: '#8b5cf6', tint: '#f5f3ff' },
+            { color: '#f97316', tint: '#fff7ed' },
+            { color: '#d946ef', tint: '#fdf4ff' },
+            { color: '#6366f1', tint: '#eef2ff' },
+            { color: '#0891b2', tint: '#ecfeff' },
+        ];
+        let chainInfo = new Map();
+        let draggedTaskId = null;
+
+        function computeChains() {
+            chainInfo = new Map();
+            const byId = new Map(tasks.map(t => [t.id, t]));
+            const childOf = new Map();
+            tasks.forEach(t => {
+                if (t.parent_task_id && byId.has(t.parent_task_id)) {
+                    childOf.set(t.parent_task_id, t);
+                }
+            });
+            tasks.forEach(t => {
+                const hasKnownParent = t.parent_task_id && byId.has(t.parent_task_id);
+                if (hasKnownParent || !childOf.has(t.id)) return;
+                // t is a chain root: walk the series.
+                const chain = [];
+                const seen = new Set();
+                let cur = t;
+                while (cur && !seen.has(cur.id)) {
+                    seen.add(cur.id);
+                    chain.push(cur);
+                    cur = childOf.get(cur.id);
+                }
+                if (chain.length < 2) return;
+                const palette = CHAIN_COLORS[chain[0].id % CHAIN_COLORS.length];
+                chain.forEach((member, i) => {
+                    chainInfo.set(member.id, {
+                        chainId: chain[0].id,
+                        countdown: chain.length - i,
+                        color: palette.color,
+                        tint: palette.tint,
+                    });
+                });
+            });
+        }
+
+        // Drop task A on task B → A becomes the step right after B and moves
+        // to B's day + 1 (server-side).
+        async function linkTask(taskId, parentTaskId) {
+            try {
+                await api(`/tasks/${taskId}/link`, {
+                    method: 'POST',
+                    body: { parent_task_id: parentTaskId }
+                });
+                await loadTasks();
+                renderView();
+                showToast('Added to series');
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        function clearChainThread() {
+            const overlay = document.getElementById('chainOverlay');
+            if (overlay) overlay.innerHTML = '';
+            const board = document.getElementById('board');
+            board.classList.remove('threading');
+            document.querySelectorAll('.task-item.chain-active').forEach(el => {
+                el.classList.remove('chain-active');
+                el.style.background = '';
+            });
+        }
+
+        // Hover-reveal: light up the hovered series, fade the rest, and draw
+        // threads between consecutive members across the day cards.
+        function drawChainThread(chainId) {
+            clearChainThread();
+            const board = document.getElementById('board');
+            const overlay = document.getElementById('chainOverlay');
+            if (!overlay) return;
+            const members = [...board.querySelectorAll(`.task-item[data-chain-id="${chainId}"]`)]
+                .sort((a, b) => Number(b.dataset.countdown) - Number(a.dataset.countdown));
+            if (members.length < 2) return;
+
+            const info = chainInfo.get(Number(members[0].dataset.id));
+            const { color, tint } = info || CHAIN_COLORS[0];
+            board.classList.add('threading');
+            members.forEach(el => {
+                el.classList.add('chain-active');
+                el.style.background = tint;
+            });
+
+            overlay.setAttribute('width', board.scrollWidth);
+            overlay.setAttribute('height', board.scrollHeight);
+            const boardRect = board.getBoundingClientRect();
+            const offX = board.scrollLeft - boardRect.left;
+            const offY = board.scrollTop - boardRect.top;
+
+            const svgNS = 'http://www.w3.org/2000/svg';
+            for (let i = 0; i < members.length - 1; i++) {
+                const a = members[i].getBoundingClientRect();
+                const b = members[i + 1].getBoundingClientRect();
+                const x1 = a.right + offX, y1 = a.top + a.height / 2 + offY;
+                const x2 = b.left + offX, y2 = b.top + b.height / 2 + offY;
+                const mid = (x1 + x2) / 2;
+                const path = document.createElementNS(svgNS, 'path');
+                path.setAttribute('d', `M ${x1} ${y1} C ${mid} ${y1}, ${mid} ${y2}, ${x2} ${y2}`);
+                path.setAttribute('fill', 'none');
+                path.setAttribute('stroke', color);
+                path.setAttribute('stroke-width', '1.5');
+                path.setAttribute('opacity', '0.85');
+                overlay.appendChild(path);
+                const dot = document.createElementNS(svgNS, 'circle');
+                dot.setAttribute('cx', x2);
+                dot.setAttribute('cy', y2);
+                dot.setAttribute('r', '2.5');
+                dot.setAttribute('fill', color);
+                overlay.appendChild(dot);
+            }
+        }
+
         function renderDayCounter(task) {
             if (!task.origin_date) return '';
             const todayKey = getTodayKey();
             const end = (!task.completed && task.scheduled_date < todayKey) ? todayKey : task.scheduled_date;
             const diff = Math.round((Date.parse(end + 'T00:00:00.000Z') - Date.parse(task.origin_date + 'T00:00:00.000Z')) / 86400000);
-            return diff >= 1 ? ` <span class="task-day-counter">${diff + 1}</span>` : '';
+            if (diff < 1) return '';
+            const count = diff + 1;
+            return ` <span class="task-day-counter${count > 10 ? ' lagging' : ''}">${count}</span>`;
         }
 
         function renderTask(task) {
@@ -2562,6 +2770,7 @@
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
             const isExpanded = expandedTaskIds.has(task.id);
             const isLocked = !!task.locked;
+            const isLockedToday = isLocked && !task.completed && task.scheduled_date === getTodayKey();
             const regenerateButton = isExpanded
                 ? `<button class="task-regenerate" data-task-id="${task.id}" title="Regenerate steps">&orarr;</button>`
                 : '';
@@ -2570,9 +2779,16 @@
                 ? ''
                 : `<div class="task-lock ${isLocked ? 'locked' : ''}" data-task-id="${task.id}" title="${isLocked ? 'Locked — click to manage' : 'Lock to a date'}">${isLocked ? '🔒' : '📅'}</div>`;
 
+            // Series: countdown number in the circle (steps left, first item =
+            // series size); completed members show the check instead.
+            const chain = chainInfo.get(task.id);
+            const chainAttrs = chain ? ` data-chain-id="${chain.chainId}" data-countdown="${chain.countdown}"` : '';
+            const circleContent = (chain && !task.completed) ? chain.countdown : '';
+            const draggable = task.completed ? '' : ' draggable="true"';
+
             return `
-                <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''}" data-id="${task.id}">
-                    <div class="task-circle" data-task-id="${task.id}"></div>
+                <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''}" data-id="${task.id}"${chainAttrs}${draggable}>
+                    <div class="task-circle" data-task-id="${task.id}">${circleContent}</div>
                     <div class="task-arrow" data-task-id="${task.id}">&rarr;</div>
                     <div class="task-description" data-task-id="${task.id}" title="Shift+Option+Click to lock to this day">${task.description}${renderDayCounter(task)}${assignedLabel}</div>
                     ${regenerateButton}
@@ -2814,12 +3030,16 @@
                 return;
             }
 
+            // Series members drag their later steps along with them.
+            const chain = chainInfo.get(taskId);
+            const seriesSuffix = (chain && chain.countdown > 1) ? ' — series follows' : '';
+
             // Shift+click: move forward one week
             if (e.shiftKey) {
                 const currentDate = new Date(task.scheduled_date + 'T00:00:00.000Z');
                 currentDate.setUTCDate(currentDate.getUTCDate() + 7);
                 moveTaskToDate(taskId, currentDate.toISOString().split('T')[0]);
-                showToast('Moved forward one week');
+                showToast('Moved forward one week' + seriesSuffix);
                 return;
             }
 
@@ -2827,7 +3047,7 @@
             const currentIndex = days.findIndex(d => d.key === task.scheduled_date);
             if (currentIndex !== -1 && currentIndex < days.length - 1) {
                 moveTaskToDate(taskId, days[currentIndex + 1].key);
-                showToast(`Moved to ${days[currentIndex + 1].dayName}`);
+                showToast(`Moved to ${days[currentIndex + 1].dayName}` + seriesSuffix);
             } else if (currentIndex === -1) {
                 // Task sits outside the current window — just add a day.
                 const currentDate = new Date(task.scheduled_date + 'T00:00:00.000Z');

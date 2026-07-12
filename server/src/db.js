@@ -81,6 +81,7 @@ async function initDb() {
       description TEXT NOT NULL,
       scheduled_date DATE NOT NULL,
       origin_date DATE,
+      parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
       locked INTEGER DEFAULT 0,
       completed INTEGER DEFAULT 0,
       completed_at DATETIME,
@@ -117,6 +118,8 @@ async function initDb() {
   // Migrations for existing databases (ALTER TABLE is idempotent-guarded via table_info)
   ensureColumn('tasks', 'locked', 'INTEGER DEFAULT 0');
   ensureColumn('tasks', 'origin_date', 'DATE');
+  // Series: a task points at its predecessor; NULL = not in a series.
+  ensureColumn('tasks', 'parent_task_id', 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
   // Pre-migration tasks never recorded their origin; the best available
   // approximation is wherever they sit now (their true origin is lost).
   db.run('UPDATE tasks SET origin_date = scheduled_date WHERE origin_date IS NULL');
@@ -127,6 +130,7 @@ async function initDb() {
   db.run('CREATE INDEX IF NOT EXISTS idx_tasks_owner ON tasks(owner_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_tasks_date ON tasks(scheduled_date)');
   db.run('CREATE INDEX IF NOT EXISTS idx_tasks_project ON tasks(project_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_tasks_parent ON tasks(parent_task_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_companies_subdomain ON companies(subdomain)');
   db.run('CREATE INDEX IF NOT EXISTS idx_projects_company ON projects(company_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_projects_slug ON projects(company_id, slug)');

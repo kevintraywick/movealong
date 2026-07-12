@@ -29,6 +29,7 @@
 | description    | TEXT     |                  |
 | scheduled_date | DATE     | when locked, this IS the lock date |
 | origin_date    | DATE     | day the task was first requested for; never changes (spillover, → moves, assign/return all preserve it). Drives the days-pushed counter: inclusive days from origin to max(scheduled, today), hidden when 1 |
+| parent_task_id | INTEGER  | FK → tasks, nullable, ON DELETE SET NULL; predecessor in a series (linked list: each task has at most one successor, enforced at link time) |
 | locked         | INTEGER  | 0 or 1; pinned to scheduled_date, exempt from spillover |
 | completed      | INTEGER  | 0 or 1           |
 | completed_at   | DATETIME | nullable         |
@@ -40,4 +41,5 @@
 - `idx_users_slug` on users(company_id, slug)
 - `idx_tasks_owner` on tasks(owner_id)
 - `idx_tasks_date` on tasks(scheduled_date)
+- `idx_tasks_parent` on tasks(parent_task_id)
 - `idx_companies_subdomain` on companies(subdomain)
