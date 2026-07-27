@@ -498,6 +498,24 @@
             overflow-wrap: anywhere;
         }
 
+        /* URLs inside a task description open in a new tab (never toggle the pane) */
+        .task-link {
+            color: #0284c7;
+            text-decoration: underline;
+            text-decoration-color: rgba(2, 132, 199, 0.4);
+            text-underline-offset: 2px;
+            cursor: pointer;
+        }
+
+        .task-link:hover {
+            color: #0ea5e9;
+            text-decoration-color: #0ea5e9;
+        }
+
+        .task-item.completed .task-link {
+            color: #94a3b8;
+        }
+
         /* Days-pushed counter: inclusive day count since the task's origin day */
         .task-day-counter {
             font-size: 10px;
@@ -2066,12 +2084,19 @@
             const task = tasks.find(t => t.id === taskId);
             if (!task) return;
 
+            const willComplete = !task.completed;
+
             try {
                 const updated = await api(`/tasks/${taskId}`, {
                     method: 'PUT',
-                    body: { completed: !task.completed }
+                    body: { completed: willComplete }
                 });
                 Object.assign(task, updated);
+                // A hyperlink task is done once the link has been followed —
+                // completing it collapses its subtask pane.
+                if (willComplete && taskHasLink(task.description)) {
+                    expandedTaskIds.delete(taskId);
+                }
                 renderView();
                 showToast(task.completed ? 'Task completed!' : 'Task reopened');
             } catch (err) {
@@ -2527,6 +2552,10 @@
                     e.stopPropagation();
                     const taskId = parseInt(desc.dataset.taskId);
 
+                    // Click on a URL → let the browser open it in a new tab;
+                    // don't toggle the subtask pane.
+                    if (e.target.closest('a.task-link')) return;
+
                     // Shift+Option+Click → quick-lock to this day (with confirm)
                     if (e.shiftKey && e.altKey) {
                         const task = tasks.find(t => t.id === taskId);
@@ -2755,6 +2784,50 @@
             }
         }
 
+        // ============================================
+        // HYPERLINKS IN TASK TEXT
+        // ============================================
+        // A task whose text contains a URL renders that URL as an anchor that
+        // opens in a new tab. Only http(s)/www forms match, so `javascript:`
+        // and friends can never become an href.
+        const TASK_URL_RE = /(https?:\/\/[^\s<]+|www\.[^\s<]+)/gi;
+        // Trailing sentence punctuation shouldn't be swallowed into the link.
+        const URL_TRAILING_RE = /[.,;:!?)\]}'"]+$/;
+
+        function escapeHtml(text) {
+            return String(text ?? '')
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;');
+        }
+
+        function taskHasLink(text) {
+            TASK_URL_RE.lastIndex = 0;
+            return TASK_URL_RE.test(String(text ?? ''));
+        }
+
+        // Escape everything, then wrap any URLs in anchors. draggable="false"
+        // keeps the link from hijacking the task-item's series drag.
+        function linkifyText(text) {
+            const src = String(text ?? '');
+            let out = '';
+            let last = 0;
+            let match;
+            TASK_URL_RE.lastIndex = 0;
+            while ((match = TASK_URL_RE.exec(src)) !== null) {
+                const url = match[0].replace(URL_TRAILING_RE, '');
+                if (!url) continue;
+                out += escapeHtml(src.slice(last, match.index));
+                const href = url.toLowerCase().startsWith('www.') ? 'https://' + url : url;
+                out += `<a class="task-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" draggable="false" title="Open in a new tab">${escapeHtml(url)}</a>`;
+                last = match.index + url.length;
+                TASK_URL_RE.lastIndex = last;
+            }
+            out += escapeHtml(src.slice(last));
+            return out;
+        }
+
         function renderDayCounter(task) {
             if (!task.origin_date) return '';
             const todayKey = getTodayKey();
@@ -2790,7 +2863,7 @@
                 <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''}" data-id="${task.id}"${chainAttrs}${draggable}>
                     <div class="task-circle" data-task-id="${task.id}">${circleContent}</div>
                     <div class="task-arrow" data-task-id="${task.id}">&rarr;</div>
-                    <div class="task-description" data-task-id="${task.id}" title="Shift+Option+Click to lock to this day">${task.description}${renderDayCounter(task)}${assignedLabel}</div>
+                    <div class="task-description" data-task-id="${task.id}" title="Shift+Option+Click to lock to this day">${linkifyText(task.description)}${renderDayCounter(task)}${assignedLabel}</div>
                     ${regenerateButton}
                     ${lockButton}
                     ${returnButton}
@@ -2920,7 +2993,7 @@
                             return `
                                 <div class="project-task-item">
                                     <div class="task-circle" data-task-id="${t.id}"></div>
-                                    <div class="project-task-desc" data-task-id="${t.id}">${t.description}</div>
+                                    <div class="project-task-desc" data-task-id="${t.id}">${linkifyText(t.description)}</div>
                                     <span class="project-task-date">${t.scheduled_date}</span>
                                     ${progress}
                                 </div>
@@ -2958,7 +3031,9 @@
                 });
 
                 container.querySelectorAll('.project-task-desc[data-task-id]').forEach(desc => {
-                    desc.addEventListener('click', async () => {
+                    desc.addEventListener('click', async (e) => {
+                        // Link clicks open in a new tab, they don't toggle the pane.
+                        if (e.target.closest('a.task-link')) return;
                         const taskId = parseInt(desc.dataset.taskId);
                         if (expandedTaskIds.has(taskId)) {
                             expandedTaskIds.delete(taskId);
