@@ -73,6 +73,14 @@ Subtasks must be **specific, actionable, and research-backed** — never vague p
 - Overdue **locked** tasks keep counting to today (they don't spill, but their age still climbs daily). **Completed** tasks freeze at the day they were completed.
 - Tasks created before the migration backfill `origin_date = scheduled_date` on boot (their earlier push history was never recorded).
 
+### Hyperlink tasks
+- Any URL inside a task's text renders as a clickable link (`.task-link`) that **opens in a new tab** (`target="_blank" rel="noopener noreferrer"`). Day board **and** the Main/master page; subtask rows and forwarded/placeholder rows are still plain text.
+- `linkifyText()` in `index.html` escapes the whole description first, then wraps matches of `TASK_URL_RE` (`http(s)://…` and `www.…` **only** — so a `javascript:` string can never become an href). Trailing sentence punctuation (`. , ) ] ' "`) is trimmed back out of the link. `www.` forms get an `https://` prefix on the href.
+- Task descriptions are therefore **HTML-escaped now** (they used to be injected raw — that was an XSS hole). Typed markup shows literally.
+- Links carry `draggable="false"` so dragging from the link body still starts the task's series drag instead of a URL drag.
+- Both description click handlers (board + master) early-return on `e.target.closest('a.task-link')`: a link click navigates and does **not** toggle the subtask pane. Clicking any non-link part of the text opens the pane as before.
+- **Completing a task whose text contains a URL closes its subtask pane** (`toggleComplete()` drops it from `expandedTaskIds` when `willComplete && taskHasLink(...)`). Reopening, and completing a link-free task, leave the pane alone.
+
 ### Master Project Page
 - Each username has a **master project page** that lists all their projects. (The UI button for it is labeled **"Main"**; internally the view mode and API route are still `master`.)
 - Tasks are grouped by project (not by day) on this page.
