@@ -528,13 +528,14 @@
         }
 
         /* Priority: 1-3 red exclamation marks, set by hovering a task and
-           pressing 1/2/3. Tight tracking so three marks cost ~10px and the
-           200px day column never has to widen. */
+           pressing 1/2/3. Tracking is pulled in slightly to keep three marks
+           narrow, but not so far that 1 / 2 / 3 are hard to tell apart at a
+           glance — three marks cost ~12px, so the 200px column never widens. */
         .task-priority {
             font-size: 11px;
             font-weight: 700;
             color: #ef4444;
-            letter-spacing: -1.5px;
+            letter-spacing: -0.3px;
             margin-left: 3px;
             padding-right: 1px;
             white-space: nowrap;
