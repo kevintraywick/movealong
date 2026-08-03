@@ -19,6 +19,8 @@
 - [x] Day counter turns red past 10 days (lagging items)
 - [x] Locked task on its lock day renders red
 - [x] Series (task chains): drag-to-link, countdown circles, hover threads, move/spillover cascade with lock-stop
+- [x] Hyperlink tasks — URLs in task text open in a new tab; completing a link task closes its pane
+- [x] Priority — hover a task and press 1/2/3 for red exclamation marks; board re-sorts highest-first on mouse-leave
 
 ## Next
 - [ ] Series: unlink UI (currently only re-drag/assign/delete removes a step)

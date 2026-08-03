@@ -83,6 +83,7 @@ async function initDb() {
       origin_date DATE,
       parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
       locked INTEGER DEFAULT 0,
+      priority INTEGER DEFAULT 0,
       completed INTEGER DEFAULT 0,
       completed_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -120,6 +121,8 @@ async function initDb() {
   ensureColumn('tasks', 'origin_date', 'DATE');
   // Series: a task points at its predecessor; NULL = not in a series.
   ensureColumn('tasks', 'parent_task_id', 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
+  // Priority: 0 = none, 1-3 = number of red exclamation marks (3 = most urgent).
+  ensureColumn('tasks', 'priority', 'INTEGER DEFAULT 0');
   // Pre-migration tasks never recorded their origin; the best available
   // approximation is wherever they sit now (their true origin is lost).
   db.run('UPDATE tasks SET origin_date = scheduled_date WHERE origin_date IS NULL');

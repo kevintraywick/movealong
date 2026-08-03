@@ -73,6 +73,17 @@ Subtasks must be **specific, actionable, and research-backed** — never vague p
 - Overdue **locked** tasks keep counting to today (they don't spill, but their age still climbs daily). **Completed** tasks freeze at the day they were completed.
 - Tasks created before the migration backfill `origin_date = scheduled_date` on boot (their earlier push history was never recorded).
 
+### Priority (hover + 1/2/3)
+- **Hover a pending task and press `1`, `2`, or `3`** to flag it with that many red `!` marks (3 = most urgent). `0` clears it; pressing the level it already has toggles it off. Backed by `tasks.priority` (0-3, clamped server-side in `PUT /api/tasks/:id`).
+- Marks render **inline right after the day counter** (`renderPriorityMarks()`), so three of them cost ~10px and the 200px column never widens. Red `#ef4444` — the sanctioned warning colour.
+- **The list re-sorts on `mouseleave`, not on keypress.** The marks paint immediately via direct DOM mutation (`paintPriorityMarks()`), but the row holds its place until the pointer leaves it — sorting instantly would slide the row out from under the cursor and send a follow-up keystroke to its neighbour. `pendingPriorityRow` (declared in APP STATE, cleared at the top of `renderView()`) tracks the row owing a sort.
+- Sorting is **highest-first, stable**: `sortByPriority()` on the day board's pending list only (completed/assigned sections below the divider keep their order); `ORDER BY t.priority DESC, ...` on the master route. With every task at 0 the order is identical to pre-feature behaviour.
+- **Eligible rows:** pending only. Completed, assigned-away (`.forwarded`) and placeholder rows ignore the keys and never render marks.
+- **The keydown branch must stay above the `viewMode !== 'calendar'` guard** (so it works on Main) **and above the type-to-focus fallback** — that fallback would otherwise swallow the digit into the add-task input. It also early-returns when focus is in any `INPUT`/`TEXTAREA`/`SELECT`/contentEditable, so typing "3 eggs" into the add-task box never sets a priority.
+- Hover detection reads the live CSS state via `document.querySelector('.task-item:hover, .project-task-item:hover')` — the row that visibly changed colour is exactly the row that gets flagged, with no separate hover tracking to drift out of sync.
+- Writes are chained per task id (`priorityWrites` map) so two fast keypresses can't land out of order server-side.
+- Priority is **display/ordering only** — it never writes `scheduled_date`, so it triggers no series cascade, no spillover change, and doesn't count against day capacity.
+
 ### Hyperlink tasks
 - Any URL inside a task's text renders as a clickable link (`.task-link`) that **opens in a new tab** (`target="_blank" rel="noopener noreferrer"`). Day board **and** the Main/master page; subtask rows and forwarded/placeholder rows are still plain text.
 - `linkifyText()` in `index.html` escapes the whole description first, then wraps matches of `TASK_URL_RE` (`http(s)://…` and `www.…` **only** — so a `javascript:` string can never become an href). Trailing sentence punctuation (`. , ) ] ' "`) is trimmed back out of the link. `www.` forms get an `https://` prefix on the href.

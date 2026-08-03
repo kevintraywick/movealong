@@ -459,6 +459,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.origin_date,
       t.parent_task_id,
       t.locked,
+      t.priority,
       t.completed,
       t.completed_at,
       t.assigned_by,
@@ -532,6 +533,7 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       requested_date: scheduled_date,
       project_id: project_id || null,
       locked: 0,
+      priority: 0,
       completed: 0,
       assigned_by: null,
       assigned_by_name: null
@@ -545,7 +547,7 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
 // Update a task (complete, move date, etc.)
 app.put('/api/tasks/:taskId', (req, res) => {
   const { taskId } = req.params;
-  const { scheduled_date, completed, locked } = req.body;
+  const { scheduled_date, completed, locked, priority } = req.body;
 
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
   if (!task) {
@@ -563,6 +565,14 @@ app.put('/api/tasks/:taskId', (req, res) => {
   if (locked !== undefined) {
     updates.push('locked = ?');
     values.push(locked ? 1 : 0);
+  }
+
+  // Priority: 0 = none, 1-3 exclamation marks. Clamped so a bad client can't
+  // write an out-of-range level that the board would then fail to render.
+  if (priority !== undefined) {
+    const level = Math.min(3, Math.max(0, parseInt(priority, 10) || 0));
+    updates.push('priority = ?');
+    values.push(level);
   }
 
   if (completed !== undefined) {
@@ -593,6 +603,7 @@ app.put('/api/tasks/:taskId', (req, res) => {
         t.origin_date,
         t.parent_task_id,
         t.locked,
+        t.priority,
         t.completed,
         t.completed_at,
         t.assigned_by,
@@ -681,6 +692,7 @@ app.post('/api/tasks/:taskId/link', (req, res) => {
         t.origin_date,
         t.parent_task_id,
         t.locked,
+        t.priority,
         t.completed,
         t.completed_at,
         t.assigned_by,
@@ -1246,12 +1258,12 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
 
   const result = projects.map(project => {
     const tasks = queryAll(`
-      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by,
+      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.priority,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id) as subtask_count,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id AND completed = 1) as completed_subtask_count
       FROM tasks t
       WHERE t.project_id = ? AND t.owner_id = ? AND t.completed = 0
-      ORDER BY t.scheduled_date, t.created_at
+      ORDER BY t.priority DESC, t.scheduled_date, t.created_at
     `, [project.id, user.id]);
 
     return { ...project, tasks };

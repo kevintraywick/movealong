@@ -65,7 +65,7 @@ Response: { id, name, slug, initials, color }
 #### Get user's tasks
 ```
 GET /api/companies/:subdomain/users/:slug/tasks
-Response: [{ id, description, scheduled_date, origin_date, locked, completed, assigned_by, assigned_by_name, ... }, ...]
+Response: [{ id, description, scheduled_date, origin_date, locked, priority, completed, assigned_by, assigned_by_name, ... }, ...]
 ```
 
 #### Create task
@@ -86,12 +86,19 @@ afterward — spillover, reschedules, assign, and return all preserve it.
 It drives the frontend's days-pushed counter (inclusive days from origin
 to max(scheduled_date, today), hidden on the origin day).
 
-#### Update task (complete, reschedule, lock)
+#### Update task (complete, reschedule, lock, prioritize)
 ```
 PUT /api/tasks/:taskId
-Body: { "completed": true } or { "scheduled_date": "2024-12-20" } or { "locked": true }
+Body: { "completed": true } or { "scheduled_date": "2024-12-20" }
+   or { "locked": true } or { "priority": 3 }
 Response: { updated task }
 ```
+
+`priority` is `0` (none) through `3` (most urgent) and is clamped to that range
+server-side. It is display/ordering only — it never touches `scheduled_date`,
+so it triggers no series cascade and no spillover. The day board sorts its
+pending list highest-priority-first client-side; the master route sorts
+server-side (`ORDER BY priority DESC, scheduled_date, created_at`).
 
 `locked: true` pins the task to its `scheduled_date` (send `scheduled_date`
 too to lock to a future day). Locked tasks are exempt from the auto-spillover
@@ -181,6 +188,7 @@ tasks
 ├── origin_date - day first requested for; immutable, drives days-pushed counter
 ├── parent_task_id (FK → tasks, nullable) - predecessor in a series (linked list)
 ├── locked (0/1) - pinned to scheduled_date, exempt from spillover
+├── priority (0-3) - red exclamation marks; sorts the pending list
 ├── completed (0/1)
 ├── completed_at
 ├── created_at
