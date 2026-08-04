@@ -32,6 +32,9 @@ app.get('/help', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'help.html'));
 });
 
+// Static assets (wordmark font, any future images)
+app.use(express.static(path.join(__dirname, '..', 'public')));
+
 // Utility: generate slug from name
 function generateSlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 15) || 'user';
