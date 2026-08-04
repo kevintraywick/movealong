@@ -591,6 +591,31 @@
             opacity: 1;
         }
 
+        .task-unlink {
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1;
+            border-radius: 4px;
+            opacity: 0;
+            transition: all 0.15s;
+            user-select: none;
+        }
+
+        .task-item:hover .task-unlink {
+            opacity: 0.35;
+        }
+
+        .task-unlink:hover {
+            opacity: 1 !important;
+            background: rgba(239, 68, 68, 0.15);
+        }
+
         /* Locked tasks get a deadline accent */
         .task-item.locked {
             border-left: 2px solid #f59e0b;
@@ -2575,6 +2600,14 @@
                 });
             });
 
+            // Scissors icon → cut this task's link to its predecessor
+            document.querySelectorAll('.task-unlink[data-task-id]').forEach(scissors => {
+                scissors.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    unlinkTask(parseInt(scissors.dataset.taskId));
+                });
+            });
+
             // Task description click → toggle subtask pane
             document.querySelectorAll('.task-description[data-task-id]').forEach(desc => {
                 desc.addEventListener('click', async (e) => {
@@ -2749,6 +2782,22 @@
                 await loadTasks();
                 renderView();
                 showToast('Added to series');
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        // Cut a task's link to its predecessor. Its own successors stay
+        // attached — it becomes the root of a new, separate series.
+        async function unlinkTask(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            if (!confirm(`Unlink "${task.description}" from the previous step?`)) return;
+            try {
+                await api(`/tasks/${taskId}/unlink`, { method: 'POST' });
+                await loadTasks();
+                renderView();
+                showToast('Unlinked from series');
             } catch (err) {
                 showToast('Error: ' + err.message);
             }
@@ -2992,12 +3041,20 @@
             const circleContent = (chain && !task.completed) ? chain.countdown : '';
             const draggable = task.completed ? '' : ' draggable="true"';
 
+            // Unlink: only for a task that has a predecessor in a live chain.
+            // Cuts just this one edge — the task's own successors stay attached
+            // and it becomes the root of a new, separate series.
+            const unlinkButton = (chain && task.parent_task_id && !task.completed)
+                ? `<div class="task-unlink" data-task-id="${task.id}" title="Unlink from previous step">&#9986;&#65039;</div>`
+                : '';
+
             return `
                 <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''}" data-id="${task.id}"${chainAttrs}${draggable}>
                     <div class="task-circle" data-task-id="${task.id}">${circleContent}</div>
                     <div class="task-arrow" data-task-id="${task.id}">&rarr;</div>
                     <div class="task-description" data-task-id="${task.id}" title="Shift+Option+Click to lock to this day · hover and press 1-3 to prioritize">${linkifyText(task.description)}${renderDayCounter(task)}${renderPriorityMarks(task)}${assignedLabel}</div>
                     ${regenerateButton}
+                    ${unlinkButton}
                     ${lockButton}
                     ${returnButton}
                 </div>

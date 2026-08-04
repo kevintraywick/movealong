@@ -120,9 +120,19 @@ Makes the task the step immediately after `parent_task_id` and moves it to
 that task's day + 1 (`origin_date` untouched). If the parent already had a
 next step, the task splices in between. Linking an already-chained task
 repositions it (it is spliced out of its old slot first). Both tasks must be
-pending, same owner, same project. There is no unlink endpoint yet; assign
-and delete both splice the task out automatically (successor re-links to
-predecessor).
+pending, same owner, same project.
+
+#### Unlink task from its predecessor
+```
+POST /api/tasks/:taskId/unlink
+Response: { updated task }
+```
+
+Clears `parent_task_id` on the task only — its own successors stay attached,
+so the task becomes the root of a new, separate series. 404 if the task
+doesn't exist, 400 if it has no predecessor to unlink. This is distinct from
+the splice-out used by assign/delete (which bypasses the whole task,
+re-linking its successor directly to its predecessor).
 
 #### Assign task to another user
 ```

@@ -712,6 +712,51 @@ app.post('/api/tasks/:taskId/link', (req, res) => {
   }
 });
 
+// Cut the link between a task and its predecessor only — unlike
+// spliceOutOfChain (used on delete/assign, which bypasses the whole task),
+// this leaves the task's own successors attached: the task becomes the new
+// root of a separate series instead of disappearing from the chain.
+app.post('/api/tasks/:taskId/unlink', (req, res) => {
+  const { taskId } = req.params;
+
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  if (!task.parent_task_id) {
+    return res.status(400).json({ error: 'Task has no predecessor to unlink' });
+  }
+
+  try {
+    runSql('UPDATE tasks SET parent_task_id = NULL, updated_at = ? WHERE id = ?',
+      [new Date().toISOString(), taskId]);
+
+    const updated = queryOne(`
+      SELECT
+        t.id,
+        t.description,
+        t.scheduled_date,
+        t.origin_date,
+        t.parent_task_id,
+        t.locked,
+        t.priority,
+        t.completed,
+        t.completed_at,
+        t.assigned_by,
+        t.project_id,
+        t.created_at,
+        t.updated_at,
+        u.name as assigned_by_name
+      FROM tasks t
+      LEFT JOIN users u ON t.assigned_by = u.id
+      WHERE t.id = ?
+    `, [taskId]);
+
+    res.json(updated);
+  } catch (err) {
+    console.error('Error unlinking task:', err);
+    res.status(500).json({ error: 'Failed to unlink task' });
+  }
+});
+
 // Assign task to another user
 app.post('/api/tasks/:taskId/assign', (req, res) => {
   const { taskId } = req.params;
