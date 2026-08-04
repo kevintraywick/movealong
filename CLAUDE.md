@@ -135,6 +135,8 @@ Server starts on `http://localhost:3000`, serves both the API and frontend.
 - `ANTHROPIC_API_KEY` — **optional** for local dev. Used for AI subtask generation (`claude-sonnet-5`). `server/src/ai.js` throws if it's `require()`d without a key, but it's only required lazily inside the generate-subtasks handler, which catches the error and falls back to `generateMockSubtasks`. The server boots fine without it (or with a dummy value) — you just get mock subtask lists. (Railway still sets it for real AI output.)
 - `DB_PATH` — optional. Override default `./movealong.db` location.
 - `PORT` — optional. Defaults to 3000.
+- `AI_ACCESS_KEY` — optional. When set, only requests with a matching `x-ai-key` header get real AI generation; others get mocks. Set on public deployments so strangers can't spend the Anthropic credit.
+- `AI_LIMIT_PER_IP_HOUR` (default 20) / `AI_LIMIT_GLOBAL_DAY` (default 200) — rate caps on the generate-subtasks endpoint; over-cap requests get mocks.
 
 ## Testing
 
@@ -167,7 +169,7 @@ Full endpoint reference lives in `reference/api-reference.md`. Schema lives in `
 
 - **GitHub:** [kevintraywick/movealong](https://github.com/kevintraywick/movealong), default branch `main`. No PR/commit conventions formalized yet.
 - **Railway:** Auto-deploy on push to `main`. Build/start uses `npm start` (which runs `node src/server.js` from `server/`).
-- **Env vars in Railway:** set `ANTHROPIC_API_KEY` for real AI subtask generation. It is **not** required to boot — without it the server runs and falls back to mock subtasks (see Environment Variables). No other env vars configured yet.
+- **Env vars in Railway:** set `ANTHROPIC_API_KEY` for real AI subtask generation. It is **not** required to boot — without it the server runs and falls back to mock subtasks (see Environment Variables). **Set `AI_ACCESS_KEY` alongside it** so only the owner's browsers (key entered via Shift+Click on 🧠) trigger billed calls.
 - **Database persistence:** No volume attached. `server/movealong.db` lives on the ephemeral container filesystem, so every deploy wipes all data. Attach a Railway volume (e.g. mount at `/data`) and set `DB_PATH=/data/movealong.db` before this is usable for real users.
 - **Custom domain:** Not configured. The `*.movealong.com` subdomain pattern in the code is aspirational until DNS + a proxy are set up.
 
@@ -186,6 +188,7 @@ Full endpoint reference lives in `reference/api-reference.md`. Schema lives in `
 - AI agents do research and analysis after initial subtask generation so user gets immediate feedback first
 - Day capacity: max 10 pending tasks per (owner, project) per day. New tasks created on a saturated day overflow to the next day with capacity (creation-only; assign/return/move are not capped)
 - **AI assistant master switch** (🧠 toggle, `localStorage` `movealong.assistant`, default on): when on, adding a task auto-generates subtasks and opens the pane; when off, the task is created bare with no AI call
+  - **Shift+Click the 🧠 toggle** prompts for the **AI access key** (`localStorage` `movealong.aikey`, sent as `x-ai-key` on every `api()` call). When the server sets `AI_ACCESS_KEY`, only requests with the matching header get real AI (`aiKeyAllows()`, timing-safe compare); all others silently get mock subtasks. Unset server-side = open (rate-limited) AI as before. Second layer: per-IP hourly + global daily caps (`AI_LIMIT_PER_IP_HOUR`/`AI_LIMIT_GLOBAL_DAY`).
   - **Known gap:** the toggle only gates `addTask`/`addTaskFromMaster` (task creation). Expanding an existing task's row just re-reads stored subtasks (`GET /tasks/:id/subtasks`, no AI call either way). But the ↺ "Regenerate steps" button (`regenerateSubtasks()`) calls `POST /tasks/:id/generate-subtasks` unconditionally — it ignores the toggle. Fix both call sites together if closing this gap.
 
 ## Conventions

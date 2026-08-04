@@ -1785,19 +1785,32 @@
             try { localStorage.setItem(ASSISTANT_KEY, assistantEnabled ? 'on' : 'off'); } catch (e) { /* ignore */ }
         }
 
+        // Optional AI access key: when the server sets AI_ACCESS_KEY, only
+        // requests carrying it get real (billed) AI generation — everyone
+        // else gets mock subtasks. Stored per browser; set via Shift+Click
+        // on the 🧠 assistant toggle.
+        const AI_KEY_STORAGE = 'movealong.aikey';
+        function getAiKey() {
+            try { return localStorage.getItem(AI_KEY_STORAGE) || ''; } catch (e) { return ''; }
+        }
+
         async function api(endpoint, options = {}) {
             const url = `${API_BASE}${endpoint}`;
             const config = {
                 headers: { 'Content-Type': 'application/json' },
                 ...options
             };
+            const aiKey = getAiKey();
+            if (aiKey) config.headers['x-ai-key'] = aiKey;
             if (config.body && typeof config.body === 'object') {
                 config.body = JSON.stringify(config.body);
             }
             const response = await fetch(url, config);
             if (!response.ok) {
-                const error = await response.json();
-                throw new Error(error.error || 'API error');
+                let message = 'HTTP ' + response.status;
+                // Non-API errors (proxy pages, default 404s) aren't JSON.
+                try { message = (await response.json()).error || message; } catch (e) { /* keep status */ }
+                throw new Error(message);
             }
             return response.json();
         }
@@ -3529,7 +3542,27 @@
             btn.classList.toggle('on', assistantEnabled);
             btn.setAttribute('aria-checked', assistantEnabled ? 'true' : 'false');
         }
-        document.getElementById('assistantToggleBtn').addEventListener('click', () => {
+        document.getElementById('assistantToggleBtn').addEventListener('click', (e) => {
+            // Shift+Click: set/clear the AI access key for this browser
+            // (needed for real AI when the server sets AI_ACCESS_KEY).
+            if (e.shiftKey) {
+                const current = getAiKey();
+                const entered = prompt(
+                    current ? 'AI access key (empty to clear):' : 'AI access key:',
+                    current
+                );
+                if (entered === null) return; // cancelled
+                try {
+                    if (entered.trim()) {
+                        localStorage.setItem(AI_KEY_STORAGE, entered.trim());
+                        showToast('AI access key saved');
+                    } else {
+                        localStorage.removeItem(AI_KEY_STORAGE);
+                        showToast('AI access key cleared');
+                    }
+                } catch (err) { showToast('Could not save key'); }
+                return;
+            }
             assistantEnabled = !assistantEnabled;
             saveAssistantPref();
             renderAssistantToggle();

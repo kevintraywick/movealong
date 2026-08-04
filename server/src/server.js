@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
+const crypto = require('crypto');
 const { initDb, queryOne, queryAll, runSql, flushDb } = require('./db');
 
 const app = express();
@@ -1122,10 +1123,23 @@ app.post('/api/subtasks/:subtaskId/return', (req, res) => {
 // ============================================
 
 // Generate subtasks for a task (mock or AI)
-// AI spend protection: this endpoint calls a paid API and the app has no
-// auth, so anyone who finds a deployed URL could otherwise burn the owner's
-// Anthropic credit. Cap calls per IP per hour and globally per day; over
-// either cap we quietly serve mock subtasks instead (no API spend, no error).
+// AI spend protection, two layers:
+//  1. AI_ACCESS_KEY (optional): when set, only requests whose x-ai-key
+//     header matches get real AI — everyone else gets mock subtasks, so
+//     strangers can never spend the owner's Anthropic credit. Unset, any
+//     visitor may trigger AI (rate-limited below) — fine for private
+//     deployments, risky for public URLs.
+//  2. Per-IP hourly and global daily caps; over either cap we quietly
+//     serve mock subtasks instead (no API spend, no error).
+const AI_ACCESS_KEY = process.env.AI_ACCESS_KEY || '';
+
+function aiKeyAllows(req) {
+  if (!AI_ACCESS_KEY) return true;
+  const given = Buffer.from(String(req.get('x-ai-key') || ''));
+  const expected = Buffer.from(AI_ACCESS_KEY);
+  return given.length === expected.length && crypto.timingSafeEqual(given, expected);
+}
+
 const AI_LIMIT_PER_IP_HOUR = parseInt(process.env.AI_LIMIT_PER_IP_HOUR || '20', 10);
 const AI_LIMIT_GLOBAL_DAY = parseInt(process.env.AI_LIMIT_GLOBAL_DAY || '200', 10);
 const aiCallsByIp = new Map(); // ip -> timestamps (ms) within the last hour
@@ -1157,9 +1171,12 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
   try {
     let subtaskList;
 
-    // Try AI generation if available (and within the spend budget)
+    // Try AI generation if available (and the caller is allowed to spend)
     try {
-      if (!aiBudgetAllows(req.ip)) {
+      if (!aiKeyAllows(req)) {
+        console.warn(`AI access key missing/invalid (ip: ${req.ip}) — serving mock subtasks`);
+        subtaskList = generateMockSubtasks(task.description);
+      } else if (!aiBudgetAllows(req.ip)) {
         console.warn(`AI rate limit hit (ip: ${req.ip}) — serving mock subtasks`);
         subtaskList = generateMockSubtasks(task.description);
       } else {

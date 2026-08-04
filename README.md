@@ -35,6 +35,7 @@ All optional:
 | `ANTHROPIC_API_KEY` | — | Enables real AI subtask generation (`claude-sonnet-5`). Without it you get mock subtasks. |
 | `PORT` | `3000` | Server port |
 | `DB_PATH` | `./movealong.db` | SQLite file location |
+| `AI_ACCESS_KEY` | — | When set, only browsers holding this key get real AI generation (Shift+Click the 🧠 toggle to enter it); everyone else gets mock steps. **Set this on any public deployment with an API key.** |
 | `AI_LIMIT_PER_IP_HOUR` | `20` | Max AI generations per client IP per hour (over the cap serves mock steps) |
 | `AI_LIMIT_GLOBAL_DAY` | `200` | Max AI generations per day across all users — a hard ceiling on API spend |
 
@@ -48,7 +49,7 @@ Any Node host works. On Railway/Render/Fly:
 2. Attach a **persistent volume** and point `DB_PATH` at it (e.g. mount at `/data`, set `DB_PATH=/data/movealong.db`). Without a volume, every deploy wipes the database.
 3. Optionally set `ANTHROPIC_API_KEY` for real AI subtasks.
 
-> **Cost warning:** there is no authentication. If you deploy publicly with an `ANTHROPIC_API_KEY`, anyone who finds your URL can trigger AI calls billed to you. The per-IP and daily rate limits above cap the worst case — keep `AI_LIMIT_GLOBAL_DAY` at a number you'd be comfortable paying for daily, or don't set a key on public deployments.
+> **Cost warning:** there is no authentication. If you deploy publicly with an `ANTHROPIC_API_KEY`, set `AI_ACCESS_KEY` too — then only browsers where you've entered that key (Shift+Click the 🧠 toggle, once) can trigger billed AI calls; strangers get free mock steps. The per-IP and daily rate limits are a second layer capping the worst case even for key holders.
 
 ## Project Structure
 
