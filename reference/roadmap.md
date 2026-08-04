@@ -21,9 +21,9 @@
 - [x] Series (task chains): drag-to-link, countdown circles, hover threads, move/spillover cascade with lock-stop
 - [x] Hyperlink tasks — URLs in task text open in a new tab; completing a link task closes its pane
 - [x] Priority — hover a task and press 1/2/3 for red exclamation marks; board re-sorts highest-first on mouse-leave
+- [x] Series: unlink — hover a chained task for a ✂️ that cuts its link to its predecessor
 
 ## Next
-- [ ] Series: unlink UI (currently only re-drag/assign/delete removes a step)
 - [ ] Authentication (currently URL-based access only)
 - [ ] Subdomain routing (DNS wildcard + proxy for *.movealong.com)
 - [ ] Rate limiting for public deployment
