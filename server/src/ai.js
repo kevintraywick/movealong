@@ -7,6 +7,8 @@ if (!ANTHROPIC_API_KEY) {
 async function generateSubtasks(taskDescription) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
+    // A hung API call would otherwise hold the HTTP request open forever.
+    signal: AbortSignal.timeout(20000),
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': ANTHROPIC_API_KEY,

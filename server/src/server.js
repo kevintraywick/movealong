@@ -1,14 +1,26 @@
 const express = require('express');
 const cors = require('cors');
 const path = require('path');
-const { initDb, queryOne, queryAll, runSql, saveDb } = require('./db');
+const { initDb, queryOne, queryAll, runSql, flushDb } = require('./db');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// Behind a reverse proxy (Railway/Heroku/etc.) req.ip should be the real
+// client address from X-Forwarded-For, not the proxy's.
+app.set('trust proxy', 1);
+
 // Middleware
 app.use(cors());
 app.use(express.json());
+
+// Persist the database once per request (after the response is sent) instead
+// of once per SQL statement — spillover/cascade paths can run dozens of
+// statements per request, and each full-DB export is O(database size).
+app.use((req, res, next) => {
+  res.on('finish', flushDb);
+  next();
+});
 
 // Serve frontend
 app.get('/', (req, res) => {
@@ -514,7 +526,7 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     });
   } catch (err) {
     console.error('Capacity helper failed:', err);
-    return res.status(500).json({ error: err.message });
+    return res.status(500).json({ error: 'Failed to schedule task' });
   }
 
   try {
@@ -1110,6 +1122,29 @@ app.post('/api/subtasks/:subtaskId/return', (req, res) => {
 // ============================================
 
 // Generate subtasks for a task (mock or AI)
+// AI spend protection: this endpoint calls a paid API and the app has no
+// auth, so anyone who finds a deployed URL could otherwise burn the owner's
+// Anthropic credit. Cap calls per IP per hour and globally per day; over
+// either cap we quietly serve mock subtasks instead (no API spend, no error).
+const AI_LIMIT_PER_IP_HOUR = parseInt(process.env.AI_LIMIT_PER_IP_HOUR || '20', 10);
+const AI_LIMIT_GLOBAL_DAY = parseInt(process.env.AI_LIMIT_GLOBAL_DAY || '200', 10);
+const aiCallsByIp = new Map(); // ip -> timestamps (ms) within the last hour
+let aiCallsToday = { day: '', count: 0 };
+
+function aiBudgetAllows(ip) {
+  const now = Date.now();
+  const recent = (aiCallsByIp.get(ip) || []).filter(t => t > now - 3600 * 1000);
+  aiCallsByIp.set(ip, recent);
+  const today = new Date().toISOString().slice(0, 10);
+  if (aiCallsToday.day !== today) aiCallsToday = { day: today, count: 0 };
+  if (recent.length >= AI_LIMIT_PER_IP_HOUR || aiCallsToday.count >= AI_LIMIT_GLOBAL_DAY) {
+    return false;
+  }
+  recent.push(now);
+  aiCallsToday.count++;
+  return true;
+}
+
 app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
   const { taskId } = req.params;
 
@@ -1122,10 +1157,15 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
   try {
     let subtaskList;
 
-    // Try AI generation if available
+    // Try AI generation if available (and within the spend budget)
     try {
-      const ai = require('./ai');
-      subtaskList = await ai.generateSubtasks(task.description);
+      if (!aiBudgetAllows(req.ip)) {
+        console.warn(`AI rate limit hit (ip: ${req.ip}) — serving mock subtasks`);
+        subtaskList = generateMockSubtasks(task.description);
+      } else {
+        const ai = require('./ai');
+        subtaskList = await ai.generateSubtasks(task.description);
+      }
     } catch (e) {
       // Fall back to mock
       console.error('AI subtask generation failed, falling back to mock:', e.message);
@@ -1335,3 +1375,11 @@ initDb().then(() => {
   console.error('Failed to initialize database:', err);
   process.exit(1);
 });
+
+// Flush any unsaved writes on shutdown (Railway sends SIGTERM on deploys).
+for (const signal of ['SIGTERM', 'SIGINT']) {
+  process.on(signal, () => {
+    flushDb();
+    process.exit(0);
+  });
+}

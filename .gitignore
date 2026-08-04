@@ -1,4 +1,8 @@
 node_modules/
 archive/
 *.db
+*.db.tmp
 .DS_Store
+.env
+.env.*
+.claude/settings.local.json

@@ -1680,7 +1680,7 @@
             <h3>Add team member</h3>
             <div class="form-group">
                 <label>Name</label>
-                <input type="text" class="form-input" id="newUserName" placeholder="Katy T">
+                <input type="text" class="form-input" id="newUserName" placeholder="Bob R">
             </div>
             <div class="link-display" id="newUserLinkDisplay" style="display: none;">
                 <div class="link-display-label">Send this link to them:</div>
@@ -2394,11 +2394,11 @@
             const otherProjects = projects.filter(p => p.id !== activeId);
 
             tabs.innerHTML = activeProject
-                ? `<span class="project-tab active" data-project-id="${activeProject.id}">${activeProject.name}</span>`
+                ? `<span class="project-tab active" data-project-id="${activeProject.id}">${escapeHtml(activeProject.name)}</span>`
                 : '';
 
             otherTabs.innerHTML = otherProjects.map(p => `
-                <span class="project-tab other" data-project-id="${p.id}" title="Switch to ${p.name}">${p.name}</span>
+                <span class="project-tab other" data-project-id="${p.id}" title="Switch to ${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
             `).join('');
 
             document.querySelectorAll('.project-tab').forEach(tab => {
@@ -3021,7 +3021,7 @@
         }
 
         function renderTask(task) {
-            const assignedLabel = task.assigned_by_name ? ` <span class="assigned-from">(from: ${task.assigned_by_name})</span>` : '';
+            const assignedLabel = task.assigned_by_name ? ` <span class="assigned-from">(from: ${escapeHtml(task.assigned_by_name)})</span>` : '';
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
             const isExpanded = expandedTaskIds.has(task.id);
             const isLocked = !!task.locked;
@@ -3066,7 +3066,7 @@
             return `
                 <div class="task-item forwarded" data-id="${task.id}">
                     <div class="task-circle"></div>
-                    <div class="task-description">${task.description} <span class="assigned-to-label">&rarr; ${assigneeName}</span></div>
+                    <div class="task-description">${escapeHtml(task.description)} <span class="assigned-to-label">&rarr; ${escapeHtml(assigneeName)}</span></div>
                 </div>
             `;
         }
@@ -3076,7 +3076,7 @@
                 <div class="task-item placeholder">
                     <div class="task-circle"></div>
                     <div class="task-arrow">&rarr;</div>
-                    <div class="task-description">${task.description}</div>
+                    <div class="task-description">${escapeHtml(task.description)}</div>
                 </div>
             `;
         }
@@ -3126,14 +3126,14 @@
                         <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''}">
                             <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
                             ${emojiEl}
-                            <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${st.description}</div>
+                            <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifyText(st.description)}</div>
                             ${sendBtn}
                         </div>
                     `;
                 }).join('');
 
                 const header = taskTitle
-                    ? `<div class="subtask-pane-header"><span class="subtask-pane-title">${taskTitle.replace(/</g, '&lt;')}</span></div>`
+                    ? `<div class="subtask-pane-header"><span class="subtask-pane-title">${escapeHtml(taskTitle)}</span></div>`
                     : '';
                 const list = subtasks.length ? `<div class="subtask-list">${rows}</div>` : '';
                 content = `${header}${list}<input type="text" class="subtask-input" data-task-id="${taskId}" placeholder="Add a step...">`;
@@ -3195,10 +3195,10 @@
                     return `
                         <div class="project-section">
                             <div class="project-section-header">
-                                <span class="project-section-name">${proj.name}</span>
+                                <span class="project-section-name">${escapeHtml(proj.name)}</span>
                                 <span class="project-section-count">${proj.tasks.length} open</span>
                             </div>
-                            <input type="text" class="project-task-input" data-project-id="${proj.id}" placeholder="Add a task to ${proj.name}...">
+                            <input type="text" class="project-task-input" data-project-id="${proj.id}" placeholder="Add a task to ${escapeHtml(proj.name)}...">
                             <div class="project-task-list">${taskListHtml}</div>
                         </div>
                     `;
@@ -3241,7 +3241,7 @@
 
                 attachSubtaskListeners();
             } catch (err) {
-                container.innerHTML = `<div class="empty-project">Error loading: ${err.message}</div>`;
+                container.innerHTML = `<div class="empty-project">Error loading: ${escapeHtml(err.message)}</div>`;
             }
         }
 
@@ -3260,8 +3260,8 @@
             switcher.style.display = 'flex';
             container.innerHTML = allUsers.map(user => `
                 <div class="user-switch-btn ${user.id === currentUser.id ? 'active' : ''}" data-user-id="${user.id}">
-                    <div class="user-switch-avatar" style="background: ${user.color}">${user.initials}</div>
-                    <span class="user-switch-name">${user.name}</span>
+                    <div class="user-switch-avatar" style="background: ${escapeHtml(user.color)}">${escapeHtml(user.initials)}</div>
+                    <span class="user-switch-name">${escapeHtml(user.name)}</span>
                 </div>
             `).join('');
 
@@ -3355,8 +3355,8 @@
 
             html += teamMembers.map(member => `
                 <div class="team-member" data-member-id="${member.id}">
-                    <div class="team-avatar" style="background: ${member.color}">${member.initials}</div>
-                    <div class="team-name">${member.name}</div>
+                    <div class="team-avatar" style="background: ${escapeHtml(member.color)}">${escapeHtml(member.initials)}</div>
+                    <div class="team-name">${escapeHtml(member.name)}</div>
                 </div>
             `).join('');
 
@@ -3633,7 +3633,7 @@
 
             headerForm.classList.remove('hidden');
             headerDisplay.classList.remove('visible');
-            document.getElementById('projectBar').style.display = 'none';
+            renderProjectBar();
             document.getElementById('viewCalendarBtn').classList.add('active');
             document.getElementById('viewMasterBtn').classList.remove('active');
             document.getElementById('board').style.display = 'flex';

@@ -5,7 +5,7 @@ Node.js/Express API with SQLite (via sql.js) for the Move Along task tracker.
 ## Setup
 
 ```bash
-cd movealong-backend
+cd server
 npm install
 npm start
 ```
@@ -29,7 +29,7 @@ DB_PATH=/path/to/db.sqlite npm start
 #### Create company + first user (signup)
 ```
 POST /api/companies
-Body: { "companyName": "Kevin's Move Along", "userName": "Kevin" }
+Body: { "companyName": "Alice's Move Along", "userName": "Alice" }
 Response: { company: {...}, user: {...} }
 ```
 
@@ -56,7 +56,7 @@ Response: { id, name, slug, initials, color, created_at }
 #### Create user (for task assignment)
 ```
 POST /api/companies/:subdomain/users
-Body: { "name": "Katy T" }
+Body: { "name": "Bob R" }
 Response: { id, name, slug, initials, color }
 ```
 
@@ -166,25 +166,25 @@ Response: { status: "ok", timestamp: "..." }
 - User URL: `{subdomain}.movealong.com/{user_slug}`
 
 Example:
-- Kevin creates "Kevin's Move Along" → `kevins.movealong.com`
-- Kevin's board: `kevins.movealong.com/kevin`
-- Katy gets assigned a task: `kevins.movealong.com/katyt`
+- Alice creates "Alice's Move Along" → `alices.movealong.com`
+- Alice's board: `alices.movealong.com/alice`
+- Bob gets assigned a task: `alices.movealong.com/bobr`
 
 ## Data Model
 
 ```
 companies
 ├── id (PK)
-├── name ("Kevin's Move Along")
-├── subdomain ("kevins")
+├── name ("Alice's Move Along")
+├── subdomain ("alices")
 └── created_at
 
 users
 ├── id (PK)
 ├── company_id (FK)
-├── name ("Kevin")
-├── slug ("kevin")
-├── initials ("K" or "KT")
+├── name ("Alice")
+├── slug ("alice")
+├── initials ("A" or "AB")
 ├── color ("#9575cd")
 └── created_at
 

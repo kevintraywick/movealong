@@ -2,6 +2,14 @@
   "name": "movealong-backend",
   "version": "1.0.0",
   "description": "Backend for Move Along task tracker",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/kevintraywick/movealong.git"
+  },
+  "engines": {
+    "node": ">=18"
+  },
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",

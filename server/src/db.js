@@ -155,15 +155,29 @@ function ensureColumn(table, column, definition) {
   }
 }
 
+// Atomic persistence: write to a temp file, then rename over the real one,
+// so a crash mid-write can never leave a truncated database on disk
+// (sql.js has no journal to recover from).
 function saveDb() {
   if (db) {
     const data = db.export();
     const buffer = Buffer.from(data);
-    fs.writeFileSync(dbPath, buffer);
+    const tmpPath = dbPath + '.tmp';
+    fs.writeFileSync(tmpPath, buffer);
+    fs.renameSync(tmpPath, dbPath);
     // db.export() silently resets the foreign_keys pragma — reapply it
     // so cascades keep working for the next statement on this connection.
     db.run('PRAGMA foreign_keys = ON');
+    dirty = false;
   }
+}
+
+// Writes mark the DB dirty; flushDb persists once per HTTP request (see the
+// middleware in server.js) instead of exporting the whole DB per statement.
+let dirty = false;
+
+function flushDb() {
+  if (dirty) saveDb();
 }
 
 function getDb() {
@@ -195,13 +209,15 @@ function queryAll(sql, params = []) {
   return results;
 }
 
-// Helper to run insert/update and get lastInsertRowid
+// Helper to run insert/update and get lastInsertRowid. Marks the DB dirty
+// rather than persisting immediately — flushDb() writes the file once per
+// request/shutdown, not once per statement.
 function runSql(sql, params = []) {
   db.run(sql, params);
   const result = queryOne('SELECT last_insert_rowid() as id');
-  saveDb();
+  dirty = true;
   return { lastInsertRowid: result.id };
 }
 
-module.exports = { initDb, getDb, saveDb, queryOne, queryAll, runSql };
+module.exports = { initDb, getDb, saveDb, flushDb, queryOne, queryAll, runSql };
 

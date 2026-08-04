@@ -4,8 +4,8 @@
 | Column     | Type     | Notes            |
 |------------|----------|------------------|
 | id         | INTEGER  | PK, autoincrement|
-| name       | TEXT     | "Kevin's Move Along" |
-| subdomain  | TEXT     | UNIQUE, "kevins" |
+| name       | TEXT     | "Alice's Move Along" |
+| subdomain  | TEXT     | UNIQUE, "alices" |
 | created_at | DATETIME | auto             |
 
 ## users
@@ -13,8 +13,8 @@
 |------------|----------|------------------|
 | id         | INTEGER  | PK, autoincrement|
 | company_id | INTEGER  | FK → companies   |
-| name       | TEXT     | "Kevin"          |
-| slug       | TEXT     | "kevin", UNIQUE per company |
+| name       | TEXT     | "Alice"          |
+| slug       | TEXT     | "alice", UNIQUE per company |
 | initials   | TEXT     | "K" or "KT"     |
 | color      | TEXT     | hex color        |
 | created_at | DATETIME | auto             |
