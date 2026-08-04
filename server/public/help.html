@@ -50,8 +50,9 @@
         .tagline {
             color: #64748b;
             margin-bottom: 28px;
-            max-width: 640px;
+            max-width: 660px;
         }
+        .tagline strong { color: #0f172a; }
 
         h2 {
             font-size: 15px;
@@ -87,6 +88,25 @@
         .card p { font-size: 13px; color: #475569; }
         .card p + p { margin-top: 5px; }
 
+        /* "Coming soon" diagonal stamp */
+        .card.coming-soon { position: relative; overflow: hidden; }
+        .card.coming-soon > * { opacity: 0.55; }
+        .card.coming-soon::after {
+            content: 'COMING SOON';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(-16deg);
+            font-size: 21px;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            color: rgba(14, 165, 233, 0.30);
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
         kbd {
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
             font-size: 11.5px;
@@ -98,36 +118,6 @@
             color: #0f172a;
             white-space: nowrap;
         }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: #fff;
-            border: 1px solid #e2e8f0;
-            border-radius: 10px;
-            overflow: hidden;
-            font-size: 13px;
-        }
-        /* border-radius on tables needs the wrapper trick */
-        .table-wrap { border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; }
-        .table-wrap table { border: none; }
-
-        th, td {
-            text-align: left;
-            padding: 8px 12px;
-            border-bottom: 1px solid #f1f5f9;
-            vertical-align: top;
-        }
-        th {
-            background: #f8fafc;
-            font-weight: 650;
-            color: #0f172a;
-            font-size: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-        tr:last-child td { border-bottom: none; }
-        td:first-child { white-space: nowrap; }
 
         code, pre {
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -210,6 +200,237 @@
         footer a { color: #0284c7; text-decoration: none; }
         footer a:hover { text-decoration: underline; }
 
+        /* ============================================================
+           ANIMATED DEMO VIGNETTES
+           Mini-scenes built from the app's own visual vocabulary —
+           tiny day cards + real task-row anatomy, looping slowly.
+           ============================================================ */
+        .card.demo {
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+        }
+
+        .scene {
+            position: relative;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            width: 100%;
+            justify-content: center;
+            min-height: 128px;
+        }
+
+        .mini-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 7px;
+            width: 118px;
+            min-height: 118px;
+            flex-shrink: 0;
+        }
+        .mini-card.today-card .mini-day { color: #0ea5e9; }
+        .mini-card.past-red {
+            border: 1.5px solid #ef4444;
+        }
+        .mini-card.past-red .mini-day { color: #ef4444; }
+
+        .mini-day {
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .mini-task {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 9px;
+            color: #0f172a;
+            padding: 2.5px 0;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        .mini-circle {
+            width: 9px;
+            height: 9px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 6px;
+            font-weight: 700;
+            color: #475569;
+        }
+
+        .mini-lock { font-size: 8px; }
+
+        /* --- scene 1: tasks move forward automatically --- */
+        .spill-task {
+            position: absolute;
+            top: 24px;
+            left: 8px;
+            background: #ffffff;
+            padding-right: 4px;
+            animation: spill 5s ease-in-out infinite;
+        }
+        @keyframes spill {
+            0%, 30%   { transform: translate(0, 0); opacity: 1; }
+            55%, 88%  { transform: translate(128px, 10px); opacity: 1; }
+            96%       { transform: translate(128px, 10px); opacity: 0; }
+            97%       { transform: translate(0, 0); opacity: 0; }
+            100%      { transform: translate(0, 0); opacity: 1; }
+        }
+        .spill-ghost { opacity: 0.25; }
+
+        /* --- scene 2: click the circle to complete --- */
+        .complete-circle { animation: circleFill 4s ease-in-out infinite; position: relative; }
+        .complete-circle::after {
+            content: '\2713';
+            color: #fff;
+            font-size: 6px;
+            opacity: 0;
+            animation: checkIn 4s ease-in-out infinite;
+        }
+        @keyframes circleFill {
+            0%, 34%  { background: transparent; border-color: #cbd5e1; }
+            42%, 88% { background: #38bdf8; border-color: #38bdf8; }
+            100%     { background: transparent; border-color: #cbd5e1; }
+        }
+        @keyframes checkIn {
+            0%, 34%  { opacity: 0; }
+            42%, 88% { opacity: 1; }
+            100%     { opacity: 0; }
+        }
+        .complete-text { position: relative; }
+        .complete-text::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            height: 1px;
+            background: #94a3b8;
+            width: 0;
+            animation: strike 4s ease-in-out infinite;
+        }
+        @keyframes strike {
+            0%, 36%  { width: 0; }
+            48%, 88% { width: 100%; }
+            100%     { width: 0; }
+        }
+        .mini-cursor {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            animation: cursorToCircle 4s ease-in-out infinite;
+        }
+        @keyframes cursorToCircle {
+            0%       { transform: translate(64px, 66px); opacity: 0; }
+            18%      { opacity: 1; }
+            30%      { transform: translate(8px, 27px); opacity: 1; }
+            38%      { transform: translate(8px, 27px) scale(0.75); }
+            46%      { transform: translate(8px, 27px) scale(1); opacity: 1; }
+            60%, 100%{ transform: translate(8px, 27px); opacity: 0; }
+        }
+
+        /* --- scene 3: drag to chain a series --- */
+        .drag-task {
+            position: absolute;
+            top: 47px;
+            left: 8px;
+            background: #ffffff;
+            border-radius: 3px;
+            padding: 2.5px 4px 2.5px 0;
+            animation: dragOnto 6s ease-in-out infinite;
+            z-index: 2;
+        }
+        @keyframes dragOnto {
+            0%, 20%   { transform: translate(0, 0); box-shadow: none; }
+            30%       { box-shadow: 0 4px 10px rgba(15,23,42,0.18); }
+            48%       { transform: translate(126px, -22px); box-shadow: 0 4px 10px rgba(15,23,42,0.18); }
+            56%, 82%  { transform: translate(128px, 14px); box-shadow: none; }
+            94%       { transform: translate(128px, 14px); opacity: 0; }
+            95%       { transform: translate(0, 0); opacity: 0; }
+            100%      { transform: translate(0, 0); opacity: 1; }
+        }
+        .chain-countdown-2, .chain-countdown-1 { position: relative; }
+        .chain-countdown-2 .mini-circle::after {
+            content: '2';
+            animation: countdownIn 6s ease-in-out infinite;
+        }
+        .drag-task .mini-circle::after {
+            content: '1';
+            font-size: 6px;
+            opacity: 0;
+            animation: countdownIn 6s ease-in-out infinite;
+        }
+        @keyframes countdownIn {
+            0%, 55%  { opacity: 0; }
+            62%, 88% { opacity: 1; }
+            94%, 100%{ opacity: 0; }
+        }
+        .chain-thread {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .chain-thread path {
+            stroke: #8b5cf6;
+            stroke-width: 1.2;
+            fill: none;
+            stroke-dasharray: 60;
+            stroke-dashoffset: 60;
+            animation: threadDraw 6s ease-in-out infinite;
+        }
+        @keyframes threadDraw {
+            0%, 58%   { stroke-dashoffset: 60; opacity: 0; }
+            62%       { opacity: 0.9; }
+            72%, 88%  { stroke-dashoffset: 0; opacity: 0.9; }
+            94%, 100% { stroke-dashoffset: 60; opacity: 0; }
+        }
+
+        /* --- scene 4: held to the past (locked task anchors the board) --- */
+        .held-spill {
+            position: absolute;
+            top: 42px;
+            left: 8px;
+            background: #ffffff;
+            padding-right: 4px;
+            animation: heldSpill 5s ease-in-out infinite;
+        }
+        @keyframes heldSpill {
+            0%, 30%   { transform: translate(0, 0); opacity: 1; }
+            55%, 88%  { transform: translate(128px, -14px); opacity: 1; }
+            96%       { transform: translate(128px, -14px); opacity: 0; }
+            97%       { transform: translate(0, 0); opacity: 0; }
+            100%      { transform: translate(0, 0); opacity: 1; }
+        }
+        .locked-stay {
+            border-left: 2px solid #f59e0b;
+            padding-left: 3px;
+        }
+        .locked-stay .mini-text { color: #ef4444; font-weight: 600; }
+
+        @media (prefers-reduced-motion: reduce) {
+            .scene * { animation: none !important; }
+            .spill-task { transform: translate(128px, 10px); }
+            .held-spill { transform: translate(128px, -14px); }
+            .mini-cursor { opacity: 0; }
+        }
+
         @media (max-width: 560px) {
             .feature-grid { grid-template-columns: 1fr; }
         }
@@ -222,10 +443,10 @@
         <a class="back-link" href="/">&larr; Back to your board</a>
     </header>
     <p class="tagline">
-        A task manager that moves ideas into action: add a task and AI breaks it into
-        concrete, clickable steps; postpone, chain, lock, prioritize, or hand off each
-        one with a single gesture. This page covers every feature, and how to run your
-        own copy.
+        <strong>Unfinished tasks move forward automatically.</strong> Every morning,
+        yesterday's unfinished work is already sitting on today — you're stuck with
+        it until it's done. That's the critical difference between Move Along and
+        every other to-do list, and everything else here builds on it.
     </p>
 
     <div class="video-placeholder">
@@ -235,25 +456,49 @@
     <h2>The board</h2>
     <div class="feature-grid">
         <div class="card">
-            <h3>30-day calendar</h3>
+            <h3>Add a task</h3>
             <p>Each column is a day; today is highlighted blue. Type into any day's
                box and press <kbd>Enter</kbd> to add a task there. Scroll sideways
                for later days.</p>
         </div>
         <div class="card">
-            <h3>Tasks move forward on their own</h3>
+            <h3>Tasks move forward automatically</h3>
             <p>Anything unfinished from a past day spills onto today automatically —
-               nothing gets stranded in the past. A small grey number after a task
+               you're stuck with it until it's done. A small grey number after a task
                counts the days it's been pushed; it turns red past 10.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="mini-card">
+                    <div class="mini-day">Mon</div>
+                    <div class="mini-task spill-ghost"><span class="mini-circle"></span>call the vet</div>
+                </div>
+                <div class="mini-card today-card">
+                    <div class="mini-day">Tue · today</div>
+                    <div class="mini-task"><span class="mini-circle"></span>water plants</div>
+                </div>
+                <div class="mini-task spill-task"><span class="mini-circle"></span>call the vet <span style="color:#94a3b8;font-size:7px;">2</span></div>
+            </div>
         </div>
         <div class="card">
             <h3>Complete, postpone, expand</h3>
-            <p>Click the circle to complete a task. Click <kbd>&rarr;</kbd> to bump it
-               to tomorrow (<kbd>Shift</kbd>+click: one week). Click the task text to
-               open its steps.</p>
+            <p>Click the circle <span style="display:inline-block;width:11px;height:11px;border:2px solid #cbd5e1;border-radius:50%;vertical-align:-1px;"></span>
+               to complete a task. Click <kbd>&rarr;</kbd> to bump it
+               to tomorrow. <kbd>Shift</kbd>+click to move it forward one week. Click
+               the task text to open its steps.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="mini-card">
+                    <div class="mini-day">Today</div>
+                    <div class="mini-task"><span class="mini-circle complete-circle"></span><span class="complete-text">buy cedar boards</span></div>
+                    <div class="mini-task"><span class="mini-circle"></span>sand the frame</div>
+                </div>
+                <div class="mini-cursor"></div>
+            </div>
         </div>
         <div class="card">
-            <h3>Day capacity</h3>
+            <h3>Overflow</h3>
             <p>A day holds at most 10 pending tasks per board. Add an 11th and it
                overflows to the next free day — a built-in nudge against
                overcommitting.</p>
@@ -281,7 +526,7 @@
             <p>No Anthropic API key on the server? You get sensible placeholder steps
                instead — everything else works the same.</p>
         </div>
-        <div class="card">
+        <div class="card coming-soon">
             <h3>Assign steps</h3>
             <p>Every step shows its suggested owner: 🧠 for the AI agent, 👩 for a
                human. Click the emoji to assign it; click <kbd>&rarr;</kbd> on an AI
@@ -292,46 +537,84 @@
     </div>
 
     <h2>Power moves</h2>
-    <div class="table-wrap"><table>
-        <tr><th>Gesture</th><th>What it does</th></tr>
-        <tr>
-            <td><strong>Drag a task onto another</strong></td>
-            <td>Chains it as the next step of a <em>series</em>. Series members show a
-                countdown in their circle (steps remaining), light up with connecting
-                threads on hover, and reschedule together: move one and every later
-                step shifts by the same amount.</td>
-        </tr>
-        <tr>
-            <td><strong>Hover + ✂️</strong></td>
-            <td>Hovering a chained task reveals scissors — click to cut its link to the
-                previous step (it becomes the start of its own series).</td>
-        </tr>
-        <tr>
-            <td><strong>📅 icon</strong></td>
-            <td>Lock a task to a date — a deadline. Locked tasks (🔒, amber edge) never
-                spill forward; when one goes overdue the whole board pulls back to it
-                and overdue days get a red border. On its deadline day the task text
-                turns red.</td>
-        </tr>
-        <tr>
-            <td><kbd>Shift</kbd>+<kbd>Option</kbd>+click a task</td>
-            <td>Quick-lock it to the day it's on.</td>
-        </tr>
-        <tr>
-            <td>Hover a task + <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd></td>
-            <td>Set priority — red <strong>!</strong> marks, most-urgent-first sorting.
-                <kbd>0</kbd> (or the same number again) clears it.</td>
-        </tr>
-        <tr>
-            <td><kbd>Shift</kbd>+click the 🧠 switch</td>
-            <td>Enter your AI access key (see below) so this browser gets real AI
-                generation on a protected deployment.</td>
-        </tr>
-        <tr>
-            <td><kbd>Esc</kbd></td>
-            <td>Close the open step pane or dialog.</td>
-        </tr>
-    </table></div>
+    <div class="feature-grid">
+        <div class="card">
+            <h3>Chain a series</h3>
+            <p><strong>Drag a task onto another</strong> to make it the next step of a
+               series. Members show a countdown in their circle (steps remaining),
+               light up with connecting threads on hover, and reschedule together —
+               move one and every later step shifts by the same amount.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <svg class="chain-thread" viewBox="0 0 246 128" preserveAspectRatio="none">
+                    <path d="M 118 30 C 140 30, 140 64, 148 64"/>
+                </svg>
+                <div class="mini-card">
+                    <div class="mini-day">Wed</div>
+                    <div class="mini-task chain-countdown-2"><span class="mini-circle"></span>choose paint color</div>
+                    <div class="mini-task spill-ghost" style="opacity:0.35;"><span class="mini-circle"></span>fix the gate</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-day">Thu</div>
+                    <div class="mini-task"><span class="mini-circle"></span>trim hedges</div>
+                </div>
+                <div class="mini-task drag-task"><span class="mini-circle"></span>paint the fence</div>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Unlink a step ✂️</h3>
+            <p>Hovering a chained task reveals scissors — click to cut its link to the
+               previous step. It becomes the start of its own series; nothing else
+               moves.</p>
+        </div>
+        <div class="card">
+            <h3>Lock a deadline 📅</h3>
+            <p>Click a task's 📅 to lock it to a date. Locked tasks (🔒, amber edge)
+               never spill forward — a real deadline. On its deadline day the task
+               text turns red. <kbd>Shift</kbd>+<kbd>Option</kbd>+click a task to
+               quick-lock it to the day it's on.</p>
+        </div>
+        <div class="card">
+            <h3>Held to the past</h3>
+            <p>When a locked task's day passes unfinished, the calendar doesn't let
+               you look away: the board's first day <strong>pulls back to that
+               date</strong>, and every day before today gets a red border. Your
+               other overdue tasks still spill to today — only the locked one holds
+               its ground. Complete it (or move its deadline) and the board snaps
+               back to today.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="mini-card past-red">
+                    <div class="mini-day">Fri · overdue</div>
+                    <div class="mini-task locked-stay"><span class="mini-circle"></span><span class="mini-text">file taxes</span> <span class="mini-lock">🔒</span></div>
+                    <div class="mini-task spill-ghost"><span class="mini-circle"></span>return library books</div>
+                </div>
+                <div class="mini-card today-card">
+                    <div class="mini-day">Mon · today</div>
+                    <div class="mini-task"><span class="mini-circle"></span>grocery run</div>
+                </div>
+                <div class="mini-task held-spill"><span class="mini-circle"></span>return library books</div>
+            </div>
+        </div>
+        <div class="card">
+            <h3>Prioritize</h3>
+            <p>Hover a task and press <kbd>1</kbd>, <kbd>2</kbd>, or <kbd>3</kbd> —
+               red <strong>!</strong> marks, most-urgent-first sorting. <kbd>0</kbd>
+               (or the same number again) clears it.</p>
+        </div>
+        <div class="card">
+            <h3>AI access key</h3>
+            <p><kbd>Shift</kbd>+click the 🧠 switch to enter your AI access key (see
+               below), so this browser gets real AI generation on a protected
+               deployment.</p>
+        </div>
+        <div class="card">
+            <h3>Close things</h3>
+            <p><kbd>Esc</kbd> closes the open step pane or dialog.</p>
+        </div>
+    </div>
 
     <h2>Run your own copy</h2>
     <p style="font-size:13px; margin-bottom:10px;">
