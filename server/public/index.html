@@ -3542,7 +3542,9 @@
             btn.classList.toggle('on', assistantEnabled);
             btn.setAttribute('aria-checked', assistantEnabled ? 'true' : 'false');
         }
-        document.getElementById('assistantToggleBtn').addEventListener('click', (e) => {
+        // Handler lives on the whole "🧠 Assistant [switch]" group, so
+        // clicking the label or emoji works the same as the pill itself.
+        document.querySelector('.assistant-switch').addEventListener('click', (e) => {
             // Shift+Click: set/clear the AI access key for this browser
             // (needed for real AI when the server sets AI_ACCESS_KEY).
             if (e.shiftKey) {
