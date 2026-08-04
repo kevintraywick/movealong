@@ -28,6 +28,10 @@ app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'index.html'));
 });
 
+app.get('/help', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'help.html'));
+});
+
 // Utility: generate slug from name
 function generateSlug(name) {
   return name.toLowerCase().replace(/[^a-z0-9]/g, '').substring(0, 15) || 'user';

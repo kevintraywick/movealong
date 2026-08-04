@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Move Along — Help</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f1f5f9;
+            color: #334155;
+            line-height: 1.55;
+            font-size: 14px;
+        }
+
+        .page {
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 32px 20px 64px;
+        }
+
+        header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+        }
+
+        h1 .accent { color: #0ea5e9; }
+
+        .back-link {
+            font-size: 13px;
+            color: #0284c7;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        .tagline {
+            color: #64748b;
+            margin-bottom: 28px;
+            max-width: 640px;
+        }
+
+        h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin: 36px 0 14px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #bae6fd;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+
+        .card h3 {
+            font-size: 13.5px;
+            font-weight: 650;
+            color: #0f172a;
+            margin-bottom: 5px;
+        }
+
+        .card p { font-size: 13px; color: #475569; }
+        .card p + p { margin-top: 5px; }
+
+        kbd {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 11.5px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-bottom-width: 2px;
+            border-radius: 4px;
+            padding: 1px 5px;
+            color: #0f172a;
+            white-space: nowrap;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            overflow: hidden;
+            font-size: 13px;
+        }
+        /* border-radius on tables needs the wrapper trick */
+        .table-wrap { border-radius: 10px; overflow: hidden; border: 1px solid #e2e8f0; }
+        .table-wrap table { border: none; }
+
+        th, td {
+            text-align: left;
+            padding: 8px 12px;
+            border-bottom: 1px solid #f1f5f9;
+            vertical-align: top;
+        }
+        th {
+            background: #f8fafc;
+            font-weight: 650;
+            color: #0f172a;
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+        tr:last-child td { border-bottom: none; }
+        td:first-child { white-space: nowrap; }
+
+        code, pre {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12.5px;
+        }
+        code {
+            background: #f1f5f9;
+            border-radius: 4px;
+            padding: 1px 5px;
+            color: #0f172a;
+        }
+        pre {
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 14px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        pre .c { color: #64748b; }
+
+        .callout {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 13px;
+            margin: 12px 0;
+        }
+        .callout.warn {
+            background: #fffbeb;
+            border-color: #fde68a;
+        }
+
+        .steps { counter-reset: step; list-style: none; margin: 10px 0; }
+        .steps li {
+            counter-increment: step;
+            position: relative;
+            padding: 0 0 10px 34px;
+            font-size: 13px;
+        }
+        .steps li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 650;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-placeholder {
+            background: #ffffff;
+            border: 1.5px dashed #cbd5e1;
+            border-radius: 10px;
+            padding: 26px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        footer {
+            margin-top: 44px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 12.5px;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        footer a { color: #0284c7; text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        @media (max-width: 560px) {
+            .feature-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+<div class="page">
+    <header>
+        <h1>Move <span class="accent">Along</span> — Help</h1>
+        <a class="back-link" href="/">&larr; Back to your board</a>
+    </header>
+    <p class="tagline">
+        A task manager that moves ideas into action: add a task and AI breaks it into
+        concrete, clickable steps; postpone, chain, lock, prioritize, or hand off each
+        one with a single gesture. This page covers every feature, and how to run your
+        own copy.
+    </p>
+
+    <div class="video-placeholder">
+        &#127909; Getting-started video coming soon
+    </div>
+
+    <h2>The board</h2>
+    <div class="feature-grid">
+        <div class="card">
+            <h3>30-day calendar</h3>
+            <p>Each column is a day; today is highlighted blue. Type into any day's
+               box and press <kbd>Enter</kbd> to add a task there. Scroll sideways
+               for later days.</p>
+        </div>
+        <div class="card">
+            <h3>Tasks move forward on their own</h3>
+            <p>Anything unfinished from a past day spills onto today automatically —
+               nothing gets stranded in the past. A small grey number after a task
+               counts the days it's been pushed; it turns red past 10.</p>
+        </div>
+        <div class="card">
+            <h3>Complete, postpone, expand</h3>
+            <p>Click the circle to complete a task. Click <kbd>&rarr;</kbd> to bump it
+               to tomorrow (<kbd>Shift</kbd>+click: one week). Click the task text to
+               open its steps.</p>
+        </div>
+        <div class="card">
+            <h3>Day capacity</h3>
+            <p>A day holds at most 10 pending tasks per board. Add an 11th and it
+               overflows to the next free day — a built-in nudge against
+               overcommitting.</p>
+        </div>
+        <div class="card">
+            <h3>Projects &amp; the Main page</h3>
+            <p>Create as many boards as you like ("personal", "house", &hellip;) with
+               the <kbd>+</kbd> button. The <strong>Main</strong> view lists every
+               board's open tasks in one place, grouped by project.</p>
+        </div>
+        <div class="card">
+            <h3>Links in tasks</h3>
+            <p>Any URL you type in a task becomes a clickable link that opens in a
+               new tab. Completing a link task closes its step pane.</p>
+        </div>
+    </div>
+
+    <h2>AI subtasks</h2>
+    <div class="feature-grid">
+        <div class="card">
+            <h3>&#129504; The assistant</h3>
+            <p>With the header's 🧠 switch on, adding a task instantly opens a pane of
+               up to 10 specific steps — real decisions, real links, real prices, not
+               "make a plan". Click ↺ on an open task to regenerate them.</p>
+            <p>No Anthropic API key on the server? You get sensible placeholder steps
+               instead — everything else works the same.</p>
+        </div>
+        <div class="card">
+            <h3>Assign steps</h3>
+            <p>Every step shows its suggested owner: 🧠 for the AI agent, 👩 for a
+               human. Click the emoji to assign it; click <kbd>&rarr;</kbd> on an AI
+               step to dispatch it. Assigned tasks leave your board and appear on
+               the assignee's; they can return them, which puts them back on yours
+               today.</p>
+        </div>
+    </div>
+
+    <h2>Power moves</h2>
+    <div class="table-wrap"><table>
+        <tr><th>Gesture</th><th>What it does</th></tr>
+        <tr>
+            <td><strong>Drag a task onto another</strong></td>
+            <td>Chains it as the next step of a <em>series</em>. Series members show a
+                countdown in their circle (steps remaining), light up with connecting
+                threads on hover, and reschedule together: move one and every later
+                step shifts by the same amount.</td>
+        </tr>
+        <tr>
+            <td><strong>Hover + ✂️</strong></td>
+            <td>Hovering a chained task reveals scissors — click to cut its link to the
+                previous step (it becomes the start of its own series).</td>
+        </tr>
+        <tr>
+            <td><strong>📅 icon</strong></td>
+            <td>Lock a task to a date — a deadline. Locked tasks (🔒, amber edge) never
+                spill forward; when one goes overdue the whole board pulls back to it
+                and overdue days get a red border. On its deadline day the task text
+                turns red.</td>
+        </tr>
+        <tr>
+            <td><kbd>Shift</kbd>+<kbd>Option</kbd>+click a task</td>
+            <td>Quick-lock it to the day it's on.</td>
+        </tr>
+        <tr>
+            <td>Hover a task + <kbd>1</kbd>/<kbd>2</kbd>/<kbd>3</kbd></td>
+            <td>Set priority — red <strong>!</strong> marks, most-urgent-first sorting.
+                <kbd>0</kbd> (or the same number again) clears it.</td>
+        </tr>
+        <tr>
+            <td><kbd>Shift</kbd>+click the 🧠 switch</td>
+            <td>Enter your AI access key (see below) so this browser gets real AI
+                generation on a protected deployment.</td>
+        </tr>
+        <tr>
+            <td><kbd>Esc</kbd></td>
+            <td>Close the open step pane or dialog.</td>
+        </tr>
+    </table></div>
+
+    <h2>Run your own copy</h2>
+    <p style="font-size:13px; margin-bottom:10px;">
+        Move Along is MIT-licensed and built to be forked: one vanilla-JS file for the
+        frontend, a small Express API, SQLite with zero native dependencies, no build
+        step. Fork it on
+        <a href="https://github.com/kevintraywick/movealong" style="color:#0284c7;">GitHub</a>, then:
+    </p>
+
+    <pre>git clone https://github.com/&lt;you&gt;/movealong.git
+cd movealong/server
+npm install
+npm start          <span class="c"># open http://localhost:3000 — that's the whole setup</span></pre>
+
+    <p style="font-size:13px;">
+        To deploy (Railway, Render, Fly, any Node host): run <code>npm start</code> from
+        <code>server/</code>, attach a persistent volume, and point <code>DB_PATH</code>
+        at it (e.g. <code>DB_PATH=/data/movealong.db</code>) so your data survives
+        deploys. Node 18+ required.
+    </p>
+
+    <h2>Enabling real AI steps</h2>
+    <ol class="steps">
+        <li>Get an Anthropic API key (<a href="https://console.anthropic.com" style="color:#0284c7;">console.anthropic.com</a>)
+            and set it as <code>ANTHROPIC_API_KEY</code> in your deployment's environment
+            variables.</li>
+        <li>Generate a private access key — any long random string. In your terminal:
+            <pre>openssl rand -hex 24</pre>
+            (or <code>node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"</code>)</li>
+        <li>Set that string as <code>AI_ACCESS_KEY</code> in the same environment
+            variables and redeploy.</li>
+        <li>Open your deployed app, <kbd>Shift</kbd>+click the 🧠 switch, and paste the
+            same string. Do this once in each browser you use.</li>
+    </ol>
+
+    <div class="callout warn">
+        <strong>Why the access key matters:</strong> the app has no login, so without
+        <code>AI_ACCESS_KEY</code> anyone who finds your URL can trigger AI calls billed
+        to <em>your</em> Anthropic account. With it set, strangers get free placeholder
+        steps and only your browsers spend real money. Rate limits
+        (<code>AI_LIMIT_PER_IP_HOUR</code>, default 20; <code>AI_LIMIT_GLOBAL_DAY</code>,
+        default 200) cap the worst case either way. Skip both keys entirely and the app
+        still works with placeholder steps.
+    </div>
+
+    <div class="callout">
+        <strong>All environment variables are optional:</strong>
+        <code>ANTHROPIC_API_KEY</code> (real AI),
+        <code>AI_ACCESS_KEY</code> (protect your AI spend),
+        <code>AI_LIMIT_PER_IP_HOUR</code> / <code>AI_LIMIT_GLOBAL_DAY</code> (rate caps),
+        <code>DB_PATH</code> (database location), <code>PORT</code> (default 3000).
+    </div>
+
+    <footer>
+        <span>MIT licensed — fork it, strip it for parts, build your own.</span>
+        <span>
+            <a href="https://github.com/kevintraywick/movealong">GitHub</a>
+            &nbsp;&middot;&nbsp;
+            <a href="/">Back to your board</a>
+        </span>
+    </footer>
+</div>
+</body>
+</html>

@@ -103,6 +103,7 @@ Subtasks must be **specific, actionable, and research-backed** — never vague p
 
 ```
 server/public/index.html     - Single-page frontend (vanilla JS, dark theme)
+server/public/help.html      - Static help page (served at /help; "?" link in the footer bar)
 server/src/server.js         - Express API server
 server/src/db.js             - SQLite database layer (sql.js, pure JS)
 server/src/ai.js             - Anthropic API client; generates subtasks from a task description
