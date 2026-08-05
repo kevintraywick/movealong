@@ -811,34 +811,40 @@
             animation: marksPop 9s ease-out infinite;
         }
         @keyframes marksPop {
-            0%, 28%  { opacity: 0; transform: scale(0.5); }
-            32%      { opacity: 1; transform: scale(1.35); }
-            36%, 92% { opacity: 1; transform: scale(1); }
+            0%, 31%  { opacity: 0; transform: scale(0.5); }
+            35%      { opacity: 1; transform: scale(1.35); }
+            39%, 92% { opacity: 1; transform: scale(1); }
             96%, 100%{ opacity: 0; }
         }
+        /* A real-looking keycap, sitting in the card's empty lower half,
+           that visibly gets pressed. */
         .prio-key {
             position: absolute;
-            top: 48px;
-            right: 6px;
+            top: 86px;
+            left: 14px;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            font-size: 9px;
+            font-size: 12px;
             font-weight: 600;
-            color: #0f172a;
-            background: #f1f5f9;
+            color: #334155;
+            background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
             border: 1px solid #cbd5e1;
-            border-bottom-width: 2px;
-            border-radius: 3px;
-            padding: 1px 5px;
+            border-radius: 4px;
+            box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12);
             opacity: 0;
             z-index: 3;
             animation: keyPop 9s ease-out infinite;
         }
         @keyframes keyPop {
-            0%, 22%  { opacity: 0; transform: translateY(4px) scale(0.8); }
-            26%      { opacity: 1; transform: translateY(0) scale(1.05); }
-            28%      { transform: translateY(1px) scale(0.95); }
-            30%, 40% { opacity: 1; transform: translateY(0) scale(1); }
-            46%, 100%{ opacity: 0; transform: translateY(0); }
+            0%, 20%  { opacity: 0; transform: translateY(0); box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12); }
+            24%, 27% { opacity: 1; transform: translateY(0); box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12); }
+            30%, 33% { opacity: 1; transform: translateY(2.5px); box-shadow: 0 0 0 #cbd5e1, 0 1px 2px rgba(15, 23, 42, 0.10); }
+            36%, 44% { opacity: 1; transform: translateY(0); box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12); }
+            52%, 100%{ opacity: 0; transform: translateY(0); }
         }
         .prio-cursor {
             position: absolute;
