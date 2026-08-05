@@ -80,9 +80,35 @@
         .three-col > .card:not(.demo) { grid-column: 1; }
         .three-col > .card.demo { grid-column: 2; }
 
+        /* Handwritten margin notes in the reserved third column */
+        .margin-note {
+            grid-column: 3;
+            align-self: center;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Bradley Hand', 'Segoe Print', 'Comic Sans MS', cursive;
+            font-size: 15px;
+            line-height: 1.35;
+            color: #059669;
+            transform: rotate(-2deg);
+        }
+        .note-arrow {
+            width: 44px;
+            flex-shrink: 0;
+        }
+        .note-arrow path {
+            stroke: #059669;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+
         @media (max-width: 760px) {
-            /* Not enough room for the empty comments column */
+            /* Not enough room for the comments column */
             .feature-grid.three-col { grid-template-columns: 1fr 1fr; }
+            .margin-note { display: none; }
         }
 
         .card {
@@ -1153,6 +1179,13 @@
                     <span class="c3">12:00 AM</span>
                 </div>
             </div>
+        </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>This is the<br>entire thing.</span>
         </div>
         <div class="card">
             <h3>Complete or postpone a task</h3>
