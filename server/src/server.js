@@ -1203,6 +1203,8 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
       subtaskList = generateMockSubtasks(task.description);
     }
 
+    subtaskList = subtaskList.slice(0, 7);
+
     const created = [];
     subtaskList.forEach((st, i) => {
       const result = runSql(

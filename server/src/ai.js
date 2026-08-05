@@ -19,7 +19,7 @@ async function generateSubtasks(taskDescription) {
       max_tokens: 2048,
       messages: [{
         role: 'user',
-        content: `You are a task breakdown assistant. Given a task, generate 6-10 specific, actionable subtasks that a real person can immediately act on.
+        content: `You are a task breakdown assistant. Given a task, generate 5-7 specific, actionable subtasks that a real person can immediately act on.
 
 Task: "${taskDescription}"
 

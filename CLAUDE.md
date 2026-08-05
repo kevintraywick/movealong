@@ -17,7 +17,7 @@ The basic unit is a **project page** (the 30-day calendar board). A user can cre
 
 ### Tasks and Subtasks
 - When a task is added to a day, a **subtask pane** opens beneath the day pane.
-- Claude populates the subtask pane with up to **10 subtasks** — the steps needed to complete the task.
+- Claude populates the subtask pane with up to **7 subtasks** — the steps needed to complete the task (prompt asks for 5-7; the generate-subtasks endpoint hard-caps AI and mock lists at 7).
 - After the initial subtasks are shown to the user, Claude runs a deeper analysis using agents to review proposed solutions, fetch relevant data (Amazon prices for purchases, weather for outdoor/travel tasks, etc.), and refines the subtasks into a solid plan.
 - Each subtask has an **emoji indicating the default assignee**: brain (🧠) for AI agent, woman (👩) for human. The user assigns by clicking the emoji.
 - **Dependent subtasks** appear indented (3 spaces) under their parent in light grey font. They move with the parent if assigned.
@@ -184,7 +184,7 @@ Full endpoint reference lives in `reference/api-reference.md`. Schema lives in `
 - Incomplete past tasks spill over to today automatically — **except locked tasks**, which stay pinned to their date
 - Calendar day cells are **UTC-based** (`day.key` via `toISOString`), built by `generateDays(anchorKey)`; keep any date math UTC-consistent with `getTodayKey()` and the backend spillover
 - Day cards are **200px** wide (shrunk from 400px). The subtask pane hangs absolutely below its day column at `width: 100%` — **never wider than the day it's attached to**
-- Subtask pane: a single contained card listing up to 10 steps (AI + user-added together) as compact rows — check, assignee emoji, description, send-arrow on AI steps. Not one-card-per-subtask. Dependent subtasks indented under parents
+- Subtask pane: a single contained card listing up to 7 AI steps (plus user-added ones) as compact rows — check, assignee emoji, description, send-arrow on AI steps, ↺ "Regenerate all steps" absolutely positioned top-right. Not one-card-per-subtask. Dependent subtasks indented under parents
 - **Single-pane rule:** only one subtask pane may be open at a time. Every site that adds to `expandedTaskIds` must `clear()` it first (board + master click handlers, both auto-expand-on-add paths). Same-day board panes are absolutely positioned at identical coordinates, so two open at once silently occlude each other — this was a real bug
 - **One type scale, 13px base.** `body` is 13px and every component sits on ~11/12/13/14/15px (day headers 14, section names 15, labels 11-12). The old split — 22px base with a 13px board inside it — is gone; don't reintroduce outsized text on the Main page, header, or modals. The only exception is the wordmark.
 - **Wordmark:** "Move<span>Along</span>" in self-hosted Bricolage Grotesque 800 (`public/fonts/bricolage-grotesque-800.woff2`, ~38 KB, served by the express.static middleware) at 17px — small but heavy, "Along" in accent blue. It is the only non-system type in the app; don't use the display face anywhere else.

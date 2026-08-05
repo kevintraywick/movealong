@@ -1315,6 +1315,7 @@
            SUBTASK PANE
            ============================================ */
         .subtask-pane {
+            position: relative;
             background: #ffffff;
             border: 1px solid #e8edf3;
             border-radius: 12px;
@@ -1344,6 +1345,8 @@
             display: flex;
             align-items: center;
             margin-bottom: 8px;
+            /* keep the title clear of the absolute ↺ in the corner */
+            padding-right: 24px;
         }
 
         .subtask-pane-title {
@@ -1381,8 +1384,11 @@
         }
 
         .subtask-regenerate {
-            width: 28px;
-            height: 28px;
+            position: absolute;
+            top: 6px;
+            right: 6px;
+            width: 22px;
+            height: 22px;
             border: none;
             background: transparent;
             color: #64748b;
@@ -3422,7 +3428,8 @@
                     ? `<div class="subtask-pane-header"><span class="subtask-pane-title">${escapeHtml(taskTitle)}</span></div>`
                     : '';
                 const list = subtasks.length ? `<div class="subtask-list">${rows}</div>` : '';
-                content = `${header}${list}<input type="text" class="subtask-input" data-task-id="${taskId}" placeholder="Add a step...">`;
+                const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate all steps">&orarr;</button>`;
+                content = `${regenAll}${header}${list}<input type="text" class="subtask-input" data-task-id="${taskId}" placeholder="Add a step...">`;
             }
 
             return `

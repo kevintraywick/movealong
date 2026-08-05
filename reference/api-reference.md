@@ -162,7 +162,8 @@ Headers: x-ai-key: <AI_ACCESS_KEY>   (required for real AI only when the
 Response: [created subtasks]
 ```
 
-Replaces the task's subtasks with a fresh AI-generated list (falls back to
+Replaces the task's subtasks with a fresh AI-generated list, capped at 7
+items (falls back to
 mock subtasks when no `ANTHROPIC_API_KEY` is configured, when the caller
 lacks a valid `x-ai-key` while `AI_ACCESS_KEY` is set, or when rate caps —
 `AI_LIMIT_PER_IP_HOUR`, `AI_LIMIT_GLOBAL_DAY` — are exceeded).
