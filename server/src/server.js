@@ -1396,8 +1396,39 @@ app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
+// Boot repair: completed tasks must hold no chain links (invariant since
+// completing began severing links). Data completed before that change can
+// still carry parent_task_id or have children pointing at it — splice each
+// out until clean, so old boards heal on deploy.
+function repairCompletedChainLinks() {
+  let total = 0;
+  for (let pass = 0; pass < 25; pass++) {
+    const linked = queryAll(`
+      SELECT * FROM tasks
+      WHERE completed = 1
+        AND (parent_task_id IS NOT NULL
+             OR id IN (SELECT parent_task_id FROM tasks WHERE parent_task_id IS NOT NULL))
+    `);
+    if (linked.length === 0) break;
+    // Re-fetch each row right before splicing: an earlier splice in this
+    // pass may have rewritten this task's parent_task_id (consecutive
+    // completed members), and splicing from a stale row would re-link its
+    // child to a task that is no longer in the chain.
+    linked.forEach(t => {
+      const fresh = queryOne('SELECT * FROM tasks WHERE id = ?', [t.id]);
+      if (fresh) spliceOutOfChain(fresh);
+    });
+    total += linked.length;
+  }
+  if (total > 0) {
+    console.log(`Chain repair: spliced ${total} completed task(s) out of series`);
+    flushDb();
+  }
+}
+
 // Initialize database and start server
 initDb().then(() => {
+  repairCompletedChainLinks();
   app.listen(PORT, () => {
     console.log(`Move Along API running on port ${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/health`);
