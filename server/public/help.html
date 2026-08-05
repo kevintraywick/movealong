@@ -765,6 +765,100 @@
             94%, 100% { stroke-dashoffset: 60; opacity: 0; }
         }
 
+        /* --- scene 3b: priority keys (9s) ---
+           Cursor hovers the last task, a "2" keycap pops, red !! marks
+           appear — then, on mouse-leave, the list re-sorts and the row
+           rises to the top (exactly the real mouseleave-sort behavior). */
+        .prio-frame {
+            position: relative;
+            width: 150px;
+            height: 128px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .prio-frame .mini-card { width: 150px; }
+        .prio-row {
+            position: absolute;
+            left: 8px;
+            width: 134px;
+            background: #ffffff;
+        }
+        .prio-r1 { top: 26px; animation: prioShift1 9s ease-in-out infinite; }
+        .prio-r2 { top: 40px; animation: prioShift2 9s ease-in-out infinite; }
+        .prio-target { top: 54px; z-index: 2; animation: prioRise 9s ease-in-out infinite; }
+        @keyframes prioShift1 {
+            0%, 54%   { transform: translateY(0); }
+            62%, 100% { transform: translateY(14px); }
+        }
+        @keyframes prioShift2 {
+            0%, 54%   { transform: translateY(0); }
+            62%, 100% { transform: translateY(14px); }
+        }
+        @keyframes prioRise {
+            0%, 14%   { background: #ffffff; transform: translateY(0); }
+            20%, 46%  { background: #f0f9ff; transform: translateY(0); }
+            52%       { background: #ffffff; }
+            54%       { transform: translateY(0); }
+            62%, 100% { background: #ffffff; transform: translateY(-28px); }
+        }
+        .prio-marks {
+            color: #ef4444;
+            font-weight: 700;
+            font-size: 8px;
+            letter-spacing: -0.3px;
+            margin-left: 2px;
+            opacity: 0;
+            display: inline-block;
+            animation: marksPop 9s ease-out infinite;
+        }
+        @keyframes marksPop {
+            0%, 28%  { opacity: 0; transform: scale(0.5); }
+            32%      { opacity: 1; transform: scale(1.35); }
+            36%, 92% { opacity: 1; transform: scale(1); }
+            96%, 100%{ opacity: 0; }
+        }
+        .prio-key {
+            position: absolute;
+            top: 48px;
+            right: 6px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 9px;
+            font-weight: 600;
+            color: #0f172a;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-bottom-width: 2px;
+            border-radius: 3px;
+            padding: 1px 5px;
+            opacity: 0;
+            z-index: 3;
+            animation: keyPop 9s ease-out infinite;
+        }
+        @keyframes keyPop {
+            0%, 22%  { opacity: 0; transform: translateY(4px) scale(0.8); }
+            26%      { opacity: 1; transform: translateY(0) scale(1.05); }
+            28%      { transform: translateY(1px) scale(0.95); }
+            30%, 40% { opacity: 1; transform: translateY(0) scale(1); }
+            46%, 100%{ opacity: 0; transform: translateY(0); }
+        }
+        .prio-cursor {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: prioCursor 9s ease-in-out infinite;
+        }
+        @keyframes prioCursor {
+            0%       { transform: translate(120px, 110px); opacity: 0; }
+            8%       { transform: translate(120px, 110px); opacity: 1; }
+            18%, 44% { transform: translate(62px, 58px); opacity: 1; }
+            54%      { transform: translate(125px, 112px); opacity: 1; }
+            60%, 100%{ transform: translate(125px, 112px); opacity: 0; }
+        }
+
         /* --- scene 4: held to the past (locked task anchors the board) --- */
         .held-spill {
             position: absolute;
@@ -812,6 +906,10 @@
             .chain-countdown-2 .mini-circle::after,
             .drag-task .mini-circle::after { opacity: 1; }
             .chain-thread path { stroke-dashoffset: 0; opacity: 0.9; }
+            .prio-r1, .prio-r2 { transform: translateY(14px); }
+            .prio-target { transform: translateY(-28px); }
+            .prio-marks { opacity: 1; transform: scale(1); }
+            .prio-key, .prio-cursor { opacity: 0; }
         }
 
         @media (max-width: 560px) {
@@ -1045,6 +1143,20 @@
             <p>Hover a task and press <kbd>1</kbd>, <kbd>2</kbd>, or <kbd>3</kbd> —
                red <strong>!</strong> marks, most-urgent-first sorting. <kbd>0</kbd>
                (or the same number again) clears it.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="prio-frame">
+                    <div class="mini-card">
+                        <div class="mini-day" data-day-offset="6"></div>
+                    </div>
+                    <div class="mini-task prio-row prio-r1"><span class="mini-circle"></span>touch-up stain</div>
+                    <div class="mini-task prio-row prio-r2"><span class="mini-circle"></span>return the ladder</div>
+                    <div class="mini-task prio-row prio-target"><span class="mini-circle"></span>oil the gate hinges<span class="prio-marks">!!</span></div>
+                    <div class="prio-key">2</div>
+                    <div class="prio-cursor"></div>
+                </div>
+            </div>
         </div>
         <div class="card">
             <h3>AI access key</h3>
