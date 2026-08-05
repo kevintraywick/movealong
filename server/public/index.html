@@ -1190,10 +1190,8 @@
         #projectTabsOther {
             display: flex;
             gap: 6px;
-            margin-left: auto;
             align-items: center;
             flex-wrap: wrap;
-            justify-content: flex-end;
         }
 
         .project-tab.other {
@@ -1815,6 +1813,9 @@
         <div class="app-header">
             <div class="app-logo">Move<span class="accent">Along</span></div>
 
+            <!-- New project [+] -->
+            <button class="project-add-btn" id="projectAddBtn" title="New project">+ New project</button>
+
             <!-- Signup form (before Go) -->
             <div class="header-form" id="headerForm">
                 <input type="text" class="header-input" id="signupName" placeholder="Your username">
@@ -1825,16 +1826,13 @@
             <!-- Active project tab -->
             <div id="projectTabs"></div>
 
-            <!-- Other open projects -->
+            <!-- Other open projects (immediately beside the active tab) -->
             <div id="projectTabsOther"></div>
-
-            <!-- New project [+] -->
-            <button class="project-add-btn" id="projectAddBtn" title="New project">+ New project</button>
 
             <!-- View toggle -->
             <div class="view-toggle">
                 <button class="view-toggle-btn active" id="viewCalendarBtn">Calendar</button>
-                <button class="view-toggle-btn" id="viewMasterBtn">Main</button>
+                <button class="view-toggle-btn" id="viewMasterBtn">List</button>
             </div>
 
             <!-- AI assistant master switch -->
