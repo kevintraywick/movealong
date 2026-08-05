@@ -342,11 +342,16 @@
             position: absolute;
             top: 26px;
             left: 15px;
+            width: 96px;
             background: #ffffff;
             padding-right: 4px;
             z-index: 2;
+            white-space: normal;
+            align-items: flex-start;
+            line-height: 1.25;
             animation: plopDown 9s ease-in-out infinite;
         }
+        .stay-task .mini-circle { margin-top: 1px; }
         @keyframes plopDown {
             0%, 50%  { transform: translateY(0); }
             57%      { transform: translateY(-4px); }
@@ -381,27 +386,62 @@
         @keyframes clock2 { 0%, 21% { opacity: 0; } 23%, 43% { opacity: 1; } 45%, 100% { opacity: 0; } }
         @keyframes clock3 { 0%, 44% { opacity: 0; } 46%, 92% { opacity: 1; } 96%, 100% { opacity: 0; } }
 
-        /* --- scene 2: click the circle to complete --- */
-        .complete-circle { animation: circleFill 4s ease-in-out infinite; position: relative; }
-        .complete-circle::after {
+        /* --- scene 2: complete or postpone (two acts, 10s) ---
+           Act 1: cursor clicks the circle on "dig post holes" — it checks,
+           strikes through, and drops below the divider into completed.
+           Act 2: cursor clicks the → on "set the posts" — it hops to the
+           next day's card. */
+        .mini-arrow { font-size: 8px; color: #94a3b8; line-height: 1; }
+
+        .done-frame {
+            position: relative;
+            width: 246px;
+            height: 128px;
+            animation: sceneFade 10s linear infinite;
+        }
+        .done-frame .mini-card { position: absolute; top: 0; }
+        .dcard1 { left: 0; }
+        .dcard2 { left: 128px; }
+
+        .mini-divider {
+            position: absolute;
+            left: 7px;
+            top: 66px;
+            width: 104px;
+            border-top: 1px dashed #cbd5e1;
+        }
+
+        .dig-row {
+            position: absolute;
+            left: 8px;
+            top: 26px;
+            z-index: 2;
+            background: #ffffff;
+            animation: digDrop 10s ease-in-out infinite;
+        }
+        @keyframes digDrop {
+            0%, 26%  { transform: translateY(0); opacity: 1; }
+            34%, 96% { transform: translateY(48px); opacity: 0.55; }
+            100%     { transform: translateY(48px); opacity: 0; }
+        }
+        .dig-circle { animation: digFill 10s linear infinite; }
+        .dig-circle::after {
             content: '\2713';
             color: #fff;
             font-size: 6px;
             opacity: 0;
-            animation: checkIn 4s ease-in-out infinite;
+            animation: digCheck 10s linear infinite;
         }
-        @keyframes circleFill {
-            0%, 34%  { background: transparent; border-color: #cbd5e1; }
-            42%, 88% { background: #38bdf8; border-color: #38bdf8; }
-            100%     { background: transparent; border-color: #cbd5e1; }
+        @keyframes digFill {
+            0%, 16%   { background: transparent; border-color: #cbd5e1; }
+            19%, 100% { background: #38bdf8; border-color: #38bdf8; }
         }
-        @keyframes checkIn {
-            0%, 34%  { opacity: 0; }
-            42%, 88% { opacity: 1; }
-            100%     { opacity: 0; }
+        @keyframes digCheck {
+            0%, 16%   { opacity: 0; }
+            19%, 100% { opacity: 1; }
         }
-        .complete-text { position: relative; }
-        .complete-text::after {
+        .dig-text { position: relative; }
+        .dig-text::after {
             content: '';
             position: absolute;
             left: 0;
@@ -409,14 +449,29 @@
             height: 1px;
             background: #94a3b8;
             width: 0;
-            animation: strike 4s ease-in-out infinite;
+            animation: digStrike 10s linear infinite;
         }
-        @keyframes strike {
-            0%, 36%  { width: 0; }
-            48%, 88% { width: 100%; }
-            100%     { width: 0; }
+        @keyframes digStrike {
+            0%, 18%   { width: 0; }
+            24%, 100% { width: 100%; }
         }
-        .mini-cursor {
+
+        .set-row {
+            position: absolute;
+            left: 8px;
+            top: 40px;
+            z-index: 2;
+            background: #ffffff;
+            animation: setMove 10s ease-in-out infinite;
+        }
+        @keyframes setMove {
+            0%, 30%   { transform: translate(0, 0); }
+            38%, 56%  { transform: translate(0, -14px); }
+            60%       { transform: translate(0, -18px); box-shadow: 0 3px 8px rgba(15,23,42,0.15); }
+            72%, 100% { transform: translate(128px, -14px); box-shadow: none; }
+        }
+
+        .done-cursor {
             position: absolute;
             width: 10px;
             height: 10px;
@@ -424,15 +479,20 @@
             background: rgba(14, 165, 233, 0.35);
             border: 1.5px solid #0ea5e9;
             pointer-events: none;
-            animation: cursorToCircle 4s ease-in-out infinite;
+            z-index: 3;
+            animation: doneCursor 10s ease-in-out infinite;
         }
-        @keyframes cursorToCircle {
-            0%       { transform: translate(64px, 66px); opacity: 0; }
-            18%      { opacity: 1; }
-            30%      { transform: translate(8px, 27px); opacity: 1; }
-            38%      { transform: translate(8px, 27px) scale(0.75); }
-            46%      { transform: translate(8px, 27px) scale(1); opacity: 1; }
-            60%, 100%{ transform: translate(8px, 27px); opacity: 0; }
+        @keyframes doneCursor {
+            0%       { transform: translate(80px, 96px); opacity: 0; }
+            8%       { transform: translate(80px, 96px); opacity: 1; }
+            15%      { transform: translate(9px, 27px); }
+            18%      { transform: translate(9px, 27px) scale(0.72); }
+            22%      { transform: translate(9px, 27px) scale(1); }
+            32%      { transform: translate(9px, 27px); opacity: 1; }
+            48%      { transform: translate(24px, 27px); }
+            56%      { transform: translate(24px, 27px) scale(0.72); }
+            62%      { transform: translate(24px, 27px) scale(1); opacity: 1; }
+            70%, 100%{ transform: translate(24px, 27px); opacity: 0; }
         }
 
         /* --- scene 3: drag to chain a series --- */
@@ -522,7 +582,13 @@
             .becomes-today .mini-day { color: #0ea5e9; }
             .mini-clock .c3 { opacity: 1; }
             .held-spill { transform: translate(128px, -14px); }
-            .mini-cursor { opacity: 0; }
+            .done-frame { opacity: 1; }
+            .dig-row { transform: translateY(48px); opacity: 0.55; }
+            .dig-circle { background: #38bdf8; border-color: #38bdf8; }
+            .dig-circle::after { opacity: 1; }
+            .dig-text::after { width: 100%; }
+            .set-row { transform: translate(128px, -14px); }
+            .done-cursor { opacity: 0; }
             .type-text { max-width: 0; border-right: none; }
             .typed-row { opacity: 1; }
         }
@@ -597,7 +663,7 @@
             </div>
         </div>
         <div class="card">
-            <h3>Complete, postpone, expand</h3>
+            <h3>Complete or postpone a task</h3>
             <p>Click the circle <span style="display:inline-block;width:11px;height:11px;border:2px solid #cbd5e1;border-radius:50%;vertical-align:-1px;"></span>
                to complete a task. Click <kbd>&rarr;</kbd> to bump it
                to tomorrow. <kbd>Shift</kbd>+click to move it forward one week. Click
@@ -605,12 +671,18 @@
         </div>
         <div class="card demo" aria-hidden="true">
             <div class="scene">
-                <div class="mini-card">
-                    <div class="mini-day">Today</div>
-                    <div class="mini-task"><span class="mini-circle complete-circle"></span><span class="complete-text">dig post holes</span></div>
-                    <div class="mini-task"><span class="mini-circle"></span>set the posts</div>
+                <div class="done-frame">
+                    <div class="mini-card dcard1">
+                        <div class="mini-day" data-day-offset="2"></div>
+                        <div class="mini-divider"></div>
+                    </div>
+                    <div class="mini-card dcard2">
+                        <div class="mini-day" data-day-offset="3"></div>
+                    </div>
+                    <div class="mini-task dig-row"><span class="mini-circle dig-circle"></span><span class="mini-arrow">&rarr;</span><span class="dig-text">dig post holes</span></div>
+                    <div class="mini-task set-row"><span class="mini-circle"></span><span class="mini-arrow">&rarr;</span>set the posts</div>
+                    <div class="done-cursor"></div>
                 </div>
-                <div class="mini-cursor"></div>
             </div>
         </div>
         <div class="card">
