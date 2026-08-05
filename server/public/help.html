@@ -510,6 +510,19 @@
             60%       { transform: translate(0, -18px); box-shadow: 0 3px 8px rgba(15,23,42,0.15); }
             72%, 100% { transform: translate(128px, -14px); box-shadow: none; }
         }
+        /* Day counter fades in once the task lands on the next day */
+        .day-pop {
+            color: #94a3b8;
+            font-size: 7px;
+            margin-left: 2px;
+            opacity: 0;
+            animation: dayPop 10s ease-out infinite;
+        }
+        @keyframes dayPop {
+            0%, 73%  { opacity: 0; }
+            78%, 96% { opacity: 1; }
+            100%     { opacity: 0; }
+        }
 
         .done-cursor {
             position: absolute;
@@ -527,14 +540,14 @@
         @keyframes doneCursor {
             0%       { transform: translate(80px, 96px); opacity: 0; }
             8%       { transform: translate(80px, 96px); opacity: 1; }
-            15%      { transform: translate(9px, 27px); }
-            18%      { transform: translate(9px, 27px) scale(0.72); }
-            22%      { transform: translate(9px, 27px) scale(1); }
-            32%      { transform: translate(9px, 27px); opacity: 1; }
-            48%      { transform: translate(24px, 27px); }
-            56%      { transform: translate(24px, 27px) scale(0.72); }
-            62%      { transform: translate(24px, 27px) scale(1); opacity: 1; }
-            70%, 100%{ transform: translate(24px, 27px); opacity: 0; }
+            15%      { transform: translate(9px, 29px); }
+            18%      { transform: translate(9px, 29px) scale(0.72); }
+            22%      { transform: translate(9px, 29px) scale(1); }
+            32%      { transform: translate(9px, 29px); opacity: 1; }
+            48%      { transform: translate(24px, 30px); }
+            56%      { transform: translate(24px, 30px) scale(0.72); }
+            62%      { transform: translate(24px, 30px) scale(1); opacity: 1; }
+            70%, 100%{ transform: translate(24px, 30px); opacity: 0; }
         }
 
         /* --- scene 2b: overflow (the 11th task flips to the next day) ---
@@ -1086,6 +1099,7 @@
             .dig-circle::after { opacity: 1; }
             .dig-text::after { width: 100%; }
             .set-row { transform: translate(128px, -14px); }
+            .day-pop { opacity: 1; }
             .done-cursor { opacity: 0; }
             .type-text { max-width: 0; border-right: none; }
             .typed-row { opacity: 1; }
@@ -1204,16 +1218,22 @@
                         <div class="mini-day" data-day-offset="3"></div>
                     </div>
                     <div class="mini-task dig-row"><span class="mini-circle dig-circle"></span><span class="mini-arrow">&rarr;</span><span class="dig-text">dig post holes</span></div>
-                    <div class="mini-task set-row"><span class="mini-circle"></span><span class="mini-arrow">&rarr;</span>set the posts</div>
+                    <div class="mini-task set-row"><span class="mini-circle"></span><span class="mini-arrow">&rarr;</span>set the posts<span class="day-pop">2</span></div>
                     <div class="done-cursor"></div>
                 </div>
             </div>
         </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>The little number counts<br>the days a task has<br>been on your board.</span>
+        </div>
         <div class="card">
             <h3>Overflow</h3>
             <p>A day holds at most 10 pending tasks per board. Add an 11th and it
-               overflows to the next free day — a built-in nudge against
-               overcommitting.</p>
+               overflows to the next free day.</p>
         </div>
         <div class="card demo" aria-hidden="true">
             <div class="scene">
@@ -1266,7 +1286,7 @@
         <div class="card">
             <h3>Links in tasks</h3>
             <p>Any URL you type in a task becomes a clickable link that opens in a
-               new tab. Completing a link task closes its step pane.</p>
+               new tab.</p>
         </div>
         <div class="card demo" aria-hidden="true">
             <div class="scene">
@@ -1307,7 +1327,8 @@
             <p><strong>Drag a task onto another task</strong> to make it a child of
                that parent. Moving the parent of a child task will offset the child
                task by the same amount. Chained tasks show a numbered circle
-               <span style="display:inline-flex;width:12px;height:12px;border:2px solid #cbd5e1;border-radius:50%;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:#475569;vertical-align:-2px;">2</span>.</p>
+               <span style="display:inline-flex;width:12px;height:12px;border:2px solid #cbd5e1;border-radius:50%;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:#475569;vertical-align:-2px;">2</span>
+               showing the total number of steps in that chain.</p>
         </div>
         <div class="card demo" aria-hidden="true">
             <div class="scene">
