@@ -558,6 +558,127 @@
             94%, 100%{ opacity: 0; transform: translate(128px, 6px); }
         }
 
+        /* --- scene 2c: links in tasks (click → mini browser) ---
+           A URL in a task is a real link; clicking it "opens" a browser
+           window in the empty slot where the next day would be. */
+        .link-frame {
+            position: relative;
+            width: 246px;
+            height: 128px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .link-frame .mini-card { position: absolute; top: 0; left: 0; }
+        .mini-link {
+            color: #0284c7;
+            text-decoration: underline;
+            text-decoration-color: rgba(2, 132, 199, 0.4);
+            animation: linkFlash 9s linear infinite;
+        }
+        @keyframes linkFlash {
+            0%, 22%  { color: #0284c7; }
+            24%, 30% { color: #0f172a; }
+            32%, 100%{ color: #0284c7; }
+        }
+        .ghost-day {
+            position: absolute;
+            top: 0;
+            left: 128px;
+            opacity: 0.45;
+            animation: ghostOut 9s linear infinite;
+        }
+        @keyframes ghostOut {
+            0%, 26%  { opacity: 0.45; }
+            34%, 92% { opacity: 0; }
+            100%     { opacity: 0.45; }
+        }
+        .mini-browser {
+            position: absolute;
+            top: 0;
+            left: 128px;
+            width: 118px;
+            height: 118px;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            overflow: hidden;
+            opacity: 0;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+            animation: browserIn 9s ease-out infinite;
+        }
+        @keyframes browserIn {
+            0%, 26%  { opacity: 0; transform: scale(0.9); }
+            36%, 90% { opacity: 1; transform: scale(1); }
+            94%, 100%{ opacity: 0; transform: scale(0.9); }
+        }
+        .mb-chrome {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 4px 5px;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .mb-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #cbd5e1;
+        }
+        .mb-url {
+            flex: 1;
+            margin-left: 3px;
+            background: #ffffff;
+            border-radius: 6px;
+            font-size: 6.5px;
+            color: #64748b;
+            padding: 1.5px 5px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .mb-body { padding: 8px 7px; }
+        .mb-avatar {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            color: #fff;
+            font-size: 8px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 6px;
+        }
+        .mb-line {
+            height: 4px;
+            border-radius: 2px;
+            background: #e2e8f0;
+            margin-bottom: 4px;
+        }
+        .mb-line.title { width: 70%; background: #94a3b8; height: 5px; }
+        .mb-line.w80 { width: 80%; }
+        .mb-line.w60 { width: 60%; }
+
+        .link-cursor {
+            position: absolute;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: linkCursor 9s ease-in-out infinite;
+        }
+        @keyframes linkCursor {
+            0%       { transform: translate(90px, 100px); opacity: 0; }
+            8%       { transform: translate(90px, 100px); opacity: 1; }
+            20%      { transform: translate(38px, 44px); }
+            24%      { transform: translate(38px, 44px) scale(0.72); }
+            28%      { transform: translate(38px, 44px) scale(1); }
+            36%      { opacity: 1; }
+            44%, 100%{ transform: translate(38px, 44px); opacity: 0; }
+        }
+
         /* --- scene 3: drag to chain a series --- */
         .drag-task {
             position: absolute;
@@ -656,6 +777,9 @@
             .typed-row { opacity: 1; }
             .over-type { max-width: 0; border-right: none; }
             .over-new { opacity: 1; transform: translate(128px, 6px); }
+            .ghost-day { opacity: 0; }
+            .mini-browser { opacity: 1; transform: scale(1); }
+            .link-cursor { opacity: 0; }
         }
 
         @media (max-width: 560px) {
@@ -789,6 +913,35 @@
             <h3>Links in tasks</h3>
             <p>Any URL you type in a task becomes a clickable link that opens in a
                new tab. Completing a link task closes its step pane.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="link-frame">
+                    <div class="mini-card">
+                        <div class="mini-day" data-day-offset="5"></div>
+                        <div class="mini-task"><span class="mini-circle"></span>hang the gate</div>
+                        <div class="mini-task" style="white-space:normal;align-items:flex-start;"><span class="mini-circle" style="margin-top:1px;"></span><span>share pics — <span class="mini-link">kevintraywick.com</span></span></div>
+                        <div class="mini-task"><span class="mini-circle"></span>sweep up sawdust</div>
+                    </div>
+                    <div class="mini-card ghost-day">
+                        <div class="mini-day" data-day-offset="6"></div>
+                    </div>
+                    <div class="mini-browser">
+                        <div class="mb-chrome">
+                            <span class="mb-dot"></span><span class="mb-dot"></span><span class="mb-dot"></span>
+                            <span class="mb-url">kevintraywick.com</span>
+                        </div>
+                        <div class="mb-body">
+                            <div class="mb-avatar">KT</div>
+                            <div class="mb-line title"></div>
+                            <div class="mb-line w80"></div>
+                            <div class="mb-line w60"></div>
+                            <div class="mb-line w80"></div>
+                        </div>
+                    </div>
+                    <div class="link-cursor"></div>
+                </div>
+            </div>
         </div>
     </div>
 
