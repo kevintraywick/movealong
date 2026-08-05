@@ -394,7 +394,16 @@
             line-height: 1.25;
             animation: plopDown 9s ease-in-out infinite;
         }
+        .stay-task.stay-2 { top: 52px; }
         .stay-task .mini-circle { margin-top: 1px; }
+        /* Thursday's own task steps down as the two spilled tasks land above it */
+        .thu-task {
+            animation: thuShift 9s ease-in-out infinite;
+        }
+        @keyframes thuShift {
+            0%, 46%   { transform: translateY(0); }
+            57%, 100% { transform: translateY(42px); }
+        }
         @keyframes plopDown {
             0%, 50%  { transform: translateY(0); }
             57%      { transform: translateY(-4px); }
@@ -1173,6 +1182,7 @@
             .scene * { animation: none !important; }
             .strip-frame { opacity: 1; }
             .strip { transform: translateX(-128px); }
+            .thu-task { transform: translateY(42px); }
             .becomes-today .mini-day { color: #0ea5e9; }
             .mini-clock .c3 { opacity: 1; }
             .held-spill { transform: translate(128px, -14px); }
@@ -1338,12 +1348,15 @@
                         </div>
                         <div class="mini-card becomes-today">
                             <div class="mini-day" data-day-offset="1"></div>
+                            <div class="mini-task thu-task"><span class="mini-circle"></span>level the ground</div>
                         </div>
                         <div class="mini-card">
                             <div class="mini-day" data-day-offset="2"></div>
+                            <div class="mini-task"><span class="mini-circle"></span>dig post holes</div>
                         </div>
                     </div>
                     <div class="mini-task stay-task"><span class="mini-circle"></span>pick up fence boards <span style="color:#94a3b8;font-size:7px;">2</span></div>
+                    <div class="mini-task stay-task stay-2"><span class="mini-circle"></span>rent the auger <span style="color:#94a3b8;font-size:7px;">2</span></div>
                 </div>
                 <div class="mini-clock">
                     <span class="c1">11:58 PM</span>
