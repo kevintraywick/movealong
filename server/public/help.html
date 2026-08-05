@@ -907,6 +907,124 @@
         }
         .locked-stay .mini-text { color: #ef4444; font-weight: 600; }
 
+        /* --- scene 5: projects & the Main page (9s) ---
+           A mini replica of the real top nav bar. A red marker circle
+           draws itself around "+ New project", the cursor clicks it,
+           and a new project tab pops into the bar. */
+        .nav-frame {
+            position: relative;
+            width: 250px;
+            height: 128px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .mini-nav {
+            position: absolute;
+            top: 44px;
+            left: 0;
+            right: 0;
+            height: 26px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0 6px;
+            white-space: nowrap;
+        }
+        .mini-nav > * { flex-shrink: 0; }
+        .nav-mark {
+            font-size: 8.5px;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.2px;
+        }
+        .nav-mark span { color: #0ea5e9; }
+        .nav-tab {
+            font-size: 7px;
+            font-weight: 600;
+            padding: 2px 5px;
+            border-radius: 3px;
+            background: #f0f9ff;
+            color: #0284c7;
+        }
+        .nav-tab.new-tab {
+            opacity: 0;
+            animation: tabPop 9s ease-out infinite;
+        }
+        .nav-plus {
+            position: relative;
+            font-size: 7px;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            padding: 2px 5px;
+        }
+        .nav-ring {
+            position: absolute;
+            top: -6px;
+            left: -7px;
+            width: calc(100% + 14px);
+            height: calc(100% + 12px);
+            overflow: visible;
+            transform: rotate(-3deg);
+            pointer-events: none;
+        }
+        .nav-ring ellipse {
+            fill: none;
+            stroke: #ef4444;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            opacity: 0;
+            animation: ringDraw 9s linear infinite;
+        }
+        @keyframes ringDraw {
+            0%, 8%    { stroke-dashoffset: 100; opacity: 0; }
+            10%       { stroke-dashoffset: 100; opacity: 0.9; }
+            30%, 58%  { stroke-dashoffset: 0; opacity: 0.9; }
+            65%, 100% { stroke-dashoffset: 0; opacity: 0; }
+        }
+        .nav-toggle {
+            display: flex;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .nt-seg { font-size: 6.5px; padding: 2px 4px; color: #64748b; }
+        .nt-seg.active { background: #f0f9ff; color: #0284c7; font-weight: 600; }
+        @keyframes tabPop {
+            0%, 52%   { opacity: 0; transform: scale(0.6); }
+            56%       { opacity: 1; transform: scale(1.2); }
+            59%, 92%  { opacity: 1; transform: scale(1); }
+            96%, 100% { opacity: 0; }
+        }
+        /* Anchored inside .nav-plus: translate(0,0) is exactly the button's
+           center, so the click always lands regardless of font metrics. */
+        .nav-cursor {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin: -5px 0 0 -5px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: navCursor 9s ease-in-out infinite;
+        }
+        @keyframes navCursor {
+            0%, 30%   { transform: translate(70px, 58px); opacity: 0; }
+            36%       { transform: translate(70px, 58px); opacity: 1; }
+            46%, 50%  { transform: translate(0, 0) scale(1); opacity: 1; }
+            52%       { transform: translate(0, 0) scale(0.75); }
+            54%, 56%  { transform: translate(0, 0) scale(1); opacity: 1; }
+            64%, 100% { transform: translate(70px, 58px); opacity: 0; }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .scene * { animation: none !important; }
             .strip-frame { opacity: 1; }
@@ -936,6 +1054,10 @@
             .prio-target { transform: translateY(-28px); }
             .prio-marks { opacity: 1; transform: scale(1); }
             .prio-key, .prio-cursor { opacity: 0; }
+            .nav-frame { opacity: 1; }
+            .nav-ring ellipse { stroke-dashoffset: 0; opacity: 0.9; }
+            .nav-tab.new-tab { opacity: 1; transform: scale(1); }
+            .nav-cursor { opacity: 0; }
         }
 
         @media (max-width: 560px) {
@@ -1067,6 +1189,24 @@
             <p>Create as many boards as you like ("personal", "house", &hellip;) with
                the <kbd>+</kbd> button. The <strong>Main</strong> view lists every
                board's open tasks in one place, grouped by project.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="nav-frame">
+                    <div class="mini-nav">
+                        <span class="nav-mark">Move<span>Along</span></span>
+                        <span class="nav-tab">fence</span>
+                        <span class="nav-tab new-tab">garden</span>
+                        <span class="nav-plus">+ New project
+                            <svg class="nav-ring" viewBox="0 0 66 26" preserveAspectRatio="none" aria-hidden="true">
+                                <ellipse cx="33" cy="13" rx="31" ry="11" pathLength="100"/>
+                            </svg>
+                            <span class="nav-cursor"></span>
+                        </span>
+                        <span class="nav-toggle"><span class="nt-seg active">Calendar</span><span class="nt-seg">Main</span></span>
+                    </div>
+                </div>
+            </div>
         </div>
         <div class="card">
             <h3>Links in tasks</h3>
