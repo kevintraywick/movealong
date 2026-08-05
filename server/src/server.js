@@ -615,6 +615,13 @@ app.put('/api/tasks/:taskId', (req, res) => {
       cascadeChainSuccessors(task.id, daysBetween(task.scheduled_date, scheduled_date));
     }
 
+    // Completing a task severs its series links: its child re-links to its
+    // parent and the completed task stands alone. One-way — reopening the
+    // task does not restore the links.
+    if (completed !== undefined && completed && !task.completed) {
+      spliceOutOfChain(task);
+    }
+
     const updated = queryOne(`
       SELECT
         t.id,

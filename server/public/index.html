@@ -2360,6 +2360,7 @@
             if (!task) return;
 
             const willComplete = !task.completed;
+            const wasChained = chainInfo.has(taskId);
 
             try {
                 const updated = await api(`/tasks/${taskId}`, {
@@ -2371,6 +2372,12 @@
                 // completing it collapses its subtask pane.
                 if (willComplete && taskHasLink(task.description)) {
                     expandedTaskIds.delete(taskId);
+                }
+                // Completing a chained task splices it out server-side (its
+                // child re-links to its parent) — refetch so other rows'
+                // parent_task_id changes land locally.
+                if (willComplete && wasChained) {
+                    await loadTasks();
                 }
                 renderView();
                 showToast(task.completed ? 'Task completed!' : 'Task reopened');
@@ -3048,17 +3055,27 @@
             }
         }
 
-        // The chain-teaching whisper shows until the user either builds a
-        // series or dismisses it. computeChains() has always run by the time
-        // renderBoard() asks.
+        // The chain-teaching whisper shows until the user builds a series,
+        // dismisses it, or has seen it in three sessions (stored count).
+        // computeChains() has always run by the time renderBoard() asks.
         const CHAIN_HINT_KEY = 'movealong.hint.chain';
+        const CHAIN_HINT_MAX_SHOWS = 3;
+        let chainHintCountedThisSession = false;
         function shouldShowChainHint() {
             if (!isSignedUp) return false;
-            try {
-                if (localStorage.getItem(CHAIN_HINT_KEY) === 'dismissed') return false;
-            } catch (e) { return false; }
+            let raw;
+            try { raw = localStorage.getItem(CHAIN_HINT_KEY); } catch (e) { return false; }
+            if (raw === 'dismissed') return false;
+            const count = parseInt(raw || '0', 10) || 0;
+            if (count >= CHAIN_HINT_MAX_SHOWS && !chainHintCountedThisSession) return false;
             if (chainInfo.size > 0) return false;
-            return tasks.filter(t => !t.completed && !t.assigned_to).length >= 2;
+            if (tasks.filter(t => !t.completed && !t.assigned_to).length < 2) return false;
+            // Count one appearance per session (renderBoard runs constantly).
+            if (!chainHintCountedThisSession) {
+                chainHintCountedThisSession = true;
+                try { localStorage.setItem(CHAIN_HINT_KEY, String(count + 1)); } catch (e) { /* ignore */ }
+            }
+            return true;
         }
 
         function dismissChainHint() {
