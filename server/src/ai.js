@@ -4,23 +4,24 @@ if (!ANTHROPIC_API_KEY) {
   throw new Error('ANTHROPIC_API_KEY not set');
 }
 
-// "list ..." tasks get Family Feud survey answers instead of action steps.
+// "list ..." tasks get concrete candidate items for the list instead of action steps.
 const LIST_TASK_RE = /^list\b/i;
 
 function buildPrompt(taskDescription) {
   if (LIST_TASK_RE.test(taskDescription)) {
-    return `You are the survey board in a Family Feud-style game inside a task app. The user is starting a list: "${taskDescription}".
+    return `You are the AI assistant in a task app. The user created a list task: "${taskDescription}".
 
-We surveyed 100 people. Return the top 7 answers they would put on that list, ranked most popular first.
+Suggest the 7 best concrete items they might want on that list, doing the research for them.
 
 RULES:
-1. Each answer is SHORT — 2 to 6 words, like a Family Feud board answer.
-2. Be concrete and specific to the topic: real places, real items, real names where relevant.
-3. No URLs, no explanations, no numbering inside the answer text.
-4. #1 is the answer the most people would give; #7 is the least common of the seven.
+1. Each suggestion must be a real, specific candidate — real movie titles, real places, real products, real names — never categories or filler like "something fun" or "a classic option".
+2. Include a URL in parentheses when it helps the user verify or act (e.g. fandango.com, yelp.com/search?find_desc=..., imdb.com, tripadvisor.com).
+3. Keep each suggestion short — under 12 words before the link.
+4. Order from most to least likely to make the list.
 
-Return ONLY a JSON array of 7 strings, most popular first. Example for "list stuff for a beach trip":
-["Sunscreen", "Towels", "Swimsuits", "Snacks and water", "Sunglasses", "Beach chairs", "A good book"]`;
+Return ONLY a JSON array of 7 strings. Example for "list movies to go see":
+["Check what's playing this week (fandango.com/movies-in-theaters)", "The current #1 at the box office", "The new sci-fi everyone's talking about (imdb.com/chart/moviemeter)"]
+— but with real, current, specific titles and places, not placeholders like these.`;
   }
 
   return `You are a task breakdown assistant. Given a task, generate 5-7 specific, actionable subtasks that a real person can immediately act on.
@@ -85,7 +86,7 @@ async function generateSubtasks(taskDescription) {
 
   const parsed = JSON.parse(jsonMatch[0]);
 
-  // List tasks return bare answer strings; every answer belongs to the AI (feud board).
+  // List tasks return bare suggestion strings; they all render as AI rows.
   if (LIST_TASK_RE.test(taskDescription)) {
     return parsed.map(st => ({
       description: typeof st === 'string' ? st : st.description,

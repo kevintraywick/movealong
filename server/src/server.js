@@ -1257,16 +1257,16 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
 function generateMockSubtasks(description) {
   const desc = description.toLowerCase();
 
-  // --- "list ..." tasks: placeholder Family Feud board ---
+  // --- "list ..." tasks: placeholder suggestions ---
   if (/^list\b/i.test(description)) {
     return [
-      'The obvious one everyone says first',
-      'The one you always forget',
-      'The crowd-pleaser',
-      'The one only insiders know about',
-      'The budget option',
-      'The ambitious stretch',
-      'The wildcard'
+      'A popular option to consider',
+      'One people often forget',
+      'A crowd-pleaser',
+      'A hidden gem worth checking out',
+      'A budget-friendly option',
+      'An ambitious stretch',
+      'A wildcard'
     ].map(d => ({ description: d, assignee_type: 'ai' }));
   }
 

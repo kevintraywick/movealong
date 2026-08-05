@@ -1521,18 +1521,14 @@
             transform: translateX(2px);
         }
 
-        /* ===== Quick list + Family Feud board ("list ..." tasks) ===== */
-        .quick-list-title,
-        .feud-title {
+        /* ===== Quick list ("list ..." tasks) ===== */
+        .quick-list-title {
             font-size: 11px;
             text-transform: uppercase;
             letter-spacing: 0.6px;
             color: #64748b;
             font-weight: 600;
             margin: 8px 0 4px;
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
         }
 
         .quick-slot {
@@ -1565,90 +1561,6 @@
 
         .quick-slot-input::placeholder {
             color: #cbd5e1;
-        }
-
-        .feud-reveal-all {
-            border: none;
-            background: none;
-            color: #0ea5e9;
-            font-size: 10px;
-            font-weight: 500;
-            text-transform: none;
-            letter-spacing: 0;
-            cursor: pointer;
-            padding: 0;
-        }
-
-        .feud-reveal-all:hover {
-            color: #0284c7;
-            text-decoration: underline;
-        }
-
-        .feud-slat {
-            min-height: 24px;
-            border-radius: 6px;
-            margin-bottom: 4px;
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            overflow: hidden;
-        }
-
-        .feud-slat.hidden-slat {
-            background: linear-gradient(180deg, #0ea5e9, #0284c7);
-            justify-content: center;
-            box-shadow: inset 0 -2px 0 rgba(2, 132, 199, 0.5);
-        }
-
-        .feud-slat.hidden-slat:hover {
-            filter: brightness(1.1);
-        }
-
-        .feud-slat.hidden-slat .feud-num {
-            color: #fff;
-            font-weight: 700;
-            font-size: 12px;
-        }
-
-        .feud-slat.revealed {
-            background: #f0f9ff;
-            border: 1px solid #bae6fd;
-            padding: 3px 6px;
-            gap: 6px;
-        }
-
-        .feud-slat.revealed:hover {
-            border-color: #38bdf8;
-        }
-
-        .feud-slat.revealed .feud-num {
-            background: #0ea5e9;
-            color: #fff;
-            border-radius: 50%;
-            width: 16px;
-            height: 16px;
-            flex-shrink: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 10px;
-            font-weight: 700;
-        }
-
-        .feud-slat.revealed .feud-answer {
-            font-size: 12px;
-            line-height: 1.3;
-            color: #0f172a;
-            overflow-wrap: anywhere;
-        }
-
-        .feud-slat.flip {
-            animation: feudFlip 0.45s ease-out;
-        }
-
-        @keyframes feudFlip {
-            0% { transform: rotateX(90deg); }
-            100% { transform: rotateX(0deg); }
         }
 
         .subtask-loading {
@@ -1901,12 +1813,9 @@
         }
         body.dark .subtask-item.dependent { color: #94a3b8; }
         body.dark .subtask-loading { color: #94a3b8; }
-        body.dark .quick-list-title, body.dark .feud-title { color: #94a3b8; }
+        body.dark .quick-list-title { color: #94a3b8; }
         body.dark .quick-slot-input { color: #e2e8f0; border-bottom-color: #334155; }
         body.dark .quick-slot-input::placeholder { color: #475569; }
-        body.dark .feud-slat.revealed { background: #0b1120; border-color: #334155; }
-        body.dark .feud-slat.revealed:hover { border-color: #38bdf8; }
-        body.dark .feud-slat.revealed .feud-answer { color: #e2e8f0; }
         body.dark .subtask-check { border-color: #475569; }
         body.dark .subtask-emoji:hover { background: #334155; }
         body.dark .subtask-send { background: rgba(14, 165, 233, 0.15); }
@@ -2090,29 +1999,9 @@
         let generatingSubtasksFor = null; // taskId currently generating
         let assistantEnabled = true; // master AI assistant switch (persisted in localStorage)
 
-        // ===== "list ..." tasks: quick list + Family Feud board =====
+        // ===== "list ..." tasks: quick list above the standard AI pane =====
         const LIST_TASK_RE = /^list\b/i;
         function isListTask(desc) { return LIST_TASK_RE.test(desc || ''); }
-        const feudRevealed = new Map();     // taskId -> Set(subtaskId) answers turned over
-        const feudJustRevealed = new Set(); // subtaskIds to flip-animate on next render
-
-        function feudRevealedSet(taskId) {
-            if (!feudRevealed.has(taskId)) feudRevealed.set(taskId, new Set());
-            return feudRevealed.get(taskId);
-        }
-
-        function feudNorm(s) {
-            return (s || '').toLowerCase().replace(/[^a-z0-9\s]/g, ' ').replace(/\s+/g, ' ').trim();
-        }
-
-        // Loose Family Feud matching: substring either way, or any shared word of 4+ letters.
-        function feudMatches(entry, answer) {
-            const e = feudNorm(entry), a = feudNorm(answer);
-            if (!e || !a) return false;
-            if (a.includes(e) || e.includes(a)) return true;
-            const entryWords = new Set(e.split(' ').filter(w => w.length >= 4));
-            return a.split(' ').filter(w => w.length >= 4).some(w => entryWords.has(w));
-        }
 
         // ============================================
         // API HELPERS
@@ -2704,16 +2593,6 @@
         }
 
         async function addQuickListItem(taskId, description) {
-            // Family Feud check before the row lands — a match turns its slat over.
-            const answers = (taskSubtasks.get(taskId) || []).filter(st => st.assignee_type === 'ai');
-            const revealed = feudRevealedSet(taskId);
-            const hit = answers.find(st => !revealed.has(st.id) && feudMatches(description, st.description));
-            if (hit) {
-                revealed.add(hit.id);
-                feudJustRevealed.add(hit.id);
-                showToast(`🎉 Survey says: "${hit.description}"`);
-            }
-
             try {
                 const subtask = await api(`/tasks/${taskId}/subtasks`, {
                     method: 'POST',
@@ -2726,28 +2605,6 @@
                 // Keep the cursor in the next empty slot so a list can be rattled off.
                 const slot = document.querySelector(`.quick-slot-input[data-task-id="${taskId}"]`);
                 if (slot) slot.focus();
-            } catch (err) {
-                showToast('Error: ' + err.message);
-            }
-        }
-
-        async function adoptFeudAnswer(taskId, subtaskId) {
-            const subtasks = taskSubtasks.get(taskId) || [];
-            const answer = subtasks.find(st => st.id === subtaskId);
-            if (!answer) return;
-            const mine = subtasks.filter(st => st.assignee_type !== 'ai' && !st.completed);
-            if (mine.some(st => feudNorm(st.description) === feudNorm(answer.description))) {
-                showToast('Already on your list');
-                return;
-            }
-            try {
-                const subtask = await api(`/tasks/${taskId}/subtasks`, {
-                    method: 'POST',
-                    body: { description: answer.description, assignee_type: 'human' }
-                });
-                subtasks.push(subtask);
-                taskSubtasks.set(taskId, subtasks);
-                renderView();
             } catch (err) {
                 showToast('Error: ' + err.message);
             }
@@ -3149,37 +3006,6 @@
                     if (e.key === 'Enter' && e.target.value.trim()) {
                         addQuickListItem(parseInt(e.target.dataset.taskId), e.target.value.trim());
                     }
-                });
-            });
-
-            // Feud slats: hidden → peek at the answer; revealed → copy it onto my list
-            document.querySelectorAll('.feud-slat[data-subtask-id]').forEach(slat => {
-                slat.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const taskId = parseInt(slat.dataset.taskId);
-                    const subtaskId = parseInt(slat.dataset.subtaskId);
-                    if (slat.classList.contains('hidden-slat')) {
-                        feudRevealedSet(taskId).add(subtaskId);
-                        feudJustRevealed.add(subtaskId);
-                        renderView();
-                    } else {
-                        adoptFeudAnswer(taskId, subtaskId);
-                    }
-                });
-            });
-
-            document.querySelectorAll('.feud-reveal-all[data-task-id]').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    const taskId = parseInt(btn.dataset.taskId);
-                    const revealed = feudRevealedSet(taskId);
-                    (taskSubtasks.get(taskId) || []).filter(st => st.assignee_type === 'ai').forEach(st => {
-                        if (!revealed.has(st.id)) {
-                            revealed.add(st.id);
-                            feudJustRevealed.add(st.id);
-                        }
-                    });
-                    renderView();
                 });
             });
 
@@ -3630,20 +3456,46 @@
 
             let content = '';
 
+            // Standard subtask row anatomy \u2014 shared by the normal pane and the
+            // AI-suggestion section of "list ..." panes.
+            const subtaskRow = (st) => {
+                const isDependent = st.parent_subtask_id !== null;
+                const isAssigned = st.assigned_to !== null;
+                const emoji = st.assignee_type === 'ai' ? '\uD83E\uDDE0' : '\uD83D\uDC69';
+                // AI steps get a "send to agent" arrow; assigned ones lose the assign emoji.
+                const sendBtn = (st.assignee_type === 'ai' && !isAssigned)
+                    ? `<button class="subtask-send" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Send to AI agent">&rarr;</button>`
+                    : '';
+                const emojiEl = isAssigned
+                    ? `<span class="subtask-emoji assigned">${emoji}</span>`
+                    : `<span class="subtask-emoji" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Assign this step">${emoji}</span>`;
+
+                return `
+                    <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''}">
+                        <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
+                        ${emojiEl}
+                        <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifyText(st.description)}</div>
+                        ${sendBtn}
+                    </div>
+                `;
+            };
+
+            const header = taskTitle
+                ? `<div class="subtask-pane-header"><span class="subtask-pane-title">${escapeHtml(taskTitle)}</span></div>`
+                : '';
+
             if (isGenerating) {
                 content = `
                     <div class="subtask-loading">
                         <div class="dot-pulse"><span></span><span></span><span></span></div>
-                        ${isListTask(taskTitle) ? 'Surveying 100 people&hellip;' : 'Generating steps...'}
+                        ${isListTask(taskTitle) ? 'Gathering ideas&hellip;' : 'Generating steps...'}
                     </div>
                 `;
             } else if (isListTask(taskTitle)) {
-                // Quick list on top (3 empty slots, growing one at a time), Family Feud
-                // survey board below. My items are assignee_type 'human'; the AI's
-                // hidden answers are 'ai'.
+                // Quick list on top (my items, assignee_type 'human'), standard
+                // AI-generated subtask rows below (assignee_type 'ai').
                 const mine = subtasks.filter(st => st.assignee_type !== 'ai' && !st.completed);
-                const answers = subtasks.filter(st => st.assignee_type === 'ai');
-                const revealed = feudRevealedSet(taskId);
+                const suggestions = subtasks.filter(st => st.assignee_type === 'ai' && !st.completed);
 
                 const mineRows = mine.map(st => `
                     <div class="subtask-item">
@@ -3652,6 +3504,7 @@
                     </div>
                 `).join('');
 
+                // 3 blank slots to start; once all three fill, one fresh slot follows each entry.
                 let slots = '';
                 const emptySlots = Math.max(3 - mine.length, 1);
                 for (let i = 0; i < emptySlots; i++) {
@@ -3664,55 +3517,17 @@
                     `;
                 }
 
-                let board = '';
-                if (answers.length) {
-                    const slats = answers.map((st, i) => {
-                        const isRevealed = revealed.has(st.id);
-                        const flip = feudJustRevealed.has(st.id) ? ' flip' : '';
-                        feudJustRevealed.delete(st.id);
-                        return isRevealed
-                            ? `<div class="feud-slat revealed${flip}" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Add to my list"><span class="feud-num">${i + 1}</span><span class="feud-answer">${escapeHtml(st.description)}</span></div>`
-                            : `<div class="feud-slat hidden-slat" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Reveal this answer"><span class="feud-num">${i + 1}</span></div>`;
-                    }).join('');
-                    const revealAllBtn = answers.some(st => !revealed.has(st.id))
-                        ? `<button class="feud-reveal-all" data-task-id="${taskId}">reveal all</button>`
-                        : '';
-                    board = `<div class="feud-title"><span>Survey says&hellip;</span>${revealAllBtn}</div>${slats}`;
-                }
-
-                const header = taskTitle
-                    ? `<div class="subtask-pane-header"><span class="subtask-pane-title">${escapeHtml(taskTitle)}</span></div>`
+                const suggestionSection = suggestions.length
+                    ? `<div class="quick-list-title">Suggestions</div><div class="subtask-list">${suggestions.map(subtaskRow).join('')}</div>`
                     : '';
-                const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Run the survey again">&orarr;</button>`;
-                content = `${regenAll}${header}<div class="quick-list-title"><span>My list</span></div><div class="subtask-list">${mineRows}</div>${slots}${board}`;
+
+                const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate suggestions">&orarr;</button>`;
+                content = `${regenAll}${header}<div class="quick-list-title">My list</div><div class="subtask-list">${mineRows}</div>${slots}${suggestionSection}`;
             } else {
                 // Completed steps disappear from the pane (server keeps them for the List-view progress count).
                 const pending = subtasks.filter(st => !st.completed);
-                const rows = pending.map((st) => {
-                    const isDependent = st.parent_subtask_id !== null;
-                    const isAssigned = st.assigned_to !== null;
-                    const emoji = st.assignee_type === 'ai' ? '\uD83E\uDDE0' : '\uD83D\uDC69';
-                    // AI steps get a "send to agent" arrow; assigned ones lose the assign emoji.
-                    const sendBtn = (st.assignee_type === 'ai' && !isAssigned)
-                        ? `<button class="subtask-send" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Send to AI agent">&rarr;</button>`
-                        : '';
-                    const emojiEl = isAssigned
-                        ? `<span class="subtask-emoji assigned">${emoji}</span>`
-                        : `<span class="subtask-emoji" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Assign this step">${emoji}</span>`;
+                const rows = pending.map(subtaskRow).join('');
 
-                    return `
-                        <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''}">
-                            <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
-                            ${emojiEl}
-                            <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifyText(st.description)}</div>
-                            ${sendBtn}
-                        </div>
-                    `;
-                }).join('');
-
-                const header = taskTitle
-                    ? `<div class="subtask-pane-header"><span class="subtask-pane-title">${escapeHtml(taskTitle)}</span></div>`
-                    : '';
                 const list = pending.length ? `<div class="subtask-list">${rows}</div>` : '';
                 const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate all steps">&orarr;</button>`;
                 content = `${regenAll}${header}${list}<input type="text" class="subtask-input" data-task-id="${taskId}" placeholder="Add a step...">`;
