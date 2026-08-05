@@ -672,47 +672,75 @@
         @keyframes linkCursor {
             0%       { transform: translate(90px, 100px); opacity: 0; }
             8%       { transform: translate(90px, 100px); opacity: 1; }
-            20%      { transform: translate(38px, 44px); }
-            24%      { transform: translate(38px, 44px) scale(0.72); }
-            28%      { transform: translate(38px, 44px) scale(1); }
+            20%      { transform: translate(46px, 55px); }
+            24%      { transform: translate(46px, 55px) scale(0.72); }
+            28%      { transform: translate(46px, 55px) scale(1); }
             36%      { opacity: 1; }
-            44%, 100%{ transform: translate(38px, 44px); opacity: 0; }
+            44%, 100%{ transform: translate(46px, 55px); opacity: 0; }
         }
 
-        /* --- scene 3: drag to chain a series --- */
+        .mb-page {
+            position: absolute;
+            top: 15px;
+            left: 0;
+            width: 780px;
+            height: 680px;
+            border: none;
+            transform: scale(0.1487);
+            transform-origin: top left;
+            pointer-events: none;
+            background: #fff;
+        }
+
+        /* --- scene 3: drag to chain a series (8s) ---
+           "stain the fence" is dragged UP onto its parent "choose stain
+           color" (which glows as the drop target), then the app relocates
+           it to the next day and the thread + countdown circles appear. */
         .drag-task {
             position: absolute;
-            top: 47px;
+            top: 54px;
             left: 8px;
             background: #ffffff;
             border-radius: 3px;
             padding: 2.5px 4px 2.5px 0;
-            animation: dragOnto 6s ease-in-out infinite;
+            animation: dragOnto 8s ease-in-out infinite;
             z-index: 2;
         }
         @keyframes dragOnto {
-            0%, 20%   { transform: translate(0, 0); box-shadow: none; }
-            30%       { box-shadow: 0 4px 10px rgba(15,23,42,0.18); }
-            48%       { transform: translate(126px, -22px); box-shadow: 0 4px 10px rgba(15,23,42,0.18); }
-            56%, 82%  { transform: translate(128px, 14px); box-shadow: none; }
-            94%       { transform: translate(128px, 14px); opacity: 0; }
+            0%, 16%   { transform: translate(0, 0); box-shadow: none; }
+            24%       { transform: translate(0, -6px); box-shadow: 0 4px 10px rgba(15,23,42,0.18); }
+            34%, 42%  { transform: translate(2px, -27px); box-shadow: 0 4px 10px rgba(15,23,42,0.18); }
+            50%       { transform: translate(70px, -20px); box-shadow: 0 4px 10px rgba(15,23,42,0.12); }
+            58%, 88%  { transform: translate(128px, -14px); box-shadow: none; }
+            94%       { transform: translate(128px, -14px); opacity: 0; }
             95%       { transform: translate(0, 0); opacity: 0; }
             100%      { transform: translate(0, 0); opacity: 1; }
         }
-        .chain-countdown-2, .chain-countdown-1 { position: relative; }
+        /* Parent row glows while the child hovers over it (drop target) */
+        .chain-countdown-2 {
+            position: relative;
+            animation: parentGlow 8s ease-in-out infinite;
+            border-radius: 3px;
+        }
+        @keyframes parentGlow {
+            0%, 28%  { background: transparent; box-shadow: none; }
+            34%, 44% { background: #f0f9ff; box-shadow: 0 0 0 1px #38bdf8; }
+            52%, 100%{ background: transparent; box-shadow: none; }
+        }
         .chain-countdown-2 .mini-circle::after {
             content: '2';
-            animation: countdownIn 6s ease-in-out infinite;
+            opacity: 0;
+            animation: countdownIn 8s ease-in-out infinite;
         }
         .drag-task .mini-circle::after {
             content: '1';
             font-size: 6px;
             opacity: 0;
-            animation: countdownIn 6s ease-in-out infinite;
+            animation: countdownIn 8s ease-in-out infinite;
         }
         @keyframes countdownIn {
-            0%, 55%  { opacity: 0; }
-            62%, 88% { opacity: 1; }
+            0%, 60%  { opacity: 0; }
+            66%, 90% { opacity: 1; }
             94%, 100%{ opacity: 0; }
         }
         .chain-thread {
@@ -728,12 +756,12 @@
             fill: none;
             stroke-dasharray: 60;
             stroke-dashoffset: 60;
-            animation: threadDraw 6s ease-in-out infinite;
+            animation: threadDraw 8s ease-in-out infinite;
         }
         @keyframes threadDraw {
-            0%, 58%   { stroke-dashoffset: 60; opacity: 0; }
-            62%       { opacity: 0.9; }
-            72%, 88%  { stroke-dashoffset: 0; opacity: 0.9; }
+            0%, 62%   { stroke-dashoffset: 60; opacity: 0; }
+            66%       { opacity: 0.9; }
+            76%, 90%  { stroke-dashoffset: 0; opacity: 0.9; }
             94%, 100% { stroke-dashoffset: 60; opacity: 0; }
         }
 
@@ -780,6 +808,10 @@
             .ghost-day { opacity: 0; }
             .mini-browser { opacity: 1; transform: scale(1); }
             .link-cursor { opacity: 0; }
+            .drag-task { transform: translate(128px, -14px); }
+            .chain-countdown-2 .mini-circle::after,
+            .drag-task .mini-circle::after { opacity: 1; }
+            .chain-thread path { stroke-dashoffset: 0; opacity: 0.9; }
         }
 
         @media (max-width: 560px) {
@@ -938,6 +970,7 @@
                             <div class="mb-line w60"></div>
                             <div class="mb-line w80"></div>
                         </div>
+                        <iframe class="mb-page" src="https://kevintraywick.com" title="kevintraywick.com" loading="lazy" tabindex="-1" aria-hidden="true"></iframe>
                     </div>
                     <div class="link-cursor"></div>
                 </div>
@@ -945,39 +978,19 @@
         </div>
     </div>
 
-    <h2>Subtasks</h2>
-    <div class="feature-grid">
-        <div class="card">
-            <h3>&#129504; The assistant</h3>
-            <p>With the header's 🧠 switch on, adding a task instantly opens a pane of
-               up to 10 specific steps — real decisions, real links, real prices, not
-               "make a plan". Click ↺ on an open task to regenerate them.</p>
-            <p>No Anthropic API key on the server? You get sensible placeholder steps
-               instead — everything else works the same.</p>
-        </div>
-        <div class="card coming-soon">
-            <h3>Assign steps</h3>
-            <p>Every step shows its suggested owner: 🧠 for the AI agent, 👩 for a
-               human. Click the emoji to assign it; click <kbd>&rarr;</kbd> on an AI
-               step to dispatch it. Assigned tasks leave your board and appear on
-               the assignee's; they can return them, which puts them back on yours
-               today.</p>
-        </div>
-    </div>
-
     <h2>Power moves</h2>
     <div class="feature-grid">
         <div class="card">
             <h3>Chain a series</h3>
-            <p><strong>Drag a task onto another</strong> to make it the next step of a
-               series. Members show a countdown in their circle (steps remaining),
-               light up with connecting threads on hover, and reschedule together —
-               move one and every later step shifts by the same amount.</p>
+            <p><strong>Drag a task onto another task</strong> to make it a child of
+               that parent. Moving the parent of a child task will offset the child
+               task by the same amount. Chained tasks show a numbered circle
+               <span style="display:inline-flex;width:12px;height:12px;border:2px solid #cbd5e1;border-radius:50%;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:#475569;vertical-align:-2px;">2</span>.</p>
         </div>
         <div class="card demo" aria-hidden="true">
             <div class="scene">
                 <svg class="chain-thread" viewBox="0 0 246 128" preserveAspectRatio="none">
-                    <path d="M 118 30 C 140 30, 140 64, 148 64"/>
+                    <path d="M 116 31 C 138 31, 138 46, 146 46"/>
                 </svg>
                 <div class="mini-card">
                     <div class="mini-day">Wed</div>
@@ -1042,6 +1055,26 @@
         <div class="card">
             <h3>Close things</h3>
             <p><kbd>Esc</kbd> closes the open step pane or dialog.</p>
+        </div>
+    </div>
+
+    <h2>Subtasks</h2>
+    <div class="feature-grid">
+        <div class="card">
+            <h3>&#129504; The assistant</h3>
+            <p>With the header's 🧠 switch on, adding a task instantly opens a pane of
+               up to 10 specific steps — real decisions, real links, real prices, not
+               "make a plan". Click ↺ on an open task to regenerate them.</p>
+            <p>No Anthropic API key on the server? You get sensible placeholder steps
+               instead — everything else works the same.</p>
+        </div>
+        <div class="card coming-soon">
+            <h3>Assign steps</h3>
+            <p>Every step shows its suggested owner: 🧠 for the AI agent, 👩 for a
+               human. Click the emoji to assign it; click <kbd>&rarr;</kbd> on an AI
+               step to dispatch it. Assigned tasks leave your board and appear on
+               the assignee's; they can return them, which puts them back on yours
+               today.</p>
         </div>
     </div>
 
