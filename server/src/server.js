@@ -1179,8 +1179,14 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  // Delete existing auto-generated subtasks
-  runSql('DELETE FROM subtasks WHERE task_id = ?', [taskId]);
+  // "list ..." tasks play Family Feud: AI answers live alongside the user's own
+  // quick-list items, so regeneration must only replace the AI's rows.
+  const isListTask = /^list\b/i.test(task.description || '');
+  if (isListTask) {
+    runSql(`DELETE FROM subtasks WHERE task_id = ? AND assignee_type = 'ai'`, [taskId]);
+  } else {
+    runSql('DELETE FROM subtasks WHERE task_id = ?', [taskId]);
+  }
 
   try {
     let subtaskList;
@@ -1204,6 +1210,9 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
     }
 
     subtaskList = subtaskList.slice(0, 7);
+    if (isListTask) {
+      subtaskList = subtaskList.map(st => ({ description: st.description, assignee_type: 'ai' }));
+    }
 
     const created = [];
     subtaskList.forEach((st, i) => {
@@ -1226,6 +1235,18 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
       });
     });
 
+    // List tasks kept the user's own quick-list rows — return the full set so the
+    // frontend (which replaces its cache with this response) doesn't lose them.
+    if (isListTask) {
+      return res.status(201).json(queryAll(`
+        SELECT id, task_id, parent_subtask_id, description, assignee_type,
+               assigned_to, assigned_by, sort_order, completed, completed_at,
+               created_at, updated_at
+        FROM subtasks WHERE task_id = ?
+        ORDER BY sort_order, created_at
+      `, [taskId]));
+    }
+
     res.status(201).json(created);
   } catch (err) {
     console.error('Error generating subtasks:', err);
@@ -1235,6 +1256,19 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
 
 function generateMockSubtasks(description) {
   const desc = description.toLowerCase();
+
+  // --- "list ..." tasks: placeholder Family Feud board ---
+  if (/^list\b/i.test(description)) {
+    return [
+      'The obvious one everyone says first',
+      'The one you always forget',
+      'The crowd-pleaser',
+      'The one only insiders know about',
+      'The budget option',
+      'The ambitious stretch',
+      'The wildcard'
+    ].map(d => ({ description: d, assignee_type: 'ai' }));
+  }
 
   // --- Build / birdhouse / woodworking ---
   if (desc.includes('birdhouse') || desc.includes('bird house')) {
