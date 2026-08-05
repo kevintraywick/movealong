@@ -502,26 +502,6 @@
             flex: 1;
         }
 
-        .btn-new-board {
-            width: 26px;
-            height: 26px;
-            border-radius: 6px;
-            border: none;
-            background: transparent;
-            color: #94a3b8;
-            font-size: 18px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: all 0.2s;
-        }
-
-        .btn-new-board:hover {
-            background: #f0f9ff;
-            color: #0ea5e9;
-        }
-
         .task-arrow {
             width: 16px;
             height: 16px;
@@ -1208,15 +1188,17 @@
             background: #f0f9ff;
         }
 
+        /* Brand-colored like the wordmark — reads as app chrome, not board content */
         .project-add-btn {
             padding: 4px 10px;
             height: 26px;
             border-radius: 6px;
             border: none;
             background: transparent;
-            color: #94a3b8;
+            color: #0f172a;
             font-size: 13px;
-            font-weight: 500;
+            font-weight: 700;
+            letter-spacing: -0.01em;
             cursor: pointer;
             display: flex;
             align-items: center;
@@ -1226,8 +1208,10 @@
             white-space: nowrap;
         }
 
+        .project-add-btn .accent { color: #0ea5e9; }
+
         .project-add-btn:hover {
-            color: #0ea5e9;
+            color: #0284c7;
             background: #f0f9ff;
         }
 
@@ -1738,9 +1722,9 @@
             background: rgba(14, 165, 233, 0.15);
             border-color: rgba(14, 165, 233, 0.35);
         }
+        body.dark .project-add-btn { color: #f1f5f9; }
         body.dark .project-tab.other:hover,
         body.dark .project-add-btn:hover,
-        body.dark .btn-new-board:hover,
         body.dark .theme-toggle:hover {
             background: rgba(14, 165, 233, 0.12);
         }
@@ -1814,7 +1798,7 @@
             <div class="app-logo">Move<span class="accent">Along</span></div>
 
             <!-- New project [+] -->
-            <button class="project-add-btn" id="projectAddBtn" title="New project">+ New project</button>
+            <button class="project-add-btn" id="projectAddBtn" title="New project"><span class="accent">+</span>&nbsp;New project</button>
 
             <!-- Signup form (before Go) -->
             <div class="header-form" id="headerForm">
@@ -1850,9 +1834,6 @@
                 <span class="header-separator">&bull;</span>
                 <span class="header-value" id="displayTeamName"></span>
             </div>
-
-            <!-- New board (start fresh team) -->
-            <button class="btn-new-board" id="newBoardBtn" title="Create new board">+</button>
         </div>
 
         <div class="user-switcher" id="userSwitcher" style="display: none;">
@@ -3943,40 +3924,6 @@
             }
         }
         restoreSession();
-
-        // New board button
-        document.getElementById('newBoardBtn').addEventListener('click', () => {
-            clearSession();
-            isSignedUp = false;
-            company = { name: '', subdomain: '' };
-            allUsers = [];
-            currentUser = null;
-            tasks = [];
-            projects = [];
-            currentProject = null;
-            companyManuallyEdited = false;
-            selectedDayIndex = 0;
-            viewMode = 'calendar';
-            expandedTaskIds.clear();
-            taskSubtasks.clear();
-
-            signupName.value = '';
-            signupCompany.value = '';
-            signupCompany.classList.remove('user-edited');
-            signupBtn.disabled = true;
-            signupBtn.textContent = 'Go';
-
-            headerForm.classList.remove('hidden');
-            headerDisplay.classList.remove('visible');
-            renderProjectBar();
-            document.getElementById('viewCalendarBtn').classList.add('active');
-            document.getElementById('viewMasterBtn').classList.remove('active');
-            document.getElementById('board').style.display = 'flex';
-            document.getElementById('masterContainer').style.display = 'none';
-
-            renderBoard();
-            signupName.focus();
-        });
 
         // Keyboard navigation
         document.addEventListener('keydown', (e) => {

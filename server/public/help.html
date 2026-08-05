@@ -1086,6 +1086,86 @@
             height: calc(100% + 8px);
         }
 
+        /* --- scene 7: the assistant (10s) ---
+           A task sits on today's card; the step pane unfolds beneath it
+           and AI-generated steps appear one by one. */
+        .ai-frame {
+            position: relative;
+            width: 150px;
+            height: 148px;
+            animation: sceneFade 10s linear infinite;
+        }
+        .ai-frame .mini-card {
+            width: 150px;
+            min-height: 44px;
+        }
+        .ai-pane {
+            position: absolute;
+            top: 50px;
+            left: 0;
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 5px 7px;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.10);
+            transform-origin: top center;
+            animation: paneUnfold 10s ease-out infinite;
+        }
+        @keyframes paneUnfold {
+            0%, 6%   { transform: scaleY(0); opacity: 0; }
+            12%, 96% { transform: scaleY(1); opacity: 1; }
+            100%     { transform: scaleY(1); opacity: 0; }
+        }
+        .ai-dots {
+            position: absolute;
+            top: 9px;
+            left: 8px;
+            display: flex;
+            gap: 3px;
+            opacity: 0;
+            animation: aiDots 10s linear infinite;
+        }
+        .ai-dots span {
+            width: 3.5px;
+            height: 3.5px;
+            border-radius: 50%;
+            background: #38bdf8;
+        }
+        @keyframes aiDots {
+            0%, 10%  { opacity: 0; }
+            12%, 17% { opacity: 1; }
+            19%, 100%{ opacity: 0; }
+        }
+        .ai-step {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 7px;
+            color: #0f172a;
+            padding: 2px 0;
+            white-space: nowrap;
+            opacity: 0;
+        }
+        .ai-step .as-check {
+            width: 7px;
+            height: 7px;
+            border: 1px solid #cbd5e1;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .ai-step .as-emoji { font-size: 6.5px; }
+        .ai-s1 { animation: stepIn1 10s ease-out infinite; }
+        .ai-s2 { animation: stepIn2 10s ease-out infinite; }
+        .ai-s3 { animation: stepIn3 10s ease-out infinite; }
+        .ai-s4 { animation: stepIn4 10s ease-out infinite; }
+        .ai-s5 { animation: stepIn5 10s ease-out infinite; }
+        @keyframes stepIn1 { 0%, 18% { opacity: 0; transform: translateY(2px); } 22%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+        @keyframes stepIn2 { 0%, 24% { opacity: 0; transform: translateY(2px); } 28%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+        @keyframes stepIn3 { 0%, 30% { opacity: 0; transform: translateY(2px); } 34%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+        @keyframes stepIn4 { 0%, 36% { opacity: 0; transform: translateY(2px); } 40%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+        @keyframes stepIn5 { 0%, 42% { opacity: 0; transform: translateY(2px); } 46%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+
         @media (prefers-reduced-motion: reduce) {
             .scene * { animation: none !important; }
             .strip-frame { opacity: 1; }
@@ -1120,6 +1200,10 @@
             .nav-ring ellipse { stroke-dashoffset: 0; opacity: 0.9; }
             .nav-tab.new-tab { opacity: 1; transform: scale(1); }
             .nav-cursor { opacity: 0; }
+            .ai-frame { opacity: 1; }
+            .ai-pane { transform: scaleY(1); opacity: 1; }
+            .ai-step { opacity: 1; transform: translateY(0); }
+            .ai-dots { opacity: 0; }
         }
 
         @media (max-width: 560px) {
@@ -1128,13 +1212,79 @@
             .three-col > .card:not(.demo),
             .three-col > .card.demo { grid-column: auto; }
         }
+
+        /* ============================================================
+           DARK MODE — same slate palette as the app (body.dark).
+           Synced with the board via localStorage 'movealong.theme'.
+           The demo vignettes intentionally stay light: they're
+           miniature screenshots of the board, framed like media.
+           ============================================================ */
+        body.dark { background: #0f172a; color: #cbd5e1; }
+        body.dark h1,
+        body.dark h2,
+        body.dark .tagline strong { color: #f1f5f9; }
+        body.dark h2 { border-bottom-color: #075985; }
+        body.dark .tagline { color: #94a3b8; }
+        body.dark .back-link,
+        body.dark footer a { color: #38bdf8; }
+        body.dark .card {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        body.dark .card h3 { color: #e2e8f0; }
+        body.dark .card p { color: #94a3b8; }
+        body.dark .card.demo { background: #0b1120; }
+        body.dark kbd {
+            background: #0f172a;
+            border-color: #475569;
+            color: #e2e8f0;
+        }
+        body.dark code {
+            background: #1e293b;
+            color: #e2e8f0;
+        }
+        body.dark pre { border: 1px solid #334155; }
+        body.dark .callout {
+            background: rgba(14, 165, 233, 0.08);
+            border-color: #075985;
+        }
+        body.dark .callout.warn {
+            background: rgba(245, 158, 11, 0.08);
+            border-color: #92400e;
+        }
+        body.dark .video-placeholder {
+            background: #1e293b;
+            border-color: #475569;
+            color: #64748b;
+        }
+        body.dark footer { border-top-color: #334155; }
+        body.dark .margin-note,
+        body.dark .margin-note .note-arrow path {
+            color: #34d399;
+            stroke: #34d399;
+        }
+        body.dark .theme-toggle:hover { background: rgba(14, 165, 233, 0.12); }
+
+        .theme-toggle {
+            border: none;
+            background: transparent;
+            font-size: 15px;
+            cursor: pointer;
+            padding: 3px 8px;
+            border-radius: 6px;
+            line-height: 1;
+        }
+        .theme-toggle:hover { background: #f0f9ff; }
     </style>
 </head>
 <body>
 <div class="page">
     <header>
         <h1>Move <span class="accent">Along</span> — Help</h1>
-        <a class="back-link" href="/">&larr; Back to your board</a>
+        <span style="display:flex;align-items:center;gap:10px;">
+            <button class="theme-toggle" id="themeToggle" title="Switch theme" aria-label="Switch between light and dark mode">🌙</button>
+            <a class="back-link" href="/">&larr; Back to your board</a>
+        </span>
     </header>
     <p class="tagline">
         <strong>Unfinished tasks move forward automatically.</strong> Every morning,
@@ -1259,6 +1409,13 @@
                 </div>
             </div>
         </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>Man, you are so guilty of overcommitting.</span>
+        </div>
         <div class="card">
             <h3>Projects &amp; the List page</h3>
             <p>Create as many boards as you like ("personal", "house", &hellip;) with
@@ -1347,6 +1504,13 @@
                 <div class="mini-task drag-task"><span class="mini-circle"></span>stain the fence</div>
             </div>
         </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>When you link a task to another task on the same day, it gets moved forward one day automatically.</span>
+        </div>
         <div class="card">
             <h3>Unlink a step ✂️</h3>
             <p>Hovering a chained task reveals scissors — click to cut its link to the
@@ -1388,6 +1552,13 @@
                 </div>
             </div>
         </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>This is the way to GTD.</span>
+        </div>
         <div class="card">
             <h3>Locked tasks don't advance past their due date</h3>
             <p>Instead, the day remains on your board and stays there until you
@@ -1427,6 +1598,13 @@
                 </div>
             </div>
         </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>I really only use this to push items to the top with <kbd>3</kbd>.</span>
+        </div>
     </div>
 
     <h2>Subtasks</h2>
@@ -1439,6 +1617,31 @@
                corner) to regenerate them all.</p>
             <p>No Anthropic API key on the server? You get sensible placeholder steps
                instead — everything else works the same.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="ai-frame">
+                    <div class="mini-card">
+                        <div class="mini-day" data-day-offset="0"></div>
+                        <div class="mini-task"><span class="mini-circle"></span>build a backyard fence</div>
+                    </div>
+                    <div class="ai-pane">
+                        <div class="ai-dots"><span></span><span></span><span></span></div>
+                        <div class="ai-step ai-s1"><span class="as-check"></span><span class="as-emoji">🧠</span>compare cedar vs vinyl prices</div>
+                        <div class="ai-step ai-s2"><span class="as-check"></span><span class="as-emoji">👩</span>measure the property line</div>
+                        <div class="ai-step ai-s3"><span class="as-check"></span><span class="as-emoji">🧠</span>check local fence-height rules</div>
+                        <div class="ai-step ai-s4"><span class="as-check"></span><span class="as-emoji">👩</span>call 811 to mark utility lines</div>
+                        <div class="ai-step ai-s5"><span class="as-check"></span><span class="as-emoji">🧠</span>get 3 installer quotes</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>This is the second most important thing, because it gets you thinking about how you get things done.</span>
         </div>
         <div class="card">
             <h3>AI access key</h3>
@@ -1528,6 +1731,24 @@ npm start          <span class="c"># open http://localhost:3000 — that's the w
         document.getElementById('todayDate').textContent = monthNames[now.getUTCMonth()] + ' ' + now.getUTCDate();
 
         // Midnight-scene day cards: today, tomorrow, day after — board style.
+        // Theme: same key as the board, so the help page opens in
+        // whatever mode the person's board is in. Icon shows the theme
+        // you'd switch TO, matching the app header.
+        const THEME_KEY = 'movealong.theme';
+        const themeBtn = document.getElementById('themeToggle');
+        function applyTheme(theme) {
+            document.body.classList.toggle('dark', theme === 'dark');
+            themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
+        }
+        let theme = 'light';
+        try { theme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) { /* default */ }
+        applyTheme(theme);
+        themeBtn.addEventListener('click', () => {
+            theme = theme === 'dark' ? 'light' : 'dark';
+            try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* session-only */ }
+            applyTheme(theme);
+        });
+
         document.querySelectorAll('[data-day-offset]').forEach(el => {
             const d = new Date(now);
             d.setUTCDate(d.getUTCDate() + parseInt(el.dataset.dayOffset, 10));
