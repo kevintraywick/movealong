@@ -495,6 +495,69 @@
             70%, 100%{ transform: translate(24px, 27px); opacity: 0; }
         }
 
+        /* --- scene 2b: overflow (the 11th task flips to the next day) ---
+           Saturday is full at 10; a new task gets typed, tries to land,
+           and flips over onto Sunday instead. */
+        .over-frame {
+            position: relative;
+            width: 246px;
+            height: 176px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .over-frame .mini-card {
+            position: absolute;
+            top: 0;
+            min-height: 168px;
+        }
+        .ocard1 { left: 0; }
+        .ocard2 { left: 128px; }
+        .over-frame .mini-task {
+            font-size: 7.5px;
+            padding: 1px 0;
+            gap: 3px;
+        }
+        .over-frame .mini-circle {
+            width: 7px;
+            height: 7px;
+            border-width: 1px;
+        }
+        .over-input {
+            height: 14px;
+            font-size: 7.5px;
+            padding: 2px 4px;
+            margin-bottom: 4px;
+        }
+        .over-type {
+            white-space: nowrap;
+            overflow: hidden;
+            border-right: 1px solid #0ea5e9;
+            max-width: 0;
+            animation: overType 9s steps(16, end) infinite;
+        }
+        @keyframes overType {
+            0%, 4%    { max-width: 0; opacity: 1; }
+            24%, 30%  { max-width: 100%; opacity: 1; }
+            32%, 100% { max-width: 0; opacity: 0; }
+        }
+        .over-new {
+            position: absolute;
+            left: 8px;
+            top: 20px;
+            z-index: 2;
+            background: #ffffff;
+            border-radius: 3px;
+            padding: 1px 4px 1px 0;
+            opacity: 0;
+            animation: overFlip 9s ease-in-out infinite;
+        }
+        @keyframes overFlip {
+            0%, 31%  { opacity: 0; transform: translate(0, 0); box-shadow: 0 3px 8px rgba(15, 23, 42, 0); }
+            34%, 42% { opacity: 1; transform: translate(0, 0); box-shadow: 0 3px 8px rgba(15, 23, 42, 0.18); }
+            50%      { opacity: 1; transform: translate(64px, -10px) rotateX(180deg); box-shadow: 0 5px 10px rgba(15, 23, 42, 0.15); }
+            58%, 90% { opacity: 1; transform: translate(128px, 6px) rotateX(360deg); box-shadow: 0 0 0 rgba(15, 23, 42, 0); }
+            94%, 100%{ opacity: 0; transform: translate(128px, 6px); }
+        }
+
         /* --- scene 3: drag to chain a series --- */
         .drag-task {
             position: absolute;
@@ -591,6 +654,8 @@
             .done-cursor { opacity: 0; }
             .type-text { max-width: 0; border-right: none; }
             .typed-row { opacity: 1; }
+            .over-type { max-width: 0; border-right: none; }
+            .over-new { opacity: 1; transform: translate(128px, 6px); }
         }
 
         @media (max-width: 560px) {
@@ -666,8 +731,7 @@
             <h3>Complete or postpone a task</h3>
             <p>Click the circle <span style="display:inline-block;width:11px;height:11px;border:2px solid #cbd5e1;border-radius:50%;vertical-align:-1px;"></span>
                to complete a task. Click <kbd>&rarr;</kbd> to bump it
-               to tomorrow. <kbd>Shift</kbd>+click to move it forward one week. Click
-               the task text to open its steps.</p>
+               to tomorrow. <kbd>Shift</kbd>+click to move it forward one week.</p>
         </div>
         <div class="card demo" aria-hidden="true">
             <div class="scene">
@@ -691,6 +755,30 @@
                overflows to the next free day — a built-in nudge against
                overcommitting.</p>
         </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="over-frame">
+                    <div class="mini-card ocard1">
+                        <div class="mini-day" data-day-offset="3"></div>
+                        <div class="mini-input over-input"><span class="over-type">buy gate hinges</span></div>
+                        <div class="mini-task"><span class="mini-circle"></span>set the posts</div>
+                        <div class="mini-task"><span class="mini-circle"></span>mix concrete</div>
+                        <div class="mini-task"><span class="mini-circle"></span>brace the corners</div>
+                        <div class="mini-task"><span class="mini-circle"></span>wash the car</div>
+                        <div class="mini-task"><span class="mini-circle"></span>call mom</div>
+                        <div class="mini-task"><span class="mini-circle"></span>pick up groceries</div>
+                        <div class="mini-task"><span class="mini-circle"></span>water plants</div>
+                        <div class="mini-task"><span class="mini-circle"></span>take out trash</div>
+                        <div class="mini-task"><span class="mini-circle"></span>pay water bill</div>
+                        <div class="mini-task"><span class="mini-circle"></span>book dentist</div>
+                    </div>
+                    <div class="mini-card ocard2">
+                        <div class="mini-day" data-day-offset="4"></div>
+                    </div>
+                    <div class="mini-task over-new"><span class="mini-circle"></span>buy gate hinges</div>
+                </div>
+            </div>
+        </div>
         <div class="card">
             <h3>Projects &amp; the Main page</h3>
             <p>Create as many boards as you like ("personal", "house", &hellip;) with
@@ -704,7 +792,7 @@
         </div>
     </div>
 
-    <h2>AI subtasks</h2>
+    <h2>Subtasks</h2>
     <div class="feature-grid">
         <div class="card">
             <h3>&#129504; The assistant</h3>
