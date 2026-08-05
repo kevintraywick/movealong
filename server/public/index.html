@@ -1626,6 +1626,12 @@
             color: #64748b;
         }
 
+        /* Locked tasks show their deadline in red on the List view */
+        .project-task-date.locked-date {
+            color: #ef4444;
+            font-weight: 600;
+        }
+
         .subtask-progress {
             font-size: 11px;
             color: #64748b;
@@ -3456,7 +3462,7 @@
                                 <div class="project-task-item" data-id="${t.id}">
                                     <div class="task-circle" data-task-id="${t.id}"></div>
                                     <div class="project-task-desc" data-task-id="${t.id}" title="Hover and press 1-3 to prioritize">${linkifyText(t.description)}${renderPriorityMarks(t)}</div>
-                                    <span class="project-task-date">${t.scheduled_date}</span>
+                                    <span class="project-task-date${t.locked ? ' locked-date' : ''}">${t.scheduled_date}</span>
                                     ${progress}
                                 </div>
                                 ${subtaskHtml}

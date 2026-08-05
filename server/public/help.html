@@ -104,6 +104,9 @@
             stroke-linecap: round;
             stroke-linejoin: round;
         }
+        /* Red variant for the notes that really matter */
+        .margin-note.important { color: #ef4444; }
+        .margin-note.important .note-arrow path { stroke: #ef4444; }
 
         @media (max-width: 760px) {
             /* Not enough room for the comments column */
@@ -1263,6 +1266,11 @@
             color: #34d399;
             stroke: #34d399;
         }
+        body.dark .margin-note.important,
+        body.dark .margin-note.important .note-arrow path {
+            color: #ef4444;
+            stroke: #ef4444;
+        }
         body.dark .theme-toggle:hover { background: rgba(14, 165, 233, 0.12); }
 
         .theme-toggle {
@@ -1344,12 +1352,12 @@
                 </div>
             </div>
         </div>
-        <div class="margin-note" aria-hidden="true">
+        <div class="margin-note important" aria-hidden="true">
             <svg class="note-arrow" viewBox="0 0 44 22">
                 <path d="M 42 6 C 30 16, 18 17, 5 13"/>
                 <path d="M 12 9 L 5 13 L 11 18"/>
             </svg>
-            <span>This is the<br>entire thing.</span>
+            <span>This is the key thing. Tasks stick with you until they're done.</span>
         </div>
         <div class="card">
             <h3>Complete or postpone a task</h3>
@@ -1378,7 +1386,7 @@
                 <path d="M 42 6 C 30 16, 18 17, 5 13"/>
                 <path d="M 12 9 L 5 13 L 11 18"/>
             </svg>
-            <span>The little number counts<br>the days a task has<br>been on your board.</span>
+            <span>The little number counts the days a task has been on your board. It turns red after ten days.</span>
         </div>
         <div class="card">
             <h3>Overflow</h3>
@@ -1552,7 +1560,7 @@
                 </div>
             </div>
         </div>
-        <div class="margin-note" aria-hidden="true">
+        <div class="margin-note important" aria-hidden="true">
             <svg class="note-arrow" viewBox="0 0 44 22">
                 <path d="M 42 6 C 30 16, 18 17, 5 13"/>
                 <path d="M 12 9 L 5 13 L 11 18"/>
@@ -1636,7 +1644,7 @@
                 </div>
             </div>
         </div>
-        <div class="margin-note" aria-hidden="true">
+        <div class="margin-note important" aria-hidden="true">
             <svg class="note-arrow" viewBox="0 0 44 22">
                 <path d="M 42 6 C 30 16, 18 17, 5 13"/>
                 <path d="M 12 9 L 5 13 L 11 18"/>
