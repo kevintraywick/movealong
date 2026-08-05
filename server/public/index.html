@@ -3765,7 +3765,8 @@
         document.getElementById('projectAddBtn').addEventListener('click', () => {
             newProjectName.value = '';
             createProjectModal.classList.add('visible');
-            newProjectName.focus();
+            // Safari ignores focus() while the overlay is still visibility:hidden mid-transition.
+            setTimeout(() => newProjectName.focus(), 50);
         });
 
         cancelCreateProject.addEventListener('click', () => {
