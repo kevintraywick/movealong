@@ -1182,6 +1182,141 @@
         @keyframes stepIn4 { 0%, 36% { opacity: 0; transform: translateY(2px); } 40%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
         @keyframes stepIn5 { 0%, 42% { opacity: 0; transform: translateY(2px); } 46%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
 
+        /* --- scene: "list ..." tasks (10s) ---
+           A list task's pane: quick list with blank slots on top, AI
+           suggestions below. The cursor clicks the first suggestion's ↑
+           (anchored inside the button) and the row moves onto "My list". */
+        .lp-frame {
+            position: relative;
+            width: 150px;
+            height: 144px;
+            animation: sceneFade 10s linear infinite;
+        }
+        .lp-frame .mini-card { width: 150px; }
+        .lp-pane {
+            position: absolute;
+            top: 34px;
+            left: 0;
+            width: 100%;
+            box-sizing: border-box;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 4px 7px 5px;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.10);
+            transform-origin: top center;
+            animation: paneUnfold 10s ease-out infinite;
+        }
+        .lp-label {
+            font-size: 5.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            font-weight: 700;
+            margin: 2px 0 1px;
+        }
+        .lp-slot {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2.5px 0;
+        }
+        .lp-check {
+            width: 7px;
+            height: 7px;
+            border: 1px solid #cbd5e1;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .lp-line {
+            flex: 1;
+            border-bottom: 1px dashed #e2e8f0;
+            height: 9px;
+            position: relative;
+        }
+        .lp-item {
+            font-size: 7px;
+            line-height: 9px;
+            color: #0f172a;
+            opacity: 0;
+            animation: lpAdopt 10s ease-out infinite;
+        }
+        .lp-sug {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 7px;
+            color: #0f172a;
+            padding: 2px 0;
+            white-space: nowrap;
+            opacity: 0;
+        }
+        .lp-sug .lp-text { flex: 1; }
+        .lp-up {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #f0f9ff;
+            color: #0ea5e9;
+            font-size: 6px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .lp-g1 { animation: lpSug1 10s ease-out infinite; }
+        .lp-g2 { animation: lpSug2 10s ease-out infinite; }
+        .lp-g3 { animation: lpSug3 10s ease-out infinite; }
+        /* sug 1 is adopted at ~56%: it fades out, the rows below close the
+           gap, and the item text appears on the first quick-list line */
+        @keyframes lpSug1 {
+            0%, 18%  { opacity: 0; transform: translateY(2px); }
+            22%, 54% { opacity: 1; transform: translateY(0); }
+            58%, 100%{ opacity: 0; transform: translateY(0); }
+        }
+        @keyframes lpSug2 {
+            0%, 24%  { opacity: 0; transform: translateY(2px); }
+            28%, 54% { opacity: 1; transform: translateY(0); }
+            62%, 96% { opacity: 1; transform: translateY(-12px); }
+            100%     { opacity: 0; transform: translateY(-12px); }
+        }
+        @keyframes lpSug3 {
+            0%, 30%  { opacity: 0; transform: translateY(2px); }
+            34%, 54% { opacity: 1; transform: translateY(0); }
+            62%, 96% { opacity: 1; transform: translateY(-12px); }
+            100%     { opacity: 0; transform: translateY(-12px); }
+        }
+        @keyframes lpAdopt {
+            0%, 54%  { opacity: 0; }
+            60%, 96% { opacity: 1; }
+            100%     { opacity: 0; }
+        }
+        .lp-cursor {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            margin: -5px 0 0 -5px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            opacity: 0;
+            animation: lpCursor 10s ease-in-out infinite;
+        }
+        @keyframes lpCursor {
+            0%, 30%  { opacity: 0; transform: translate(-40px, 30px); }
+            36%      { opacity: 1; transform: translate(-40px, 30px); }
+            46%, 50% { opacity: 1; transform: translate(0, 0) scale(1); }
+            53%      { opacity: 1; transform: translate(0, 0) scale(0.7); }
+            56%      { opacity: 1; transform: translate(0, 0) scale(1); }
+            60%, 100%{ opacity: 0; transform: translate(0, 0); }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .scene * { animation: none !important; }
             .strip-frame { opacity: 1; }
@@ -1221,6 +1356,13 @@
             .ai-pane { transform: scaleY(1); opacity: 1; }
             .ai-step { opacity: 1; transform: translateY(0); }
             .ai-dots { opacity: 0; }
+            .lp-frame { opacity: 1; }
+            .lp-pane { transform: scaleY(1); opacity: 1; }
+            .lp-sug { opacity: 1; transform: translateY(0); }
+            .lp-g1 { opacity: 0; }
+            .lp-g2, .lp-g3 { opacity: 1; transform: translateY(-12px); }
+            .lp-item { opacity: 1; }
+            .lp-cursor { opacity: 0; }
         }
 
         @media (max-width: 560px) {
@@ -1465,6 +1607,10 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <h2>More fun stuff</h2>
+    <div class="feature-grid three-col">
         <div class="card">
             <h3>Links in tasks</h3>
             <p>Any URL you type in a task becomes a clickable link that opens in a
@@ -1500,15 +1646,70 @@
                 </div>
             </div>
         </div>
+        <div class="card">
+            <h3>Prioritize</h3>
+            <p>Hover a task and press <kbd>1</kbd>, <kbd>2</kbd>, or <kbd>3</kbd> —
+               red <strong>!</strong> marks, most-urgent-first sorting. <kbd>0</kbd>
+               (or the same number again) clears it.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="prio-frame">
+                    <div class="mini-card">
+                        <div class="mini-day" data-day-offset="6"></div>
+                    </div>
+                    <div class="mini-task prio-row prio-r1"><span class="mini-circle"></span>touch-up stain</div>
+                    <div class="mini-task prio-row prio-r2"><span class="mini-circle"></span>return the ladder</div>
+                    <div class="mini-task prio-row prio-target"><span class="mini-circle"></span>oil the gate hinges<span class="prio-marks">!!</span></div>
+                    <div class="prio-key">2</div>
+                    <div class="prio-cursor"></div>
+                </div>
+            </div>
+        </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>I really only use this to push items to the top with <kbd>3</kbd>.</span>
+        </div>
+        <div class="card">
+            <h3>Create lists</h3>
+            <p>Start a task with the word <strong>list</strong> — "list movies to
+               go see" — and the pane splits in two: your own quick list up top
+               (three blank slots, one more each time they fill), with seven AI
+               suggestions below. Click a suggestion's <kbd>&uarr;</kbd> to move
+               it onto your list.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="lp-frame">
+                    <div class="mini-card">
+                        <div class="mini-day" data-day-offset="2"></div>
+                        <div class="mini-task"><span class="mini-circle"></span>list plants for the fence line</div>
+                    </div>
+                    <div class="lp-pane">
+                        <div class="lp-label">My list</div>
+                        <div class="lp-slot"><span class="lp-check"></span><span class="lp-line"><span class="lp-item">climbing roses</span></span></div>
+                        <div class="lp-slot"><span class="lp-check"></span><span class="lp-line"></span></div>
+                        <div class="lp-slot"><span class="lp-check"></span><span class="lp-line"></span></div>
+                        <div class="lp-label">Suggestions</div>
+                        <div class="lp-sug lp-g1"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="lp-text">climbing roses</span><span class="lp-up">&uarr;<span class="lp-cursor"></span></span></div>
+                        <div class="lp-sug lp-g2"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="lp-text">clematis vine</span><span class="lp-up">&uarr;</span></div>
+                        <div class="lp-sug lp-g3"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="lp-text">boxwood hedge</span><span class="lp-up">&uarr;</span></div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <h2>Power moves</h2>
     <div class="feature-grid three-col">
         <div class="card">
             <h3>Chain a series</h3>
-            <p><strong>Drag a task onto another task</strong> to make it a child of
-               that parent. Moving the parent of a child task will offset the child
-               task by the same amount. Chained tasks show a numbered circle
+            <p><strong>Drag a task onto another task</strong> to make it the next
+               step in that series. Moving an earlier step moves every later step
+               by the same amount. Chained tasks show a numbered circle
                <span style="display:inline-flex;width:12px;height:12px;border:2px solid #cbd5e1;border-radius:50%;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:#475569;vertical-align:-2px;">2</span>
                showing the total number of steps in that chain.</p>
         </div>
@@ -1534,7 +1735,7 @@
                 <path d="M 42 6 C 30 16, 18 17, 5 13"/>
                 <path d="M 12 9 L 5 13 L 11 18"/>
             </svg>
-            <span>When you link a task to another task on the same day, the child task gets moved forward one day automatically.</span>
+            <span>When you drop a task onto another task on the same day, it becomes the next step and moves forward one day automatically.</span>
         </div>
         <div class="card">
             <h3>Unlink a step ✂️</h3>
@@ -1602,33 +1803,6 @@
                 </div>
                 <div class="mini-task held-spill"><span class="mini-circle"></span>return rental auger</div>
             </div>
-        </div>
-        <div class="card">
-            <h3>Prioritize</h3>
-            <p>Hover a task and press <kbd>1</kbd>, <kbd>2</kbd>, or <kbd>3</kbd> —
-               red <strong>!</strong> marks, most-urgent-first sorting. <kbd>0</kbd>
-               (or the same number again) clears it.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="prio-frame">
-                    <div class="mini-card">
-                        <div class="mini-day" data-day-offset="6"></div>
-                    </div>
-                    <div class="mini-task prio-row prio-r1"><span class="mini-circle"></span>touch-up stain</div>
-                    <div class="mini-task prio-row prio-r2"><span class="mini-circle"></span>return the ladder</div>
-                    <div class="mini-task prio-row prio-target"><span class="mini-circle"></span>oil the gate hinges<span class="prio-marks">!!</span></div>
-                    <div class="prio-key">2</div>
-                    <div class="prio-cursor"></div>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>I really only use this to push items to the top with <kbd>3</kbd>.</span>
         </div>
     </div>
 

@@ -1521,6 +1521,10 @@
             transform: translateX(2px);
         }
 
+        .subtask-send.subtask-up:hover {
+            transform: translateY(-2px);
+        }
+
         /* ===== Quick list ("list ..." tasks) ===== */
         .quick-list-title {
             font-size: 11px;
@@ -2610,6 +2614,25 @@
             }
         }
 
+        // ↑ on a list-pane suggestion: flip its assignee_type to 'human' so it
+        // moves into "My list" (and survives suggestion regeneration).
+        async function moveSuggestionToList(subtaskId, taskId) {
+            const subtasks = taskSubtasks.get(taskId);
+            if (!subtasks) return;
+            const st = subtasks.find(s => s.id === subtaskId);
+            if (!st) return;
+            try {
+                const updated = await api(`/subtasks/${subtaskId}`, {
+                    method: 'PUT',
+                    body: { assignee_type: 'human' }
+                });
+                Object.assign(st, updated);
+                renderView();
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
         async function addSubtask(taskId, description) {
             try {
                 const subtask = await api(`/tasks/${taskId}/subtasks`, {
@@ -3009,8 +3032,16 @@
                 });
             });
 
+            // ↑ on a suggestion row → move it onto "My list"
+            document.querySelectorAll('.subtask-up[data-subtask-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    moveSuggestionToList(parseInt(btn.dataset.subtaskId), parseInt(btn.dataset.taskId));
+                });
+            });
+
             // Send-agent button (placeholder behavior — wires real dispatch later)
-            document.querySelectorAll('.subtask-send[data-subtask-id]').forEach(btn => {
+            document.querySelectorAll('.subtask-send[data-subtask-id]:not(.subtask-up)').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     showToast('Agent dispatched');
@@ -3458,14 +3489,18 @@
 
             // Standard subtask row anatomy \u2014 shared by the normal pane and the
             // AI-suggestion section of "list ..." panes.
-            const subtaskRow = (st) => {
+            const subtaskRow = (st, moveUp = false) => {
                 const isDependent = st.parent_subtask_id !== null;
                 const isAssigned = st.assigned_to !== null;
                 const emoji = st.assignee_type === 'ai' ? '\uD83E\uDDE0' : '\uD83D\uDC69';
-                // AI steps get a "send to agent" arrow; assigned ones lose the assign emoji.
-                const sendBtn = (st.assignee_type === 'ai' && !isAssigned)
-                    ? `<button class="subtask-send" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Send to AI agent">&rarr;</button>`
-                    : '';
+                // AI steps get a "send to agent" arrow \u2014 except list-pane suggestions,
+                // where the slot holds an up arrow that moves the row onto "My list"
+                // (send-to-agent is still a placeholder, so \u2191 replaces \u2192 there).
+                const sendBtn = moveUp
+                    ? `<button class="subtask-send subtask-up" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Move to my list">&uarr;</button>`
+                    : (st.assignee_type === 'ai' && !isAssigned)
+                        ? `<button class="subtask-send" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Send to AI agent">&rarr;</button>`
+                        : '';
                 const emojiEl = isAssigned
                     ? `<span class="subtask-emoji assigned">${emoji}</span>`
                     : `<span class="subtask-emoji" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Assign this step">${emoji}</span>`;
@@ -3518,7 +3553,7 @@
                 }
 
                 const suggestionSection = suggestions.length
-                    ? `<div class="quick-list-title">Suggestions</div><div class="subtask-list">${suggestions.map(subtaskRow).join('')}</div>`
+                    ? `<div class="quick-list-title">Suggestions</div><div class="subtask-list">${suggestions.map(st => subtaskRow(st, true)).join('')}</div>`
                     : '';
 
                 const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate suggestions">&orarr;</button>`;
@@ -3526,7 +3561,8 @@
             } else {
                 // Completed steps disappear from the pane (server keeps them for the List-view progress count).
                 const pending = subtasks.filter(st => !st.completed);
-                const rows = pending.map(subtaskRow).join('');
+                // Not pending.map(subtaskRow) — map's index argument would land in moveUp.
+                const rows = pending.map(st => subtaskRow(st)).join('');
 
                 const list = pending.length ? `<div class="subtask-list">${rows}</div>` : '';
                 const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate all steps">&orarr;</button>`;
