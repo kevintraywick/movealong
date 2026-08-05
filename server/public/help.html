@@ -71,6 +71,20 @@
             gap: 12px;
         }
 
+        /* Three-column layout: help card | animation | (reserved for
+           comments later). Cards pin to col 1, their demo to col 2 on the
+           same row; col 3 stays empty for now. */
+        .feature-grid.three-col {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        .three-col > .card:not(.demo) { grid-column: 1; }
+        .three-col > .card.demo { grid-column: 2; }
+
+        @media (max-width: 760px) {
+            /* Not enough room for the empty comments column */
+            .feature-grid.three-col { grid-template-columns: 1fr 1fr; }
+        }
+
         .card {
             background: #ffffff;
             border: 1px solid #e2e8f0;
@@ -925,7 +939,10 @@
         }
 
         @media (max-width: 560px) {
-            .feature-grid { grid-template-columns: 1fr; }
+            .feature-grid,
+            .feature-grid.three-col { grid-template-columns: 1fr; }
+            .three-col > .card:not(.demo),
+            .three-col > .card.demo { grid-column: auto; }
         }
     </style>
 </head>
@@ -947,7 +964,7 @@
     </div>
 
     <h2>The board</h2>
-    <div class="feature-grid">
+    <div class="feature-grid three-col">
         <div class="card">
             <h3>Add a task</h3>
             <p>Each column is a day; today is highlighted blue. Type into any day's
@@ -1089,7 +1106,7 @@
     </div>
 
     <h2>Power moves</h2>
-    <div class="feature-grid">
+    <div class="feature-grid three-col">
         <div class="card">
             <h3>Chain a series</h3>
             <p><strong>Drag a task onto another task</strong> to make it a child of
@@ -1177,7 +1194,7 @@
     </div>
 
     <h2>Subtasks</h2>
-    <div class="feature-grid">
+    <div class="feature-grid three-col">
         <div class="card">
             <h3>&#129504; The assistant</h3>
             <p>With the header's 🧠 switch on, adding a task instantly opens a pane of
