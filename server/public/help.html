@@ -777,13 +777,16 @@
             z-index: 2;
         }
         @keyframes dragOnto {
-            0%, 16%   { transform: translate(0, 0); box-shadow: none; }
+            /* opacity must be pinned at 1 through every visible phase — keying it
+               only near the end makes the browser fade the row across the WHOLE
+               cycle, so it was near-invisible by the time it landed on Thursday. */
+            0%, 16%   { transform: translate(0, 0); box-shadow: none; opacity: 1; }
             24%       { transform: translate(0, -6px); box-shadow: 0 4px 10px rgba(15,23,42,0.18); }
             34%, 42%  { transform: translate(2px, -27px); box-shadow: 0 4px 10px rgba(15,23,42,0.18); }
             50%       { transform: translate(70px, -20px); box-shadow: 0 4px 10px rgba(15,23,42,0.12); }
-            58%, 88%  { transform: translate(128px, -14px); box-shadow: none; }
-            94%       { transform: translate(128px, -14px); opacity: 0; }
-            95%       { transform: translate(0, 0); opacity: 0; }
+            58%, 90%  { transform: translate(128px, -14px); box-shadow: none; opacity: 1; }
+            95%       { transform: translate(128px, -14px); opacity: 0; }
+            96%       { transform: translate(0, 0); opacity: 0; }
             100%      { transform: translate(0, 0); opacity: 1; }
         }
         /* Parent row glows while the child hovers over it (drop target) */
