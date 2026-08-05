@@ -840,18 +840,20 @@
             z-index: 100;
         }
 
+        /* Brand-blue badge — same accent as the wordmark's "Along" */
         .help-link {
             position: absolute;
             right: 10px;
             top: 50%;
             transform: translateY(-50%);
-            width: 16px;
-            height: 16px;
+            width: 20px;
+            height: 20px;
             border-radius: 50%;
-            border: 1px solid #cbd5e1;
-            color: #94a3b8;
-            font-size: 10px;
-            font-weight: 600;
+            border: none;
+            background: #0ea5e9;
+            color: #ffffff;
+            font-size: 11px;
+            font-weight: 700;
             line-height: 1;
             display: flex;
             align-items: center;
@@ -861,9 +863,8 @@
         }
 
         .help-link:hover {
-            border-color: #0ea5e9;
-            color: #0ea5e9;
-            background: #f0f9ff;
+            background: #0284c7;
+            box-shadow: 0 1px 4px rgba(14, 165, 233, 0.4);
         }
 
         .instructions ul {
@@ -1790,8 +1791,7 @@
             background: rgba(15, 23, 42, 0.85);
             border-top-color: #1e293b;
         }
-        body.dark .help-link { border-color: #475569; }
-        body.dark .help-link:hover { background: rgba(14, 165, 233, 0.12); }
+        /* .help-link is a filled brand-blue badge — needs no dark override */
         body.dark .user-switcher { background: #1e293b; border-color: #334155; }
         body.dark .add-new-icon { background: #334155; color: #94a3b8; }
         body.dark .empty-project { color: #64748b; }

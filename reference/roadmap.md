@@ -22,6 +22,11 @@
 - [x] Hyperlink tasks — URLs in task text open in a new tab; completing a link task closes its pane
 - [x] Priority — hover a task and press 1/2/3 for red exclamation marks; board re-sorts highest-first on mouse-leave
 - [x] Series: unlink — hover a chained task for a ✂️ that cuts its link to its predecessor
+- [x] AI subtask default lowered to 7 (prompt asks 5-7; endpoint hard-caps AI + mock lists)
+- [x] ↺ "Regenerate all steps" pinned to the subtask pane's top-right corner
+- [x] Header rework: "Main" → "List", +New project brand-styled beside the wordmark, project tabs clustered together, new-board button removed
+- [x] List view shows locked task dates in red (master route returns `locked`)
+- [x] Help page: animated CSS vignettes for every board feature (backyard-fence storyline), three-column layout with handwritten margin notes (green + red variants), dark mode synced with the board's theme key
 
 ## Next
 - [ ] Authentication (currently URL-based access only)

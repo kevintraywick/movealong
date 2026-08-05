@@ -154,6 +154,19 @@ DELETE /api/tasks/:taskId
 Response: { success: true }
 ```
 
+#### Master ("List" view) page
+```
+GET /api/companies/:subdomain/users/:slug/master
+Response: { projects: [{ id, name, slug, tasks: [...] }] }
+```
+
+Open (uncompleted) tasks grouped by project, each list sorted
+`priority DESC, scheduled_date, created_at`. Task rows carry
+`id, description, scheduled_date, completed, assigned_by, priority,
+locked, subtask_count, completed_subtask_count` — a hand-listed column
+set, so new flags the List view needs must be added to the SELECT
+explicitly (`locked` drives the red deadline date).
+
 ### Generate subtasks
 ```
 POST /api/tasks/:taskId/generate-subtasks
