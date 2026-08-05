@@ -2526,9 +2526,8 @@
                     body: { completed: willComplete }
                 });
                 Object.assign(task, updated);
-                // A hyperlink task is done once the link has been followed —
-                // completing it collapses its subtask pane.
-                if (willComplete && taskHasLink(task.description)) {
+                // Completing a task collapses its subtask pane (reopening leaves it closed).
+                if (willComplete) {
                     expandedTaskIds.delete(taskId);
                 }
                 // Completing a chained task splices it out server-side (its
@@ -3412,11 +3411,6 @@
                 .replace(/</g, '&lt;')
                 .replace(/>/g, '&gt;')
                 .replace(/"/g, '&quot;');
-        }
-
-        function taskHasLink(text) {
-            TASK_URL_RE.lastIndex = 0;
-            return TASK_URL_RE.test(String(text ?? ''));
         }
 
         // Escape everything, then wrap any URLs in anchors. draggable="false"
