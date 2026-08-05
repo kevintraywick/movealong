@@ -272,6 +272,41 @@
 
         .mini-lock { font-size: 8px; }
 
+        /* --- scene 0: add a task (typewriter → task row) --- */
+        .mini-input {
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 3px 5px;
+            font-size: 8.5px;
+            color: #0f172a;
+            margin-bottom: 5px;
+            height: 17px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+        .type-text {
+            white-space: nowrap;
+            overflow: hidden;
+            border-right: 1px solid #0ea5e9;
+            max-width: 0;
+            animation: typeIn 7s steps(22, end) infinite;
+        }
+        @keyframes typeIn {
+            0%, 12%   { max-width: 0; opacity: 1; }
+            50%, 62%  { max-width: 100%; opacity: 1; }
+            64%, 100% { max-width: 0; opacity: 0; }
+        }
+        .typed-row {
+            opacity: 0;
+            animation: rowIn 7s ease-out infinite;
+        }
+        @keyframes rowIn {
+            0%, 63%  { opacity: 0; transform: translateY(-3px); }
+            68%, 94% { opacity: 1; transform: translateY(0); }
+            100%     { opacity: 0; }
+        }
+
         /* --- scene 1: tasks move forward automatically --- */
         .spill-task {
             position: absolute;
@@ -429,6 +464,8 @@
             .spill-task { transform: translate(128px, 10px); }
             .held-spill { transform: translate(128px, -14px); }
             .mini-cursor { opacity: 0; }
+            .type-text { max-width: 0; border-right: none; }
+            .typed-row { opacity: 1; }
         }
 
         @media (max-width: 560px) {
@@ -460,6 +497,15 @@
             <p>Each column is a day; today is highlighted blue. Type into any day's
                box and press <kbd>Enter</kbd> to add a task there. Scroll sideways
                for later days.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="mini-card today-card" style="width:150px;">
+                    <div class="mini-day"><span id="todayDayName">Tuesday</span> <span style="font-weight:400;">· <span id="todayDate">Aug 4</span></span></div>
+                    <div class="mini-input"><span class="type-text">Add a backyard fence</span></div>
+                    <div class="mini-task typed-row"><span class="mini-circle"></span>Add a backyard fence</div>
+                </div>
+            </div>
         </div>
         <div class="card">
             <h3>Tasks move forward automatically</h3>
@@ -677,5 +723,16 @@ npm start          <span class="c"># open http://localhost:3000 — that's the w
         </span>
     </footer>
 </div>
+<script>
+    // Real today's date in the add-a-task demo, formatted exactly like the
+    // board's day header (UTC-keyed, same day/month names).
+    (function () {
+        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        const now = new Date();
+        document.getElementById('todayDayName').textContent = dayNames[now.getUTCDay()];
+        document.getElementById('todayDate').textContent = monthNames[now.getUTCMonth()] + ' ' + now.getUTCDate();
+    })();
+</script>
 </body>
 </html>
