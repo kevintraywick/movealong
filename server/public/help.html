@@ -307,23 +307,79 @@
             100%     { opacity: 0; }
         }
 
-        /* --- scene 1: tasks move forward automatically --- */
-        .spill-task {
+        /* --- scene 1: tasks move forward automatically ---
+           A clock ticks to midnight; the day-strip slides left underneath a
+           task that never moves — the days change, the task stays. */
+        .spill-ghost { opacity: 0.25; }
+
+        .midnight-scene {
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        .strip-frame {
+            position: relative;
+            width: 246px;
+            overflow: hidden;
+            border-radius: 6px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .strip {
+            display: flex;
+            gap: 10px;
+            animation: slideDays 9s ease-in-out infinite;
+        }
+        @keyframes sceneFade {
+            0%       { opacity: 0; }
+            3%, 92%  { opacity: 1; }
+            96%, 100%{ opacity: 0; }
+        }
+        @keyframes slideDays {
+            0%, 46%   { transform: translateX(0); }
+            57%, 100% { transform: translateX(-128px); }
+        }
+        .stay-task {
             position: absolute;
-            top: 24px;
-            left: 8px;
+            top: 26px;
+            left: 15px;
             background: #ffffff;
             padding-right: 4px;
-            animation: spill 5s ease-in-out infinite;
+            z-index: 2;
+            animation: plopDown 9s ease-in-out infinite;
         }
-        @keyframes spill {
-            0%, 30%   { transform: translate(0, 0); opacity: 1; }
-            55%, 88%  { transform: translate(128px, 10px); opacity: 1; }
-            96%       { transform: translate(128px, 10px); opacity: 0; }
-            97%       { transform: translate(0, 0); opacity: 0; }
-            100%      { transform: translate(0, 0); opacity: 1; }
+        @keyframes plopDown {
+            0%, 50%  { transform: translateY(0); }
+            57%      { transform: translateY(-4px); }
+            61%      { transform: translateY(1.5px); }
+            64%, 100%{ transform: translateY(0); }
         }
-        .spill-ghost { opacity: 0.25; }
+        .becomes-today .mini-day {
+            animation: dayTurnsBlue 9s linear infinite;
+        }
+        @keyframes dayTurnsBlue {
+            0%, 56%   { color: #0f172a; }
+            62%, 100% { color: #0ea5e9; }
+        }
+        .mini-clock {
+            position: relative;
+            height: 14px;
+            width: 60px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 9.5px;
+            color: #64748b;
+            text-align: center;
+        }
+        .mini-clock span {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+        }
+        .mini-clock .c1 { animation: clock1 9s linear infinite; }
+        .mini-clock .c2 { animation: clock2 9s linear infinite; }
+        .mini-clock .c3 { animation: clock3 9s linear infinite; color: #0ea5e9; font-weight: 700; }
+        @keyframes clock1 { 0%, 20% { opacity: 1; } 22%, 100% { opacity: 0; } }
+        @keyframes clock2 { 0%, 21% { opacity: 0; } 23%, 43% { opacity: 1; } 45%, 100% { opacity: 0; } }
+        @keyframes clock3 { 0%, 44% { opacity: 0; } 46%, 92% { opacity: 1; } 96%, 100% { opacity: 0; } }
 
         /* --- scene 2: click the circle to complete --- */
         .complete-circle { animation: circleFill 4s ease-in-out infinite; position: relative; }
@@ -461,7 +517,10 @@
 
         @media (prefers-reduced-motion: reduce) {
             .scene * { animation: none !important; }
-            .spill-task { transform: translate(128px, 10px); }
+            .strip-frame { opacity: 1; }
+            .strip { transform: translateX(-128px); }
+            .becomes-today .mini-day { color: #0ea5e9; }
+            .mini-clock .c3 { opacity: 1; }
             .held-spill { transform: translate(128px, -14px); }
             .mini-cursor { opacity: 0; }
             .type-text { max-width: 0; border-right: none; }
@@ -514,16 +573,27 @@
                counts the days it's been pushed; it turns red past 10.</p>
         </div>
         <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="mini-card">
-                    <div class="mini-day">Mon</div>
-                    <div class="mini-task spill-ghost"><span class="mini-circle"></span>call the vet</div>
+            <div class="scene midnight-scene">
+                <div class="strip-frame">
+                    <div class="strip">
+                        <div class="mini-card today-card">
+                            <div class="mini-day" data-day-offset="0"></div>
+                            <div class="mini-task" style="visibility:hidden;"><span class="mini-circle"></span>&nbsp;</div>
+                        </div>
+                        <div class="mini-card becomes-today">
+                            <div class="mini-day" data-day-offset="1"></div>
+                        </div>
+                        <div class="mini-card">
+                            <div class="mini-day" data-day-offset="2"></div>
+                        </div>
+                    </div>
+                    <div class="mini-task stay-task"><span class="mini-circle"></span>call the vet <span style="color:#94a3b8;font-size:7px;">2</span></div>
                 </div>
-                <div class="mini-card today-card">
-                    <div class="mini-day">Tue · today</div>
-                    <div class="mini-task"><span class="mini-circle"></span>water plants</div>
+                <div class="mini-clock">
+                    <span class="c1">11:58 PM</span>
+                    <span class="c2">11:59 PM</span>
+                    <span class="c3">12:00 AM</span>
                 </div>
-                <div class="mini-task spill-task"><span class="mini-circle"></span>call the vet <span style="color:#94a3b8;font-size:7px;">2</span></div>
             </div>
         </div>
         <div class="card">
@@ -732,6 +802,13 @@ npm start          <span class="c"># open http://localhost:3000 — that's the w
         const now = new Date();
         document.getElementById('todayDayName').textContent = dayNames[now.getUTCDay()];
         document.getElementById('todayDate').textContent = monthNames[now.getUTCMonth()] + ' ' + now.getUTCDate();
+
+        // Midnight-scene day cards: today, tomorrow, day after — board style.
+        document.querySelectorAll('[data-day-offset]').forEach(el => {
+            const d = new Date(now);
+            d.setUTCDate(d.getUTCDate() + parseInt(el.dataset.dayOffset, 10));
+            el.textContent = dayNames[d.getUTCDay()] + ' · ' + monthNames[d.getUTCMonth()] + ' ' + d.getUTCDate();
+        });
     })();
 </script>
 </body>
