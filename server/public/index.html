@@ -1145,61 +1145,71 @@
             overflow-x: auto;
         }
 
+        /* Every tab shares one geometry — selecting a board must not resize
+           its tab, or the whole row would shift sideways on every switch.
+           Active differs by colour and weight only. */
         .project-tab {
-            padding: 6px 14px;
+            position: relative;
+            padding: 3px 10px;
             border-radius: 6px;
             cursor: pointer;
-            font-size: 13px;
-            color: #64748b;
+            font-size: 12px;
             white-space: nowrap;
-            transition: all 0.2s;
-            border: 1px solid transparent;
+            transition: background 0.2s, color 0.2s, border-color 0.2s;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            color: #475569;
+            user-select: none;
         }
 
         .project-tab:hover {
-            background: #f1f5f9;
-            color: #0f172a;
+            border-color: #38bdf8;
+            color: #0284c7;
+            background: #f0f9ff;
         }
 
+        /* Colour only — no weight change. Bolding the active label would
+           widen that tab and nudge every tab after it on each switch, which
+           is exactly the movement this layout is meant to eliminate. */
         .project-tab.active {
             background: #f0f9ff;
             border-color: #38bdf8;
             color: #0284c7;
-            font-weight: 600;
         }
 
-        #projectTabsOther {
+        #projectTabs {
             display: flex;
             gap: 6px;
             align-items: center;
             flex-wrap: wrap;
         }
 
-        .project-tab.other {
-            padding: 3px 10px;
-            font-size: 12px;
-            border: 1px solid #e2e8f0;
-            background: #ffffff;
-            color: #475569;
-        }
-
-        .project-tab.other:hover {
-            border-color: #38bdf8;
-            color: #0284c7;
-            background: #f0f9ff;
-        }
-
         /* An off-screen board has a deadline due (or overdue) — red, the
            sanctioned warning colour, same as overdue day panes. */
-        .project-tab.other.due {
+        .project-tab.due,
+        .project-tab.due:hover {
             border: 2px solid #ef4444;
             padding: 2px 9px;
         }
 
-        .project-tab.other.due:hover {
-            border-color: #ef4444;
-            color: #0284c7;
+        /* Drag to reorder: the row is the user's own arrangement. */
+        .project-tab.dragging {
+            opacity: 0.4;
         }
+
+        .project-tab.drop-before::before,
+        .project-tab.drop-after::after {
+            content: '';
+            position: absolute;
+            top: -2px;
+            bottom: -2px;
+            width: 2px;
+            border-radius: 1px;
+            background: #0ea5e9;
+        }
+
+        .project-tab.drop-before::before { left: -5px; }
+        .project-tab.drop-after::after { right: -5px; }
 
         /* Brand-colored like the wordmark — reads as app chrome, not board content */
         .project-add-btn {
@@ -1778,16 +1788,16 @@
             background: #334155;
             color: #38bdf8;
         }
-        body.dark .project-tab.other {
+        body.dark .project-tab {
             background: #1e293b;
             border-color: #334155;
             color: #94a3b8;
         }
-        /* Must out-specify `body.dark .project-tab.other` (0,3,1), which
-           would otherwise reset border-color and leave the deadline flag
-           visible only on hover. */
-        body.dark .project-tab.other.due,
-        body.dark .project-tab.other.due:hover {
+        /* Must out-specify `body.dark .project-tab` (0,2,1), which would
+           otherwise reset border-color and leave the deadline flag visible
+           only on hover. */
+        body.dark .project-tab.due,
+        body.dark .project-tab.due:hover {
             border-color: #ef4444;
         }
         body.dark .project-tab.active {
@@ -1795,7 +1805,7 @@
             border-color: rgba(14, 165, 233, 0.35);
         }
         body.dark .project-add-btn { color: #f1f5f9; }
-        body.dark .project-tab.other:hover,
+        body.dark .project-tab:hover,
         body.dark .project-add-btn:hover,
         body.dark .theme-toggle:hover {
             background: rgba(14, 165, 233, 0.12);
@@ -1888,11 +1898,9 @@
                 <button class="btn-go" id="signupBtn" disabled>Go</button>
             </div>
 
-            <!-- Active project tab -->
+            <!-- Project tabs, in the user's own order. The active tab is
+                 styled in place — it never moves to the front. -->
             <div id="projectTabs"></div>
-
-            <!-- Other open projects (immediately beside the active tab) -->
-            <div id="projectTabsOther"></div>
 
             <!-- View toggle -->
             <div class="view-toggle">
@@ -2012,6 +2020,10 @@
         // Declared up here because renderView() clears it and sits earlier in
         // the file than the rest of the priority code.
         let pendingPriorityRow = null;
+        // Project tab reordering — declared here because renderProjectBar()
+        // sits well above the drag code that maintains them.
+        let draggedProjectId = null;
+        let justDraggedProject = false;
         let expandedTaskIds = new Set();
         let taskSubtasks = new Map();
         function isExpandedTask(id) { return expandedTaskIds.has(id); }
@@ -2738,40 +2750,122 @@
         // ============================================
         function renderProjectBar() {
             const tabs = document.getElementById('projectTabs');
-            const otherTabs = document.getElementById('projectTabsOther');
 
             if (!isSignedUp || projects.length === 0) {
                 tabs.innerHTML = '';
-                otherTabs.innerHTML = '';
                 return;
             }
 
             const activeId = currentProject ? currentProject.id : null;
-            const activeProject = projects.find(p => p.id === activeId);
-            const otherProjects = projects.filter(p => p.id !== activeId);
 
-            tabs.innerHTML = activeProject
-                ? `<span class="project-tab active" data-project-id="${activeProject.id}">${escapeHtml(activeProject.name)}</span>`
-                : '';
-
-            // A board you're not looking at with a deadline due today (or
-            // past due) gets a red border — the only nudge that another
-            // project needs attention.
-            otherTabs.innerHTML = otherProjects.map(p => {
-                const due = p.due_today || 0;
+            // Every project renders in the user's own order — selecting one
+            // styles it in place rather than moving it to the front. A board
+            // you're NOT on with a deadline due today (or past due) gets a
+            // red border: the only nudge that another project needs you.
+            tabs.innerHTML = projects.map(p => {
+                const isActive = p.id === activeId;
+                const due = !isActive && (p.due_today || 0) > 0 ? (p.due_today || 0) : 0;
                 const title = due > 0
                     ? `${due} deadline${due === 1 ? '' : 's'} due — switch to ${p.name}`
-                    : `Switch to ${p.name}`;
-                return `
-                <span class="project-tab other${due > 0 ? ' due' : ''}" data-project-id="${p.id}" title="${escapeHtml(title)}">${escapeHtml(p.name)}</span>
-            `;
+                    : (isActive ? p.name : `Switch to ${p.name}`);
+                const cls = `project-tab${isActive ? ' active' : ''}${due > 0 ? ' due' : ''}`;
+                return `<span class="${cls}" draggable="true" data-project-id="${p.id}" title="${escapeHtml(title)}">${escapeHtml(p.name)}</span>`;
             }).join('');
 
-            document.querySelectorAll('.project-tab').forEach(tab => {
+            tabs.querySelectorAll('.project-tab').forEach(tab => {
                 tab.addEventListener('click', () => {
+                    // A completed drag doesn't fire click, but a drag that
+                    // ends on the tab it started from can — ignore it.
+                    if (justDraggedProject) return;
                     switchProject(parseInt(tab.dataset.projectId));
                 });
+                attachProjectTabDrag(tab);
             });
+        }
+
+        // ============================================
+        // PROJECT TAB REORDERING (drag & drop)
+        // ============================================
+        // Tabs carry the user's own arrangement, so dragging one only
+        // rewrites order — never the active board. Guarded against the
+        // series drag (which sets draggedTaskId) so the two never mix.
+        function attachProjectTabDrag(tab) {
+            tab.addEventListener('dragstart', (e) => {
+                draggedProjectId = parseInt(tab.dataset.projectId);
+                // Safari refuses to start a drag without payload data.
+                e.dataTransfer.setData('text/plain', `project:${draggedProjectId}`);
+                e.dataTransfer.effectAllowed = 'move';
+                tab.classList.add('dragging');
+            });
+
+            tab.addEventListener('dragend', () => {
+                draggedProjectId = null;
+                clearProjectDropMarkers();
+                document.querySelectorAll('.project-tab.dragging')
+                    .forEach(el => el.classList.remove('dragging'));
+                // Swallow the click that can follow a drop on the origin tab.
+                justDraggedProject = true;
+                setTimeout(() => { justDraggedProject = false; }, 0);
+            });
+
+            tab.addEventListener('dragover', (e) => {
+                if (!draggedProjectId) return;   // a task drag — not ours
+                e.preventDefault();
+                e.dataTransfer.dropEffect = 'move';
+                const id = parseInt(tab.dataset.projectId);
+                if (id === draggedProjectId) return;
+                const rect = tab.getBoundingClientRect();
+                const after = e.clientX > rect.left + rect.width / 2;
+                clearProjectDropMarkers();
+                tab.classList.add(after ? 'drop-after' : 'drop-before');
+            });
+
+            tab.addEventListener('dragleave', () => {
+                tab.classList.remove('drop-before', 'drop-after');
+            });
+
+            tab.addEventListener('drop', (e) => {
+                if (!draggedProjectId) return;
+                e.preventDefault();
+                e.stopPropagation();
+                const targetId = parseInt(tab.dataset.projectId);
+                const rect = tab.getBoundingClientRect();
+                const after = e.clientX > rect.left + rect.width / 2;
+                clearProjectDropMarkers();
+                if (targetId !== draggedProjectId) {
+                    reorderProjects(draggedProjectId, targetId, after);
+                }
+            });
+        }
+
+        function clearProjectDropMarkers() {
+            document.querySelectorAll('.project-tab.drop-before, .project-tab.drop-after')
+                .forEach(el => el.classList.remove('drop-before', 'drop-after'));
+        }
+
+        // Splice the dragged project in beside the target, repaint straight
+        // away (optimistic — the bar should feel instant), then persist.
+        async function reorderProjects(movedId, targetId, after) {
+            const from = projects.findIndex(p => p.id === movedId);
+            if (from === -1) return;
+            const [moved] = projects.splice(from, 1);
+            let to = projects.findIndex(p => p.id === targetId);
+            if (to === -1) {
+                projects.splice(from, 0, moved);   // target vanished — put it back
+                return;
+            }
+            projects.splice(after ? to + 1 : to, 0, moved);
+            renderProjectBar();
+
+            try {
+                await api(`/companies/${company.subdomain}/users/${currentUser.slug}/projects/order`, {
+                    method: 'PUT',
+                    body: { project_ids: projects.map(p => p.id) }
+                });
+            } catch (err) {
+                console.error('Failed to save project order:', err);
+                showToast('Could not save the new tab order');
+            }
         }
 
         // ============================================

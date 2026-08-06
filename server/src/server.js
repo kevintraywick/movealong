@@ -392,10 +392,64 @@ app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
     FROM projects p
     JOIN project_members pm ON pm.project_id = p.id
     WHERE pm.user_id = ?
-    ORDER BY p.created_at
+    ORDER BY CASE WHEN pm.position IS NULL THEN 1 ELSE 0 END, pm.position, p.created_at
   `, [user.id, today, user.id]);
 
   res.json(projects);
+});
+
+// Reorder a user's project tabs. Order is per-user (stored on
+// project_members), so one member dragging tabs never reorders anyone
+// else's bar.
+app.put('/api/companies/:subdomain/users/:slug/projects/order', (req, res) => {
+  const { subdomain, slug } = req.params;
+  const { project_ids } = req.body;
+
+  if (!Array.isArray(project_ids)) {
+    return res.status(400).json({ error: 'project_ids array is required' });
+  }
+
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+
+  const user = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  try {
+    // Only projects this user actually belongs to can be positioned.
+    const mine = queryAll(`
+      SELECT p.id
+      FROM projects p
+      JOIN project_members pm ON pm.project_id = p.id
+      WHERE pm.user_id = ?
+      ORDER BY CASE WHEN pm.position IS NULL THEN 1 ELSE 0 END, pm.position, p.created_at
+    `, [user.id]).map(r => r.id);
+    const mineSet = new Set(mine);
+
+    const seen = new Set();
+    const ordered = [];
+    for (const raw of project_ids) {
+      const id = parseInt(raw);
+      if (mineSet.has(id) && !seen.has(id)) {
+        seen.add(id);
+        ordered.push(id);
+      }
+    }
+    // Anything the client left out keeps its relative order at the end.
+    for (const id of mine) {
+      if (!seen.has(id)) ordered.push(id);
+    }
+
+    ordered.forEach((id, index) => {
+      runSql('UPDATE project_members SET position = ? WHERE project_id = ? AND user_id = ?',
+        [index, id, user.id]);
+    });
+
+    res.json({ project_ids: ordered });
+  } catch (err) {
+    console.error('Error reordering projects:', err);
+    res.status(500).json({ error: 'Failed to reorder projects' });
+  }
 });
 
 // Add a member to a project

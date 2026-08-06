@@ -73,12 +73,28 @@ are incomplete and scheduled on or before today — past-due locks included.
 The frontend uses it to put a red border on the tabs of boards the user
 isn't currently looking at, so a deadline on another project is visible.
 
+Projects come back in the user's own tab order: `project_members.position`
+first, then creation order for any project never dragged. New projects
+therefore append rather than jumping to the front.
+
 #### Create a project
 ```
 POST /api/companies/:subdomain/users/:slug/projects
 Body: { "name": "winter con" }
 Response: { id, name, slug, created_by, created_at }
 ```
+
+#### Reorder a user's project tabs
+```
+PUT /api/companies/:subdomain/users/:slug/projects/order
+Body: { "project_ids": [7, 3, 5] }
+Response: { project_ids: [ ...full order as stored... ] }
+```
+
+Positions are written 0..n on `project_members`, so order is per-user — one
+member rearranging their tabs never reorders anyone else's. Ids the user
+doesn't belong to are ignored, duplicates collapse, and any project omitted
+from the list keeps its relative order at the end.
 
 ### Tasks
 

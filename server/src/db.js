@@ -64,6 +64,7 @@ async function initDb() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       project_id INTEGER NOT NULL,
       user_id INTEGER NOT NULL,
+      position INTEGER,
       added_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
@@ -123,6 +124,9 @@ async function initDb() {
   ensureColumn('tasks', 'parent_task_id', 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
   // Priority: 0 = none, 1-3 = number of red exclamation marks (3 = most urgent).
   ensureColumn('tasks', 'priority', 'INTEGER DEFAULT 0');
+  // Per-user tab order for the project bar. NULL = never dragged; the
+  // projects query falls back to creation order for those.
+  ensureColumn('project_members', 'position', 'INTEGER');
   // Pre-migration tasks never recorded their origin; the best available
   // approximation is wherever they sit now (their true origin is lost).
   db.run('UPDATE tasks SET origin_date = scheduled_date WHERE origin_date IS NULL');
