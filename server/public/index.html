@@ -1783,6 +1783,13 @@
             border-color: #334155;
             color: #94a3b8;
         }
+        /* Must out-specify `body.dark .project-tab.other` (0,3,1), which
+           would otherwise reset border-color and leave the deadline flag
+           visible only on hover. */
+        body.dark .project-tab.other.due,
+        body.dark .project-tab.other.due:hover {
+            border-color: #ef4444;
+        }
         body.dark .project-tab.active {
             background: rgba(14, 165, 233, 0.15);
             border-color: rgba(14, 165, 233, 0.35);
