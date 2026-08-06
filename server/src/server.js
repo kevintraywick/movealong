@@ -377,13 +377,23 @@ app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
   const user = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
+  // due_today: locked (deadline) tasks of this user that are due today or
+  // already past their lock date. Drives the red border on off-screen
+  // project tabs, so a deadline on another board can't go unnoticed.
+  const today = new Date().toISOString().split('T')[0];
   const projects = queryAll(`
-    SELECT p.id, p.name, p.slug, p.created_by, p.created_at
+    SELECT p.id, p.name, p.slug, p.created_by, p.created_at,
+           (SELECT COUNT(*) FROM tasks t
+             WHERE t.project_id = p.id
+               AND t.owner_id = ?
+               AND t.locked = 1
+               AND t.completed = 0
+               AND t.scheduled_date <= ?) AS due_today
     FROM projects p
     JOIN project_members pm ON pm.project_id = p.id
     WHERE pm.user_id = ?
     ORDER BY p.created_at
-  `, [user.id]);
+  `, [user.id, today, user.id]);
 
   res.json(projects);
 });

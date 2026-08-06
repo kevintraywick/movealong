@@ -27,6 +27,11 @@
 - [x] Header rework: "Main" → "List", +New project brand-styled beside the wordmark, project tabs clustered together, new-board button removed
 - [x] List view shows locked task dates in red (master route returns `locked`)
 - [x] Help page: animated CSS vignettes for every board feature (backyard-fence storyline), three-column layout with handwritten margin notes (green + red variants), dark mode synced with the board's theme key
+- [x] Completed subtasks disappear from the pane (server keeps them for List-view progress counts)
+- [x] Completing any task closes its subtask pane (was gated to hyperlink tasks)
+- [x] Quick lists: "list …" tasks get a My-list pane (3 blank slots, grows as filled) above standard AI suggestions; ↑ moves a suggestion onto the list; regeneration preserves the user's items
+- [x] Help page: "More fun" section (Links, Prioritize, Create lists + list vignette); series copy uses next-step language, not parent/child
+- [x] New-project modal focuses the name field on open (Safari visibility-transition fix)
 
 ## Next
 - [ ] Authentication (currently URL-based access only)

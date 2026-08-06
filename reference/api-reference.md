@@ -60,6 +60,26 @@ Body: { "name": "Bob R" }
 Response: { id, name, slug, initials, color }
 ```
 
+### Projects
+
+#### List a user's projects
+```
+GET /api/companies/:subdomain/users/:slug/projects
+Response: [{ id, name, slug, created_by, created_at, due_today }, ...]
+```
+
+`due_today` counts that user's locked (deadline) tasks in the project that
+are incomplete and scheduled on or before today — past-due locks included.
+The frontend uses it to put a red border on the tabs of boards the user
+isn't currently looking at, so a deadline on another project is visible.
+
+#### Create a project
+```
+POST /api/companies/:subdomain/users/:slug/projects
+Body: { "name": "winter con" }
+Response: { id, name, slug, created_by, created_at }
+```
+
 ### Tasks
 
 #### Get user's tasks
@@ -180,6 +200,16 @@ items (falls back to
 mock subtasks when no `ANTHROPIC_API_KEY` is configured, when the caller
 lacks a valid `x-ai-key` while `AI_ACCESS_KEY` is set, or when rate caps —
 `AI_LIMIT_PER_IP_HOUR`, `AI_LIMIT_GLOBAL_DAY` — are exceeded).
+
+**"list …" tasks** (description matches `/^list\b/i`) behave differently:
+the AI prompt asks for 7 concrete candidate items for the list (not action
+steps), every generated row is forced to `assignee_type: 'ai'`, only rows
+with `assignee_type = 'ai'` are deleted first (the user's own quick-list
+items — `assignee_type 'human'` — are preserved), and the response is the
+task's **full** subtask list rather than just the created rows. The
+frontend's ↑ "Move to my list" button flips a suggestion to
+`assignee_type: 'human'` via `PUT /api/subtasks/:id`, which both moves it
+into the quick list and shields it from future regeneration.
 
 ### Health Check
 ```

@@ -1189,6 +1189,18 @@
             background: #f0f9ff;
         }
 
+        /* An off-screen board has a deadline due (or overdue) — red, the
+           sanctioned warning colour, same as overdue day panes. */
+        .project-tab.other.due {
+            border: 2px solid #ef4444;
+            padding: 2px 9px;
+        }
+
+        .project-tab.other.due:hover {
+            border-color: #ef4444;
+            color: #0284c7;
+        }
+
         /* Brand-colored like the wordmark — reads as app chrome, not board content */
         .project-add-btn {
             padding: 4px 10px;
@@ -2271,6 +2283,24 @@
                 console.error('Failed to load tasks:', err);
                 tasks = [];
             }
+            // Deadlines on other boards can change from here (lock, complete,
+            // move, switch project), so re-read the per-project due counts.
+            await refreshProjectDueFlags();
+        }
+
+        // Re-read due_today for every project and repaint the tabs. Merges
+        // into the existing list rather than replacing it, so currentProject
+        // and any locally-pushed project object stay intact.
+        async function refreshProjectDueFlags() {
+            if (!currentUser || projects.length === 0) return;
+            try {
+                const fresh = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/projects`);
+                const counts = new Map(fresh.map(p => [p.id, p.due_today || 0]));
+                projects.forEach(p => { p.due_today = counts.get(p.id) || 0; });
+                renderProjectBar();
+            } catch (err) {
+                console.error('Failed to refresh project deadlines:', err);
+            }
         }
 
         async function loadSubtasks(taskId) {
@@ -2717,9 +2747,18 @@
                 ? `<span class="project-tab active" data-project-id="${activeProject.id}">${escapeHtml(activeProject.name)}</span>`
                 : '';
 
-            otherTabs.innerHTML = otherProjects.map(p => `
-                <span class="project-tab other" data-project-id="${p.id}" title="Switch to ${escapeHtml(p.name)}">${escapeHtml(p.name)}</span>
-            `).join('');
+            // A board you're not looking at with a deadline due today (or
+            // past due) gets a red border — the only nudge that another
+            // project needs attention.
+            otherTabs.innerHTML = otherProjects.map(p => {
+                const due = p.due_today || 0;
+                const title = due > 0
+                    ? `${due} deadline${due === 1 ? '' : 's'} due — switch to ${p.name}`
+                    : `Switch to ${p.name}`;
+                return `
+                <span class="project-tab other${due > 0 ? ' due' : ''}" data-project-id="${p.id}" title="${escapeHtml(title)}">${escapeHtml(p.name)}</span>
+            `;
+            }).join('');
 
             document.querySelectorAll('.project-tab').forEach(tab => {
                 tab.addEventListener('click', () => {
