@@ -560,14 +560,14 @@
             color: #ef4444;
         }
 
-        /* Priority: 1-3 red exclamation marks, set by hovering a task and
+        /* Priority: 1-3 accent-blue exclamation marks, set by hovering a task and
            pressing 1/2/3. Tracking is pulled in slightly to keep three marks
            narrow, but not so far that 1 / 2 / 3 are hard to tell apart at a
            glance — three marks cost ~12px, so the 200px column never widens. */
         .task-priority {
             font-size: 11px;
             font-weight: 700;
-            color: #ef4444;
+            color: #0ea5e9;
             letter-spacing: -0.3px;
             margin-left: 3px;
             padding-right: 1px;
@@ -1800,10 +1800,13 @@
         body.dark .project-tab.due:hover {
             border-color: #ef4444;
         }
+        /* White edge on the board you're looking at — the one tab that should
+           read as lit against the slate bar. */
         body.dark .project-tab.active {
             background: rgba(14, 165, 233, 0.15);
-            border-color: rgba(14, 165, 233, 0.35);
+            border-color: #ffffff;
         }
+        body.dark .task-priority { color: #38bdf8; }
         body.dark .project-add-btn { color: #f1f5f9; }
         body.dark .project-tab:hover,
         body.dark .project-add-btn:hover,
