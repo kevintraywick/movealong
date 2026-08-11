@@ -18,7 +18,7 @@ whole film exists to reframe it from nag to loyalty.
 | Duration | 60s exactly (1800 frames @ 30fps) |
 | Ratio | 16:9, 1920×1080 |
 | Home | Top of `/help`, autoplay, **muted**, looping |
-| Audio | ElevenLabs VO + minimal sound design; unmute is a reward, never a requirement |
+| Audio | ElevenLabs VO + sparse sound design. **No music.** Unmute is a reward, never a requirement |
 | Deliverables | `movealong-60.webm` (VP9) + `.mp4` (H.264 fallback) + `poster.png` |
 
 ### Two constraints that drive every decision
@@ -195,14 +195,15 @@ Nothing else is generated. No people, no offices, no laptops, no b-roll.
    picture, nudge cut points to the VO. *Confidence: 60%* — no ElevenLabs
    credential is configured in this environment yet.
 5. **Sound design** — a soft tick under the clock flip, a dry click per
-   completion, no music bed. *Confidence: 70%.*
+   completion. **No music bed** (decided 2026-08-10): a score would make this
+   sound like every other SaaS ad and would step on the silences that make
+   "Until you do it" land. The sparseness is the tone. *Confidence: 70%.*
 6. **Embed** at the top of `/help` — muted autoplay, `loop`, `playsinline`,
    poster frame, and a visible unmute control. *Confidence: 90%.*
 
 ## Open items
 
-- **ElevenLabs access.** No API key in the environment. Needed for step 4.
-- **Music.** My recommendation is none — silence and sparse sound design suit the
-  product's quiet. Worth a deliberate decision.
+- **ElevenLabs access.** Key lives at `~/.config/elevenlabs/.env` (chmod 600,
+  outside the repo) — read it only at call time and mask it in output.
 - **The vertical recut.** Not scoped here. It would be a separate edit, not a
   crop: harder first three seconds, far bigger type.
