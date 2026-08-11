@@ -163,14 +163,50 @@ app.post('/api/companies', (req, res) => {
   }
 
   const subdomain = generateSubdomain(companyName);
-  
-  // Check if subdomain already exists
-  const existing = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  const userSlug = generateSlug(userName);
+
+  // Sign in or sign up. This endpoint used to 409 on an existing team name,
+  // which made it impossible to get back to an account after signing out —
+  // the header form is the only way in, and it always posted here. There is no
+  // authentication in MoveAlong (any board is reachable by URL), so matching an
+  // existing team + user name signs you back into that account rather than
+  // failing. A known name is the credential; that is the product's model.
+  const existing = queryOne(
+    'SELECT id, name, subdomain FROM companies WHERE subdomain = ?', [subdomain]);
   if (existing) {
-    return res.status(409).json({ error: 'A team with this name already exists' });
+    const user = queryOne(
+      'SELECT id, name, slug, initials, color FROM users WHERE company_id = ? AND slug = ?',
+      [existing.id, userSlug]);
+
+    if (user) {
+      return res.json({
+        company: { id: existing.id, name: existing.name, subdomain },
+        user,
+        returning: true
+      });
+    }
+
+    // Team exists but this person is new to it — add them and carry on.
+    // getRandomColor() must be called once: calling it again for the response
+    // would hand the client a different colour than the row actually holds.
+    const initials = generateInitials(userName);
+    const color = getRandomColor();
+    try {
+      const added = runSql(
+        'INSERT INTO users (company_id, name, slug, initials, color) VALUES (?, ?, ?, ?, ?)',
+        [existing.id, userName, userSlug, initials, color]
+      );
+      return res.status(201).json({
+        company: { id: existing.id, name: existing.name, subdomain },
+        user: { id: added.lastInsertRowid, name: userName, slug: userSlug, initials, color },
+        returning: true
+      });
+    } catch (err) {
+      console.error('Error adding user to existing company:', err);
+      return res.status(500).json({ error: 'Failed to join team' });
+    }
   }
 
-  const userSlug = generateSlug(userName);
   const userInitials = generateInitials(userName);
   const userColor = '#9575cd'; // First user gets purple
 

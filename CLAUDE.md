@@ -175,7 +175,7 @@ No test suite yet. No linter configured. Manual testing via `http://localhost:30
 ## API Pattern
 
 All endpoints under `/api`. RESTful. JSON in/out.
-- Companies: `POST /api/companies`, `GET /api/companies/:subdomain`
+- Companies: `POST /api/companies` (**sign in *or* sign up** — an existing team + user name returns that account with `returning: true` instead of 409ing; a known name is the credential, since there's no auth), `GET /api/companies/:subdomain`
 - Users: `GET|POST /api/companies/:subdomain/users`
 - Tasks: `GET|POST /api/companies/:subdomain/users/:slug/tasks`
 - Task actions: `PUT /api/tasks/:id`, `POST /api/tasks/:id/assign`, `POST /api/tasks/:id/return`, `DELETE /api/tasks/:id`

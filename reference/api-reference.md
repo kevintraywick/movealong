@@ -26,12 +26,29 @@ DB_PATH=/path/to/db.sqlite npm start
 
 ### Companies
 
-#### Create company + first user (signup)
+#### Sign in or sign up
 ```
 POST /api/companies
 Body: { "companyName": "Alice's Move Along", "userName": "Alice" }
-Response: { company: {...}, user: {...} }
+Response: { company: {...}, user: {...}, returning?: true }
+  201  new team created, or an existing team gained a new member
+  200  existing team + existing user — signed back into that account
 ```
+The company name is reduced to a subdomain (`generateSubdomain`) and the user
+name to a slug (`generateSlug`); those two together identify the account.
+
+This endpoint used to `409` on an existing team name, which made the header form
+a one-way door — after signing out there was no way back to an account. Since
+MoveAlong has no authentication (any board is reachable by URL), a known team +
+user name now signs you back in rather than failing. Consequences worth knowing:
+
+- Re-entering your names returns the **same** user row and all existing boards.
+  The client must therefore `GET .../projects` rather than assuming it should
+  create a default "Personal" project.
+- Entering an existing team name with a **new** user name joins that team as a
+  new member (201). There is no invitation step and no way to refuse.
+- Name collisions are account collisions. Two different people who both pick
+  team "personal" + user "kev" land on the same board.
 
 #### Get company by subdomain
 ```

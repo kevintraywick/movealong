@@ -1796,6 +1796,14 @@
             border-color: #334155;
             color: #e2e8f0;
         }
+        /* .header-input.auto-generated(.user-edited) pin color:#0f172a at
+           specificity (0,2,0)/(0,3,0) — the second of those outranks
+           `body.dark .header-input` (0,2,1), so the project field rendered
+           near-black on slate once it was typed in. Match the specificity. */
+        body.dark .header-input.auto-generated,
+        body.dark .header-input.auto-generated.user-edited {
+            color: #e2e8f0;
+        }
         body.dark .view-toggle { background: #1e293b; }
         body.dark .view-toggle-btn { color: #94a3b8; }
         body.dark .view-toggle-btn:hover { color: #e2e8f0; }
@@ -2281,22 +2289,29 @@
                 displayUsername.textContent = currentUser.name;
                 displayTeamName.textContent = company.name;
 
-                // Auto-create "Personal" project
-                try {
-                    const proj = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/projects`, {
-                        method: 'POST',
-                        body: { name: 'Personal' }
-                    });
-                    projects = [proj];
-                    currentProject = proj;
-                } catch (e) {
-                    console.error('Failed to create default project:', e);
+                // A returning account already has boards — load them. Only a
+                // genuinely new account gets the default "Personal" project;
+                // blindly POSTing it for a returning user 409s on the duplicate
+                // name and used to leave the board empty.
+                await loadProjects();
+                if (projects.length === 0) {
+                    try {
+                        const proj = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/projects`, {
+                            method: 'POST',
+                            body: { name: 'Personal' }
+                        });
+                        projects = [proj];
+                        currentProject = proj;
+                    } catch (e) {
+                        console.error('Failed to create default project:', e);
+                    }
                 }
+                await loadTasks();
 
                 renderProjectBar();
                 renderBoard();
                 saveSession();
-                showToast('Ready to go!');
+                showToast(result.returning ? `Welcome back, ${currentUser.name}` : 'Ready to go!');
 
                 const taskInput = document.querySelector('.task-input');
                 if (taskInput) taskInput.focus();
