@@ -6,3 +6,6 @@ archive/
 .env
 .env.*
 .claude/settings.local.json
+
+# Commercial VO audition takes (throwaway)
+docs/commercial/vo/auditions/
