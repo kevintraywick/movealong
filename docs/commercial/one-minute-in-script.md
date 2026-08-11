@@ -175,6 +175,9 @@ ends:
 Renders live in `vo/sawyer/` (gitignored — regenerable from this document);
 `vo/radio-cut.mp3` is the full 60s assembly used to time picture against.
 
+**The animatic lives at `docs/animation/one-minute-in.html`** and reads the radio
+cut from `../commercial/vo/radio-cut.mp3`.
+
 ---
 
 ## Assets
