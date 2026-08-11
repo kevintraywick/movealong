@@ -397,6 +397,28 @@
         }
         .stay-task.stay-2 { top: 52px; }
         .stay-task .mini-circle { margin-top: 1px; }
+        /* The days-pushed counter, ringed by the same hand-drawn ellipse the
+           unlink scene draws around its scissors — on this scene's 9s cycle,
+           starting after the spilled tasks have settled. */
+        .spill-count {
+            position: relative;
+            display: inline-block;
+            color: #94a3b8;
+            font-size: 7px;
+        }
+        .nav-ring.spill-ring {
+            top: -4px;
+            left: -6px;
+            width: calc(100% + 12px);
+            height: calc(100% + 8px);
+        }
+        .nav-ring.spill-ring ellipse { animation: spillRingDraw 9s linear infinite; }
+        @keyframes spillRingDraw {
+            0%, 66%   { stroke-dashoffset: 100; opacity: 0; }
+            69%       { stroke-dashoffset: 100; opacity: 0.9; }
+            80%, 90%  { stroke-dashoffset: 0; opacity: 0.9; }
+            94%, 100% { stroke-dashoffset: 0; opacity: 0; }
+        }
         /* Thursday's own task steps down as the two spilled tasks land above it */
         .thu-task {
             animation: thuShift 9s ease-in-out infinite;
@@ -1324,6 +1346,7 @@
             .thu-task { transform: translateY(42px); }
             .becomes-today .mini-day { color: #0ea5e9; }
             .mini-clock .c3 { opacity: 1; }
+            .spill-ring ellipse { stroke-dashoffset: 0; opacity: 0.9; }
             .held-spill { transform: translate(128px, -14px); }
             .done-frame { opacity: 1; }
             .dig-row { transform: translateY(48px); opacity: 0.55; }
@@ -1501,8 +1524,8 @@
                             <div class="mini-task"><span class="mini-circle"></span>set the posts</div>
                         </div>
                     </div>
-                    <div class="mini-task stay-task"><span class="mini-circle"></span>pick up fence boards <span style="color:#94a3b8;font-size:7px;">2</span></div>
-                    <div class="mini-task stay-task stay-2"><span class="mini-circle"></span>rent the auger <span style="color:#94a3b8;font-size:7px;">2</span></div>
+                    <div class="mini-task stay-task"><span class="mini-circle"></span>pick up fence boards <span class="spill-count">2<svg class="nav-ring spill-ring" viewBox="0 0 66 26" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="33" cy="13" rx="31" ry="11" pathLength="100"/></svg></span></div>
+                    <div class="mini-task stay-task stay-2"><span class="mini-circle"></span>rent the auger <span class="spill-count">2</span></div>
                 </div>
                 <div class="mini-clock">
                     <span class="c1">11:58 PM</span>
