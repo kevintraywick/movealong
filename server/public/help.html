@@ -79,6 +79,9 @@
         }
         .three-col > .card:not(.demo) { grid-column: 1; }
         .three-col > .card.demo { grid-column: 2; }
+        /* A demo can claim the margin-note column when the point of the
+           card is a side-by-side comparison (light vs dark). */
+        .three-col > .card.demo.demo-3 { grid-column: 3; }
 
         /* Handwritten margin notes in the reserved third column */
         .margin-note {
@@ -112,6 +115,7 @@
             /* Not enough room for the comments column */
             .feature-grid.three-col { grid-template-columns: 1fr 1fr; }
             .margin-note { display: none; }
+            .three-col > .card.demo.demo-3 { grid-column: auto; }
         }
 
         .card {
@@ -1388,6 +1392,70 @@
             .lp-cursor { opacity: 0; }
         }
 
+        /* --- scene 9: light / dark mode ---
+           Two still "screenshots" side by side. Unlike every other vignette
+           these carry their own chrome colours, so the dark one stays dark in
+           light mode and the light one stays light in dark mode — the whole
+           point of the card is the contrast between them. */
+        .theme-frame {
+            width: 152px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            padding: 7px;
+        }
+        .theme-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 5px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .theme-mark {
+            font-weight: 800;
+            font-size: 8.5px;
+            color: #0f172a;
+        }
+        .theme-mark span { color: #0ea5e9; }
+        .theme-btn {
+            font-size: 8px;
+            line-height: 1;
+            padding: 2px 4px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+        .theme-frame .mini-card {
+            width: auto;
+            min-height: 0;
+            padding: 6px;
+        }
+        .theme-label {
+            margin-top: 6px;
+            text-align: center;
+            font-size: 8.5px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #94a3b8;
+        }
+        /* The dark still — the app's own slate palette, hard-coded. */
+        .theme-frame.dark-frame {
+            background: #0f172a;
+            border-color: #334155;
+        }
+        .dark-frame .theme-bar { border-bottom-color: #334155; }
+        .dark-frame .theme-mark { color: #f1f5f9; }
+        .dark-frame .theme-btn { border-color: #334155; }
+        .dark-frame .mini-card {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        .dark-frame .mini-day { color: #e2e8f0; }
+        .dark-frame .mini-task { color: #e2e8f0; }
+        .dark-frame .mini-circle { border-color: #475569; }
+        .theme-demo .scene { min-height: 0; }
+
         @media (max-width: 560px) {
             .feature-grid,
             .feature-grid.three-col { grid-template-columns: 1fr; }
@@ -1719,6 +1787,39 @@
                         <div class="lp-sug lp-g2"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="lp-text">clematis vine</span><span class="lp-up">&uarr;</span></div>
                         <div class="lp-sug lp-g3"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="lp-text">boxwood hedge</span><span class="lp-up">&uarr;</span></div>
                     </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <h3>Dark mode &#127769;</h3>
+            <p>The &#9728;&#65039;/&#127769; button in the header flips the whole app
+               between light and dark — this help page follows along. The icon shows
+               the mode you'd switch <em>to</em>.</p>
+        </div>
+        <div class="card demo theme-demo" aria-hidden="true">
+            <div class="scene">
+                <div class="theme-frame">
+                    <div class="theme-bar"><span class="theme-mark">Move<span>Along</span></span><span class="theme-btn">&#127769;</span></div>
+                    <div class="mini-card">
+                        <div class="mini-day" data-day-offset="0"></div>
+                        <div class="mini-task"><span class="mini-circle"></span>set the posts</div>
+                        <div class="mini-task"><span class="mini-circle"></span>hang the gate</div>
+                    </div>
+                    <div class="theme-label">Light</div>
+                </div>
+            </div>
+        </div>
+        <div class="card demo theme-demo demo-3" aria-hidden="true">
+            <div class="scene">
+                <div class="theme-frame dark-frame">
+                    <div class="theme-bar"><span class="theme-mark">Move<span>Along</span></span><span class="theme-btn">&#9728;&#65039;</span></div>
+                    <div class="mini-card">
+                        <div class="mini-day" data-day-offset="0"></div>
+                        <div class="mini-task"><span class="mini-circle"></span>set the posts</div>
+                        <div class="mini-task"><span class="mini-circle"></span>hang the gate</div>
+                    </div>
+                    <div class="theme-label">Dark</div>
                 </div>
             </div>
         </div>
