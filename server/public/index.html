@@ -477,6 +477,21 @@
             display: none;
             align-items: center;
             gap: 16px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .header-display:hover {
+            background: #f0f9ff;
+        }
+
+        /* Who you are, inside the account popup — not a menu item. */
+        .account-who {
+            font-size: 13px;
+            color: #0f172a;
+            padding: 2px 2px 6px;
         }
 
         .header-display.visible {
@@ -1872,6 +1887,26 @@
             background: #1e293b;
             border-color: #334155;
         }
+        /* .lock-opt rows are light-on-light by default — they sit inside a dark
+           popup box in dark mode, so they need their own override. Covers the
+           lock popup and the account popup, which share the class. */
+        body.dark .lock-popup-menu .lock-opt {
+            background: #0f172a;
+            border-color: #334155;
+            color: #e2e8f0;
+        }
+        body.dark .lock-popup-menu .lock-opt:hover {
+            background: #1e293b;
+            border-color: #475569;
+        }
+        body.dark .lock-popup-menu .lock-opt.danger { color: #fbbf24; }
+        body.dark .lock-popup-row input[type="date"] {
+            background: #0f172a;
+            border-color: #334155;
+            color: #e2e8f0;
+        }
+        body.dark .account-who { color: #e2e8f0; }
+        body.dark .header-display:hover { background: rgba(14, 165, 233, 0.12); }
         body.dark .modal { background: #1e293b; color: #e2e8f0; }
         body.dark .modal h3 { color: #f1f5f9; }
         body.dark .toast { background: #334155; border: 1px solid #475569; }
@@ -1920,8 +1955,10 @@
             <!-- Dark/light mode: shows the theme you'd switch to -->
             <button class="theme-toggle" id="themeToggleBtn" title="Switch theme" aria-label="Switch between light and dark mode">🌙</button>
 
-            <!-- Display (after Go): quiet user · project chip -->
-            <div class="header-display" id="headerDisplay">
+            <!-- Display (after Go): quiet user · project chip. Click it for the
+                 account popup (sign out) — same click-to-popup idiom as the lock. -->
+            <div class="header-display" id="headerDisplay" role="button" tabindex="0"
+                 title="Account">
                 <span class="header-value" id="displayUsername"></span>
                 <span class="header-separator">&bull;</span>
                 <span class="header-value" id="displayTeamName"></span>
@@ -1943,6 +1980,7 @@
         <div class="team-popup" id="teamPopup">
         </div>
 
+        <div class="team-popup lock-popup" id="accountPopup"></div>
         <div class="team-popup lock-popup" id="lockPopup">
         </div>
 
@@ -2574,6 +2612,40 @@
                         showToast('Unlocked');
                     }
                 });
+            });
+
+            document.addEventListener('click', hidePopupsOnClickOutside);
+        }
+
+        // The account popup: who you are, and the only way back out. There is no
+        // authentication in MoveAlong, so signing out is not a security boundary —
+        // it just makes this device forget the session so a different account can
+        // be signed in. Theme and AI key live under their own keys and survive.
+        function showAccountPopup(e) {
+            if (!isSignedUp) return;
+            e.stopPropagation();
+            const popup = document.getElementById('accountPopup');
+            popup.innerHTML = `
+                <div class="lock-popup-menu">
+                    <div class="lock-popup-title">Signed in as</div>
+                    <div class="account-who">${escapeHtml(currentUser.name)} &middot; ${escapeHtml(company.name)}</div>
+                    <div class="lock-opt danger" data-act="signout">Sign out</div>
+                </div>`;
+
+            // Right-aligned: the chip sits at the end of the header, so a
+            // left-anchored popup would hang off the edge of the window.
+            const rect = document.getElementById('headerDisplay').getBoundingClientRect();
+            popup.style.left = 'auto';
+            popup.style.right = Math.max(8, window.innerWidth - rect.right) + 'px';
+            popup.style.top = (rect.bottom + 5) + 'px';
+            popup.classList.add('visible');
+
+            popup.querySelector('[data-act="signout"]').addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                if (!confirm('Sign out on this device?\n\nYour board and everything on it stay exactly as they are — this browser just forgets which account it was showing.')) return;
+                hidePopups();
+                clearSession();
+                location.reload();
             });
 
             document.addEventListener('click', hidePopupsOnClickOutside);
@@ -4162,6 +4234,7 @@
         function hidePopups() {
             document.getElementById('teamPopup').classList.remove('visible');
             document.getElementById('lockPopup').classList.remove('visible');
+            document.getElementById('accountPopup').classList.remove('visible');
             document.removeEventListener('click', hidePopupsOnClickOutside);
         }
 
@@ -4170,6 +4243,7 @@
                 !e.target.closest('.subtask-emoji') &&
                 !e.target.closest('.task-arrow') &&
                 !e.target.closest('.task-lock') &&
+                !e.target.closest('.header-display') &&
                 !e.target.closest('.modal')) {
                 hidePopups();
             }
@@ -4225,6 +4299,11 @@
                 renderBoard();
             }
         }
+        headerDisplay.addEventListener('click', showAccountPopup);
+        headerDisplay.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); showAccountPopup(e); }
+        });
+
         restoreSession();
 
         // Keyboard navigation
