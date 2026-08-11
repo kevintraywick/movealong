@@ -1033,6 +1033,20 @@
             opacity: 0;
             animation: tabPop 9s ease-out infinite;
         }
+        /* An off-screen board with something due — the real bar's `.due` tab:
+           red edge, padding trimmed by the border width so the tab keeps the
+           same size as its neighbours. */
+        .nav-tab.due {
+            background: #ffffff;
+            color: #475569;
+            border: 1.5px solid #ef4444;
+            padding: 0.5px 3.5px;
+        }
+        /* Same bar, held still — no marker ring, no cursor, no fade. */
+        .nav-frame.static-nav {
+            animation: none;
+            height: 128px;
+        }
         .nav-plus {
             position: relative;
             font-size: 7px;
@@ -1702,10 +1716,10 @@
             <span>Man, you are so guilty of overcommitting.</span>
         </div>
         <div class="card">
-            <h3>Projects &amp; the List page</h3>
+            <h3>Projects</h3>
             <p>Create as many boards as you like ("personal", "house", &hellip;) with
-               the <kbd>+</kbd> button. The <strong>List</strong> view shows every
-               board's open tasks in one place, grouped by project.</p>
+               the <kbd>+</kbd> button. A project with a red border has an item due
+               that day.</p>
         </div>
         <div class="card demo" aria-hidden="true">
             <div class="scene">
@@ -1720,6 +1734,19 @@
                         </span>
                         <span class="nav-tab">fence</span>
                         <span class="nav-tab new-tab">garden</span>
+                        <span class="nav-toggle"><span class="nt-seg active">Calendar</span><span class="nt-seg">List</span></span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="card demo demo-3" aria-hidden="true">
+            <div class="scene">
+                <div class="nav-frame static-nav">
+                    <div class="mini-nav">
+                        <span class="nav-mark">Move<span>Along</span></span>
+                        <span class="nav-plus">+ New project</span>
+                        <span class="nav-tab">fence</span>
+                        <span class="nav-tab due">garden</span>
                         <span class="nav-toggle"><span class="nt-seg active">Calendar</span><span class="nt-seg">List</span></span>
                     </div>
                 </div>
