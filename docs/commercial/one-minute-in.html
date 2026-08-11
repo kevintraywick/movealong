@@ -1,0 +1,474 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>MoveAlong — "One Minute In" (animatic)</title>
+<style>
+  /* ============================================================
+     "ONE MINUTE IN" — 60s animatic, 1920x1080 @ 30fps.
+     Everything is driven by render(t) from a single master clock,
+     so any beat is retimed by editing BEATS and nothing else.
+     ============================================================ */
+  :root{
+    --ink:#0f172a; --mute:#64748b; --grey:#94a3b8; --line:#e2e8f0;
+    --sky:#0ea5e9; --sky-b:#38bdf8; --tint:#f0f9ff; --red:#ef4444;
+    --amber:#f59e0b; --paper:#f8fafc; --note:#059669;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{background:#000;overflow:hidden;height:100%}
+  body{font:16px -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+       -webkit-font-smoothing:antialiased}
+
+  #fit{position:fixed;inset:0;display:grid;place-items:center}
+  #stage{width:1920px;height:1080px;position:relative;overflow:hidden;
+         background:var(--paper);transform-origin:center}
+
+  /* --- board ------------------------------------------------ */
+  #boardWrap{position:absolute;left:0;top:150px;width:1300px;height:640px;overflow:hidden}
+  #strip{position:absolute;left:140px;top:0;display:flex;gap:26px}
+  .day{width:250px;background:#fff;border:2px solid var(--line);border-radius:14px;
+       padding:18px 16px;flex-shrink:0;min-height:430px}
+  .day.today{border-color:var(--sky-b);box-shadow:0 10px 30px rgba(56,189,248,.16)}
+  .day-h{font-size:19px;font-weight:700;color:var(--ink);margin-bottom:14px;white-space:nowrap}
+  .day.today .day-h{color:var(--sky)}
+
+  .task{display:flex;align-items:flex-start;gap:9px;font-size:17px;line-height:1.3;
+        color:var(--ink);padding:7px 4px;border-radius:7px;position:relative}
+  .circle{width:17px;height:17px;border:2.5px solid #cbd5e1;border-radius:50%;
+          flex-shrink:0;margin-top:2px;display:grid;place-items:center;
+          font-size:10px;font-weight:800;color:var(--grey);line-height:1}
+  .task.done .circle{background:var(--sky-b);border-color:var(--sky-b);color:#fff}
+  .task.done .txt{color:var(--grey)}
+  .txt{position:relative}
+  .txt .strike{position:absolute;left:0;top:52%;height:2px;background:var(--grey);width:0}
+  .count{font-size:13px;color:var(--grey);margin-left:6px;font-weight:600}
+  .count.hot{color:var(--red)}
+  .task.locked{border-left:4px solid var(--amber);padding-left:10px}
+  .task.locked-today .txt{color:var(--red);font-weight:600}
+  .lock{font-size:13px;margin-left:5px}
+
+  /* pinned tasks — they hold position while the days stream past */
+  #pinned{position:absolute;left:140px;top:0;width:250px;padding:18px 16px}
+  #pinned .task{background:#fff;border-radius:7px}
+
+  /* --- add-task input --------------------------------------- */
+  #input{position:absolute;background:#fff;border:2px solid var(--line);border-radius:10px;
+         display:flex;align-items:center;padding:0 18px;font-size:21px;color:var(--ink);
+         white-space:nowrap;box-shadow:0 18px 60px rgba(0,0,0,.55)}
+  #caret{width:2px;height:24px;background:var(--sky);margin-left:2px}
+
+  /* --- subtask pane ----------------------------------------- */
+  #pane{position:absolute;background:#fff;border:2px solid var(--line);border-radius:12px;
+        padding:14px 14px 16px;overflow:hidden;box-shadow:0 14px 34px rgba(15,23,42,.10)}
+  .step{display:flex;align-items:flex-start;gap:9px;font-size:14.5px;line-height:1.35;
+        color:var(--ink);padding:6px 2px}
+  .step .circle{width:14px;height:14px;border-width:2px;margin-top:2px}
+  .step .em{font-size:14px;line-height:1.3}
+  .step a{color:var(--sky);text-decoration:underline;text-decoration-color:#bae6fd}
+
+  /* --- chain threads ---------------------------------------- */
+  #threads{position:absolute;left:0;top:150px;width:1300px;height:640px;
+           pointer-events:none;overflow:visible}
+  #threads path{fill:none;stroke:#8b5cf6;stroke-width:2.5;stroke-linecap:round}
+
+  /* --- cursor ------------------------------------------------ */
+  #cursor{position:absolute;width:22px;height:22px;border-radius:50%;
+          background:rgba(14,165,233,.30);border:3px solid var(--sky);
+          margin:-11px 0 0 -11px;z-index:40}
+
+  /* --- clock ------------------------------------------------- */
+  #clock{position:absolute;right:430px;top:92px;font:700 30px ui-monospace,SFMono-Regular,Menlo,monospace;
+         color:var(--mute);letter-spacing:.02em}
+  #clock.mid{color:var(--sky)}
+
+  /* --- kinetic type ------------------------------------------ */
+  #type{position:absolute;left:140px;bottom:96px;font-size:52px;font-weight:700;
+        letter-spacing:-.02em;color:var(--ink);white-space:nowrap}
+  #type b{color:var(--sky);font-weight:700}
+  #type.hot{color:var(--red)}
+
+  /* --- wordmark ---------------------------------------------- */
+  #mark{position:absolute;left:0;right:0;top:470px;text-align:center;
+        font-size:96px;font-weight:800;letter-spacing:-.035em;color:var(--ink)}
+  #mark span{color:var(--sky)}
+  #markSub{position:absolute;left:0;right:0;top:600px;text-align:center;
+           font-size:30px;color:var(--mute);letter-spacing:.02em}
+
+  /* --- the fence, in the margin-note hand --------------------- */
+  #fence{position:absolute;right:60px;bottom:120px;width:420px;height:420px;overflow:visible}
+  #fence path{fill:none;stroke:var(--note);stroke-width:4;stroke-linecap:round;
+              stroke-linejoin:round;opacity:.9}
+
+  /* --- veil / grain ------------------------------------------ */
+  #veil{position:absolute;inset:0;background:#000;pointer-events:none}
+  #grain{position:absolute;inset:0;pointer-events:none;opacity:.035;
+         background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.8' numOctaves='3'/></filter><rect width='120' height='120' filter='url(%23n)'/></svg>")}
+
+  /* --- transport (hidden for capture with ?clean=1) ----------- */
+  #ui{position:fixed;left:0;right:0;bottom:0;padding:10px 16px;background:rgba(15,23,42,.92);
+      display:flex;gap:14px;align-items:center;color:#e2e8f0;font-size:13px;z-index:99}
+  #ui button{background:#334155;color:#e2e8f0;border:0;border-radius:6px;padding:6px 14px;
+             font-size:13px;cursor:pointer}
+  #ui input[type=range]{flex:1}
+  #tc{font-family:ui-monospace,Menlo,monospace;min-width:96px}
+  body.clean #ui{display:none}
+</style>
+</head>
+<body>
+<div id="fit"><div id="stage">
+  <div id="boardWrap"><div id="strip"></div><div id="pinned"></div></div>
+  <svg id="threads"><path id="thread" d=""/></svg>
+  <div id="pane"></div>
+  <div id="input"><span id="typed"></span><i id="caret"></i></div>
+  <div id="clock"></div>
+  <div id="cursor"></div>
+  <div id="mark">Move<span>Along</span></div>
+  <div id="markSub">It keeps count.</div>
+  <div id="type"></div>
+  <svg id="fence" viewBox="0 0 420 420"></svg>
+  <div id="grain"></div>
+  <div id="veil"></div>
+</div></div>
+
+<div id="ui">
+  <button id="play">Play</button>
+  <input id="scrub" type="range" min="0" max="60" step="0.033" value="0">
+  <span id="tc">00:00.00 / 1:00</span>
+  <label><input id="snd" type="checkbox" checked> VO</label>
+</div>
+<audio id="vo" src="vo/radio-cut.mp3" preload="auto"></audio>
+
+<script>
+/* ================================================================
+   MASTER TIMELINE — every beat is retimed from here and nowhere else.
+   ================================================================ */
+const BEATS = {
+  black:    0,      // cursor blinking on black
+  intention:7,      // type the task, board fades up
+  plans:    15,     // subtask pane writes itself
+  order:    26,     // drag to chain; countdown circles
+  deadline: 34,     // lock it
+  turn:     42,     // midnight; days stream past; the count climbs
+  release:  51,     // complete them; the numbers die
+  signoff:  57,
+  end:      60,
+};
+const B = BEATS;
+
+/* Kinetic type — carries the meaning when the film plays muted. */
+const TYPE = [
+  [B.intention+1.4, B.plans-0.5,    'Just put it down.'],
+  [B.plans+1.4,     B.order-0.6,    'It writes the rest.'],
+  [B.order+1.4,     B.deadline-0.5, 'Some things only work <b>in order</b>.'],
+  [B.deadline+1.2,  B.turn-0.5,     'Lock a <b>real</b> deadline.'],
+  [B.turn+1.2,      B.release-0.6,  'It keeps count.'],
+  [B.release+1.2,   B.signoff-0.4,  'Until you do it.'],
+];
+
+/* ---------------------------------------------------------------- */
+const $ = s => document.querySelector(s);
+const clamp = (v,a=0,b=1) => v<a?a:v>b?b:v;
+const seg  = (t,a,b) => clamp((t-a)/(b-a));            // 0..1 across a window
+const ease = p => p<.5 ? 4*p*p*p : 1-Math.pow(-2*p+2,3)/2;
+const eout = p => 1-Math.pow(1-p,3);
+const lerp = (a,b,p) => a+(b-a)*p;
+const px = n => n.toFixed(2)+'px';
+
+/* ---------------------------------------------------------------- DATA */
+const DAY_W = 276;                                  // card width + gap
+const dayNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const monNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const base = new Date(); base.setHours(12,0,0,0);
+const dateLabel = off => { const d=new Date(base); d.setDate(d.getDate()+off);
+  return dayNames[d.getDay()]+' · '+monNames[d.getMonth()]+' '+d.getDate(); };
+
+/* Six day cards exist; the strip slides so the film can travel forward. */
+const DAYS = [0,1,2,3,4,5];
+
+/* Board tasks. `day` is the card index they live on. */
+const TASKS = [
+  {id:'hero',  day:0, text:'build a fence in the backyard', born:B.intention+5.4},
+  {id:'dig',   day:0, text:'dig post holes',      chain:4},
+  {id:'set',   day:1, text:'set the posts',       chain:3},
+  {id:'rail',  day:2, text:'attach the rails',    chain:2},
+  {id:'pick',  day:3, text:'hang the pickets',    chain:1},
+  {id:'insp',  day:2, text:'fence inspection',    lock:true},
+  {id:'water', day:1, text:'water the new sod'},
+];
+
+/* The two that follow you. Pinned — they hold still while days stream. */
+const PINNED = [
+  {id:'auger', text:'rent the post-hole auger', from:2, to:11},
+  {id:'quote', text:'call about a gate latch',  from:2, to:9},
+];
+
+const STEPS = [
+  ['🧠','Pick a line — check the property survey <a>(county GIS)</a>'],
+  ['🧠','Cedar pickets + posts, ~140 ft <a>(Home Depot list)</a>'],
+  ['👩','Call the city — permit needed over 6 ft'],
+  ['🧠','Book the fence inspection <a>(schedule)</a>'],
+  ['👩','Rent a post-hole auger for Saturday'],
+];
+
+/* ---------------------------------------------------------------- BUILD */
+const strip=$('#strip'), pinnedEl=$('#pinned'), pane=$('#pane');
+const el = {};
+
+DAYS.forEach(i=>{
+  const d=document.createElement('div'); d.className='day'; d.dataset.i=i;
+  d.innerHTML='<div class="day-h"></div>';
+  strip.appendChild(d); (el.days ||= [])[i]=d;
+});
+
+el.task={};
+TASKS.forEach(t=>{
+  const r=document.createElement('div'); r.className='task';
+  r.innerHTML='<span class="circle"></span><span class="txt">'+t.text+
+              '<i class="strike"></i></span><span class="lock"></span><span class="count"></span>';
+  el.days[t.day].appendChild(r); el.task[t.id]=r;
+});
+
+el.pin={};
+PINNED.forEach(p=>{
+  const r=document.createElement('div'); r.className='task';
+  r.innerHTML='<span class="circle"></span><span class="txt">'+p.text+
+              '<i class="strike"></i></span><span class="count"></span>';
+  pinnedEl.appendChild(r); el.pin[p.id]=r;
+});
+
+el.step=STEPS.map(([em,txt])=>{
+  const r=document.createElement('div'); r.className='step';
+  r.innerHTML='<span class="circle"></span><span class="em">'+em+'</span><span>'+txt+'</span>';
+  pane.appendChild(r); return r;
+});
+
+/* --- the fence: hand-authored line art in the margin-note idiom.
+   Each element draws on with stroke-dashoffset, scheduled per beat. --- */
+const FENCE = [
+  // [d, drawStart, duration]
+  ['M 40 400 L 40 150',            B.black+1.0, 1.2],   // post L
+  ['M 380 400 L 380 150',          B.black+1.6, 1.2],   // post R
+  ['M 40 210 L 380 205',           B.intention+1.0, 1.4], // rail top
+  ['M 40 320 L 380 316',           B.intention+2.2, 1.4], // rail bottom
+  ['M 78 400 L 78 168 L 92 150 L 106 168 L 106 400',  B.plans+1.2, 1.0],
+  ['M 130 400 L 130 168 L 144 150 L 158 168 L 158 400',B.plans+2.4, 1.0],
+  ['M 182 400 L 182 168 L 196 150 L 210 168 L 210 400',B.order+1.2, 1.0],
+  ['M 234 400 L 234 168 L 248 150 L 262 168 L 262 400',B.order+2.6, 1.0],
+  ['M 286 400 L 286 168 L 300 150 L 314 168 L 314 400',B.deadline+1.0,1.0],
+  ['M 330 400 L 330 168 L 344 150 L 358 168 L 358 400',B.deadline+2.2,1.0],
+  ['M 40 400 L 380 400',           B.deadline+3.0, 1.2],  // ground line
+  ['M 118 150 L 118 400',          B.release+0.6, .8],
+  ['M 170 150 L 170 400',          B.release+1.4, .8],
+  ['M 222 150 L 222 400',          B.release+2.2, .8],
+];
+const fenceEl = FENCE.map(([d])=>{
+  const p=document.createElementNS('http://www.w3.org/2000/svg','path');
+  p.setAttribute('d',d); p.setAttribute('pathLength','100');
+  p.setAttribute('stroke-dasharray','100'); p.setAttribute('stroke-dashoffset','100');
+  $('#fence').appendChild(p); return p;
+});
+
+/* ---------------------------------------------------------------- RENDER */
+function render(t){
+  const S=$('#stage');
+
+  /* ---- how far the strip has travelled (in whole days) ---------- */
+  let travel = 0;
+  if(t>=B.turn+3.4) travel = lerp(0,4, eout(seg(t,B.turn+3.4,B.turn+7.6)));
+  else if(t>=B.turn+1.6) travel = lerp(0,1, ease(seg(t,B.turn+1.6,B.turn+3.0)));
+  strip.style.transform = 'translateX('+px(-travel*DAY_W)+')';
+
+  /* ---- day cards: labels + which one is "today" ----------------- */
+  const todayIdx = Math.round(travel);
+  el.days.forEach((d,i)=>{
+    d.querySelector('.day-h').textContent = dateLabel(i + Math.floor(travel));
+    d.classList.toggle('today', i===todayIdx);
+  });
+
+  /* ---- board visibility ----------------------------------------- */
+  const boardIn = seg(t, B.intention+4.2, B.intention+6.2);
+  $('#boardWrap').style.opacity = boardIn * (1-seg(t,B.signoff-0.6,B.signoff+0.8));
+  $('#threads').style.opacity   = $('#boardWrap').style.opacity;
+
+  /* ---- background: black -> paper -------------------------------- */
+  const lift = seg(t, B.intention+3.6, B.intention+6.0);
+  S.style.background = lift<1 ? 'rgb('+[lerp(0,248,lift),lerp(0,250,lift),lerp(0,252,lift)]
+                                        .map(Math.round).join(',')+')' : 'var(--paper)';
+
+  /* ---- the add-task field ---------------------------------------- */
+  const inp=$('#input'), typed=$('#typed');
+  const TEXT='build a fence in the backyard';
+  const typeP = seg(t, B.intention+0.3, B.intention+3.4);
+  typed.textContent = TEXT.slice(0, Math.round(typeP*TEXT.length));
+  $('#caret').style.opacity = (t<B.intention+3.6 && Math.floor(t*1.6)%2===0) ? 1 : 0;
+  // centre stage, then settle onto the board as the first card's input
+  const settle = ease(seg(t, B.intention+3.8, B.intention+5.4));
+  inp.style.left   = px(lerp(560, 140, settle));
+  inp.style.top    = px(lerp(500,  74, settle));
+  inp.style.width  = px(lerp(800, 250, settle));
+  inp.style.height = px(lerp(78,   46, settle));
+  inp.style.fontSize = px(lerp(21, 15, settle));
+  inp.style.opacity = 1 - seg(t, B.intention+5.2, B.intention+6.0);
+
+  /* ---- board tasks ------------------------------------------------ */
+  TASKS.forEach(tk=>{
+    const r=el.task[tk.id];
+    let vis = tk.born ? seg(t, tk.born, tk.born+0.5) : boardIn;
+    // "set the posts" is dragged onto "dig post holes" and lands a day later
+    if(tk.id==='set'){
+      const drag = ease(seg(t, B.order+1.6, B.order+3.4));
+      r.style.transform = 'translate('+px(drag*0)+','+px(-drag*0)+') scale('+lerp(1,1.04,Math.sin(drag*Math.PI))+')';
+      r.style.boxShadow = drag>0 && drag<1 ? '0 10px 24px rgba(15,23,42,.18)' : 'none';
+      r.style.background = drag>0 && drag<1 ? '#fff' : 'transparent';
+    }
+    // countdown numerals appear once the series exists
+    const c=r.querySelector('.circle');
+    if(tk.chain) c.textContent = t>=B.order+3.6 ? tk.chain : '';
+    // the locked deadline
+    if(tk.lock){
+      const locked = t>=B.deadline+2.0;
+      r.classList.toggle('locked', locked);
+      r.querySelector('.lock').textContent = locked ? '🔒' : '';
+      r.classList.toggle('locked-today', locked && Math.floor(travel)+todayIdx>=tk.day);
+    }
+    // completions in the release beat
+    const doneAt = {dig:B.release+1.0, water:B.release+1.9, set:B.release+2.8}[tk.id];
+    if(doneAt){
+      const dp=seg(t,doneAt,doneAt+0.45);
+      r.classList.toggle('done', dp>0);
+      r.querySelector('.strike').style.width = (dp*100)+'%';
+    }
+    r.style.opacity = vis;
+  });
+
+  /* ---- pinned tasks: they hold still while the days stream past ---- */
+  const pinIn = seg(t, B.turn+1.4, B.turn+2.2);
+  pinnedEl.style.opacity = pinIn;
+  pinnedEl.style.top = px(74 + 0);
+  PINNED.forEach((p,i)=>{
+    const r=el.pin[p.id];
+    r.style.marginTop = i? '4px':'0';
+    const climb = seg(t, B.turn+3.4, B.turn+7.6);
+    const n = Math.round(lerp(p.from, p.to, climb));
+    const cnt=r.querySelector('.count');
+    cnt.textContent = n>1 ? n : '';
+    cnt.classList.toggle('hot', n>10);
+    const doneAt = {auger:B.release+1.4, quote:B.release+2.4}[p.id];
+    const dp=seg(t,doneAt,doneAt+0.45);
+    r.classList.toggle('done', dp>0);
+    r.querySelector('.strike').style.width=(dp*100)+'%';
+    if(dp>0){ cnt.textContent=''; }
+  });
+
+  /* ---- subtask pane ------------------------------------------------ */
+  const openP = ease(seg(t, B.plans+0.2, B.plans+1.2));
+  const shutP = ease(seg(t, B.order-0.6, B.order+0.4));
+  const h = lerp(0, 250, openP) * (1-shutP);
+  pane.style.left=px(140); pane.style.top=px(150+ (base?0:0) + 470);
+  pane.style.width=px(250); pane.style.height=px(h);
+  pane.style.opacity = openP*(1-shutP);
+  el.step.forEach((s,i)=>{
+    const inAt=B.plans+1.4+i*0.62;
+    s.style.opacity=seg(t,inAt,inAt+0.4);
+    s.style.transform='translateY('+px(lerp(6,0,eout(seg(t,inAt,inAt+0.4))))+')';
+  });
+
+  /* ---- chain threads ---------------------------------------------- */
+  const th=$('#thread');
+  const drawn=seg(t,B.order+3.6,B.order+5.4);
+  if(drawn>0){
+    const y=[196,232,268,304];  // rough row centres across the four cards
+    let d='M 300 '+y[0];
+    for(let i=1;i<4;i++){ const x0=300+(i-1)*DAY_W, x1=300+i*DAY_W;
+      d+=' C '+(x0+90)+' '+y[i-1]+', '+(x1-90)+' '+y[i]+', '+x1+' '+y[i]; }
+    th.setAttribute('d',d);
+    th.style.strokeDasharray='1400'; th.style.strokeDashoffset=(1-drawn)*1400;
+    th.style.opacity=0.85*(1-seg(t,B.deadline+1.4,B.deadline+2.6));
+  } else th.style.opacity=0;
+
+  /* ---- cursor ------------------------------------------------------ */
+  const cur=$('#cursor');
+  const moves=[
+    // [tIn, tOut, x0,y0, x1,y1]  — travels, then clicks
+    [B.order+0.6,  B.order+3.6,  600,700,  430,340],   // the drag
+    [B.deadline+0.4,B.deadline+2.2, 430,340, 745,300], // the lock
+    [B.release+0.4,B.release+3.0,  745,300, 175,300],  // the completions
+  ];
+  let cv=0;
+  moves.forEach(([a,b,x0,y0,x1,y1])=>{
+    if(t>=a&&t<=b+0.6){ const p=ease(seg(t,a,b-0.4));
+      cur.style.left=px(lerp(x0,x1,p)); cur.style.top=px(lerp(y0,y1,p)); cv=1; }
+  });
+  cur.style.opacity=cv;
+  cur.style.transform='scale('+(cv&&Math.abs(Math.sin(t*7))>0.97?0.78:1)+')';
+
+  /* ---- clock -------------------------------------------------------- */
+  const ck=$('#clock');
+  const ct=t-B.turn;
+  ck.textContent = ct<0.6?'11:58 PM' : ct<1.4?'11:59 PM' : '12:00 AM';
+  ck.classList.toggle('mid', ct>=1.4);
+  ck.style.opacity = seg(t,B.turn-0.4,B.turn+0.2)*(1-seg(t,B.turn+7.8,B.turn+8.6));
+
+  /* ---- kinetic type -------------------------------------------------- */
+  const ty=$('#type'); let shown='';
+  let hot=false;
+  TYPE.forEach(([a,b,txt])=>{ if(t>=a&&t<b){ shown=txt;
+    ty.style.opacity=seg(t,a,a+0.35)*(1-seg(t,b-0.35,b));
+    ty.style.transform='translateY('+px(lerp(10,0,eout(seg(t,a,a+0.4))))+')';
+    if(txt==='It keeps count.'&&t>B.turn+4.6) hot=true; } });
+  if(!shown) ty.style.opacity=0; else if(ty.innerHTML!==shown) ty.innerHTML=shown;
+  ty.classList.toggle('hot',hot);
+
+  /* ---- fence -------------------------------------------------------- */
+  fenceEl.forEach((p,i)=>{
+    const [,a,dur]=FENCE[i];
+    p.style.strokeDashoffset = 100-100*eout(seg(t,a,a+dur));
+  });
+  $('#fence').style.opacity = 0.14+0.86*seg(t,B.intention+3.6,B.intention+6.0);
+
+  /* ---- wordmark ------------------------------------------------------ */
+  const mk=seg(t,B.signoff+0.2,B.signoff+1.0);
+  $('#mark').style.opacity=mk; $('#markSub').style.opacity=seg(t,B.signoff+0.9,B.signoff+1.6);
+  $('#mark').style.transform='translateY('+px(lerp(14,0,eout(mk)))+')';
+
+  /* ---- veil: opens on black, closes on black (seamless loop) --------- */
+  $('#veil').style.opacity = Math.max(
+     1-seg(t, B.intention+3.4, B.intention+5.6),
+     seg(t, B.end-1.4, B.end)
+  );
+}
+
+/* ---------------------------------------------------------------- DRIVE */
+let playing=false, t0=0, at=0;
+const vo=$('#vo'), scrub=$('#scrub'), tc=$('#tc');
+function seek(t){ at=clamp(t,0,B.end); render(at);
+  scrub.value=at; tc.textContent=fmt(at)+' / 1:00'; }
+function fmt(t){ const m=Math.floor(t/60), s=t-m*60;
+  return String(m).padStart(2,'0')+':'+s.toFixed(2).padStart(5,'0'); }
+function loop(now){ if(!playing) return;
+  const t=(now-t0)/1000;
+  if(t>=B.end){ t0=now; if($('#snd').checked){vo.currentTime=0;vo.play();} seek(0); }
+  else seek(t);
+  requestAnimationFrame(loop); }
+$('#play').onclick=()=>{ playing=!playing; $('#play').textContent=playing?'Pause':'Play';
+  if(playing){ t0=performance.now()-at*1000;
+    if($('#snd').checked){ vo.currentTime=at; vo.play(); } requestAnimationFrame(loop); }
+  else vo.pause(); };
+scrub.oninput=e=>{ seek(+e.target.value); if(playing){t0=performance.now()-at*1000; vo.currentTime=at;} };
+addEventListener('keydown',e=>{ if(e.key===' '){e.preventDefault();$('#play').click();}
+  if(e.key==='ArrowRight')seek(at+ (e.shiftKey?1:1/30));
+  if(e.key==='ArrowLeft') seek(at- (e.shiftKey?1:1/30)); });
+
+/* fit 1920x1080 into whatever window this is opened in */
+function fit(){ const s=Math.min(innerWidth/1920,(innerHeight-(document.body.classList.contains('clean')?0:46))/1080);
+  $('#stage').style.transform='scale('+s+')'; }
+addEventListener('resize',fit); fit();
+
+const Q=new URLSearchParams(location.search);
+if(Q.has('clean')){ document.body.classList.add('clean'); fit(); }
+window.seek=seek;                    // headless capture drives this
+window.DURATION=B.end;
+seek(Q.has('t') ? parseFloat(Q.get('t')) : 0);
+</script>
+</body>
+</html>

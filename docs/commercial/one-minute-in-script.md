@@ -185,11 +185,14 @@ chain threads, lock states, day counters, clock, wordmark.
 
 **Generated (Nano Banana Pro), texture only:**
 
-1. `fence-sketch.png` — hand-drawn backyard picket fence, single-weight ink line
-   art, no fill, no shading, no perspective tricks, transparent background,
-   drawn as if with a felt pen in a notebook margin. Delivered as separable
-   layers (posts / rails / planks / gate) so the build-on can be animated, or as
-   one SVG path set if the trace comes out clean.
+1. `fence-sketch` — **currently hand-authored SVG paths inside the animatic**,
+   not generated. 14 separate paths (2 posts, 2 rails, 9 pickets, ground line),
+   each drawing on with `stroke-dashoffset` on its own schedule, in the
+   margin-note ink (`#059669`, 4px round caps). Hand-authoring got the animatic
+   moving without a generation dependency and gives per-element draw-on control
+   that a raster plate can't. A Nano Banana Pro plate can still replace it later
+   if the drawing wants more character — it would need tracing to paths in the
+   same layer order to keep the build-on.
 2. `paper-grain.png` — very subtle warm paper texture, used at ≤4% opacity over
    the whole frame so the sketch and the UI share one surface.
 
@@ -208,8 +211,10 @@ Nothing else is generated. No people, no offices, no laptops, no b-roll.
    page's attention rings. *Confidence: 75%* — depends on how clean the generated
    line art traces.
 3. **Capture** 1800 frames headlessly at fixed timestep (deterministic, no
-   real-time recording jitter), encode with ffmpeg to VP9 + H.264.
-   *Confidence: 85%.*
+   real-time recording jitter), encode with ffmpeg to VP9 + H.264. The page
+   exposes `window.seek(t)` and accepts `?t=` / `?clean=1` for exactly this.
+   *Confidence: 70%* — headless Chrome's `--screenshot` hangs on this machine;
+   the capture harness needs a different driver (CDP directly, or Playwright).
 4. **Narration** — send the eight lines to ElevenLabs, pick a read, lay it under
    picture, nudge cut points to the VO. *Confidence: 60%* — no ElevenLabs
    credential is configured in this environment yet.
