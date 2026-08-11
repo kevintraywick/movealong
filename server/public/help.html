@@ -1610,6 +1610,33 @@
             <span>This is the key thing. Tasks stick with you until they're done.</span>
         </div>
         <div class="card">
+            <h3>Lock a deadline 📅</h3>
+            <p>Click a task's 📅 to lock it to a date. Locked tasks (🔒, amber edge)
+               never spill forward — a real deadline. On its deadline day the task
+               text turns red. <kbd>Shift</kbd>+<kbd>Option</kbd>+click a task to
+               quick-lock it to the day it's on.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="mini-card today-card">
+                    <div class="mini-day" data-day-offset="0"></div>
+                    <div class="mini-task locked-stay"><span class="mini-circle"></span><span class="mini-text">fence inspection</span> <span class="mini-lock">🔒</span></div>
+                    <div class="mini-task"><span class="mini-circle"></span>water the plants</div>
+                </div>
+                <div class="mini-card">
+                    <div class="mini-day" data-day-offset="1"></div>
+                    <div class="mini-task"><span class="mini-circle"></span>trim hedges</div>
+                </div>
+            </div>
+        </div>
+        <div class="margin-note important" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>This is the way to GTD.</span>
+        </div>
+        <div class="card">
             <h3>Complete or postpone a task</h3>
             <p>Click the circle <span style="display:inline-block;width:11px;height:11px;border:2px solid #cbd5e1;border-radius:50%;vertical-align:-1px;"></span>
                to complete a task. Click <kbd>&rarr;</kbd> to bump it
@@ -1879,33 +1906,6 @@
                     <div class="mini-task static-count-1"><span class="mini-circle"></span>stain the fence<span class="mini-scissors">&#9986;&#65039;<svg class="nav-ring scissors-ring" viewBox="0 0 66 26" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="33" cy="13" rx="31" ry="11" pathLength="100"/></svg></span></div>
                 </div>
             </div>
-        </div>
-        <div class="card">
-            <h3>Lock a deadline 📅</h3>
-            <p>Click a task's 📅 to lock it to a date. Locked tasks (🔒, amber edge)
-               never spill forward — a real deadline. On its deadline day the task
-               text turns red. <kbd>Shift</kbd>+<kbd>Option</kbd>+click a task to
-               quick-lock it to the day it's on.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="mini-card today-card">
-                    <div class="mini-day" data-day-offset="0"></div>
-                    <div class="mini-task locked-stay"><span class="mini-circle"></span><span class="mini-text">fence inspection</span> <span class="mini-lock">🔒</span></div>
-                    <div class="mini-task"><span class="mini-circle"></span>water the plants</div>
-                </div>
-                <div class="mini-card">
-                    <div class="mini-day" data-day-offset="1"></div>
-                    <div class="mini-task"><span class="mini-circle"></span>trim hedges</div>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note important" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>This is the way to GTD.</span>
         </div>
         <div class="card">
             <h3>Locked tasks don't advance past their due date</h3>
