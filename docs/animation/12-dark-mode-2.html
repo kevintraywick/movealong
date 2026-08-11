@@ -1,0 +1,1632 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Dark mode 🌙 — MoveAlong animation</title>
+<style>
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+            background: #f1f5f9;
+            color: #334155;
+            line-height: 1.55;
+            font-size: 14px;
+        }
+
+        .page {
+            max-width: 880px;
+            margin: 0 auto;
+            padding: 32px 20px 64px;
+        }
+
+        header {
+            display: flex;
+            align-items: baseline;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-bottom: 6px;
+        }
+
+        h1 {
+            font-size: 26px;
+            font-weight: 700;
+            color: #0f172a;
+            letter-spacing: -0.02em;
+        }
+
+        h1 .accent { color: #0ea5e9; }
+
+        .back-link {
+            font-size: 13px;
+            color: #0284c7;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .back-link:hover { text-decoration: underline; }
+
+        .tagline {
+            color: #64748b;
+            margin-bottom: 28px;
+            max-width: 660px;
+        }
+        .tagline strong { color: #0f172a; }
+
+        h2 {
+            font-size: 15px;
+            font-weight: 700;
+            color: #0f172a;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            margin: 36px 0 14px;
+            padding-bottom: 6px;
+            border-bottom: 2px solid #bae6fd;
+        }
+
+        .feature-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+            gap: 12px;
+        }
+
+        /* Three-column layout: help card | animation | (reserved for
+           comments later). Cards pin to col 1, their demo to col 2 on the
+           same row; col 3 stays empty for now. */
+        .feature-grid.three-col {
+            grid-template-columns: repeat(3, 1fr);
+        }
+        .three-col > .card:not(.demo) { grid-column: 1; }
+        .three-col > .card.demo { grid-column: 2; }
+        /* A demo can claim the margin-note column when the point of the
+           card is a side-by-side comparison (light vs dark). */
+        .three-col > .card.demo.demo-3 { grid-column: 3; }
+
+        /* Handwritten margin notes in the reserved third column */
+        .margin-note {
+            grid-column: 3;
+            align-self: center;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-family: 'Bradley Hand', 'Segoe Print', 'Comic Sans MS', cursive;
+            font-size: 15px;
+            line-height: 1.35;
+            color: #059669;
+            transform: rotate(-2deg);
+        }
+        .note-arrow {
+            width: 44px;
+            flex-shrink: 0;
+        }
+        .note-arrow path {
+            stroke: #059669;
+            stroke-width: 2;
+            fill: none;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+        }
+        /* Red variant for the notes that really matter */
+        .margin-note.important { color: #ef4444; }
+        .margin-note.important .note-arrow path { stroke: #ef4444; }
+
+        @media (max-width: 760px) {
+            /* Not enough room for the comments column */
+            .feature-grid.three-col { grid-template-columns: 1fr 1fr; }
+            .margin-note { display: none; }
+            .three-col > .card.demo.demo-3 { grid-column: auto; }
+        }
+
+        .card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 14px 16px;
+        }
+
+        .card h3 {
+            font-size: 13.5px;
+            font-weight: 650;
+            color: #0f172a;
+            margin-bottom: 5px;
+        }
+
+        .card p { font-size: 13px; color: #475569; }
+        .card p + p { margin-top: 5px; }
+
+        /* "Coming soon" diagonal stamp */
+        .card.coming-soon { position: relative; overflow: hidden; }
+        .card.coming-soon > * { opacity: 0.55; }
+        .card.coming-soon::after {
+            content: 'COMING SOON';
+            position: absolute;
+            inset: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transform: rotate(-16deg);
+            font-size: 21px;
+            font-weight: 800;
+            letter-spacing: 0.18em;
+            color: rgba(14, 165, 233, 0.30);
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        kbd {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 11.5px;
+            background: #f1f5f9;
+            border: 1px solid #cbd5e1;
+            border-bottom-width: 2px;
+            border-radius: 4px;
+            padding: 1px 5px;
+            color: #0f172a;
+            white-space: nowrap;
+        }
+
+        code, pre {
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12.5px;
+        }
+        code {
+            background: #f1f5f9;
+            border-radius: 4px;
+            padding: 1px 5px;
+            color: #0f172a;
+        }
+        pre {
+            background: #0f172a;
+            color: #e2e8f0;
+            border-radius: 8px;
+            padding: 12px 14px;
+            overflow-x: auto;
+            margin: 10px 0;
+        }
+        pre .c { color: #64748b; }
+
+        .callout {
+            background: #f0f9ff;
+            border: 1px solid #bae6fd;
+            border-radius: 10px;
+            padding: 12px 16px;
+            font-size: 13px;
+            margin: 12px 0;
+        }
+        .callout.warn {
+            background: #fffbeb;
+            border-color: #fde68a;
+        }
+
+        .steps { counter-reset: step; list-style: none; margin: 10px 0; }
+        .steps li {
+            counter-increment: step;
+            position: relative;
+            padding: 0 0 10px 34px;
+            font-size: 13px;
+        }
+        .steps li::before {
+            content: counter(step);
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 22px;
+            height: 22px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            color: #fff;
+            font-size: 12px;
+            font-weight: 650;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .video-placeholder {
+            background: #ffffff;
+            border: 1.5px dashed #cbd5e1;
+            border-radius: 10px;
+            padding: 26px;
+            text-align: center;
+            color: #94a3b8;
+            font-size: 13px;
+        }
+
+        footer {
+            margin-top: 44px;
+            padding-top: 16px;
+            border-top: 1px solid #e2e8f0;
+            font-size: 12.5px;
+            color: #94a3b8;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+        footer a { color: #0284c7; text-decoration: none; }
+        footer a:hover { text-decoration: underline; }
+
+        /* ============================================================
+           ANIMATED DEMO VIGNETTES
+           Mini-scenes built from the app's own visual vocabulary —
+           tiny day cards + real task-row anatomy, looping slowly.
+           ============================================================ */
+        .card.demo {
+            padding: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #f8fafc;
+        }
+
+        .scene {
+            position: relative;
+            display: flex;
+            gap: 10px;
+            align-items: flex-start;
+            width: 100%;
+            justify-content: center;
+            min-height: 128px;
+        }
+
+        .mini-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 7px;
+            width: 118px;
+            min-height: 118px;
+            flex-shrink: 0;
+        }
+        .mini-card.today-card .mini-day { color: #0ea5e9; }
+        .mini-card.past-red {
+            border: 1.5px solid #ef4444;
+        }
+        .mini-card.past-red .mini-day { color: #ef4444; }
+
+        .mini-day {
+            font-size: 9.5px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 6px;
+        }
+
+        .mini-task {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 9px;
+            color: #0f172a;
+            padding: 2.5px 0;
+            border-radius: 3px;
+            white-space: nowrap;
+        }
+
+        .mini-circle {
+            width: 9px;
+            height: 9px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 6px;
+            font-weight: 700;
+            color: #475569;
+        }
+
+        .mini-lock { font-size: 8px; }
+
+        /* --- scene 0: add a task (typewriter → task row) --- */
+        .mini-input {
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            padding: 3px 5px;
+            font-size: 8.5px;
+            color: #0f172a;
+            margin-bottom: 5px;
+            height: 17px;
+            display: flex;
+            align-items: center;
+            overflow: hidden;
+        }
+        .type-text {
+            white-space: nowrap;
+            overflow: hidden;
+            border-right: 1px solid #0ea5e9;
+            max-width: 0;
+            animation: typeIn 7s steps(22, end) infinite;
+        }
+        @keyframes typeIn {
+            0%, 12%   { max-width: 0; opacity: 1; }
+            50%, 62%  { max-width: 100%; opacity: 1; }
+            64%, 100% { max-width: 0; opacity: 0; }
+        }
+        .typed-row {
+            opacity: 0;
+            animation: rowIn 7s ease-out infinite;
+        }
+        @keyframes rowIn {
+            0%, 63%  { opacity: 0; transform: translateY(-3px); }
+            68%, 94% { opacity: 1; transform: translateY(0); }
+            100%     { opacity: 0; }
+        }
+
+        /* --- scene 1: tasks move forward automatically ---
+           A clock ticks to midnight; the day-strip slides left underneath a
+           task that never moves — the days change, the task stays. */
+        .spill-ghost { opacity: 0.25; }
+
+        .midnight-scene {
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+        }
+        .strip-frame {
+            position: relative;
+            width: 246px;
+            overflow: hidden;
+            border-radius: 6px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .strip {
+            display: flex;
+            gap: 10px;
+            animation: slideDays 9s ease-in-out infinite;
+        }
+        @keyframes sceneFade {
+            0%       { opacity: 0; }
+            3%, 92%  { opacity: 1; }
+            96%, 100%{ opacity: 0; }
+        }
+        @keyframes slideDays {
+            0%, 46%   { transform: translateX(0); }
+            57%, 100% { transform: translateX(-128px); }
+        }
+        .stay-task {
+            position: absolute;
+            top: 26px;
+            /* card border 1px + card padding 7px — lines up exactly with in-card task rows */
+            left: 8px;
+            width: 96px;
+            background: #ffffff;
+            padding-right: 4px;
+            z-index: 2;
+            white-space: normal;
+            align-items: flex-start;
+            line-height: 1.25;
+            animation: plopDown 9s ease-in-out infinite;
+        }
+        .stay-task.stay-2 { top: 52px; }
+        .stay-task .mini-circle { margin-top: 1px; }
+        /* The days-pushed counter, ringed by the same hand-drawn ellipse the
+           unlink scene draws around its scissors — on this scene's 9s cycle,
+           starting after the spilled tasks have settled. */
+        .spill-count {
+            position: relative;
+            display: inline-block;
+            color: #94a3b8;
+            font-size: 7px;
+        }
+        .nav-ring.spill-ring {
+            top: -4px;
+            left: -6px;
+            width: calc(100% + 12px);
+            height: calc(100% + 8px);
+        }
+        .nav-ring.spill-ring ellipse { animation: spillRingDraw 9s linear infinite; }
+        @keyframes spillRingDraw {
+            0%, 66%   { stroke-dashoffset: 100; opacity: 0; }
+            69%       { stroke-dashoffset: 100; opacity: 0.9; }
+            80%, 90%  { stroke-dashoffset: 0; opacity: 0.9; }
+            94%, 100% { stroke-dashoffset: 0; opacity: 0; }
+        }
+        /* Thursday's own task steps down as the two spilled tasks land above it */
+        .thu-task {
+            animation: thuShift 9s ease-in-out infinite;
+        }
+        @keyframes thuShift {
+            0%, 46%   { transform: translateY(0); }
+            57%, 100% { transform: translateY(42px); }
+        }
+        @keyframes plopDown {
+            0%, 50%  { transform: translateY(0); }
+            57%      { transform: translateY(-4px); }
+            61%      { transform: translateY(1.5px); }
+            64%, 100%{ transform: translateY(0); }
+        }
+        .becomes-today .mini-day {
+            animation: dayTurnsBlue 9s linear infinite;
+        }
+        @keyframes dayTurnsBlue {
+            0%, 56%   { color: #0f172a; }
+            62%, 100% { color: #0ea5e9; }
+        }
+        .mini-clock {
+            position: relative;
+            height: 14px;
+            width: 60px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 9.5px;
+            color: #64748b;
+            text-align: center;
+        }
+        .mini-clock span {
+            position: absolute;
+            inset: 0;
+            opacity: 0;
+        }
+        .mini-clock .c1 { animation: clock1 9s linear infinite; }
+        .mini-clock .c2 { animation: clock2 9s linear infinite; }
+        .mini-clock .c3 { animation: clock3 9s linear infinite; color: #0ea5e9; font-weight: 700; }
+        @keyframes clock1 { 0%, 20% { opacity: 1; } 22%, 100% { opacity: 0; } }
+        @keyframes clock2 { 0%, 21% { opacity: 0; } 23%, 43% { opacity: 1; } 45%, 100% { opacity: 0; } }
+        @keyframes clock3 { 0%, 44% { opacity: 0; } 46%, 92% { opacity: 1; } 96%, 100% { opacity: 0; } }
+
+        /* --- scene 2: complete or postpone (two acts, 10s) ---
+           Act 1: cursor clicks the circle on "dig post holes" — it checks,
+           strikes through, and drops below the divider into completed.
+           Act 2: cursor clicks the → on "set the posts" — it hops to the
+           next day's card. */
+        .mini-arrow { font-size: 8px; color: #94a3b8; line-height: 1; }
+
+        .done-frame {
+            position: relative;
+            width: 246px;
+            height: 128px;
+            animation: sceneFade 10s linear infinite;
+        }
+        .done-frame .mini-card { position: absolute; top: 0; }
+        .dcard1 { left: 0; }
+        .dcard2 { left: 128px; }
+
+        .mini-divider {
+            position: absolute;
+            left: 7px;
+            top: 66px;
+            width: 104px;
+            border-top: 1px dashed #cbd5e1;
+        }
+
+        .dig-row {
+            position: absolute;
+            left: 8px;
+            top: 26px;
+            z-index: 2;
+            background: #ffffff;
+            animation: digDrop 10s ease-in-out infinite;
+        }
+        @keyframes digDrop {
+            0%, 26%  { transform: translateY(0); opacity: 1; }
+            34%, 96% { transform: translateY(48px); opacity: 0.55; }
+            100%     { transform: translateY(48px); opacity: 0; }
+        }
+        .dig-circle { animation: digFill 10s linear infinite; }
+        .dig-circle::after {
+            content: '\2713';
+            color: #fff;
+            font-size: 6px;
+            opacity: 0;
+            animation: digCheck 10s linear infinite;
+        }
+        @keyframes digFill {
+            0%, 16%   { background: transparent; border-color: #cbd5e1; }
+            19%, 100% { background: #38bdf8; border-color: #38bdf8; }
+        }
+        @keyframes digCheck {
+            0%, 16%   { opacity: 0; }
+            19%, 100% { opacity: 1; }
+        }
+        .dig-text { position: relative; }
+        .dig-text::after {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 50%;
+            height: 1px;
+            background: #94a3b8;
+            width: 0;
+            animation: digStrike 10s linear infinite;
+        }
+        @keyframes digStrike {
+            0%, 18%   { width: 0; }
+            24%, 100% { width: 100%; }
+        }
+
+        .set-row {
+            position: absolute;
+            left: 8px;
+            top: 40px;
+            z-index: 2;
+            background: #ffffff;
+            animation: setMove 10s ease-in-out infinite;
+        }
+        @keyframes setMove {
+            0%, 30%   { transform: translate(0, 0); }
+            38%, 56%  { transform: translate(0, -14px); }
+            60%       { transform: translate(0, -18px); box-shadow: 0 3px 8px rgba(15,23,42,0.15); }
+            72%, 100% { transform: translate(128px, -14px); box-shadow: none; }
+        }
+        /* Day counter fades in once the task lands on the next day */
+        .day-pop {
+            color: #94a3b8;
+            font-size: 7px;
+            margin-left: 2px;
+            opacity: 0;
+            animation: dayPop 10s ease-out infinite;
+        }
+        @keyframes dayPop {
+            0%, 73%  { opacity: 0; }
+            78%, 96% { opacity: 1; }
+            100%     { opacity: 0; }
+        }
+
+        .done-cursor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: doneCursor 10s ease-in-out infinite;
+        }
+        @keyframes doneCursor {
+            0%       { transform: translate(80px, 96px); opacity: 0; }
+            8%       { transform: translate(80px, 96px); opacity: 1; }
+            15%      { transform: translate(9px, 29px); }
+            18%      { transform: translate(9px, 29px) scale(0.72); }
+            22%      { transform: translate(9px, 29px) scale(1); }
+            32%      { transform: translate(9px, 29px); opacity: 1; }
+            48%      { transform: translate(24px, 30px); }
+            56%      { transform: translate(24px, 30px) scale(0.72); }
+            62%      { transform: translate(24px, 30px) scale(1); opacity: 1; }
+            70%, 100%{ transform: translate(24px, 30px); opacity: 0; }
+        }
+
+        /* --- scene 2b: overflow (the 11th task flips to the next day) ---
+           Saturday is full at 10; a new task gets typed, tries to land,
+           and flips over onto Sunday instead. */
+        .over-frame {
+            position: relative;
+            width: 246px;
+            height: 176px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .over-frame .mini-card {
+            position: absolute;
+            top: 0;
+            min-height: 168px;
+        }
+        .ocard1 { left: 0; }
+        .ocard2 { left: 128px; }
+        .over-frame .mini-task {
+            font-size: 7.5px;
+            padding: 1px 0;
+            gap: 3px;
+        }
+        .over-frame .mini-circle {
+            width: 7px;
+            height: 7px;
+            border-width: 1px;
+        }
+        .over-input {
+            height: 14px;
+            font-size: 7.5px;
+            padding: 2px 4px;
+            margin-bottom: 4px;
+        }
+        .over-type {
+            white-space: nowrap;
+            overflow: hidden;
+            border-right: 1px solid #0ea5e9;
+            max-width: 0;
+            animation: overType 9s steps(16, end) infinite;
+        }
+        @keyframes overType {
+            0%, 4%    { max-width: 0; opacity: 1; }
+            24%, 30%  { max-width: 100%; opacity: 1; }
+            32%, 100% { max-width: 0; opacity: 0; }
+        }
+        .over-new {
+            position: absolute;
+            left: 8px;
+            top: 20px;
+            z-index: 2;
+            background: #ffffff;
+            border-radius: 3px;
+            padding: 1px 4px 1px 0;
+            opacity: 0;
+            animation: overFlip 9s ease-in-out infinite;
+        }
+        @keyframes overFlip {
+            0%, 31%  { opacity: 0; transform: translate(0, 0); box-shadow: 0 3px 8px rgba(15, 23, 42, 0); }
+            34%, 42% { opacity: 1; transform: translate(0, 0); box-shadow: 0 3px 8px rgba(15, 23, 42, 0.18); }
+            50%      { opacity: 1; transform: translate(64px, -10px) rotateX(180deg); box-shadow: 0 5px 10px rgba(15, 23, 42, 0.15); }
+            58%, 90% { opacity: 1; transform: translate(128px, 6px) rotateX(360deg); box-shadow: 0 0 0 rgba(15, 23, 42, 0); }
+            94%, 100%{ opacity: 0; transform: translate(128px, 6px); }
+        }
+
+        /* --- scene 2c: links in tasks (click → mini browser) ---
+           A URL in a task is a real link; clicking it "opens" a browser
+           window in the empty slot where the next day would be. */
+        .link-frame {
+            position: relative;
+            width: 246px;
+            height: 128px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .link-frame .mini-card { position: absolute; top: 0; left: 0; }
+        .mini-link {
+            color: #0284c7;
+            text-decoration: underline;
+            text-decoration-color: rgba(2, 132, 199, 0.4);
+            animation: linkFlash 9s linear infinite;
+        }
+        @keyframes linkFlash {
+            0%, 22%  { color: #0284c7; }
+            24%, 30% { color: #0f172a; }
+            32%, 100%{ color: #0284c7; }
+        }
+        .ghost-day {
+            position: absolute;
+            top: 0;
+            left: 128px;
+            opacity: 0.45;
+            animation: ghostOut 9s linear infinite;
+        }
+        @keyframes ghostOut {
+            0%, 26%  { opacity: 0.45; }
+            34%, 92% { opacity: 0; }
+            100%     { opacity: 0.45; }
+        }
+        .mini-browser {
+            position: absolute;
+            top: 0;
+            left: 128px;
+            width: 118px;
+            height: 118px;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            overflow: hidden;
+            opacity: 0;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.14);
+            animation: browserIn 9s ease-out infinite;
+        }
+        @keyframes browserIn {
+            0%, 26%  { opacity: 0; transform: scale(0.9); }
+            36%, 90% { opacity: 1; transform: scale(1); }
+            94%, 100%{ opacity: 0; transform: scale(0.9); }
+        }
+        .mb-chrome {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 4px 5px;
+            background: #f1f5f9;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .mb-dot {
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #cbd5e1;
+        }
+        .mb-url {
+            flex: 1;
+            margin-left: 3px;
+            background: #ffffff;
+            border-radius: 6px;
+            font-size: 6.5px;
+            color: #64748b;
+            padding: 1.5px 5px;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        }
+        .mb-body { padding: 8px 7px; }
+        .mb-avatar {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background: #0ea5e9;
+            color: #fff;
+            font-size: 8px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 6px;
+        }
+        .mb-line {
+            height: 4px;
+            border-radius: 2px;
+            background: #e2e8f0;
+            margin-bottom: 4px;
+        }
+        .mb-line.title { width: 70%; background: #94a3b8; height: 5px; }
+        .mb-line.w80 { width: 80%; }
+        .mb-line.w60 { width: 60%; }
+
+        .link-cursor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: linkCursor 9s ease-in-out infinite;
+        }
+        @keyframes linkCursor {
+            0%       { transform: translate(90px, 100px); opacity: 0; }
+            8%       { transform: translate(90px, 100px); opacity: 1; }
+            20%      { transform: translate(46px, 55px); }
+            24%      { transform: translate(46px, 55px) scale(0.72); }
+            28%      { transform: translate(46px, 55px) scale(1); }
+            36%      { opacity: 1; }
+            44%, 100%{ transform: translate(46px, 55px); opacity: 0; }
+        }
+
+        .mb-page {
+            position: absolute;
+            top: 15px;
+            left: 0;
+            width: 780px;
+            height: 680px;
+            border: none;
+            transform: scale(0.1487);
+            transform-origin: top left;
+            pointer-events: none;
+            background: #fff;
+        }
+
+        /* --- scene 3: drag to chain a series (8s) ---
+           "stain the fence" is dragged UP onto its parent "choose stain
+           color" (which glows as the drop target), then the app relocates
+           it to the next day and the thread + countdown circles appear. */
+        .drag-task {
+            position: absolute;
+            top: 54px;
+            left: 8px;
+            background: #ffffff;
+            border-radius: 3px;
+            padding: 2.5px 4px 2.5px 0;
+            animation: dragOnto 8s ease-in-out infinite;
+            z-index: 2;
+        }
+        @keyframes dragOnto {
+            /* opacity must be pinned at 1 through every visible phase — keying it
+               only near the end makes the browser fade the row across the WHOLE
+               cycle, so it was near-invisible by the time it landed on Thursday. */
+            0%, 16%   { transform: translate(0, 0); box-shadow: none; opacity: 1; }
+            24%       { transform: translate(0, -6px); box-shadow: 0 4px 10px rgba(15,23,42,0.18); }
+            34%, 42%  { transform: translate(2px, -27px); box-shadow: 0 4px 10px rgba(15,23,42,0.18); }
+            50%       { transform: translate(70px, -20px); box-shadow: 0 4px 10px rgba(15,23,42,0.12); }
+            58%, 90%  { transform: translate(128px, -14px); box-shadow: none; opacity: 1; }
+            95%       { transform: translate(128px, -14px); opacity: 0; }
+            96%       { transform: translate(0, 0); opacity: 0; }
+            100%      { transform: translate(0, 0); opacity: 1; }
+        }
+        /* Parent row glows while the child hovers over it (drop target) */
+        .chain-countdown-2 {
+            position: relative;
+            animation: parentGlow 8s ease-in-out infinite;
+            border-radius: 3px;
+        }
+        @keyframes parentGlow {
+            0%, 28%  { background: transparent; box-shadow: none; }
+            34%, 44% { background: #f0f9ff; box-shadow: 0 0 0 1px #38bdf8; }
+            52%, 100%{ background: transparent; box-shadow: none; }
+        }
+        .chain-countdown-2 .mini-circle::after {
+            content: '2';
+            opacity: 0;
+            animation: countdownIn 8s ease-in-out infinite;
+        }
+        .drag-task .mini-circle::after {
+            content: '1';
+            font-size: 6px;
+            opacity: 0;
+            animation: countdownIn 8s ease-in-out infinite;
+        }
+        @keyframes countdownIn {
+            0%, 60%  { opacity: 0; }
+            66%, 90% { opacity: 1; }
+            94%, 100%{ opacity: 0; }
+        }
+        .chain-thread {
+            position: absolute;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            pointer-events: none;
+            z-index: 1;
+        }
+        .chain-thread path {
+            stroke: #8b5cf6;
+            stroke-width: 1.2;
+            fill: none;
+            stroke-dasharray: 60;
+            stroke-dashoffset: 60;
+            animation: threadDraw 8s ease-in-out infinite;
+        }
+        @keyframes threadDraw {
+            0%, 62%   { stroke-dashoffset: 60; opacity: 0; }
+            66%       { opacity: 0.9; }
+            76%, 90%  { stroke-dashoffset: 0; opacity: 0.9; }
+            94%, 100% { stroke-dashoffset: 60; opacity: 0; }
+        }
+
+        /* --- scene 3b: priority keys (9s) ---
+           Cursor hovers the last task, a "2" keycap pops, blue !! marks
+           appear — then, on mouse-leave, the list re-sorts and the row
+           rises to the top (exactly the real mouseleave-sort behavior). */
+        .prio-frame {
+            position: relative;
+            width: 150px;
+            height: 128px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .prio-frame .mini-card { width: 150px; }
+        .prio-row {
+            position: absolute;
+            left: 8px;
+            width: 134px;
+            background: #ffffff;
+        }
+        .prio-r1 { top: 26px; animation: prioShift1 9s ease-in-out infinite; }
+        .prio-r2 { top: 40px; animation: prioShift2 9s ease-in-out infinite; }
+        .prio-target { top: 54px; z-index: 2; animation: prioRise 9s ease-in-out infinite; }
+        @keyframes prioShift1 {
+            0%, 54%   { transform: translateY(0); }
+            62%, 100% { transform: translateY(14px); }
+        }
+        @keyframes prioShift2 {
+            0%, 54%   { transform: translateY(0); }
+            62%, 100% { transform: translateY(14px); }
+        }
+        @keyframes prioRise {
+            0%, 14%   { background: #ffffff; transform: translateY(0); }
+            20%, 46%  { background: #f0f9ff; transform: translateY(0); }
+            52%       { background: #ffffff; }
+            54%       { transform: translateY(0); }
+            62%, 100% { background: #ffffff; transform: translateY(-28px); }
+        }
+        .prio-marks {
+            color: #0ea5e9;
+            font-weight: 700;
+            font-size: 8px;
+            letter-spacing: -0.3px;
+            margin-left: 2px;
+            opacity: 0;
+            display: inline-block;
+            animation: marksPop 9s ease-out infinite;
+        }
+        @keyframes marksPop {
+            0%, 31%  { opacity: 0; transform: scale(0.5); }
+            35%      { opacity: 1; transform: scale(1.35); }
+            39%, 92% { opacity: 1; transform: scale(1); }
+            96%, 100%{ opacity: 0; }
+        }
+        /* A real-looking keycap, sitting in the card's empty lower half,
+           that visibly gets pressed. */
+        .prio-key {
+            position: absolute;
+            top: 86px;
+            left: 14px;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: #334155;
+            background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12);
+            opacity: 0;
+            z-index: 3;
+            animation: keyPop 9s ease-out infinite;
+        }
+        @keyframes keyPop {
+            0%, 20%  { opacity: 0; transform: translateY(0); box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12); }
+            24%, 27% { opacity: 1; transform: translateY(0); box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12); }
+            30%, 33% { opacity: 1; transform: translateY(2.5px); box-shadow: 0 0 0 #cbd5e1, 0 1px 2px rgba(15, 23, 42, 0.10); }
+            36%, 44% { opacity: 1; transform: translateY(0); box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12); }
+            52%, 100%{ opacity: 0; transform: translateY(0); }
+        }
+        .prio-cursor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: prioCursor 9s ease-in-out infinite;
+        }
+        @keyframes prioCursor {
+            0%       { transform: translate(120px, 110px); opacity: 0; }
+            8%       { transform: translate(120px, 110px); opacity: 1; }
+            18%, 44% { transform: translate(62px, 58px); opacity: 1; }
+            54%      { transform: translate(125px, 112px); opacity: 1; }
+            60%, 100%{ transform: translate(125px, 112px); opacity: 0; }
+        }
+
+        /* --- scene 4: held to the past (locked task anchors the board) --- */
+        .held-spill {
+            position: absolute;
+            top: 42px;
+            left: 8px;
+            background: #ffffff;
+            padding-right: 4px;
+            animation: heldSpill 5s ease-in-out infinite;
+        }
+        @keyframes heldSpill {
+            0%, 30%   { transform: translate(0, 0); opacity: 1; }
+            55%, 88%  { transform: translate(128px, -14px); opacity: 1; }
+            96%       { transform: translate(128px, -14px); opacity: 0; }
+            97%       { transform: translate(0, 0); opacity: 0; }
+            100%      { transform: translate(0, 0); opacity: 1; }
+        }
+        .locked-stay {
+            border-left: 2px solid #f59e0b;
+            padding-left: 3px;
+        }
+        .locked-stay .mini-text { color: #ef4444; font-weight: 600; }
+
+        /* --- scene 5: projects & the Main page (9s) ---
+           A mini replica of the real top nav bar. A red marker circle
+           draws itself around "+ New project", the cursor clicks it,
+           and a new project tab pops into the bar. */
+        .nav-frame {
+            position: relative;
+            width: 250px;
+            height: 128px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .mini-nav {
+            position: absolute;
+            top: 44px;
+            left: 0;
+            right: 0;
+            height: 26px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 0 6px;
+            white-space: nowrap;
+        }
+        .mini-nav > * { flex-shrink: 0; }
+        .nav-mark {
+            font-size: 8.5px;
+            font-weight: 800;
+            color: #0f172a;
+            letter-spacing: -0.2px;
+        }
+        .nav-mark span { color: #0ea5e9; }
+        .nav-tab {
+            font-size: 7px;
+            font-weight: 600;
+            padding: 2px 5px;
+            border-radius: 3px;
+            background: #f0f9ff;
+            color: #0284c7;
+        }
+        .nav-tab.new-tab {
+            opacity: 0;
+            animation: tabPop 9s ease-out infinite;
+        }
+        /* An off-screen board with something due — the real bar's `.due` tab:
+           red edge, padding trimmed by the border width so the tab keeps the
+           same size as its neighbours. */
+        .nav-tab.due {
+            background: #ffffff;
+            color: #475569;
+            border: 1.5px solid #ef4444;
+            padding: 0.5px 3.5px;
+        }
+        /* Same bar, held still — no marker ring, no cursor, no fade. */
+        .nav-frame.static-nav {
+            animation: none;
+            height: 128px;
+        }
+        .nav-plus {
+            position: relative;
+            font-size: 7px;
+            color: #64748b;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            padding: 2px 5px;
+        }
+        .nav-ring {
+            position: absolute;
+            top: -6px;
+            left: -7px;
+            width: calc(100% + 14px);
+            height: calc(100% + 12px);
+            overflow: visible;
+            transform: rotate(-3deg);
+            pointer-events: none;
+        }
+        .nav-ring ellipse {
+            fill: none;
+            stroke: #ef4444;
+            stroke-width: 1.8;
+            stroke-linecap: round;
+            stroke-dasharray: 100;
+            stroke-dashoffset: 100;
+            opacity: 0;
+            animation: ringDraw 9s linear infinite;
+        }
+        @keyframes ringDraw {
+            0%, 8%    { stroke-dashoffset: 100; opacity: 0; }
+            10%       { stroke-dashoffset: 100; opacity: 0.9; }
+            30%, 58%  { stroke-dashoffset: 0; opacity: 0.9; }
+            65%, 100% { stroke-dashoffset: 0; opacity: 0; }
+        }
+        .nav-toggle {
+            display: flex;
+            border: 1px solid #e2e8f0;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .nt-seg { font-size: 6.5px; padding: 2px 4px; color: #64748b; }
+        .nt-seg.active { background: #f0f9ff; color: #0284c7; font-weight: 600; }
+        @keyframes tabPop {
+            0%, 52%   { opacity: 0; transform: scale(0.6); }
+            56%       { opacity: 1; transform: scale(1.2); }
+            59%, 92%  { opacity: 1; transform: scale(1); }
+            96%, 100% { opacity: 0; }
+        }
+        /* Anchored inside .nav-plus: translate(0,0) is exactly the button's
+           center, so the click always lands regardless of font metrics. */
+        .nav-cursor {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            margin: -5px 0 0 -5px;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: navCursor 9s ease-in-out infinite;
+        }
+        @keyframes navCursor {
+            0%, 30%   { transform: translate(70px, 58px); opacity: 0; }
+            36%       { transform: translate(70px, 58px); opacity: 1; }
+            46%, 50%  { transform: translate(0, 0) scale(1); opacity: 1; }
+            52%       { transform: translate(0, 0) scale(0.75); }
+            54%, 56%  { transform: translate(0, 0) scale(1); opacity: 1; }
+            64%, 100% { transform: translate(70px, 58px); opacity: 0; }
+        }
+
+        /* --- scene 6: unlink a step ---
+           The chain scene's END state, held static (thread + countdown
+           circles visible), while a red circle draws around the ✂️. */
+        .unlink-scene .chain-thread path {
+            animation: none;
+            stroke-dashoffset: 0;
+            opacity: 0.9;
+        }
+        .static-count-2 .mini-circle::after { content: '2'; }
+        .static-count-1 .mini-circle::after { content: '1'; }
+        .mini-scissors {
+            position: relative;
+            font-size: 8px;
+            margin-left: 3px;
+        }
+        .scissors-ring {
+            top: -4px;
+            left: -5px;
+            width: calc(100% + 10px);
+            height: calc(100% + 8px);
+        }
+
+        /* --- scene 7: the assistant (10s) ---
+           A task sits on today's card; the step pane unfolds beneath it
+           and AI-generated steps appear one by one. */
+        .ai-frame {
+            position: relative;
+            width: 150px;
+            height: 148px;
+            animation: sceneFade 10s linear infinite;
+        }
+        .ai-frame .mini-card {
+            width: 150px;
+            min-height: 44px;
+        }
+        .ai-pane {
+            position: absolute;
+            top: 50px;
+            left: 0;
+            width: 100%;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 5px 7px;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.10);
+            transform-origin: top center;
+            animation: paneUnfold 10s ease-out infinite;
+        }
+        @keyframes paneUnfold {
+            0%, 6%   { transform: scaleY(0); opacity: 0; }
+            12%, 96% { transform: scaleY(1); opacity: 1; }
+            100%     { transform: scaleY(1); opacity: 0; }
+        }
+        .ai-dots {
+            position: absolute;
+            top: 9px;
+            left: 8px;
+            display: flex;
+            gap: 3px;
+            opacity: 0;
+            animation: aiDots 10s linear infinite;
+        }
+        .ai-dots span {
+            width: 3.5px;
+            height: 3.5px;
+            border-radius: 50%;
+            background: #38bdf8;
+        }
+        @keyframes aiDots {
+            0%, 10%  { opacity: 0; }
+            12%, 17% { opacity: 1; }
+            19%, 100%{ opacity: 0; }
+        }
+        .ai-step {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 7px;
+            color: #0f172a;
+            padding: 2px 0;
+            white-space: nowrap;
+            opacity: 0;
+        }
+        .ai-step .as-check {
+            width: 7px;
+            height: 7px;
+            border: 1px solid #cbd5e1;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .ai-step .as-emoji { font-size: 6.5px; }
+        .ai-s1 { animation: stepIn1 10s ease-out infinite; }
+        .ai-s2 { animation: stepIn2 10s ease-out infinite; }
+        .ai-s3 { animation: stepIn3 10s ease-out infinite; }
+        .ai-s4 { animation: stepIn4 10s ease-out infinite; }
+        .ai-s5 { animation: stepIn5 10s ease-out infinite; }
+        @keyframes stepIn1 { 0%, 18% { opacity: 0; transform: translateY(2px); } 22%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+        @keyframes stepIn2 { 0%, 24% { opacity: 0; transform: translateY(2px); } 28%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+        @keyframes stepIn3 { 0%, 30% { opacity: 0; transform: translateY(2px); } 34%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+        @keyframes stepIn4 { 0%, 36% { opacity: 0; transform: translateY(2px); } 40%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+        @keyframes stepIn5 { 0%, 42% { opacity: 0; transform: translateY(2px); } 46%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
+
+        /* --- scene: "list ..." tasks (10s) ---
+           A list task's pane: quick list with blank slots on top, AI
+           suggestions below. The cursor clicks the first suggestion's ↑
+           (anchored inside the button) and the row moves onto "My list". */
+        .lp-frame {
+            position: relative;
+            width: 150px;
+            height: 144px;
+            animation: sceneFade 10s linear infinite;
+        }
+        .lp-frame .mini-card { width: 150px; }
+        .lp-pane {
+            position: absolute;
+            top: 34px;
+            left: 0;
+            width: 100%;
+            box-sizing: border-box;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 4px 7px 5px;
+            box-shadow: 0 6px 16px rgba(15, 23, 42, 0.10);
+            transform-origin: top center;
+            animation: paneUnfold 10s ease-out infinite;
+        }
+        .lp-label {
+            font-size: 5.5px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #94a3b8;
+            font-weight: 700;
+            margin: 2px 0 1px;
+        }
+        .lp-slot {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2.5px 0;
+        }
+        .lp-check {
+            width: 7px;
+            height: 7px;
+            border: 1px solid #cbd5e1;
+            border-radius: 2px;
+            flex-shrink: 0;
+        }
+        .lp-line {
+            flex: 1;
+            border-bottom: 1px dashed #e2e8f0;
+            height: 9px;
+            position: relative;
+        }
+        .lp-item {
+            font-size: 7px;
+            line-height: 9px;
+            color: #0f172a;
+            opacity: 0;
+            animation: lpAdopt 10s ease-out infinite;
+        }
+        .lp-sug {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            font-size: 7px;
+            color: #0f172a;
+            padding: 2px 0;
+            white-space: nowrap;
+            opacity: 0;
+        }
+        .lp-sug .lp-text { flex: 1; }
+        .lp-up {
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            background: #f0f9ff;
+            color: #0ea5e9;
+            font-size: 6px;
+            line-height: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .lp-g1 { animation: lpSug1 10s ease-out infinite; }
+        .lp-g2 { animation: lpSug2 10s ease-out infinite; }
+        .lp-g3 { animation: lpSug3 10s ease-out infinite; }
+        /* sug 1 is adopted at ~56%: it fades out, the rows below close the
+           gap, and the item text appears on the first quick-list line */
+        @keyframes lpSug1 {
+            0%, 18%  { opacity: 0; transform: translateY(2px); }
+            22%, 54% { opacity: 1; transform: translateY(0); }
+            58%, 100%{ opacity: 0; transform: translateY(0); }
+        }
+        @keyframes lpSug2 {
+            0%, 24%  { opacity: 0; transform: translateY(2px); }
+            28%, 54% { opacity: 1; transform: translateY(0); }
+            62%, 96% { opacity: 1; transform: translateY(-12px); }
+            100%     { opacity: 0; transform: translateY(-12px); }
+        }
+        @keyframes lpSug3 {
+            0%, 30%  { opacity: 0; transform: translateY(2px); }
+            34%, 54% { opacity: 1; transform: translateY(0); }
+            62%, 96% { opacity: 1; transform: translateY(-12px); }
+            100%     { opacity: 0; transform: translateY(-12px); }
+        }
+        @keyframes lpAdopt {
+            0%, 54%  { opacity: 0; }
+            60%, 96% { opacity: 1; }
+            100%     { opacity: 0; }
+        }
+        .lp-cursor {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            margin: -5px 0 0 -5px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            opacity: 0;
+            animation: lpCursor 10s ease-in-out infinite;
+        }
+        @keyframes lpCursor {
+            0%, 30%  { opacity: 0; transform: translate(-40px, 30px); }
+            36%      { opacity: 1; transform: translate(-40px, 30px); }
+            46%, 50% { opacity: 1; transform: translate(0, 0) scale(1); }
+            53%      { opacity: 1; transform: translate(0, 0) scale(0.7); }
+            56%      { opacity: 1; transform: translate(0, 0) scale(1); }
+            60%, 100%{ opacity: 0; transform: translate(0, 0); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .scene * { animation: none !important; }
+            .strip-frame { opacity: 1; }
+            .strip { transform: translateX(-128px); }
+            .thu-task { transform: translateY(42px); }
+            .becomes-today .mini-day { color: #0ea5e9; }
+            .mini-clock .c3 { opacity: 1; }
+            .spill-ring ellipse { stroke-dashoffset: 0; opacity: 0.9; }
+            .held-spill { transform: translate(128px, -14px); }
+            .done-frame { opacity: 1; }
+            .dig-row { transform: translateY(48px); opacity: 0.55; }
+            .dig-circle { background: #38bdf8; border-color: #38bdf8; }
+            .dig-circle::after { opacity: 1; }
+            .dig-text::after { width: 100%; }
+            .set-row { transform: translate(128px, -14px); }
+            .day-pop { opacity: 1; }
+            .done-cursor { opacity: 0; }
+            .type-text { max-width: 0; border-right: none; }
+            .typed-row { opacity: 1; }
+            .over-type { max-width: 0; border-right: none; }
+            .over-new { opacity: 1; transform: translate(128px, 6px); }
+            .ghost-day { opacity: 0; }
+            .mini-browser { opacity: 1; transform: scale(1); }
+            .link-cursor { opacity: 0; }
+            .drag-task { transform: translate(128px, -14px); }
+            .chain-countdown-2 .mini-circle::after,
+            .drag-task .mini-circle::after { opacity: 1; }
+            .chain-thread path { stroke-dashoffset: 0; opacity: 0.9; }
+            .prio-r1, .prio-r2 { transform: translateY(14px); }
+            .prio-target { transform: translateY(-28px); }
+            .prio-marks { opacity: 1; transform: scale(1); }
+            .prio-key, .prio-cursor { opacity: 0; }
+            .nav-frame { opacity: 1; }
+            .nav-ring ellipse { stroke-dashoffset: 0; opacity: 0.9; }
+            .nav-tab.new-tab { opacity: 1; transform: scale(1); }
+            .nav-cursor { opacity: 0; }
+            .ai-frame { opacity: 1; }
+            .ai-pane { transform: scaleY(1); opacity: 1; }
+            .ai-step { opacity: 1; transform: translateY(0); }
+            .ai-dots { opacity: 0; }
+            .lp-frame { opacity: 1; }
+            .lp-pane { transform: scaleY(1); opacity: 1; }
+            .lp-sug { opacity: 1; transform: translateY(0); }
+            .lp-g1 { opacity: 0; }
+            .lp-g2, .lp-g3 { opacity: 1; transform: translateY(-12px); }
+            .lp-item { opacity: 1; }
+            .lp-cursor { opacity: 0; }
+        }
+
+        /* --- scene 9: light / dark mode ---
+           Two still "screenshots" side by side. Unlike every other vignette
+           these carry their own chrome colours, so the dark one stays dark in
+           light mode and the light one stays light in dark mode — the whole
+           point of the card is the contrast between them. */
+        .theme-frame {
+            width: 152px;
+            border-radius: 6px;
+            border: 1px solid #e2e8f0;
+            background: #f8fafc;
+            padding: 7px;
+        }
+        .theme-bar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding-bottom: 5px;
+            margin-bottom: 6px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        .theme-mark {
+            font-weight: 800;
+            font-size: 8.5px;
+            color: #0f172a;
+        }
+        .theme-mark span { color: #0ea5e9; }
+        .theme-btn {
+            font-size: 8px;
+            line-height: 1;
+            padding: 2px 4px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+        .theme-frame .mini-card {
+            width: auto;
+            min-height: 0;
+            padding: 6px;
+        }
+        .theme-label {
+            margin-top: 6px;
+            text-align: center;
+            font-size: 8.5px;
+            font-weight: 600;
+            letter-spacing: 0.04em;
+            text-transform: uppercase;
+            color: #94a3b8;
+        }
+        /* The dark still — the app's own slate palette, hard-coded. */
+        .theme-frame.dark-frame {
+            background: #0f172a;
+            border-color: #334155;
+        }
+        .dark-frame .theme-bar { border-bottom-color: #334155; }
+        .dark-frame .theme-mark { color: #f1f5f9; }
+        .dark-frame .theme-btn { border-color: #334155; }
+        .dark-frame .mini-card {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        .dark-frame .mini-day { color: #e2e8f0; }
+        .dark-frame .mini-task { color: #e2e8f0; }
+        .dark-frame .mini-circle { border-color: #475569; }
+        .theme-demo .scene { min-height: 0; }
+
+        @media (max-width: 560px) {
+            .feature-grid,
+            .feature-grid.three-col { grid-template-columns: 1fr; }
+            .three-col > .card:not(.demo),
+            .three-col > .card.demo { grid-column: auto; }
+        }
+
+        /* ============================================================
+           DARK MODE — same slate palette as the app (body.dark).
+           Synced with the board via localStorage 'movealong.theme'.
+           The demo vignettes intentionally stay light: they're
+           miniature screenshots of the board, framed like media.
+           ============================================================ */
+        body.dark { background: #0f172a; color: #cbd5e1; }
+        body.dark h1,
+        body.dark h2,
+        body.dark .tagline strong { color: #f1f5f9; }
+        body.dark h2 { border-bottom-color: #075985; }
+        body.dark .tagline { color: #94a3b8; }
+        body.dark .back-link,
+        body.dark footer a { color: #38bdf8; }
+        body.dark .card {
+            background: #1e293b;
+            border-color: #334155;
+        }
+        body.dark .card h3 { color: #e2e8f0; }
+        body.dark .card p { color: #94a3b8; }
+        body.dark .card.demo { background: #0b1120; }
+        body.dark kbd {
+            background: #0f172a;
+            border-color: #475569;
+            color: #e2e8f0;
+        }
+        body.dark code {
+            background: #1e293b;
+            color: #e2e8f0;
+        }
+        body.dark pre { border: 1px solid #334155; }
+        body.dark .callout {
+            background: rgba(14, 165, 233, 0.08);
+            border-color: #075985;
+        }
+        body.dark .callout.warn {
+            background: rgba(245, 158, 11, 0.08);
+            border-color: #92400e;
+        }
+        body.dark .video-placeholder {
+            background: #1e293b;
+            border-color: #475569;
+            color: #64748b;
+        }
+        body.dark footer { border-top-color: #334155; }
+        body.dark .margin-note,
+        body.dark .margin-note .note-arrow path {
+            color: #34d399;
+            stroke: #34d399;
+        }
+        body.dark .margin-note.important,
+        body.dark .margin-note.important .note-arrow path {
+            color: #ef4444;
+            stroke: #ef4444;
+        }
+        body.dark .theme-toggle:hover { background: rgba(14, 165, 233, 0.12); }
+
+        .theme-toggle {
+            border: none;
+            background: transparent;
+            font-size: 15px;
+            cursor: pointer;
+            padding: 3px 8px;
+            border-radius: 6px;
+            line-height: 1;
+        }
+        .theme-toggle:hover { background: #f0f9ff; }
+    
+
+/* ---- extracted-scene shell (not part of help.html) ---- */
+  body { padding: 0; }
+  .xnav { position: sticky; top: 0; z-index: 9; display: flex; flex-wrap: wrap; gap: 4px;
+          padding: 8px 12px; background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+          border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+  .xnav a { color: #475569; text-decoration: none; padding: 3px 8px; border-radius: 6px;
+            border: 1px solid #e2e8f0; white-space: nowrap; }
+  .xnav a:hover { border-color: #38bdf8; color: #0284c7; background: #f0f9ff; }
+  .xnav a.here { background: #f0f9ff; border-color: #38bdf8; color: #0284c7; }
+  .xwrap { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+  .xhead { font-size: 20px; font-weight: 650; color: #0f172a; margin-bottom: 4px; }
+  .xbody { font-size: 13px; color: #475569; line-height: 1.55; margin-bottom: 20px; max-width: 62ch; }
+  .xstage { display: flex; justify-content: center; }
+  .xstage > .card.demo { min-width: 420px; }
+  .xnote { margin-top: 24px; font-size: 11.5px; color: #94a3b8; line-height: 1.6; }
+  body.dark .xnav { background: rgba(15,23,42,.92); border-bottom-color: #334155; }
+  body.dark .xnav a { border-color: #334155; color: #94a3b8; }
+  body.dark .xhead { color: #e2e8f0; }
+  body.dark .xbody { color: #94a3b8; }
+</style>
+</head>
+<body>
+  <nav class="xnav">
+      <a href="index.html">&larr; all</a>
+      <a href="01-add-a-task.html" data-file="01-add-a-task.html">Add a task</a>
+      <a href="02-tasks-move-forward-automatically.html" data-file="02-tasks-move-forward-automatically.html">Tasks move forward automatically</a>
+      <a href="03-lock-a-deadline.html" data-file="03-lock-a-deadline.html">Lock a deadline 📅</a>
+      <a href="04-complete-or-postpone-a-task.html" data-file="04-complete-or-postpone-a-task.html">Complete or postpone a task</a>
+      <a href="05-overflow.html" data-file="05-overflow.html">Overflow</a>
+      <a href="06-projects.html" data-file="06-projects.html">Projects</a>
+      <a href="07-projects-2.html" data-file="07-projects-2.html">Projects</a>
+      <a href="08-links-in-tasks.html" data-file="08-links-in-tasks.html">Links in tasks</a>
+      <a href="09-prioritize.html" data-file="09-prioritize.html">Prioritize</a>
+      <a href="10-create-lists.html" data-file="10-create-lists.html">Create lists</a>
+      <a href="11-dark-mode.html" data-file="11-dark-mode.html">Dark mode 🌙</a>
+      <a href="12-dark-mode-2.html" data-file="12-dark-mode-2.html">Dark mode 🌙</a>
+      <a href="13-chain-a-series.html" data-file="13-chain-a-series.html">Chain a series</a>
+      <a href="14-unlink-a-step.html" data-file="14-unlink-a-step.html">Unlink a step ✂️</a>
+      <a href="15-locked-tasks-don-t-advance-past-their-du.html" data-file="15-locked-tasks-don-t-advance-past-their-du.html">Locked tasks don't advance past their due date</a>
+      <a href="16-the-assistant.html" data-file="16-the-assistant.html">🧠 The assistant</a>
+  </nav>
+  <div class="xwrap">
+    <div class="xhead">Dark mode 🌙</div>
+    <div class="xbody">The &#9728;&#65039;/&#127769; button in the header flips the whole app
+               between light and dark — this help page follows along. The icon shows
+               the mode you'd switch <em>to</em>.</div>
+    <div class="xstage">
+      <div class="card demo theme-demo demo-3" aria-hidden="true">
+      <div class="scene">
+      <div class="theme-frame dark-frame">
+      <div class="theme-bar"><span class="theme-mark">Move<span>Along</span></span><span class="theme-btn">&#9728;&#65039;</span></div>
+      <div class="mini-card">
+      <div class="mini-day" data-day-offset="0"></div>
+      <div class="mini-task"><span class="mini-circle"></span>set the posts</div>
+      <div class="mini-task"><span class="mini-circle"></span>hang the gate</div>
+      </div>
+      <div class="theme-label">Dark</div>
+      </div>
+      </div>
+      </div>
+    </div>
+    <div class="xnote">Extracted from <code>server/public/help.html</code> by
+      <code>docs/animation/build.js</code> — edit the scene there, then rerun the
+      build. Press <kbd>D</kbd> to toggle dark.</div>
+  </div>
+<script>
+  document.querySelectorAll('.xnav a[data-file]').forEach(a => {
+    if (a.dataset.file === location.pathname.split('/').pop()) a.classList.add('here');
+  });
+  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const now=new Date();
+  document.querySelectorAll('[data-day-offset]').forEach(el=>{
+    const d=new Date(now); d.setUTCDate(d.getUTCDate()+parseInt(el.dataset.dayOffset,10));
+    el.textContent=dayNames[d.getUTCDay()].slice(0,3)+' \u00b7 '+monthNames[d.getUTCMonth()]+' '+d.getUTCDate();
+  });
+  const a1=document.getElementById('todayDayName'), a2=document.getElementById('todayDate');
+  if(a1) a1.textContent=dayNames[now.getUTCDay()];
+  if(a2) a2.textContent=monthNames[now.getUTCMonth()]+' '+now.getUTCDate();
+  try { if(localStorage.getItem('movealong.theme')==='dark') document.body.classList.add('dark'); } catch(e){}
+  addEventListener('keydown',e=>{ if(e.key==='d'||e.key==='D') document.body.classList.toggle('dark'); });
+</script>
+</body>
+</html>
