@@ -7,5 +7,5 @@ archive/
 .env.*
 .claude/settings.local.json
 
-# Commercial VO audition takes (throwaway)
-docs/commercial/vo/auditions/
+# Commercial VO renders (regenerable from the script doc)
+docs/commercial/vo/

@@ -152,9 +152,28 @@ rather than the reverse. Long pauses between lines are correct — roughly 78 wo
 across 60 seconds means more silence than speech, and the silence is doing work.
 "Until you do it" wants a full beat of air in front of it.
 
-**Settings to start from:** stability ~0.45 (some life), similarity ~0.8,
-style/exaggeration low, speaker boost on. Render each line to its own WAV at 48k
-so the edit can nudge them frame-accurately.
+**Cast (2026-08-11):** ElevenLabs **Sawyer — "Calm, Measured and Serious"**,
+`voice_id UQoLnPXvf18gaKpLzfb8`, model `eleven_multilingual_v2`, settings
+stability 0.45 / similarity 0.8 / style 0 / speaker boost on. Each line renders
+to its own file so picture can be cut to VO.
+
+**Locked timing.** Speech totals 27.0s of the 60 — 55% of the film is silence,
+which is correct. VO in-points, with the air each line leaves before its beat
+ends:
+
+| Beat | VO in | VO out | Beat ends | Air |
+|---|---|---|---|---|
+| black | 3.0 | 5.1 | 7 | 1.9 |
+| intention | 9.0 | 12.8 | 15 | 2.2 |
+| plans itself | 17.0 | 21.8 | 26 | 4.2 |
+| order | 27.5 | 32.6 | 34 | 1.4 |
+| deadline | 35.5 | 39.5 | 42 | 2.5 |
+| **the turn** | 43.5 | 47.6 | 51 | 3.4 |
+| release | 52.5 | 53.7 | 57 | 3.3 |
+| sign-off | 57.5 | 59.5 | 60 | 0.5 |
+
+Renders live in `vo/sawyer/` (gitignored — regenerable from this document);
+`vo/radio-cut.mp3` is the full 60s assembly used to time picture against.
 
 ---
 
