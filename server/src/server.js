@@ -434,6 +434,70 @@ app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
   res.json(projects);
 });
 
+// Remove a board from this user. Deletion is PER-USER, matching how tab order
+// and membership already work: it drops the caller's membership and their own
+// tasks on that board, and never touches another member's copy.
+//
+// The project row itself is only destroyed once the last member leaves —
+// otherwise abandoned rows would pile up invisibly. Note that tasks.project_id
+// is ON DELETE SET NULL, so tasks MUST be deleted explicitly here; letting the
+// FK fire would orphan them to project_id = NULL, where no view can reach them
+// and nothing can ever clean them up.
+app.delete('/api/companies/:subdomain/users/:slug/projects/:projectId', (req, res) => {
+  const { subdomain, slug, projectId } = req.params;
+  const id = parseInt(projectId);
+
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+
+  const user = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const membership = queryOne(
+    `SELECT p.id, p.name FROM projects p
+       JOIN project_members pm ON pm.project_id = p.id
+      WHERE p.id = ? AND p.company_id = ? AND pm.user_id = ?`,
+    [id, company.id, user.id]);
+  if (!membership) return res.status(404).json({ error: 'Project not found' });
+
+  // A user with zero boards lands in an empty state the app offers no way out
+  // of — there is no "new board" button any more, only the + in the header,
+  // which needs a board to render beside. So the last one can't be removed.
+  const mineCount = queryOne(
+    'SELECT COUNT(*) AS n FROM project_members WHERE user_id = ?', [user.id]).n;
+  if (mineCount <= 1) {
+    return res.status(409).json({ error: "That's your only board — create another one first" });
+  }
+
+  try {
+    const myTasks = queryAll(
+      'SELECT id FROM tasks WHERE project_id = ? AND owner_id = ?', [id, user.id]);
+    for (const t of myTasks) {
+      runSql('DELETE FROM subtasks WHERE task_id = ?', [t.id]);
+    }
+    runSql('DELETE FROM tasks WHERE project_id = ? AND owner_id = ?', [id, user.id]);
+    runSql('DELETE FROM project_members WHERE project_id = ? AND user_id = ?', [id, user.id]);
+
+    // Last one out turns off the lights.
+    const left = queryOne(
+      'SELECT COUNT(*) AS n FROM project_members WHERE project_id = ?', [id]).n;
+    if (left === 0) {
+      runSql('DELETE FROM tasks WHERE project_id = ?', [id]);
+      runSql('DELETE FROM projects WHERE id = ?', [id]);
+    }
+
+    res.json({
+      removed: id,
+      name: membership.name,
+      tasks_deleted: myTasks.length,
+      project_destroyed: left === 0
+    });
+  } catch (err) {
+    console.error('Error removing project:', err);
+    res.status(500).json({ error: 'Failed to remove project' });
+  }
+});
+
 // Reorder a user's project tabs. Order is per-user (stored on
 // project_members), so one member dragging tabs never reorders anyone
 // else's bar.

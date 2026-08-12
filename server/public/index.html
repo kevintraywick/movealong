@@ -2857,20 +2857,94 @@
                 const due = !isActive && (p.due_today || 0) > 0 ? (p.due_today || 0) : 0;
                 const title = due > 0
                     ? `${due} deadline${due === 1 ? '' : 's'} due — switch to ${p.name}`
-                    : (isActive ? p.name : `Switch to ${p.name}`);
+                    : (isActive ? `${p.name} — click again for board options` : `Switch to ${p.name}`);
                 const cls = `project-tab${isActive ? ' active' : ''}${due > 0 ? ' due' : ''}`;
                 return `<span class="${cls}" draggable="true" data-project-id="${p.id}" title="${escapeHtml(title)}">${escapeHtml(p.name)}</span>`;
             }).join('');
 
             tabs.querySelectorAll('.project-tab').forEach(tab => {
-                tab.addEventListener('click', () => {
+                tab.addEventListener('click', (e) => {
                     // A completed drag doesn't fire click, but a drag that
                     // ends on the tab it started from can — ignore it.
                     if (justDraggedProject) return;
-                    switchProject(parseInt(tab.dataset.projectId));
+                    const id = parseInt(tab.dataset.projectId);
+                    // Clicking the board you're already on was a no-op, so it's
+                    // free to carry the board menu — no new affordance, and it
+                    // keeps deletion one deliberate step off the main path.
+                    if (currentProject && id === currentProject.id) {
+                        showProjectPopup(e, tab);
+                        return;
+                    }
+                    switchProject(id);
                 });
                 attachProjectTabDrag(tab);
             });
+        }
+
+        // Board menu, hung under the active tab. Deletion is per-user: it drops
+        // this user's membership and their own tasks on that board, and leaves
+        // any other member's copy alone.
+        function showProjectPopup(e, tab) {
+            if (!currentProject) return;
+            e.stopPropagation();
+            const popup = document.getElementById('accountPopup');
+            const mine = tasks.length;
+            popup.innerHTML = `
+                <div class="lock-popup-menu">
+                    <div class="lock-popup-title">Board</div>
+                    <div class="account-who">${escapeHtml(currentProject.name)}</div>
+                    <div class="lock-opt danger" data-act="delete-project">Delete this board</div>
+                </div>`;
+
+            const rect = tab.getBoundingClientRect();
+            popup.style.right = 'auto';
+            popup.style.left = rect.left + 'px';
+            popup.style.top = (rect.bottom + 6) + 'px';
+            popup.classList.add('visible');
+
+            popup.querySelector('[data-act="delete-project"]').addEventListener('click', async (ev) => {
+                ev.stopPropagation();
+                if (projects.length <= 1) {
+                    hidePopups();
+                    showToast("That's your only board — create another one first");
+                    return;
+                }
+                const count = mine === 1 ? '1 task' : `${mine} tasks`;
+                if (!confirm(`Delete the "${currentProject.name}" board?\n\nIts ${count} will be deleted with it. This can't be undone.`)) return;
+                hidePopups();
+                await deleteProject(currentProject.id);
+            });
+
+            document.addEventListener('click', hidePopupsOnClickOutside);
+        }
+
+        async function deleteProject(projectId) {
+            const gone = projects.find(p => p.id === projectId);
+            try {
+                await api(`/companies/${company.subdomain}/users/${currentUser.slug}/projects/${projectId}`, {
+                    method: 'DELETE'
+                });
+            } catch (err) {
+                showToast('Error: ' + err.message);
+                return;
+            }
+            // Land on the neighbour, so the bar doesn't jump to the front.
+            // Pick the id first, then re-point at the freshly loaded array —
+            // loadProjects() replaces `projects` wholesale, so holding a
+            // reference from the old one would leave currentProject stale.
+            const idx = projects.findIndex(p => p.id === projectId);
+            const survivors = projects.filter(p => p.id !== projectId);
+            const nextId = (survivors[Math.min(idx, survivors.length - 1)] || {}).id;
+
+            currentProject = null;
+            expandedTaskIds.clear();
+            await loadProjects();
+            currentProject = projects.find(p => p.id === nextId) || projects[0] || null;
+            await loadTasks();
+            renderProjectBar();
+            renderBoard();
+            saveSession();
+            showToast(`Deleted ${gone ? gone.name : 'board'}`);
         }
 
         // ============================================
@@ -4259,6 +4333,7 @@
                 !e.target.closest('.task-arrow') &&
                 !e.target.closest('.task-lock') &&
                 !e.target.closest('.header-display') &&
+                !e.target.closest('.project-tab') &&
                 !e.target.closest('.modal')) {
                 hidePopups();
             }

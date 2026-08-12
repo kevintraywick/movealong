@@ -101,6 +101,27 @@ Body: { "name": "winter con" }
 Response: { id, name, slug, created_by, created_at }
 ```
 
+#### Remove a board (per-user)
+```
+DELETE /api/companies/:subdomain/users/:slug/projects/:projectId
+Response: { removed, name, tasks_deleted, project_destroyed }
+  409  the caller's only board — refused
+  404  no such project, or the caller isn't a member
+```
+Deletion is **per-user**, matching membership and tab order. It drops the
+caller's `project_members` row and their own tasks (and those tasks' subtasks)
+on that board. Another member's tasks and membership are untouched, and they
+keep seeing the board. The `projects` row itself is destroyed only when the last
+member leaves.
+
+`tasks.project_id` is `ON DELETE SET NULL`, so the route deletes tasks
+**explicitly** — relying on the foreign key would set them to `project_id =
+NULL`, where neither the calendar (filters by project) nor the List view (groups
+by project) can reach them, and nothing would ever clean them up.
+
+A user's last board can't be removed: zero projects is an empty state with no
+way out, since the header's + button renders beside the tab bar. No undo.
+
 #### Reorder a user's project tabs
 ```
 PUT /api/companies/:subdomain/users/:slug/projects/order
