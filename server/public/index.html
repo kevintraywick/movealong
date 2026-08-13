@@ -46,6 +46,16 @@
             overflow-x: auto;
         }
 
+        /* `overflow-x: auto` above makes overflow-y compute to `auto` too (CSS
+           forbids one axis scrolling while the other stays visible), so this
+           container CLIPS vertically — and the subtask pane hangs below its day
+           column as an absolutely positioned child. The padding is what buys
+           the pane room inside the scroll box.
+           A fixed 440px cut any pane taller than that off mid-row, with the
+           hidden scrollbar making it read as a hard wall rather than something
+           you could scroll. fitExpandedPane() now measures the real pane and
+           sets padding-bottom inline; this value only covers the frame before
+           that runs. */
         .board-container.has-expanded {
             padding-bottom: 440px;
         }
@@ -3349,11 +3359,46 @@
             overlay.id = 'chainOverlay';
             board.appendChild(overlay);
 
+            fitExpandedPane(board);
+
             if (isSignedUp) {
                 renderUserSwitcher();
             }
 
             attachBoardListeners();
+        }
+
+        // The board clips vertically (see .board-container.has-expanded), so an
+        // open subtask pane only exists as far down as the container's padding
+        // reaches. Measure the pane that is actually open and reserve exactly
+        // the room it needs — a constant is always either too small (the pane
+        // gets guillotined) or too large (a slab of dead space under the board).
+        //
+        // Columns are `align-items: flex-start`, so every column's top is the
+        // same y within the board's content box. That makes a pane's bottom in
+        // its own column directly comparable to the board's content height.
+        function fitExpandedPane(board) {
+            const panes = board.querySelectorAll('.subtask-pane.board-pane');
+            if (!panes.length) {
+                board.style.paddingBottom = '';
+                return;
+            }
+
+            let contentHeight = 0;
+            board.querySelectorAll('.day-column').forEach(col => {
+                contentHeight = Math.max(contentHeight, col.offsetHeight);
+            });
+
+            let paneBottom = 0;
+            panes.forEach(pane => {
+                // offsetParent is the .day-column (it is position: relative).
+                paneBottom = Math.max(paneBottom, pane.offsetTop + pane.offsetHeight);
+            });
+
+            // 24px of breathing room so the pane's shadow isn't flush with the
+            // clip edge, which reads as a cut even when nothing is missing.
+            const needed = Math.max(0, Math.round(paneBottom - contentHeight) + 24);
+            board.style.paddingBottom = needed + 'px';
         }
 
         function attachBoardListeners() {
