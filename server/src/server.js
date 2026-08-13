@@ -3,7 +3,35 @@ const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
 const { initDb, queryOne, queryAll, runSql, flushDb } = require('./db');
-const calendar = require('./calendar');
+
+// Calendar import is an optional feature, and it is the only part of the
+// server that pulls a third-party parser (node-ical) with its own engine
+// requirements. Loading it eagerly once took the entire app down in
+// production: on Node 18 node-ical throws a SyntaxError at module load
+// (it uses the RegExp `v` flag, which is Node 20+), so `require` crashed
+// before the server ever listened — a 502 crash loop for a feature almost
+// nobody had switched on.
+//
+// The real fix is engines.node in package.json. This guard is the second
+// layer: a broken or unloadable calendar module now costs you the calendar,
+// not the board. `calendarError` is surfaced by the calendar routes.
+let calendar;
+let calendarError = null;
+try {
+  calendar = require('./calendar');
+} catch (err) {
+  calendarError = err;
+  console.error('Calendar import disabled — failed to load ./calendar:', err.message);
+  const off = () => { throw new Error('Calendar import is unavailable on this server'); };
+  calendar = {
+    maybeSyncInBackground: () => {},   // the tasks route calls this on every GET
+    getFeed: () => null,               // "no feed connected", the honest answer
+    deleteAllEvents: () => {},
+    normalizeFeedUrl: off, syncFeed: off, maskUrl: off,
+    fetchEvents: off, expandEvents: off, prunePastEvents: () => {},
+    WINDOW_DAYS: 0, SYNC_INTERVAL_MS: 0,
+  };
+}
 
 const app = express();
 const PORT = process.env.PORT || 3000;
