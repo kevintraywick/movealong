@@ -54,7 +54,14 @@ all.forEach((b, idx) => {
     if (/\bdemo\b/.test(all[j].cls)) continue;
     const h3 = all[j].html.match(/<h3>([\s\S]*?)<\/h3>/);
     const p  = all[j].html.match(/<p>([\s\S]*?)<\/p>/);
-    if (h3) { title = decode(h3[1].replace(/<[^>]+>/g, '')).trim(); body = p ? p[1] : ''; }
+    // Strip status chips (.beta-badge etc.) before flattening tags — their
+    // text is a label on the card, not part of the scene's name, and it would
+    // otherwise end up in the filename and the contact-sheet tile.
+    if (h3) {
+      const heading = h3[1].replace(/<span class="beta-badge"[\s\S]*?<\/span>/g, '');
+      title = decode(heading.replace(/<[^>]+>/g, '')).trim();
+      body = p ? p[1] : '';
+    }
     break;
   }
   scenes.push({ title, body, html: b.html, cls: b.cls });

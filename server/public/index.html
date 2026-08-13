@@ -608,6 +608,21 @@
            by hovering a task and pressing r. It sits in the same metadata run
            as the day counter — and replaces it, since "days since first
            requested" means nothing for something designed to come back. */
+        .beta-tag {
+            display: inline-block;
+            margin-left: 5px;
+            padding: 0 5px;
+            border-radius: 999px;
+            font-size: 9px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            color: #b45309;
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            vertical-align: 1px;
+        }
+
         .task-repeat {
             font-size: 10px;
             color: #94a3b8;
@@ -2038,6 +2053,11 @@
             color: #e2e8f0;
         }
         body.dark .account-who { color: #e2e8f0; }
+        body.dark .beta-tag {
+            color: #fcd34d;
+            background: rgba(180, 83, 9, 0.25);
+            border-color: rgba(252, 211, 77, 0.35);
+        }
         body.dark .rename-input {
             background: #0f172a;
             border-color: #334155;
@@ -4675,7 +4695,7 @@
             if (!calendarState.connected) {
                 popup.innerHTML = `
                     <div class="lock-popup-menu">
-                        <div class="lock-popup-title">Connect a calendar</div>
+                        <div class="lock-popup-title">Connect a calendar <span class="beta-tag">Beta</span></div>
                         <div class="cal-popup-form">
                             <input type="text" id="calUrlInput" placeholder="Paste your secret iCal URL" autocomplete="off" spellcheck="false">
                             <div class="cal-note">Google, Proton, iCloud and Outlook each publish a private iCal address in their calendar settings.</div>
@@ -4689,7 +4709,7 @@
                     : '';
                 popup.innerHTML = `
                     <div class="lock-popup-menu">
-                        <div class="lock-popup-title">Calendar</div>
+                        <div class="lock-popup-title">Calendar <span class="beta-tag">Beta</span></div>
                         <div class="cal-status">${escapeHtml(calendarState.url_masked || '')}<br>
                             ${calendarState.event_count || 0} events · synced ${relativeSince(calendarState.last_synced_at)}</div>
                         ${err}

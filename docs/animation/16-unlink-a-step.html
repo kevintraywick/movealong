@@ -132,6 +132,34 @@
             margin-bottom: 5px;
         }
 
+        /* Beta badge: amber, which the app already uses for the "held, not
+           settled" lock state — it reads as caution without borrowing red
+           (reserved for overdue) or blue (ordinary UI). */
+        .beta-badge {
+            display: inline-block;
+            margin-left: 6px;
+            padding: 1px 6px;
+            border-radius: 999px;
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.3px;
+            text-transform: uppercase;
+            color: #b45309;
+            background: #fef3c7;
+            border: 1px solid #fde68a;
+            vertical-align: 1px;
+        }
+
+        /* A whole card that is still being figured out. */
+        .card.beta { border-color: #fde68a; background: #fffbeb; }
+        .card .beta-note {
+            margin-top: 7px;
+            padding-top: 7px;
+            border-top: 1px solid #fde68a;
+            font-size: 12.5px;
+            color: #92400e;
+        }
+
         .card p { font-size: 13px; color: #475569; }
         .card p + p { margin-top: 5px; }
 
@@ -1701,6 +1729,19 @@
         body.dark .tagline { color: #94a3b8; }
         body.dark .back-link,
         body.dark footer a { color: #38bdf8; }
+        body.dark .beta-badge {
+            color: #fcd34d;
+            background: rgba(180, 83, 9, 0.22);
+            border-color: rgba(252, 211, 77, 0.35);
+        }
+        body.dark .card.beta {
+            background: rgba(180, 83, 9, 0.12);
+            border-color: rgba(252, 211, 77, 0.30);
+        }
+        body.dark .card .beta-note {
+            color: #fcd34d;
+            border-top-color: rgba(252, 211, 77, 0.30);
+        }
         body.dark .card {
             background: #1e293b;
             border-color: #334155;
