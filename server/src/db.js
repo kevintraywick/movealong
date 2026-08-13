@@ -52,6 +52,7 @@ async function initDb() {
       name TEXT NOT NULL,
       slug TEXT NOT NULL,
       created_by INTEGER NOT NULL,
+      ai_budget_usd INTEGER DEFAULT 5,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
       FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
@@ -86,6 +87,7 @@ async function initDb() {
       locked INTEGER DEFAULT 0,
       priority INTEGER DEFAULT 0,
       repeat_rule TEXT,
+      research_status TEXT,
       source TEXT DEFAULT 'user',
       external_uid TEXT,
       event_start TEXT,
@@ -110,6 +112,7 @@ async function initDb() {
       assigned_to INTEGER,
       assigned_by INTEGER,
       sort_order INTEGER DEFAULT 0,
+      provisional INTEGER DEFAULT 0,
       completed INTEGER DEFAULT 0,
       completed_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -140,6 +143,27 @@ async function initDb() {
     )
   `);
 
+  // One row per billed Anthropic call, so a board's monthly spend is an audit
+  // trail rather than a bare counter — the first question anyone asks a budget
+  // is "where did it go". `month` is a 'YYYY-MM' key so the monthly SUM is an
+  // index hit rather than a date-range scan.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS ai_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      project_id INTEGER,
+      task_id INTEGER,
+      month TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      model TEXT,
+      input_tokens INTEGER DEFAULT 0,
+      output_tokens INTEGER DEFAULT 0,
+      web_searches INTEGER DEFAULT 0,
+      cost_usd REAL DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE
+    )
+  `);
+
   // Migrations for existing databases (ALTER TABLE is idempotent-guarded via table_info)
   ensureColumn('tasks', 'locked', 'INTEGER DEFAULT 0');
   ensureColumn('tasks', 'origin_date', 'DATE');
@@ -164,6 +188,13 @@ async function initDb() {
   ensureColumn('tasks', 'external_uid', 'TEXT');
   // Local HH:MM, for the row's time chip and intra-day ordering.
   ensureColumn('tasks', 'event_start', 'TEXT');
+  // Two-phase subtasks: phase 1 writes rows with provisional = 1 (rendered
+  // greyed), the background research pass rewrites them in place and clears it.
+  ensureColumn('subtasks', 'provisional', 'INTEGER DEFAULT 0');
+  // NULL = never researched, else 'running' | 'done' | 'failed' | 'over_budget'.
+  ensureColumn('tasks', 'research_status', 'TEXT');
+  // Whole-dollar monthly cap on researched AI calls for this board.
+  ensureColumn('projects', 'ai_budget_usd', 'INTEGER DEFAULT 5');
   // Pre-migration tasks never recorded their origin; the best available
   // approximation is wherever they sit now (their true origin is lost).
   db.run('UPDATE tasks SET origin_date = scheduled_date WHERE origin_date IS NULL');
@@ -184,6 +215,7 @@ async function initDb() {
   db.run('CREATE INDEX IF NOT EXISTS idx_subtasks_parent ON subtasks(parent_subtask_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_tasks_external ON tasks(owner_id, external_uid)');
   db.run('CREATE INDEX IF NOT EXISTS idx_calendar_feeds_user ON calendar_feeds(user_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_ai_usage_month ON ai_usage(project_id, month)');
 
   saveDb();
   return db;

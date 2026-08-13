@@ -2329,14 +2329,23 @@
         </div>
     </div>
 
+    <style>
+      .prov-word { color: #94a3b8; font-style: italic; }
+      body.dark .prov-word { color: #64748b; }
+    </style>
     <h2>Subtasks</h2>
     <div class="feature-grid three-col">
         <div class="card">
             <h3>&#129504; The assistant</h3>
             <p>With the header's 🧠 switch on, adding a task instantly opens a pane of
                up to 7 specific steps — real decisions, real links, real prices, not
-               "make a plan". Click ↺ on an open task (or in the pane's top-right
-               corner) to regenerate them all.</p>
+               "make a plan".</p>
+            <p>The first steps arrive in seconds and show <span class="prov-word">greyed
+               out</span>: they're drafted from reasoning alone, to get you thinking
+               straight away. Behind them an agent goes and researches the real thing —
+               current prices, actual products, working links — and each step is
+               rewritten in place as the answers come back. A step that turns out not to
+               make sense for your task gets replaced outright.</p>
             <p>No Anthropic API key on the server? You get sensible placeholder steps
                instead — everything else works the same.</p>
         </div>
@@ -2365,13 +2374,42 @@
             </svg>
             <span>This is the second most important thing, because it gets you thinking about how you get things done.</span>
         </div>
+        <div class="card">
+            <h3>&#8635; Keeping seven steps</h3>
+            <p>A pane holds seven steps, and ↺ <strong>tops it back up</strong> rather
+               than starting over — anything you kept, or typed yourself, stays put.</p>
+            <p>To make room, <strong>tick a step off</strong>. Completed steps leave the
+               pane, and the next ↺ fills the slots they freed. If all seven are still
+               there, ↺ tells you the pane is full instead of spending anything.</p>
+            <p>Want more than seven? Hover a step and click <kbd>&uarr;</kbd> to move it
+               onto the board as a task of its own. It lands on the day the task sits on
+               and leaves the pane, which frees a slot too.</p>
+        </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>Seven is the point. If everything's a step, nothing is.</span>
+        </div>
+        <div class="card">
+            <h3>&#128176; What research costs</h3>
+            <p>Researching steps costs real money on your Anthropic account, so every
+               board carries its own budget — <strong>$5 a month</strong> to start. The
+               line under the board shows what you've spent; click it to change the
+               figure. Whole dollars only.</p>
+            <p>When a board runs out, you still get your drafted steps instantly — they
+               just don't get researched, and the pane says so. Raise the budget and
+               research picks up again.</p>
+        </div>
         <div class="card coming-soon">
             <h3>Assign steps</h3>
             <p>Every step shows its suggested owner: 🧠 for the AI agent, 👩 for a
-               human. Click the emoji to assign it; click <kbd>&rarr;</kbd> on an AI
-               step to dispatch it. Assigned tasks leave your board and appear on
-               the assignee's; they can return them, which puts them back on yours
-               today.</p>
+               human. Click the emoji to assign it. Click <kbd>&rarr;</kbd> on an AI
+               step to send the agent back out on that one step alone — useful when
+               the first pass didn't dig deep enough on the thing you actually care
+               about. Assigned tasks leave your board and appear on the assignee's;
+               they can return them, which puts them back on yours today.</p>
         </div>
     </div>
 

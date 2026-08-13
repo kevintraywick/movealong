@@ -1703,6 +1703,74 @@
             transform: translateY(-2px);
         }
 
+        /* Promote-to-board arrow. Hover-reveal, like .task-lock and .task-unlink —
+           the pane is only as wide as a 200px day card, so a second always-on
+           button in every row would eat the description. */
+        .subtask-promote {
+            opacity: 0;
+            transition: opacity 0.15s, background 0.15s, color 0.15s, transform 0.15s;
+        }
+
+        .subtask-item:hover .subtask-promote {
+            opacity: 1;
+        }
+
+        .subtask-promote:hover {
+            transform: translateY(-2px);
+        }
+
+        /* Phase 1 rows: drafted from reasoning alone, waiting on research.
+           Greyed rather than skeletoned — the text is real and readable now,
+           it just isn't final. */
+        .subtask-item.provisional .subtask-desc {
+            color: #94a3b8;
+            font-style: italic;
+        }
+
+        .subtask-researching {
+            font-size: 11px;
+            color: #94a3b8;
+            padding: 4px 2px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .subtask-researching .dot-pulse { transform: scale(0.7); transform-origin: left center; }
+
+        .subtask-budget-note {
+            font-size: 11px;
+            color: #b45309;
+            background: #fffbeb;
+            border: 1px solid #fcd34d;
+            border-radius: 6px;
+            padding: 5px 7px;
+            margin-top: 6px;
+            line-height: 1.35;
+        }
+
+        /* ===== AI budget bar (under the board) ===== */
+        .budget-bar {
+            font-size: 11px;
+            color: #94a3b8;
+            padding: 6px 2px 0;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .budget-bar button {
+            border: none;
+            background: none;
+            font: inherit;
+            color: #0ea5e9;
+            cursor: pointer;
+            padding: 0;
+        }
+
+        .budget-bar button:hover { text-decoration: underline; }
+        .budget-bar.over { color: #b45309; }
+
         /* ===== Quick list ("list ..." tasks) ===== */
         .quick-list-title {
             font-size: 11px;
@@ -2027,6 +2095,10 @@
         body.dark .subtask-check { border-color: #475569; }
         body.dark .subtask-emoji:hover { background: #334155; }
         body.dark .subtask-send { background: rgba(14, 165, 233, 0.15); }
+        body.dark .subtask-item.provisional .subtask-desc { color: #64748b; }
+        body.dark .subtask-budget-note { background: rgba(180, 83, 9, 0.15); border-color: #b45309; color: #fcd34d; }
+        body.dark .budget-bar { color: #64748b; }
+        body.dark .budget-bar.over { color: #fcd34d; }
 
         /* Master page */
         body.dark .project-section {
@@ -2146,6 +2218,11 @@
         <div class="board-container" id="board">
         </div>
 
+        <!-- Sits outside .board-container on purpose: that container is a clipping
+             scroll box whose padding-bottom is measured by fitExpandedPane(), so
+             anything inside it would be pushed around by an open subtask pane. -->
+        <div class="budget-bar" id="budgetBar"></div>
+
         <div class="master-container" id="masterContainer" style="display: none;">
         </div>
 
@@ -2246,6 +2323,12 @@
             else expandedTaskIds.add(id);
         }
         let generatingSubtasksFor = null; // taskId currently generating
+        // taskId -> 'running' | 'done' | 'failed' | 'over_budget'. Phase 2 runs
+        // server-side, so the pane learns about it from the generate response
+        // and then from polling.
+        let taskResearchStatus = new Map();
+        let researchPollTimer = null;
+        let boardBudget = null; // { month, budget_usd, spent_usd } for currentProject
         let assistantEnabled = true; // master AI assistant switch (persisted in localStorage)
 
         // ===== "list ..." tasks: quick list above the standard AI pane =====
@@ -2526,6 +2609,9 @@
             // Deadlines on other boards can change from here (lock, complete,
             // move, switch project), so re-read the per-project due counts.
             await refreshProjectDueFlags();
+            // Every lock/complete/move/delete path already awaits loadTasks(), so
+            // hanging the budget read here keeps the bar live with no new call sites.
+            refreshBudget();
         }
 
         // Re-read due_today for every project and repaint the tabs. Merges
@@ -2623,8 +2709,8 @@
                     renderView();
 
                     try {
-                        const subtasks = await api(`/tasks/${newTask.id}/generate-subtasks`, { method: 'POST' });
-                        taskSubtasks.set(newTask.id, subtasks);
+                        const result = await api(`/tasks/${newTask.id}/generate-subtasks`, { method: 'POST' });
+                        applyGenerateResult(newTask.id, result);
                     } catch (e) {
                         console.error('Failed to generate subtasks:', e);
                         taskSubtasks.set(newTask.id, []);
@@ -2660,8 +2746,8 @@
                     renderMasterPage();
 
                     try {
-                        const subtasks = await api(`/tasks/${newTask.id}/generate-subtasks`, { method: 'POST' });
-                        taskSubtasks.set(newTask.id, subtasks);
+                        const result = await api(`/tasks/${newTask.id}/generate-subtasks`, { method: 'POST' });
+                        applyGenerateResult(newTask.id, result);
                     } catch (e) {
                         taskSubtasks.set(newTask.id, []);
                     }
@@ -2954,18 +3040,170 @@
             }
         }
 
+        // The generate endpoint now returns { subtasks, research_status, full }.
+        // It also TOPS UP rather than replacing, so the pane keeps every step the
+        // user kept and only refills the slots they freed by ticking one off.
+        function applyGenerateResult(taskId, result) {
+            const subtasks = Array.isArray(result) ? result : (result.subtasks || []);
+            taskSubtasks.set(taskId, subtasks);
+            if (!Array.isArray(result) && result.research_status !== undefined) {
+                taskResearchStatus.set(taskId, result.research_status);
+            }
+            if (subtasks.some(st => st.provisional)) scheduleResearchPoll();
+            return result;
+        }
+
         async function regenerateSubtasks(taskId) {
             generatingSubtasksFor = taskId;
             renderView();
 
             try {
-                const subtasks = await api(`/tasks/${taskId}/generate-subtasks`, { method: 'POST' });
-                taskSubtasks.set(taskId, subtasks);
+                const result = await api(`/tasks/${taskId}/generate-subtasks`, { method: 'POST' });
+                applyGenerateResult(taskId, result);
+                if (result && result.full) {
+                    showToast('Pane is full \u2014 tick a step off to make room');
+                }
             } catch (e) {
                 console.error('Failed to regenerate subtasks:', e);
             }
             generatingSubtasksFor = null;
             renderView();
+        }
+
+        // Phase 2 finishes server-side with no channel back to the browser, so the
+        // pane polls while it still holds a provisional row. Bounded: research that
+        // dies (or a server restart, which clears the flag on boot) stops the loop
+        // instead of polling forever.
+        const RESEARCH_POLL_MS = 3000;
+        const RESEARCH_POLL_LIMIT = 40; // ~2 minutes
+        let researchPolls = 0;
+
+        function scheduleResearchPoll() {
+            if (researchPollTimer) return;
+            researchPolls = 0;
+            researchPollTimer = setInterval(pollResearch, RESEARCH_POLL_MS);
+        }
+
+        function stopResearchPoll() {
+            if (researchPollTimer) clearInterval(researchPollTimer);
+            researchPollTimer = null;
+        }
+
+        async function pollResearch() {
+            const waiting = [...expandedTaskIds].filter(id =>
+                (taskSubtasks.get(id) || []).some(st => st.provisional));
+
+            if (!waiting.length || ++researchPolls > RESEARCH_POLL_LIMIT) {
+                stopResearchPoll();
+                return;
+            }
+
+            let changed = false;
+            for (const taskId of waiting) {
+                try {
+                    const fresh = await api(`/tasks/${taskId}/subtasks`);
+                    const before = (taskSubtasks.get(taskId) || []).filter(st => st.provisional).length;
+                    taskSubtasks.set(taskId, fresh);
+                    if (fresh.filter(st => st.provisional).length !== before) changed = true;
+                } catch (e) {
+                    stopResearchPoll();
+                    return;
+                }
+            }
+            if (changed) {
+                renderView();
+                refreshBudget();
+            }
+        }
+
+        // Promote a step onto the board. It lands on the parent task's day (the
+        // user may be planning this for then), and leaves the pane — its
+        // departure is what frees a slot in the 7.
+        async function promoteSubtask(subtaskId, taskId) {
+            try {
+                const result = await api(`/subtasks/${subtaskId}/promote`, { method: 'POST' });
+                await loadSubtasks(taskId);
+                await loadTasks();
+                renderView();
+                showToast(`Moved to ${formatPromoteDay(result.scheduled_date)}`);
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        function formatPromoteDay(dateKey) {
+            if (dateKey === getTodayKey()) return 'today';
+            const d = new Date(dateKey + 'T00:00:00.000Z');
+            return d.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
+        }
+
+        // The → arrow, which used to only toast "Agent dispatched".
+        async function researchSubtask(subtaskId, taskId) {
+            const row = document.querySelector(`.subtask-promote[data-promote-id="${subtaskId}"]`);
+            const item = row ? row.closest('.subtask-item') : null;
+            if (item) item.classList.add('provisional');
+
+            try {
+                await api(`/subtasks/${subtaskId}/research`, { method: 'POST' });
+                await loadSubtasks(taskId);
+                renderView();
+                refreshBudget();
+            } catch (err) {
+                if (item) item.classList.remove('provisional');
+                showToast(/402|over_budget/.test(err.message)
+                    ? 'This board has spent its monthly AI budget'
+                    : 'Research failed');
+            }
+        }
+
+        // ============================================
+        // AI BUDGET (per board, per month)
+        // ============================================
+        async function refreshBudget() {
+            if (!currentProject) return;
+            try {
+                boardBudget = await api(`/projects/${currentProject.id}/budget`);
+            } catch (e) {
+                boardBudget = null;
+            }
+            renderBudgetBar();
+        }
+
+        function renderBudgetBar() {
+            const el = document.getElementById('budgetBar');
+            if (!el) return;
+            if (!boardBudget || viewMode !== 'calendar') {
+                el.innerHTML = '';
+                return;
+            }
+            const spent = boardBudget.spent_usd || 0;
+            const budget = boardBudget.budget_usd || 0;
+            const over = spent >= budget;
+            el.className = 'budget-bar' + (over ? ' over' : '');
+            el.innerHTML = `<span>AI research: $${spent.toFixed(2)} of $${budget} this month</span>`
+                + `<button id="budgetEditBtn">${over ? 'Raise budget' : 'Change'}</button>`;
+            document.getElementById('budgetEditBtn').addEventListener('click', editBudget);
+        }
+
+        async function editBudget() {
+            const current = boardBudget ? boardBudget.budget_usd : 5;
+            const answer = prompt('Monthly AI budget for this board, in whole dollars:', String(current));
+            if (answer === null) return;
+            const dollars = parseInt(answer, 10);
+            if (!Number.isFinite(dollars) || dollars < 0) {
+                showToast('Enter a whole number of dollars');
+                return;
+            }
+            try {
+                boardBudget = await api(`/projects/${currentProject.id}/budget`, {
+                    method: 'PUT',
+                    body: { budget_usd: dollars }
+                });
+                renderBudgetBar();
+                showToast(`Budget set to $${dollars}/month`);
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
         }
 
         async function assignSubtask(subtaskId, taskId, toUserId) {
@@ -2991,6 +3229,7 @@
             // Any re-render replaces the rows, so a deferred priority sort has
             // nothing left to wait for — drop the pointer at its stale node.
             pendingPriorityRow = null;
+            renderBudgetBar();
             if (viewMode === 'master') {
                 document.getElementById('board').style.display = 'none';
                 document.getElementById('masterContainer').style.display = 'flex';
@@ -3605,11 +3844,20 @@
                 });
             });
 
-            // Send-agent button (placeholder behavior — wires real dispatch later)
+            // ↑ promote a step onto the board as a real task
+            document.querySelectorAll('.subtask-promote[data-promote-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    promoteSubtask(parseInt(btn.dataset.promoteId), parseInt(btn.dataset.taskId));
+                });
+            });
+
+            // → research this one step (the whole-task pass already ran; this is
+            // for the step the user actually cares about)
             document.querySelectorAll('.subtask-send[data-subtask-id]:not(.subtask-up)').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    showToast('Agent dispatched');
+                    researchSubtask(parseInt(btn.dataset.subtaskId), parseInt(btn.dataset.taskId));
                 });
             });
 
@@ -4181,6 +4429,19 @@
         // ============================================
         // RENDER SUBTASK PANE
         // ============================================
+        // Phase-2 status line under the rows: either "researching" while the
+        // provisional rows are being refined, or a one-line nudge when the board
+        // has spent its monthly budget and research was skipped.
+        function researchNote(taskId, rows) {
+            if (rows.some(st => st.provisional)) {
+                return `<div class="subtask-researching"><div class="dot-pulse"><span></span><span></span><span></span></div>Researching these\u2026</div>`;
+            }
+            if (taskResearchStatus.get(taskId) === 'over_budget') {
+                return `<div class="subtask-budget-note">Drafted without research \u2014 this board has spent its monthly AI budget. Raise it under the board to research steps.</div>`;
+            }
+            return '';
+        }
+
         function renderSubtaskPane(taskId, taskTitle, dayName) {
             const isGenerating = generatingSubtasksFor === taskId;
             const subtasks = taskSubtasks.get(taskId) || [];
@@ -4204,12 +4465,19 @@
                 const emojiEl = isAssigned
                     ? `<span class="subtask-emoji assigned">${emoji}</span>`
                     : `<span class="subtask-emoji" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Assign this step">${emoji}</span>`;
+                // Promote-to-board. Withheld on list-pane suggestions, where \u2191
+                // already means "move to my list" — two arrows, two meanings, one
+                // pane would be indefensible.
+                const promoteBtn = (!moveUp && !isAssigned)
+                    ? `<button class="subtask-send subtask-promote" data-promote-id="${st.id}" data-task-id="${taskId}" title="Move this onto the board">&uarr;</button>`
+                    : '';
 
                 return `
-                    <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''}">
+                    <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''} ${st.provisional ? 'provisional' : ''}">
                         <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
                         ${emojiEl}
                         <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifyText(st.description)}</div>
+                        ${promoteBtn}
                         ${sendBtn}
                     </div>
                 `;
@@ -4257,7 +4525,7 @@
                     : '';
 
                 const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate suggestions">&orarr;</button>`;
-                content = `${regenAll}${header}<div class="quick-list-title">My list</div><div class="subtask-list">${mineRows}</div>${slots}${suggestionSection}`;
+                content = `${regenAll}${header}<div class="quick-list-title">My list</div><div class="subtask-list">${mineRows}</div>${slots}${suggestionSection}${researchNote(taskId, suggestions)}`;
             } else {
                 // Completed steps disappear from the pane (server keeps them for the List-view progress count).
                 const pending = subtasks.filter(st => !st.completed);
@@ -4266,7 +4534,7 @@
 
                 const list = pending.length ? `<div class="subtask-list">${rows}</div>` : '';
                 const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate all steps">&orarr;</button>`;
-                content = `${regenAll}${header}${list}<input type="text" class="subtask-input" data-task-id="${taskId}" placeholder="Add a step...">`;
+                content = `${regenAll}${header}${list}${researchNote(taskId, pending)}<input type="text" class="subtask-input" data-task-id="${taskId}" placeholder="Add a step...">`;
             }
 
             return `

@@ -98,6 +98,12 @@ function projectSlugFrom(name) {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 30) || 'project';
 }
 
+// "list ..." tasks get a different pane and a different prompt (see ai.js).
+const LIST_TASK_RE = /^list\b/i;
+
+// A subtask pane holds at most this many visible rows.
+const MAX_SUBTASKS = 7;
+
 // Day capacity: max pending tasks per (owner, project) per day.
 const MAX_TASKS_PER_DAY = 10;
 
@@ -1274,6 +1280,40 @@ app.delete('/api/tasks/:taskId', (req, res) => {
 // SUBTASK ROUTES
 // ============================================
 
+// A board's AI budget and what it has spent this month.
+app.get('/api/projects/:projectId/budget', (req, res) => {
+  const { projectId } = req.params;
+  const project = queryOne('SELECT id FROM projects WHERE id = ?', [projectId]);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  res.json({
+    month: monthKey(),
+    budget_usd: budgetUsd(projectId),
+    spent_usd: monthSpendUsd(projectId)
+  });
+});
+
+// Whole dollars only — a cents-level budget control is a decision the app is
+// supposed to be saving people from.
+app.put('/api/projects/:projectId/budget', (req, res) => {
+  const { projectId } = req.params;
+  const budget = parseInt(req.body.budget_usd, 10);
+
+  if (!Number.isFinite(budget) || budget < 0 || budget > 1000) {
+    return res.status(400).json({ error: 'budget_usd must be a whole number of dollars, 0-1000' });
+  }
+
+  const project = queryOne('SELECT id FROM projects WHERE id = ?', [projectId]);
+  if (!project) return res.status(404).json({ error: 'Project not found' });
+
+  runSql('UPDATE projects SET ai_budget_usd = ? WHERE id = ?', [budget, projectId]);
+  res.json({
+    month: monthKey(),
+    budget_usd: budget,
+    spent_usd: monthSpendUsd(projectId)
+  });
+});
+
 // Get subtasks for a task
 app.get('/api/tasks/:taskId/subtasks', (req, res) => {
   const { taskId } = req.params;
@@ -1283,7 +1323,7 @@ app.get('/api/tasks/:taskId/subtasks', (req, res) => {
 
   const subtasks = queryAll(`
     SELECT id, task_id, parent_subtask_id, description, assignee_type,
-           assigned_to, assigned_by, sort_order, completed, completed_at,
+           assigned_to, assigned_by, sort_order, provisional, completed, completed_at,
            created_at, updated_at
     FROM subtasks
     WHERE task_id = ?
@@ -1425,6 +1465,94 @@ app.delete('/api/subtasks/:subtaskId', (req, res) => {
   }
 });
 
+// Promote a subtask onto the board as a real task.
+// It lands on the PARENT TASK's day, not today: the pane may be hanging under
+// next Tuesday because that is when the user is planning to do this. The row is
+// then deleted — it is a task now, and its departure is what frees a slot in
+// the pane's 7.
+app.post('/api/subtasks/:subtaskId/promote', (req, res) => {
+  const { subtaskId } = req.params;
+
+  const subtask = queryOne('SELECT * FROM subtasks WHERE id = ?', [subtaskId]);
+  if (!subtask) return res.status(404).json({ error: 'Subtask not found' });
+
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [subtask.task_id]);
+  if (!task) return res.status(404).json({ error: 'Parent task not found' });
+
+  try {
+    const date = findDayWithCapacity({
+      ownerId: task.owner_id,
+      projectId: task.project_id,
+      requestedDate: task.scheduled_date
+    });
+
+    const result = runSql(
+      `INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date, origin_date)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [task.company_id, task.owner_id, task.project_id, subtask.description, date, date]
+    );
+
+    // Dependents would be orphaned pointing at a row that no longer exists;
+    // ON DELETE CASCADE removes them, so lift them up to this row's parent first.
+    runSql('UPDATE subtasks SET parent_subtask_id = ? WHERE parent_subtask_id = ?',
+      [subtask.parent_subtask_id || null, subtaskId]);
+    runSql('DELETE FROM subtasks WHERE id = ?', [subtaskId]);
+
+    res.status(201).json({
+      task: queryOne('SELECT * FROM tasks WHERE id = ?', [result.lastInsertRowid]),
+      scheduled_date: date
+    });
+  } catch (err) {
+    console.error('Error promoting subtask:', err);
+    res.status(500).json({ error: 'Failed to promote subtask' });
+  }
+});
+
+// Research one subtask on demand — what the → arrow on an AI row now does.
+// Same machinery as the whole-task pass, scoped to a single row.
+app.post('/api/subtasks/:subtaskId/research', async (req, res) => {
+  const { subtaskId } = req.params;
+
+  const subtask = queryOne('SELECT * FROM subtasks WHERE id = ?', [subtaskId]);
+  if (!subtask) return res.status(404).json({ error: 'Subtask not found' });
+
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [subtask.task_id]);
+  if (!task) return res.status(404).json({ error: 'Parent task not found' });
+
+  if (!aiKeyAllows(req) || !aiBudgetAllows(req.ip)) {
+    return res.status(403).json({ error: 'AI is not available on this board' });
+  }
+  if (!researchAllowed(task.project_id)) {
+    return res.status(402).json({
+      error: 'over_budget',
+      spent: monthSpendUsd(task.project_id),
+      budget: budgetUsd(task.project_id)
+    });
+  }
+
+  try {
+    const ai = require('./ai');
+    const results = await ai.researchSubtasks(task.description, [subtask.description], {
+      location: locationForUser(task.owner_id),
+      kind: LIST_TASK_RE.test(task.description || '') ? 'item' : 'step'
+    });
+    recordUsage(task.project_id, subtask.task_id, 'research', ai.takeUsage());
+
+    const r = results[0];
+    const live = queryOne('SELECT id FROM subtasks WHERE id = ?', [subtaskId]);
+    if (!live) return res.status(404).json({ error: 'Subtask no longer exists' });
+
+    const replace = r.illogical && r.replacement && r.confidence >= RESEARCH_REPLACE_CONFIDENCE;
+    runSql('UPDATE subtasks SET description = ?, provisional = 0, updated_at = ? WHERE id = ?',
+      [replace ? r.replacement : r.refined, new Date().toISOString(), subtaskId]);
+
+    res.json(queryOne('SELECT * FROM subtasks WHERE id = ?', [subtaskId]));
+  } catch (err) {
+    console.error('Error researching subtask:', err);
+    res.status(500).json({ error: 'Research failed' });
+  }
+});
+
 // Assign a subtask to a user
 app.post('/api/subtasks/:subtaskId/assign', (req, res) => {
   const { subtaskId } = req.params;
@@ -1510,6 +1638,116 @@ app.post('/api/subtasks/:subtaskId/return', (req, res) => {
 //     serve mock subtasks instead (no API spend, no error).
 const AI_ACCESS_KEY = process.env.AI_ACCESS_KEY || '';
 
+// ============================================================
+// AI SPEND — per-board monthly budget
+// ============================================================
+// Two different limits guard AI spend and they are not interchangeable:
+// AI_LIMIT_* below are abuse brakes on a public deployment (per IP, per day),
+// while this budget is the board owner's own dollar cap on RESEARCH. Phase 1
+// subtask generation is never blocked by the budget — a task the user just
+// typed must always come back with something — so an exhausted board still
+// drafts steps, it just stops researching them and says so.
+const DEFAULT_BUDGET_USD = 5;
+// Replace a drafted step only when the model is genuinely sure it is wrong.
+// The user is already looking at that row; swapping it out on a hunch is worse
+// than leaving a merely-vague step in place.
+const RESEARCH_REPLACE_CONFIDENCE = 0.8;
+
+function monthKey() {
+  return new Date().toISOString().slice(0, 7);
+}
+
+function budgetUsd(projectId) {
+  const row = queryOne('SELECT ai_budget_usd FROM projects WHERE id = ?', [projectId]);
+  return row && row.ai_budget_usd != null ? row.ai_budget_usd : DEFAULT_BUDGET_USD;
+}
+
+function monthSpendUsd(projectId) {
+  const row = queryOne(
+    'SELECT SUM(cost_usd) AS total FROM ai_usage WHERE project_id = ? AND month = ?',
+    [projectId, monthKey()]
+  );
+  return (row && row.total) || 0;
+}
+
+function recordUsage(projectId, taskId, kind, usage) {
+  if (!usage) return;
+  runSql(
+    `INSERT INTO ai_usage (project_id, task_id, month, kind, model, input_tokens, output_tokens, web_searches, cost_usd)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    [projectId || null, taskId || null, monthKey(), kind, usage.model || null,
+     usage.input_tokens || 0, usage.output_tokens || 0, usage.web_searches || 0, usage.cost_usd || 0]
+  );
+}
+
+// Research is billed to a board. Calendar rows carry project_id = NULL and so
+// have nothing to bill; they are never researched.
+function researchAllowed(projectId) {
+  if (projectId == null) return false;
+  return monthSpendUsd(projectId) < budgetUsd(projectId);
+}
+
+// web_search takes an approximate user_location. The only location this app
+// knows is the IANA zone captured when a calendar feed was connected, which is
+// enough to localize "stores near me" without asking for an address.
+function locationForUser(userId) {
+  const feed = queryOne('SELECT timezone FROM calendar_feeds WHERE user_id = ?', [userId]);
+  return feed && feed.timezone ? { timezone: feed.timezone } : null;
+}
+
+// Phase 2. Fire-and-forget: rewrites this task's provisional rows in place with
+// researched text and clears the flag. Never adds, removes or reorders rows —
+// each result is matched back by index to the row it came from, and any row the
+// user ticked or promoted meanwhile is re-checked and skipped.
+async function runResearch(taskId) {
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
+  if (!task) return;
+
+  const rows = queryAll(
+    'SELECT id, description FROM subtasks WHERE task_id = ? AND provisional = 1 AND completed = 0 ORDER BY sort_order, id',
+    [taskId]
+  );
+  if (!rows.length) return;
+
+  runSql(`UPDATE tasks SET research_status = 'running' WHERE id = ?`, [taskId]);
+  flushDb();
+
+  try {
+    const ai = require('./ai');
+    const results = await ai.researchSubtasks(
+      task.description,
+      rows.map(r => r.description),
+      { location: locationForUser(task.owner_id), kind: LIST_TASK_RE.test(task.description || '') ? 'item' : 'step' }
+    );
+    recordUsage(task.project_id, taskId, 'research', ai.takeUsage());
+
+    const now = new Date().toISOString();
+    results.forEach((r, i) => {
+      const row = rows[i];
+      // Re-read: the search took a while, and the user may have ticked this row
+      // off or promoted it to the board while we were out.
+      const live = queryOne('SELECT id FROM subtasks WHERE id = ? AND provisional = 1 AND completed = 0', [row.id]);
+      if (!live) return;
+      const replace = r.illogical && r.replacement && r.confidence >= RESEARCH_REPLACE_CONFIDENCE;
+      runSql('UPDATE subtasks SET description = ?, provisional = 0, updated_at = ? WHERE id = ?',
+        [replace ? r.replacement : r.refined, now, row.id]);
+    });
+
+    runSql(`UPDATE tasks SET research_status = 'done' WHERE id = ?`, [taskId]);
+  } catch (err) {
+    console.error(`Research failed for task ${taskId}:`, err.message);
+    // Clear the flag on failure or the rows stay greyed forever and the
+    // frontend keeps polling for a result that is never coming.
+    runSql('UPDATE subtasks SET provisional = 0 WHERE task_id = ? AND provisional = 1', [taskId]);
+    runSql(`UPDATE tasks SET research_status = 'failed' WHERE id = ?`, [taskId]);
+  }
+
+  // Same trap as the calendar sync: res.on('finish', flushDb) already fired for
+  // the request that started this, so these writes have nothing scheduled to
+  // persist them.
+  flushDb();
+}
+
 function aiKeyAllows(req) {
   if (!AI_ACCESS_KEY) return true;
   const given = Buffer.from(String(req.get('x-ai-key') || ''));
@@ -1542,17 +1780,45 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
-  // "list ..." tasks play Family Feud: AI answers live alongside the user's own
-  // quick-list items, so regeneration must only replace the AI's rows.
-  const isListTask = /^list\b/i.test(task.description || '');
+  const isListTask = LIST_TASK_RE.test(task.description || '');
+
+  const fullSet = () => queryAll(`
+    SELECT id, task_id, parent_subtask_id, description, assignee_type,
+           assigned_to, assigned_by, sort_order, provisional, completed, completed_at,
+           created_at, updated_at
+    FROM subtasks WHERE task_id = ?
+    ORDER BY sort_order, created_at
+  `, [taskId]);
+
+  // Regenerating TOPS UP an ordinary pane instead of wiping it: every pending
+  // row the user kept survives, and only the empty slots are refilled, so the
+  // visible total never exceeds MAX_SUBTASKS. Ticking a step off is what buys a
+  // fresh suggestion — which is also the only way to free a slot, since there is
+  // deliberately no delete affordance on a subtask row.
+  // A list pane is different: "My list" and "Suggestions" are separate sections,
+  // so capping the two together would starve suggestions. Its AI rows are still
+  // replaced wholesale and the user's own items still survive.
+  let need = MAX_SUBTASKS;
+  let kept = [];
+  let startOrder = 0;
+
   if (isListTask) {
     runSql(`DELETE FROM subtasks WHERE task_id = ? AND assignee_type = 'ai'`, [taskId]);
   } else {
-    runSql('DELETE FROM subtasks WHERE task_id = ?', [taskId]);
+    kept = queryAll(
+      'SELECT description, sort_order FROM subtasks WHERE task_id = ? AND completed = 0 ORDER BY sort_order, id',
+      [taskId]
+    );
+    need = MAX_SUBTASKS - kept.length;
+    if (need <= 0) return res.status(200).json({ subtasks: fullSet(), research_status: task.research_status, full: true });
   }
+
+  const maxOrder = queryOne('SELECT MAX(sort_order) AS m FROM subtasks WHERE task_id = ?', [taskId]);
+  startOrder = (maxOrder && maxOrder.m != null) ? maxOrder.m + 1 : 0;
 
   try {
     let subtaskList;
+    let usedRealAi = false;
 
     // Try AI generation if available (and the caller is allowed to spend)
     try {
@@ -1564,53 +1830,49 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
         subtaskList = generateMockSubtasks(task.description);
       } else {
         const ai = require('./ai');
-        subtaskList = await ai.generateSubtasks(task.description);
+        subtaskList = await ai.generateSubtasks(task.description, {
+          count: need,
+          existing: kept.map(k => k.description)
+        });
+        usedRealAi = true;
+        recordUsage(task.project_id, taskId, 'draft', ai.takeUsage());
       }
     } catch (e) {
       // Fall back to mock
       console.error('AI subtask generation failed, falling back to mock:', e.message);
       subtaskList = generateMockSubtasks(task.description);
+      usedRealAi = false;
     }
 
-    subtaskList = subtaskList.slice(0, 7);
+    subtaskList = subtaskList.slice(0, need);
     if (isListTask) {
       subtaskList = subtaskList.map(st => ({ description: st.description, assignee_type: 'ai' }));
     }
 
-    const created = [];
+    // Phase 1 rows are marked provisional only when phase 2 is actually going to
+    // run. Mock rows and over-budget boards produce final text, and greying out
+    // something that will never be refined just reads as broken.
+    const overBudget = usedRealAi && !researchAllowed(task.project_id);
+    const willResearch = usedRealAi && !overBudget;
+
     subtaskList.forEach((st, i) => {
-      const result = runSql(
-        `INSERT INTO subtasks (task_id, parent_subtask_id, description, assignee_type, sort_order)
-         VALUES (?, ?, ?, ?, ?)`,
-        [taskId, st.parent_subtask_id || null, st.description, st.assignee_type || 'human', i]
+      runSql(
+        `INSERT INTO subtasks (task_id, parent_subtask_id, description, assignee_type, sort_order, provisional)
+         VALUES (?, ?, ?, ?, ?, ?)`,
+        [taskId, st.parent_subtask_id || null, st.description, st.assignee_type || 'human',
+         startOrder + i, willResearch ? 1 : 0]
       );
-      created.push({
-        id: result.lastInsertRowid,
-        task_id: parseInt(taskId),
-        parent_subtask_id: st.parent_subtask_id || null,
-        description: st.description,
-        assignee_type: st.assignee_type || 'human',
-        assigned_to: null,
-        assigned_by: null,
-        sort_order: i,
-        completed: 0,
-        completed_at: null
-      });
     });
 
-    // List tasks kept the user's own quick-list rows — return the full set so the
-    // frontend (which replaces its cache with this response) doesn't lose them.
-    if (isListTask) {
-      return res.status(201).json(queryAll(`
-        SELECT id, task_id, parent_subtask_id, description, assignee_type,
-               assigned_to, assigned_by, sort_order, completed, completed_at,
-               created_at, updated_at
-        FROM subtasks WHERE task_id = ?
-        ORDER BY sort_order, created_at
-      `, [taskId]));
-    }
+    const status = overBudget ? 'over_budget' : (willResearch ? 'running' : null);
+    runSql('UPDATE tasks SET research_status = ? WHERE id = ?', [status, taskId]);
 
-    res.status(201).json(created);
+    res.status(201).json({ subtasks: fullSet(), research_status: status });
+
+    // Phase 2 runs behind the response — the user already has something to read.
+    if (willResearch) {
+      runResearch(taskId).catch(err => console.error('Research dispatch failed:', err.message));
+    }
   } catch (err) {
     console.error('Error generating subtasks:', err);
     res.status(500).json({ error: 'Failed to generate subtasks' });
@@ -1922,6 +2184,19 @@ app.get('/health', (req, res) => {
 // completing began severing links). Data completed before that change can
 // still carry parent_task_id or have children pointing at it — splice each
 // out until clean, so old boards heal on deploy.
+// A process restart mid-research leaves rows flagged provisional with nothing
+// left running to clear them: they would render greyed forever and the frontend
+// would poll for a result that died with the old process.
+function repairInterruptedResearch() {
+  const stuck = queryAll(`SELECT id FROM tasks WHERE research_status = 'running'`);
+  if (!stuck.length) return;
+  stuck.forEach(t => {
+    runSql('UPDATE subtasks SET provisional = 0 WHERE task_id = ? AND provisional = 1', [t.id]);
+    runSql(`UPDATE tasks SET research_status = 'failed' WHERE id = ?`, [t.id]);
+  });
+  console.log(`Cleared ${stuck.length} interrupted research job(s)`);
+}
+
 function repairCompletedChainLinks() {
   let total = 0;
   for (let pass = 0; pass < 25; pass++) {
@@ -1951,6 +2226,7 @@ function repairCompletedChainLinks() {
 // Initialize database and start server
 initDb().then(() => {
   repairCompletedChainLinks();
+  repairInterruptedResearch();
   app.listen(PORT, () => {
     console.log(`Move Along API running on port ${PORT}`);
     console.log(`Health check: http://localhost:${PORT}/health`);

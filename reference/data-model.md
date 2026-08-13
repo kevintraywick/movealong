@@ -33,6 +33,7 @@
 | locked         | INTEGER  | 0 or 1; pinned to scheduled_date, exempt from spillover |
 | priority       | INTEGER  | 0 = none, 1-3 = blue exclamation marks (3 = most urgent). Clamped to 0-3 server-side. Sorts the pending list highest-first; never affects dates, spillover, or capacity |
 | repeat_rule    | TEXT     | NULL (one-off) or `'daily'` / `'weekly'` / `'monthly'`. Only ever ONE instance of a repeating task exists — completing it inserts the next at +1 day / +7 days / +1 month (end-of-month clamped). The new row inherits `locked`, `priority`, `project_id` and the rule, but never `parent_task_id`. Cleared by assign/return; refused on `source = 'calendar'` rows |
+| research_status| TEXT     | NULL (never researched) / `'running'` / `'done'` / `'failed'` / `'over_budget'`. Phase 2 of subtask generation. Cleared to `'failed'` on boot for anything left `'running'` by a restart |
 | source         | TEXT     | `'user'` (default) or `'calendar'`. Calendar rows are mirrored from the user's iCal feed |
 | external_uid   | TEXT     | Calendar rows only: the ICS `UID` + `#` + the instance's date key. A recurring event's every instance shares one UID, so UID alone is not unique. This is the reconciliation key |
 | event_start    | TEXT     | Calendar rows only: local `HH:MM`, for the row's time chip and intra-day ordering |
@@ -40,6 +41,37 @@
 | completed_at   | DATETIME | nullable         |
 | created_at     | DATETIME | auto             |
 | updated_at     | DATETIME | auto             |
+
+## subtasks
+
+Steps under a task. Only the columns that carry non-obvious behaviour:
+
+| Column | Type | Notes |
+|---|---|---|
+| assignee_type | TEXT | `'human'` (👩) or `'ai'` (🧠). On a "list …" task this also splits the pane: `'human'` rows are the user's quick list, `'ai'` rows are Suggestions |
+| parent_subtask_id | INTEGER | FK → subtasks, ON DELETE CASCADE. Dependents render indented. Promoting a row lifts its dependents to its own parent first, or the cascade would destroy them |
+| provisional | INTEGER | 0 or 1. Set by phase 1 **only when phase 2 will actually run**; the research pass rewrites the row in place and clears it. Renders greyed. Cleared on research failure and on boot, or rows stay greyed forever and the frontend polls for a result that is never coming |
+| completed | INTEGER | Completed rows leave the pane (the server keeps them for the List view's n/m count). There is no delete affordance, so ticking a step off is the only way to free one of the pane's 7 slots |
+
+## ai_usage
+
+One row per billed Anthropic call, so a board's monthly spend can be audited
+rather than merely counted.
+
+| column | type | notes |
+|---|---|---|
+| id | INTEGER PK | |
+| project_id | INTEGER | FK projects, ON DELETE CASCADE. The board being billed. |
+| task_id | INTEGER | Which task the call was for. |
+| month | TEXT | `YYYY-MM`; the monthly SUM keys off this with `idx_ai_usage_month`. |
+| kind | TEXT | `'draft'` (phase 1) or `'research'` (phase 2). |
+| model | TEXT | |
+| input_tokens / output_tokens | INTEGER | Includes cache reads/creates. |
+| web_searches | INTEGER | From `usage.server_tool_use.web_search_requests`, billed at $10/1000. |
+| cost_usd | REAL | Computed from the rates in `ai.js`. |
+
+`projects.ai_budget_usd` (whole dollars, default 5) is the monthly cap this is
+summed against. It gates **research only** — phase 1 drafting always runs.
 
 ## calendar_feeds
 One subscribed iCal feed per user (`user_id` is UNIQUE).

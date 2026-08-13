@@ -7,6 +7,42 @@ if (!ANTHROPIC_API_KEY) {
 // "list ..." tasks get concrete candidate items for the list instead of action steps.
 const LIST_TASK_RE = /^list\b/i;
 
+const MODEL = 'claude-sonnet-5';
+
+// Published rates, used only to meter spend against a board's monthly budget.
+// Verify against platform.claude.com/docs pricing if the numbers ever look off —
+// nothing here reads a live price list.
+const USD_PER_INPUT_TOKEN = 3 / 1_000_000;
+const USD_PER_OUTPUT_TOKEN = 15 / 1_000_000;
+const USD_PER_WEB_SEARCH = 10 / 1000;
+
+// The metering side-channel. Every call overwrites this and the caller reads it
+// immediately afterwards; the alternative was changing both return shapes, and
+// generateSubtasks' array return is consumed in several places.
+let lastUsage = null;
+
+function meterUsage(data) {
+  const u = (data && data.usage) || {};
+  const input = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+  const output = u.output_tokens || 0;
+  const searches = (u.server_tool_use && u.server_tool_use.web_search_requests) || 0;
+  return {
+    model: MODEL,
+    input_tokens: input,
+    output_tokens: output,
+    web_searches: searches,
+    cost_usd: input * USD_PER_INPUT_TOKEN
+            + output * USD_PER_OUTPUT_TOKEN
+            + searches * USD_PER_WEB_SEARCH
+  };
+}
+
+function takeUsage() {
+  const u = lastUsage;
+  lastUsage = null;
+  return u;
+}
+
 function buildPrompt(taskDescription) {
   if (LIST_TASK_RE.test(taskDescription)) {
     return `You are the AI assistant in a task app. The user created a list task: "${taskDescription}".
@@ -51,7 +87,22 @@ Return ONLY a JSON array. Example:
 ]`;
 }
 
-async function generateSubtasks(taskDescription) {
+// Regenerating a pane tops it back up to 7 rather than wiping it, so the model
+// has to be told what is already there or it just re-proposes the same steps.
+function topUpClause(count, existing) {
+  if (!existing || !existing.length) return '';
+  return `
+
+The user has KEPT these steps — do not repeat, rephrase, or overlap with them:
+${existing.map(d => `- ${d}`).join('\n')}
+
+Return exactly ${count} NEW step(s) that fit alongside those, not a fresh list.`;
+}
+
+async function generateSubtasks(taskDescription, opts = {}) {
+  const { count, existing } = opts;
+  const prompt = buildPrompt(taskDescription) + topUpClause(count, existing);
+
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     // A hung API call would otherwise hold the HTTP request open forever.
@@ -62,12 +113,9 @@ async function generateSubtasks(taskDescription) {
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: 'claude-sonnet-5',
+      model: MODEL,
       max_tokens: 2048,
-      messages: [{
-        role: 'user',
-        content: buildPrompt(taskDescription)
-      }]
+      messages: [{ role: 'user', content: prompt }]
     })
   });
 
@@ -76,6 +124,7 @@ async function generateSubtasks(taskDescription) {
   }
 
   const data = await response.json();
+  lastUsage = meterUsage(data);
   const textBlock = data.content.find(block => block.type === 'text');
   if (!textBlock) throw new Error('No text block in response');
   const text = textBlock.text;
@@ -102,4 +151,111 @@ async function generateSubtasks(taskDescription) {
   }));
 }
 
-module.exports = { generateSubtasks };
+
+// ============================================================
+// PHASE 2 — RESEARCH
+// ============================================================
+// Phase 1 gives the user something to think about within seconds, reasoning
+// only. This pass runs behind it with real web search and rewrites those rows
+// in place. It never adds, removes or reorders steps: it returns exactly one
+// verdict per input row, matched by index, so a row the user completed or
+// promoted while it was running is simply skipped by the caller.
+function buildResearchPrompt(taskDescription, steps, location, kind = 'step') {
+  const where = location && (location.city || location.region || location.country)
+    ? `\n\nThe user is near ${[location.city, location.region, location.country].filter(Boolean).join(', ')} — prefer local options, stores and services where it matters.`
+    : '';
+
+  return `A task app drafted these ${kind}s for the task "${taskDescription}" using reasoning alone, with no research. Your job is to make them real.
+
+The drafted ${kind}s:
+${steps.map((d, i) => `${i}. ${d}`).join('\n')}
+
+Search the web and return an improved version of EVERY ${kind}, in the same order.
+
+For each step return an object with:
+- "refined": the same ${kind}, same intent, rewritten with what you actually found — real prices, real product or place names, working URLs. Under 14 words before any link. No mini-labels like "Research:" or "Decision:".
+- "illogical": true only if the drafted ${kind} genuinely does not make sense for this task — wrong domain, impossible ordering, assumes something false. Ordinary vagueness is NOT illogical; refine it instead.
+- "confidence": 0.0-1.0, how sure you are that it is illogical. Only set this meaningfully when "illogical" is true.
+- "replacement": when "illogical" is true, the ${kind} that SHOULD be there instead — same research standard as "refined".
+
+Be conservative with "illogical". Most drafted ${kind}s are merely vague, and the user has already read them; replacing one they are looking at is disruptive, so only flag a ${kind} you would defend.${where}
+
+Return ONLY a JSON array of exactly ${steps.length} objects, in the same order as the drafted ${kind}s. Example shape:
+[{"refined": "Order 6ft cedar pickets, $4.28 each (homedepot.com/s/cedar%20picket)", "illogical": false, "confidence": 0, "replacement": null}]`;
+}
+
+async function researchSubtasks(taskDescription, steps, opts = {}) {
+  const { location, maxSearches = 5, kind = 'step' } = opts;
+
+  const messages = [{ role: 'user', content: buildResearchPrompt(taskDescription, steps, location, kind) }];
+  const totals = { model: MODEL, input_tokens: 0, output_tokens: 0, web_searches: 0, cost_usd: 0 };
+  let data = null;
+
+  // A long search turn can come back as stop_reason "pause_turn"; the documented
+  // continuation is to send the assistant message back unchanged. Bounded, so a
+  // pathological turn cannot bill forever.
+  for (let attempt = 0; attempt < 4; attempt++) {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      signal: AbortSignal.timeout(120000),
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': ANTHROPIC_API_KEY,
+        'anthropic-version': '2023-06-01'
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        max_tokens: 4096,
+        messages,
+        tools: [{
+          type: 'web_search_20250305',
+          name: 'web_search',
+          max_uses: maxSearches,
+          ...(location ? { user_location: { type: 'approximate', ...location } } : {})
+        }]
+      })
+    });
+
+    if (!response.ok) throw new Error(`Claude API error: ${response.status}`);
+    data = await response.json();
+
+    const used = meterUsage(data);
+    totals.input_tokens += used.input_tokens;
+    totals.output_tokens += used.output_tokens;
+    totals.web_searches += used.web_searches;
+    totals.cost_usd += used.cost_usd;
+
+    if (data.stop_reason !== 'pause_turn') break;
+    // Send the paused assistant message back verbatim — encrypted_content in the
+    // search results must survive untouched or the next call 400s.
+    messages.push({ role: 'assistant', content: data.content });
+  }
+
+  lastUsage = totals;
+
+  const textBlock = [...data.content].reverse().find(block => block.type === 'text');
+  if (!textBlock) throw new Error('No text block in research response');
+  const jsonMatch = textBlock.text.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) throw new Error('No JSON array in research response');
+
+  const parsed = JSON.parse(jsonMatch[0]);
+  if (!Array.isArray(parsed)) throw new Error('Research response was not an array');
+
+  // Pad/truncate to the input length so index matching is total — a short
+  // response must not silently shift every later step onto the wrong row.
+  return steps.map((original, i) => {
+    const r = parsed[i] || {};
+    const refined = typeof r.refined === 'string' ? r.refined.trim() : '';
+    const replacement = typeof r.replacement === 'string' ? r.replacement.trim() : '';
+    const confidence = typeof r.confidence === 'number' ? r.confidence : 0;
+    return {
+      original,
+      refined: refined || original,
+      replacement: replacement || null,
+      illogical: r.illogical === true,
+      confidence
+    };
+  });
+}
+
+module.exports = { generateSubtasks, researchSubtasks, takeUsage };

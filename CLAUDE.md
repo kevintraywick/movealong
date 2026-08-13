@@ -43,6 +43,32 @@ Subtasks must be **specific, actionable, and research-backed** — never vague p
 4. **Be domain-specific** — a birdhouse task should mention bird species and wood types, not generic "gather materials".
 5. **AI-assigned subtasks do research** — when an AI agent runs a subtask, it should return concrete options, prices, links, and comparisons — not summaries.
 
+### Two-phase subtasks (draft now, research behind it)
+- Adding a task runs **phase 1**: a fast reasoning-only call that returns 7 steps in seconds, written with `subtasks.provisional = 1` and rendered greyed/italic. The point is to get the user's brain engaged immediately, not to be right yet.
+- **Phase 2 (`runResearch()` in `server.js`) runs behind the HTTP response**, fire-and-forget, using the Anthropic `web_search` tool, and rewrites those rows **in place**. It never adds, removes or reorders steps: results are matched back **by index**, and every row is re-read immediately before writing, so a row the user ticked off or promoted mid-flight is skipped rather than resurrected. This re-check is load-bearing — research takes 15-60s and the user is looking at the pane the whole time.
+- **A step is replaced outright only at ≥ 0.8 confidence** (`RESEARCH_REPLACE_CONFIDENCE`). The model returns `refined` (always) plus `illogical`/`confidence`/`replacement`; the gate lives server-side where it's auditable. Ordinary vagueness is refined, never replaced — swapping out a row the user is currently reading is disruptive, so the bar for it is high.
+- **Provisional is set only when phase 2 will actually run.** Mock rows and over-budget boards produce final text; greying out something that will never be refined reads as broken.
+- **The frontend polls** (`pollResearch()`, 3s, capped ~2 min) while an open pane holds a provisional row — there are no websockets and no queue in this server. Close the pane and research still finishes server-side. `repairInterruptedResearch()` clears the flag on boot, since a restart mid-research would otherwise leave rows greyed forever with nothing left running to clear them.
+- **`runResearch` must call `flushDb()` itself** — same trap as the calendar sync: `res.on('finish', flushDb)` already fired for the request that started it.
+- **The → arrow on an AI row now really works** (`POST /api/subtasks/:id/research`) — it re-researches that one step. It was a placeholder that only toasted "Agent dispatched".
+
+### Keeping the pane at seven
+- **Regenerate (↺) tops up; it does not wipe.** It used to run `DELETE FROM subtasks WHERE task_id = ?` and destroy steps the user typed themselves. Now every pending row survives, only the freed slots are refilled, and the kept steps are shown to the model so it doesn't re-propose them. A full pane returns `full: true` and spends nothing.
+- **There is deliberately no delete affordance on a subtask row**, so **ticking a step off is the only way to free a slot**. The `DELETE /api/subtasks/:id` endpoint exists but nothing in the frontend calls it.
+- **A list pane is exempt from the top-up.** "My list" and "Suggestions" are separate sections, so capping the two together would starve suggestions; its AI rows are still replaced wholesale.
+- **Hover a step and click ↑ to promote it onto the board** as a real task. It lands on the **parent task's day, not today** — the pane may be open under next Tuesday because that's when the user plans to do it — goes through `findDayWithCapacity()`, and leaves the pane, which frees a slot. That's the escape hatch when seven isn't enough.
+  - ↑ is hover-reveal (`.subtask-promote`, the `.task-lock`/`.task-unlink` idiom) because the pane is only as wide as a 200px day card. It is **withheld on list-pane suggestion rows**, where ↑ already means "move to my list" — two arrows with two meanings in one pane would be indefensible.
+  - Promoting lifts any dependents to the row's own parent first; `parent_subtask_id` is `ON DELETE CASCADE`, so skipping that step destroys them.
+
+### AI budget (per board, per month)
+- `projects.ai_budget_usd` — whole dollars, **default $5**, edited from the quiet line under the board (`#budgetBar`). Whole dollars on purpose: a cents-level control is exactly the decision this app exists to save people from.
+- **It gates research only.** Phase 1 always runs — a task the user just typed must always come back with something — so an exhausted board still drafts steps, marks them final, and says so in the pane (`research_status = 'over_budget'`).
+- Spend is metered from the API's own `usage`, **including `server_tool_use.web_search_requests` at $10/1000**, and written one row per call to `ai_usage`. An audit trail, not a counter: the first question anyone asks a budget is where it went. Rates live in one constants block at the top of `ai.js` — nothing reads a live price list, so verify them if the numbers ever look off.
+- Rough unit cost: ~$0.10-0.15 per researched task at `max_uses: 5`, so $5 buys roughly 35-50 of them.
+- **`AI_LIMIT_*` and this budget are not the same thing.** Those are abuse brakes on a public deployment (per IP, per day); this is the owner's own dollar cap on research.
+- `web_search` takes `user_location`; the only location this app knows is the IANA zone captured when a **calendar feed** was connected, which is enough to localize "stores near me" without asking for an address.
+- Calendar rows carry `project_id = NULL` and so have no board to bill — they are never researched.
+
 ### Assignment Flow
 - Clicking the assignee emoji on a subtask assigns it (replaces the old Cmd+Click flow).
 - Once a task is assigned, it is removed from the sender's day pane and project page.

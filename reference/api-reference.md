@@ -282,24 +282,85 @@ explicitly (`locked` drives the red deadline date).
 POST /api/tasks/:taskId/generate-subtasks
 Headers: x-ai-key: <AI_ACCESS_KEY>   (required for real AI only when the
                                       server sets AI_ACCESS_KEY)
-Response: [created subtasks]
+Response: { subtasks: [full ordered set], research_status, full? }
 ```
 
-Replaces the task's subtasks with a fresh AI-generated list, capped at 7
-items (falls back to
-mock subtasks when no `ANTHROPIC_API_KEY` is configured, when the caller
-lacks a valid `x-ai-key` while `AI_ACCESS_KEY` is set, or when rate caps —
-`AI_LIMIT_PER_IP_HOUR`, `AI_LIMIT_GLOBAL_DAY` — are exceeded).
+**Tops the pane up to 7 — it does not wipe it.** Every pending row survives,
+including steps the user typed. Only the slots freed by *completing* a step are
+refilled, and the model is shown the kept steps so it doesn't re-propose them.
+When nothing has been freed the response carries `full: true` and no AI call is
+made. There is deliberately no delete affordance on a subtask row, so ticking a
+step off is the only way to free a slot.
 
-**"list …" tasks** (description matches `/^list\b/i`) behave differently:
-the AI prompt asks for 7 concrete candidate items for the list (not action
-steps), every generated row is forced to `assignee_type: 'ai'`, only rows
-with `assignee_type = 'ai'` are deleted first (the user's own quick-list
-items — `assignee_type 'human'` — are preserved), and the response is the
-task's **full** subtask list rather than just the created rows. The
+Falls back to mock subtasks when no `ANTHROPIC_API_KEY` is configured, when the
+caller lacks a valid `x-ai-key` while `AI_ACCESS_KEY` is set, or when rate caps
+(`AI_LIMIT_PER_IP_HOUR`, `AI_LIMIT_GLOBAL_DAY`) are exceeded.
+
+`research_status` is `null` (nothing to research — mocks), `'running'`
+(phase 2 dispatched) or `'over_budget'`.
+
+**Two-phase generation.** Phase 1 is a fast reasoning-only call; its rows are
+written with `provisional = 1` and render greyed. Phase 2 (`runResearch()`) then
+runs *behind the response* with the `web_search` tool and rewrites those rows in
+place. It never adds, removes or reorders: results are matched back by index, and
+each row is re-read immediately before writing, so a row the user ticked off or
+promoted mid-flight is skipped rather than resurrected. A step is **replaced**
+outright only when the model calls it illogical with confidence ≥ 0.8
+(`RESEARCH_REPLACE_CONFIDENCE`); otherwise it is refined in place.
+
+Phase 1 rows are marked provisional **only when phase 2 will actually run** —
+mock rows and over-budget boards produce final text, since greying out something
+that will never be refined just reads as broken.
+
+**"list …" tasks** (description matches `/^list\b/i`) behave differently: the AI
+prompt asks for 7 concrete candidate items for the list (not action steps), every
+generated row is forced to `assignee_type: 'ai'`, and only rows with
+`assignee_type = 'ai'` are deleted first (the user's own quick-list items are
+preserved). A list pane is **not** topped up — "My list" and "Suggestions" are
+separate sections, so capping the two together would starve suggestions. The
 frontend's ↑ "Move to my list" button flips a suggestion to
-`assignee_type: 'human'` via `PUT /api/subtasks/:id`, which both moves it
-into the quick list and shields it from future regeneration.
+`assignee_type: 'human'` via `PUT /api/subtasks/:id`, which both moves it into
+the quick list and shields it from future regeneration.
+
+### Promote a subtask onto the board
+```
+POST /api/subtasks/:subtaskId/promote
+Response: { task: {...}, scheduled_date }
+```
+
+Creates a real task from the subtask and deletes the subtask row. It lands on the
+**parent task's day**, not today — the pane may be open under next Tuesday
+because that is when the user plans to do this — and goes through
+`findDayWithCapacity()` so it can't blow the 10/day cap. Dependent subtasks are
+lifted to the promoted row's own parent first, since `ON DELETE CASCADE` would
+otherwise destroy them. Its departure is what frees a slot in the pane's 7.
+
+### Research one subtask
+```
+POST /api/subtasks/:subtaskId/research
+Response: { updated subtask }
+402: { error: 'over_budget', spent, budget }
+```
+
+What the → arrow on an AI row does (it used to only toast "Agent dispatched").
+Same machinery as the whole-task pass, scoped to one row, and subject to the same
+0.8 replacement gate and board budget.
+
+### AI budget
+```
+GET /api/projects/:projectId/budget
+PUT /api/projects/:projectId/budget   Body: { budget_usd }
+Response: { month, budget_usd, spent_usd }
+```
+
+A per-board, per-month dollar cap on **research**, defaulting to $5. Whole
+dollars only, 0–1000. Phase 1 generation is never blocked by it — a task the user
+just typed must always come back with something — so an exhausted board still
+drafts steps, it just stops researching them and says so in the pane.
+
+Spend is metered from the API's own `usage` (including
+`server_tool_use.web_search_requests` at $10/1000) and written one row per call
+to `ai_usage`, so a month's spend is an audit trail rather than a bare counter.
 
 ### Calendar feed
 
