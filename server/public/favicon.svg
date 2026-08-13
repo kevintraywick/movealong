@@ -1,5 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <clipPath id="t"><rect width="64" height="64" rx="14.1"/></clipPath>
   <rect width="64" height="64" rx="14.1" fill="rgb(14,165,233)"/>
-  <path d="M 23.4 16.3 L 43.2 32.0 L 23.4 47.7" fill="none" stroke="#ffffff"
-        stroke-width="11.9" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M 25.6 2.6 L 55.0 32.0 L 25.6 61.4" fill="none" stroke="#ffffff" clip-path="url(#t)"
+        stroke-width="16.0" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>

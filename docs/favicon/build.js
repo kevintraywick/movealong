@@ -7,6 +7,14 @@
 // a "»" because the icon has to survive 16px in a browser tab, where anything
 // with two shapes turns to mush.
 //
+// The chevron is deliberately oversized and BLEEDS off both edges: drawn to fit
+// inside the tile it was a thin stroke on a mostly-blue square, which read as a
+// media "next" button. Running it off the edges makes white half the mark
+// instead of a detail. Chosen from eight variants judged at 16px
+// (archive/favicon-variants/, gitignored). Consequence: the chevron now has to
+// be CLIPPED to the rounded square — the raster path gets that free from the
+// tile's alpha, the SVG needs an explicit clipPath.
+//
 // Rasterized here rather than shelling out to a converter so the PNGs can be
 // rebuilt on any machine with nothing but Node. Shapes are defined as signed
 // distance functions and supersampled 4x4 per pixel for antialiasing.
@@ -26,8 +34,10 @@ const WHITE = [255, 255, 255];
 
 // --- geometry, in unit coordinates (0..1) ---------------------------------
 const RADIUS = 0.22;          // rounded-square corner radius
-const CHEVRON = [[0.365, 0.255], [0.675, 0.5], [0.365, 0.745]];
-const STROKE = 0.093;         // half-width of the chevron stroke
+// Apex sits past the right edge and the arms past top and bottom, so all three
+// ends are cut by the tile rather than floating inside it.
+const CHEVRON = [[0.40, 0.04], [0.86, 0.5], [0.40, 0.96]];
+const STROKE = 0.125;         // half-width of the chevron stroke
 
 function roundedRectDist(x, y) {
     // Signed distance to a rounded square inset so the corners have room.
@@ -147,9 +157,11 @@ function encodeIco(size, png) {
 function svg() {
     const s = 64;
     const p = CHEVRON.map(([x, y]) => `${(x * s).toFixed(1)} ${(y * s).toFixed(1)}`);
+    const rx = (RADIUS * s).toFixed(1);
     return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${s} ${s}">
-  <rect width="${s}" height="${s}" rx="${(RADIUS * s).toFixed(1)}" fill="rgb(${BLUE})"/>
-  <path d="M ${p[0]} L ${p[1]} L ${p[2]}" fill="none" stroke="#ffffff"
+  <clipPath id="t"><rect width="${s}" height="${s}" rx="${rx}"/></clipPath>
+  <rect width="${s}" height="${s}" rx="${rx}" fill="rgb(${BLUE})"/>
+  <path d="M ${p[0]} L ${p[1]} L ${p[2]}" fill="none" stroke="#ffffff" clip-path="url(#t)"
         stroke-width="${(STROKE * 2 * s).toFixed(1)}" stroke-linecap="round" stroke-linejoin="round"/>
 </svg>
 `;
