@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Locked tasks don't advance past their due date — MoveAlong animation</title>
+<title>🧠 The assistant — MoveAlong animation</title>
 <style>
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -966,6 +966,116 @@
             60%, 100%{ transform: translate(125px, 112px); opacity: 0; }
         }
 
+        /* --- scene 3c: repeat (10s) ---
+           Cursor hovers a task, an "r" keycap pops, the grey cycle glyph
+           appears — then the task is ticked and the SAME task reappears a
+           month later. The point of the scene is that only one copy ever
+           exists: card A's row goes done exactly as card B's row arrives. */
+        .repeat-frame {
+            position: relative;
+            width: 150px;
+            height: 128px;
+            animation: sceneFade 10s linear infinite;
+        }
+        .repeat-frame .mini-card {
+            position: absolute;
+            left: 0;
+            width: 150px;
+            min-height: 0;
+        }
+        .repeat-card-a { top: 0; }
+        .repeat-card-b { top: 62px; }
+        .repeat-glyph {
+            color: #94a3b8;
+            font-size: 8px;
+            margin-left: 2px;
+            display: inline-block;
+            opacity: 0;
+            animation: repeatGlyphPop 10s ease-out infinite;
+        }
+        @keyframes repeatGlyphPop {
+            0%, 26%   { opacity: 0; transform: scale(0.5); }
+            30%       { opacity: 1; transform: scale(1.35); }
+            34%, 92%  { opacity: 1; transform: scale(1); }
+            96%, 100% { opacity: 0; transform: scale(0.5); }
+        }
+        /* Card A's row goes done: circle fills, text greys out. */
+        .repeat-done-circle {
+            animation: repeatDone 10s ease-out infinite;
+        }
+        @keyframes repeatDone {
+            0%, 46%   { background: transparent; border-color: #cbd5e1; }
+            52%, 92%  { background: #0ea5e9; border-color: #0ea5e9; }
+            96%, 100% { background: transparent; border-color: #cbd5e1; }
+        }
+        .repeat-row-a {
+            animation: repeatRowA 10s ease-out infinite;
+        }
+        @keyframes repeatRowA {
+            0%, 14%   { color: #0f172a; background: #ffffff; }
+            20%, 46%  { color: #0f172a; background: #f0f9ff; }
+            52%, 92%  { color: #94a3b8; background: #ffffff; }
+            96%, 100% { color: #0f172a; background: #ffffff; }
+        }
+        /* Card B — the next instance — arrives as card A's is ticked. */
+        .repeat-card-b {
+            opacity: 0;
+            animation: repeatCardB 10s ease-out infinite;
+        }
+        @keyframes repeatCardB {
+            0%, 50%   { opacity: 0; transform: translateY(6px); }
+            60%, 92%  { opacity: 1; transform: translateY(0); }
+            96%, 100% { opacity: 0; transform: translateY(6px); }
+        }
+        .repeat-key {
+            position: absolute;
+            top: 34px;
+            left: 112px;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: #334155;
+            background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12);
+            opacity: 0;
+            z-index: 3;
+            animation: repeatKeyPop 10s ease-out infinite;
+        }
+        @keyframes repeatKeyPop {
+            0%, 16%   { opacity: 0; transform: translateY(0); box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12); }
+            20%, 23%  { opacity: 1; transform: translateY(0); box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12); }
+            26%, 29%  { opacity: 1; transform: translateY(2.5px); box-shadow: 0 0 0 #cbd5e1, 0 1px 2px rgba(15, 23, 42, 0.10); }
+            32%, 40%  { opacity: 1; transform: translateY(0); box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12); }
+            46%, 100% { opacity: 0; transform: translateY(0); box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12); }
+        }
+        .repeat-cursor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: repeatCursor 10s ease-in-out infinite;
+        }
+        @keyframes repeatCursor {
+            0%        { transform: translate(120px, 112px); opacity: 0; }
+            8%        { transform: translate(120px, 112px); opacity: 1; }
+            18%, 44%  { transform: translate(56px, 30px); opacity: 1; }
+            50%       { transform: translate(20px, 26px); opacity: 1; }
+            56%, 100% { transform: translate(20px, 26px); opacity: 0; }
+        }
+
         /* --- scene 4: held to the past (locked task anchors the board) --- */
         .held-spill {
             position: absolute;
@@ -1357,8 +1467,105 @@
             60%, 100%{ opacity: 0; transform: translate(0, 0); }
         }
 
+
+        /* ---- Calendar import scene ---- */
+        .cal-frame {
+            position: relative;
+            width: 150px;
+            height: 132px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .cal-frame .mini-card { width: 150px; }
+        .cal-switch {
+            position: absolute;
+            top: -2px;
+            right: 0;
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 7px;
+            color: #94a3b8;
+            white-space: nowrap;
+        }
+        .cal-pill {
+            position: relative;
+            width: 16px;
+            height: 9px;
+            border-radius: 5px;
+            background: #cbd5e1;
+            animation: calPill 9s linear infinite;
+        }
+        .cal-knob {
+            position: absolute;
+            top: 1.5px;
+            left: 1.5px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #fff;
+            animation: calKnob 9s linear infinite;
+        }
+        /* Imported events: quiet slate edge, never amber (that means "locked")
+           and never red (reserved for overdue). */
+        .cal-ev {
+            position: absolute;
+            left: 8px;
+            width: 134px;
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            padding: 2px 0 2px 3px;
+            border-left: 1.5px solid #cbd5e1;
+            background: #ffffff;
+            font-size: 7px;
+            color: #475569;
+            opacity: 0;
+        }
+        .cal-mark { font-size: 6px; opacity: 0.55; }
+        .cal-time { font-weight: 700; color: #64748b; }
+        .cal-ev1 { top: 26px; animation: calEv1 9s linear infinite; }
+        .cal-ev2 { top: 41px; animation: calEv2 9s linear infinite; }
+        /* The two ordinary tasks slide down to make room for the events. */
+        .cal-task1 { position: absolute; left: 8px; width: 134px; top: 26px; background:#fff; animation: calTask1 9s linear infinite; }
+        .cal-task2 { position: absolute; left: 8px; width: 134px; top: 41px; background:#fff; animation: calTask2 9s linear infinite; }
+
+        @keyframes calPill {
+            0%, 12%   { background: #cbd5e1; }
+            18%, 92%  { background: #0284c7; }
+            97%, 100% { background: #cbd5e1; }
+        }
+        @keyframes calKnob {
+            0%, 12%   { transform: translateX(0); }
+            18%, 92%  { transform: translateX(7px); }
+            97%, 100% { transform: translateX(0); }
+        }
+        @keyframes calEv1 {
+            0%, 20%   { opacity: 0; transform: translateY(-6px); }
+            30%, 90%  { opacity: 1; transform: translateY(0); }
+            96%, 100% { opacity: 0; transform: translateY(-6px); }
+        }
+        @keyframes calEv2 {
+            0%, 32%   { opacity: 0; transform: translateY(-6px); }
+            42%, 90%  { opacity: 1; transform: translateY(0); }
+            96%, 100% { opacity: 0; transform: translateY(-6px); }
+        }
+        @keyframes calTask1 {
+            0%, 20%   { opacity: 1; transform: translateY(0); }
+            30%, 90%  { opacity: 1; transform: translateY(30px); }
+            96%, 100% { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes calTask2 {
+            0%, 20%   { opacity: 1; transform: translateY(0); }
+            30%, 90%  { opacity: 1; transform: translateY(30px); }
+            96%, 100% { opacity: 1; transform: translateY(0); }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .scene * { animation: none !important; }
+            .cal-ev { opacity: 1; }
+            .cal-pill { background: #0284c7; }
+            .cal-knob { transform: translateX(7px); }
+            .cal-task1, .cal-task2 { transform: translateY(30px); }
             .strip-frame { opacity: 1; }
             .strip { transform: translateX(-128px); }
             .thu-task { transform: translateY(42px); }
@@ -1389,6 +1596,9 @@
             .prio-target { transform: translateY(-28px); }
             .prio-marks { opacity: 1; transform: scale(1); }
             .prio-key, .prio-cursor { opacity: 0; }
+            .repeat-glyph { opacity: 1; transform: scale(1); }
+            .repeat-card-b { opacity: 1; transform: translateY(0); }
+            .repeat-key, .repeat-cursor { opacity: 0; }
             .nav-frame { opacity: 1; }
             .nav-ring ellipse { stroke-dashoffset: 0; opacity: 0.9; }
             .nav-tab.new-tab { opacity: 1; transform: scale(1); }
@@ -1579,31 +1789,39 @@
       <a href="07-projects-2.html" data-file="07-projects-2.html">Projects</a>
       <a href="08-links-in-tasks.html" data-file="08-links-in-tasks.html">Links in tasks</a>
       <a href="09-prioritize.html" data-file="09-prioritize.html">Prioritize</a>
-      <a href="10-create-lists.html" data-file="10-create-lists.html">Create lists</a>
-      <a href="11-dark-mode.html" data-file="11-dark-mode.html">Dark mode 🌙</a>
-      <a href="12-dark-mode-2.html" data-file="12-dark-mode-2.html">Dark mode 🌙</a>
-      <a href="13-chain-a-series.html" data-file="13-chain-a-series.html">Chain a series</a>
-      <a href="14-unlink-a-step.html" data-file="14-unlink-a-step.html">Unlink a step ✂️</a>
-      <a href="15-locked-tasks-don-t-advance-past-their-du.html" data-file="15-locked-tasks-don-t-advance-past-their-du.html">Locked tasks don't advance past their due date</a>
-      <a href="16-the-assistant.html" data-file="16-the-assistant.html">🧠 The assistant</a>
+      <a href="10-repeat.html" data-file="10-repeat.html">Repeat</a>
+      <a href="11-create-lists.html" data-file="11-create-lists.html">Create lists</a>
+      <a href="12-bring-in-your-calendar.html" data-file="12-bring-in-your-calendar.html">Bring in your calendar 📅</a>
+      <a href="13-dark-mode.html" data-file="13-dark-mode.html">Dark mode 🌙</a>
+      <a href="14-dark-mode-2.html" data-file="14-dark-mode-2.html">Dark mode 🌙</a>
+      <a href="15-chain-a-series.html" data-file="15-chain-a-series.html">Chain a series</a>
+      <a href="16-unlink-a-step.html" data-file="16-unlink-a-step.html">Unlink a step ✂️</a>
+      <a href="17-locked-tasks-don-t-advance-past-their-du.html" data-file="17-locked-tasks-don-t-advance-past-their-du.html">Locked tasks don't advance past their due date</a>
+      <a href="18-the-assistant.html" data-file="18-the-assistant.html">🧠 The assistant</a>
   </nav>
   <div class="xwrap">
-    <div class="xhead">Locked tasks don't advance past their due date</div>
-    <div class="xbody">Instead, the day remains on your board and stays there until you
-               either complete the task or advance it to a current day.</div>
+    <div class="xhead">🧠 The assistant</div>
+    <div class="xbody">With the header's 🧠 switch on, adding a task instantly opens a pane of
+               up to 7 specific steps — real decisions, real links, real prices, not
+               "make a plan". Click ↺ on an open task (or in the pane's top-right
+               corner) to regenerate them all.</div>
     <div class="xstage">
       <div class="card demo" aria-hidden="true">
       <div class="scene">
-      <div class="mini-card past-red">
-      <div class="mini-day">Fri · overdue</div>
-      <div class="mini-task locked-stay"><span class="mini-circle"></span><span class="mini-text">fence inspection</span> <span class="mini-lock">🔒</span></div>
-      <div class="mini-task spill-ghost"><span class="mini-circle"></span>return rental auger</div>
+      <div class="ai-frame">
+      <div class="mini-card">
+      <div class="mini-day" data-day-offset="0"></div>
+      <div class="mini-task"><span class="mini-circle"></span>build a backyard fence</div>
       </div>
-      <div class="mini-card today-card">
-      <div class="mini-day">Mon · today</div>
-      <div class="mini-task"><span class="mini-circle"></span>grocery run</div>
+      <div class="ai-pane">
+      <div class="ai-dots"><span></span><span></span><span></span></div>
+      <div class="ai-step ai-s1"><span class="as-check"></span><span class="as-emoji">🧠</span>compare cedar vs vinyl prices</div>
+      <div class="ai-step ai-s2"><span class="as-check"></span><span class="as-emoji">👩</span>measure the property line</div>
+      <div class="ai-step ai-s3"><span class="as-check"></span><span class="as-emoji">🧠</span>check local fence-height rules</div>
+      <div class="ai-step ai-s4"><span class="as-check"></span><span class="as-emoji">👩</span>call 811 to mark utility lines</div>
+      <div class="ai-step ai-s5"><span class="as-check"></span><span class="as-emoji">🧠</span>get 3 installer quotes</div>
       </div>
-      <div class="mini-task held-spill"><span class="mini-circle"></span>return rental auger</div>
+      </div>
       </div>
       </div>
     </div>

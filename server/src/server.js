@@ -3,6 +3,7 @@ const cors = require('cors');
 const path = require('path');
 const crypto = require('crypto');
 const { initDb, queryOne, queryAll, runSql, flushDb } = require('./db');
+const calendar = require('./calendar');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -63,6 +64,12 @@ function getRandomColor() {
   return colors[Math.floor(Math.random() * colors.length)];
 }
 
+// A project's URL-safe slug, derived from its name. Shared by create and
+// rename so the two can never drift apart.
+function projectSlugFrom(name) {
+  return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 30) || 'project';
+}
+
 // Day capacity: max pending tasks per (owner, project) per day.
 const MAX_TASKS_PER_DAY = 10;
 
@@ -71,6 +78,80 @@ function addDays(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00.000Z');
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().split('T')[0];
+}
+
+// Add N months to a YYYY-MM-DD string, clamping to the end of the target
+// month. Jan 31 + 1 month is Feb 28 (or Feb 29), never Mar 3 — setUTCMonth
+// alone would overflow into the following month. UTC-safe.
+function addMonths(dateStr, months) {
+  const d = new Date(dateStr + 'T00:00:00.000Z');
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const lastDay = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, lastDay));
+  return d.toISOString().split('T')[0];
+}
+
+// ============================================
+// REPEATING TASKS
+// ============================================
+// A repeat is a rule on the task row itself (tasks.repeat_rule), not a
+// separate schedule table — so deleting the task ends the repeat with no
+// invisible state left behind. Only ever ONE instance of a repeating task
+// exists on the board: completing it spawns the next. Missing an occurrence
+// therefore can't pile up copies; the single instance just spills forward
+// like any other task, which is what the whole app already does.
+const REPEAT_RULES = ['daily', 'weekly', 'monthly'];
+
+// The date the next instance is due, measured from the completed instance's
+// own scheduled_date (not today) so a rhythm doesn't drift when you tick
+// something late.
+function nextRepeatDate(dateStr, rule) {
+  if (rule === 'daily') return addDays(dateStr, 1);
+  if (rule === 'weekly') return addDays(dateStr, 7);
+  if (rule === 'monthly') return addMonths(dateStr, 1);
+  return null;
+}
+
+// Create the next instance of a repeating task. Called after the current one
+// is marked complete. The new row deliberately carries NO parent_task_id: the
+// completing task has already been spliced out of any series it was in, and a
+// fresh instance is a free-standing task, not a series member.
+function spawnNextRepeat(task) {
+  const requested = nextRepeatDate(task.scheduled_date, task.repeat_rule);
+  if (!requested) return;
+
+  // A repeat must not be able to blow the 10/day cap, so it overflows forward
+  // exactly like a hand-typed task would.
+  let effectiveDate;
+  try {
+    effectiveDate = findDayWithCapacity({
+      ownerId: task.owner_id,
+      projectId: task.project_id ?? null,
+      requestedDate: requested,
+    });
+  } catch (err) {
+    console.error('Repeat spawn: no day with capacity:', err);
+    return;
+  }
+
+  // origin_date is the new instance's own date — each occurrence starts its
+  // own day count rather than inheriting the previous one's age.
+  runSql(`
+    INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date, origin_date, locked, priority, repeat_rule)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `, [
+    task.company_id,
+    task.owner_id,
+    task.project_id ?? null,
+    task.description,
+    effectiveDate,
+    requested,
+    task.locked ? 1 : 0,
+    parseInt(task.priority, 10) || 0,
+    task.repeat_rule,
+  ]);
 }
 
 // Find the first date >= requestedDate where (ownerId, projectId) holds fewer
@@ -371,7 +452,7 @@ app.post('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
   const user = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
   if (!user) return res.status(404).json({ error: 'User not found' });
 
-  const projectSlug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').substring(0, 30) || 'project';
+  const projectSlug = projectSlugFrom(name);
 
   // Check for duplicate slug within company
   const existing = queryOne('SELECT id FROM projects WHERE company_id = ? AND slug = ?', [company.id, projectSlug]);
@@ -552,6 +633,52 @@ app.put('/api/companies/:subdomain/users/:slug/projects/order', (req, res) => {
   }
 });
 
+// Rename a board. The slug is regenerated from the new name: nothing in the
+// app addresses a project by slug (there is no URL routing — the frontend
+// keys everything off project_id in localStorage), so a stale slug would only
+// ever drift away from the name for no benefit.
+//
+// MUST stay declared after PUT .../projects/order — Express matches routes in
+// declaration order, so a :projectId param above it would swallow "order".
+app.put('/api/companies/:subdomain/users/:slug/projects/:projectId', (req, res) => {
+  const { subdomain, slug, projectId } = req.params;
+  const { name } = req.body;
+  const id = parseInt(projectId);
+
+  const trimmed = (name || '').trim();
+  if (!trimmed) return res.status(400).json({ error: 'name is required' });
+
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+
+  const user = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  // Only a member can rename the board — same membership check delete uses.
+  const membership = queryOne(
+    `SELECT p.id FROM projects p
+       JOIN project_members pm ON pm.project_id = p.id
+      WHERE p.id = ? AND p.company_id = ? AND pm.user_id = ?`,
+    [id, company.id, user.id]);
+  if (!membership) return res.status(404).json({ error: 'Project not found' });
+
+  const newSlug = projectSlugFrom(trimmed);
+
+  // slug is UNIQUE per company, so a rename can collide exactly like a create.
+  const clash = queryOne(
+    'SELECT id FROM projects WHERE company_id = ? AND slug = ? AND id != ?',
+    [company.id, newSlug, id]);
+  if (clash) return res.status(409).json({ error: 'A project with this name already exists' });
+
+  try {
+    runSql('UPDATE projects SET name = ?, slug = ? WHERE id = ?', [trimmed, newSlug, id]);
+    res.json({ id, name: trimmed, slug: newSlug });
+  } catch (err) {
+    console.error('Error renaming project:', err);
+    res.status(500).json({ error: 'Failed to rename project' });
+  }
+});
+
 // Add a member to a project
 app.post('/api/companies/:subdomain/projects/:projectSlug/members', (req, res) => {
   const { subdomain, projectSlug } = req.params;
@@ -604,11 +731,16 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
   // their spacing: an overdue member spills to today and drags its
   // successors forward by the same delta (stopping at locked members).
   const today = new Date().toISOString().split('T')[0];
+  // Calendar rows never spill. An event that has passed is pruned by the sync,
+  // not carried forward — a meeting happened whether or not you ticked it off.
+  // This check and the `fresh.source` one below are the ONLY thing keeping
+  // yesterday's standup off today, so both must stay in step.
   let overdueSql = `
     SELECT * FROM tasks
     WHERE owner_id = ?
       AND completed = 0
       AND locked = 0
+      AND COALESCE(source, 'user') != 'calendar'
       AND scheduled_date < ?
   `;
   const overdueParams = [user.id, today];
@@ -626,6 +758,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       // An earlier cascade this pass may have already moved this task.
       const fresh = queryOne('SELECT * FROM tasks WHERE id = ?', [t.id]);
       if (!fresh || fresh.completed || fresh.locked || fresh.scheduled_date >= today) continue;
+      if (fresh.source === 'calendar') continue;
       const delta = daysBetween(fresh.scheduled_date, today);
       runSql('UPDATE tasks SET scheduled_date = ?, updated_at = ? WHERE id = ?',
         [today, new Date().toISOString(), fresh.id]);
@@ -644,6 +777,10 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.parent_task_id,
       t.locked,
       t.priority,
+      t.repeat_rule,
+      t.source,
+      t.event_start,
+      t.external_uid,
       t.completed,
       t.completed_at,
       t.assigned_by,
@@ -657,12 +794,22 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
   `;
   const taskParams = [user.id];
   if (req.query.project_id) {
-    taskSql += ' AND t.project_id = ?';
+    // Calendar rows are stored with project_id = NULL on purpose: one row then
+    // shows on every board, since your 2pm dentist appointment constrains
+    // whatever board you happen to be looking at. This is the only place that
+    // NULL is meaningful — do not "repair" those rows to a project.
+    taskSql += " AND (t.project_id = ? OR t.source = 'calendar')";
     taskParams.push(parseInt(req.query.project_id));
   }
   taskSql += ' ORDER BY t.scheduled_date, t.created_at';
 
   const tasks = queryAll(taskSql, taskParams);
+
+  // Fire-and-forget: serve what we have, refresh in the background if the feed
+  // is stale. There is no scheduler in this server, and awaiting a remote fetch
+  // would put network latency on the board's hot path.
+  calendar.maybeSyncInBackground(user.id, today);
+
   res.json(tasks);
 });
 
@@ -731,7 +878,7 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
 // Update a task (complete, move date, etc.)
 app.put('/api/tasks/:taskId', (req, res) => {
   const { taskId } = req.params;
-  const { scheduled_date, completed, locked, priority } = req.body;
+  const { scheduled_date, completed, locked, priority, repeat_rule } = req.body;
 
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
   if (!task) {
@@ -746,7 +893,11 @@ app.put('/api/tasks/:taskId', (req, res) => {
     values.push(scheduled_date);
   }
 
-  if (locked !== undefined) {
+  // A calendar row must never carry `locked`: that flag drives board
+  // anchoring, red project tabs and red task text, so an imported event
+  // holding it would misfire all three every day. Refused server-side too,
+  // not just hidden in the UI.
+  if (locked !== undefined && task.source !== 'calendar') {
     updates.push('locked = ?');
     values.push(locked ? 1 : 0);
   }
@@ -757,6 +908,16 @@ app.put('/api/tasks/:taskId', (req, res) => {
     const level = Math.min(3, Math.max(0, parseInt(priority, 10) || 0));
     updates.push('priority = ?');
     values.push(level);
+  }
+
+  // Repeat: null (one-off) or one of REPEAT_RULES. Refused on calendar rows —
+  // an imported event is already regenerated by the feed, so a second
+  // regeneration source would duplicate it every time you ticked one. Same
+  // guard shape as `locked` above: the UI hides it, but the server refuses it.
+  if (repeat_rule !== undefined && task.source !== 'calendar') {
+    const rule = REPEAT_RULES.includes(repeat_rule) ? repeat_rule : null;
+    updates.push('repeat_rule = ?');
+    values.push(rule);
   }
 
   if (completed !== undefined) {
@@ -784,6 +945,13 @@ app.put('/api/tasks/:taskId', (req, res) => {
     // task does not restore the links.
     if (completed !== undefined && completed && !task.completed) {
       spliceOutOfChain(task);
+
+      // Completing a repeating task is what creates the next one. Runs after
+      // the splice so the fresh instance is free-standing, and reads the rule
+      // off the pre-update row (this same request may have just set it).
+      if (task.repeat_rule) {
+        spawnNextRepeat(task);
+      }
     }
 
     const updated = queryOne(`
@@ -795,6 +963,7 @@ app.put('/api/tasks/:taskId', (req, res) => {
         t.parent_task_id,
         t.locked,
         t.priority,
+        t.repeat_rule,
         t.completed,
         t.completed_at,
         t.assigned_by,
@@ -884,6 +1053,7 @@ app.post('/api/tasks/:taskId/link', (req, res) => {
         t.parent_task_id,
         t.locked,
         t.priority,
+        t.repeat_rule,
         t.completed,
         t.completed_at,
         t.assigned_by,
@@ -929,6 +1099,7 @@ app.post('/api/tasks/:taskId/unlink', (req, res) => {
         t.parent_task_id,
         t.locked,
         t.priority,
+        t.repeat_rule,
         t.completed,
         t.completed_at,
         t.assigned_by,
@@ -973,7 +1144,7 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
 
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, scheduled_date = ?, locked = 0, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
       WHERE id = ?
     `, [to_user_id, task.owner_id, scheduled_date, new Date().toISOString(), taskId]);
 
@@ -1022,7 +1193,7 @@ app.post('/api/tasks/:taskId/return', (req, res) => {
   try {
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, scheduled_date = ?, locked = 0, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
       WHERE id = ?
     `, [originalAssignerId, currentOwnerId, scheduled_date || task.scheduled_date, new Date().toISOString(), taskId]);
 
@@ -1574,7 +1745,7 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
 
   const result = projects.map(project => {
     const tasks = queryAll(`
-      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.priority, t.locked,
+      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.priority, t.locked, t.repeat_rule,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id) as subtask_count,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id AND completed = 1) as completed_subtask_count
       FROM tasks t
@@ -1591,6 +1762,129 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
 // ============================================
 // HEALTH CHECK
 // ============================================
+
+// ============================================
+// CALENDAR FEED
+// ============================================
+// One subscribed iCal feed per user. The URL is a bearer credential for the
+// whole calendar, so it is stored server-side and only ever returned masked.
+
+function resolveCalendarUser(req, res) {
+  const { subdomain, slug } = req.params;
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) {
+    res.status(404).json({ error: 'Company not found' });
+    return null;
+  }
+  const user = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  if (!user) {
+    res.status(404).json({ error: 'User not found' });
+    return null;
+  }
+  return user;
+}
+
+function calendarStatus(userId) {
+  const feed = calendar.getFeed(userId);
+  if (!feed) return { connected: false, enabled: false };
+  return {
+    connected: true,
+    enabled: !!feed.enabled,
+    url_masked: calendar.maskUrl(feed.url),
+    timezone: feed.timezone,
+    last_synced_at: feed.last_synced_at,
+    last_status: feed.last_status,
+    last_error: feed.last_error,
+    event_count: feed.event_count || 0,
+    window_days: calendar.WINDOW_DAYS
+  };
+}
+
+app.get('/api/companies/:subdomain/users/:slug/calendar', (req, res) => {
+  const user = resolveCalendarUser(req, res);
+  if (!user) return;
+  res.json(calendarStatus(user.id));
+});
+
+// Connect a feed, change its URL, or flip it on/off.
+app.put('/api/companies/:subdomain/users/:slug/calendar', async (req, res) => {
+  const user = resolveCalendarUser(req, res);
+  if (!user) return;
+
+  const { url, timezone, enabled } = req.body || {};
+  const existing = calendar.getFeed(user.id);
+  const today = new Date().toISOString().split('T')[0];
+
+  if (url !== undefined) {
+    let normalized;
+    try {
+      normalized = calendar.normalizeFeedUrl(url);
+    } catch (err) {
+      return res.status(400).json({ error: err.message });
+    }
+    const tz = timezone || (existing && existing.timezone) || 'UTC';
+    if (existing) {
+      runSql('UPDATE calendar_feeds SET url = ?, timezone = ?, enabled = 1 WHERE user_id = ?',
+        [normalized, tz, user.id]);
+      // A different calendar means the old calendar's events are no longer ours.
+      if (existing.url !== normalized) calendar.deleteAllEvents(user.id);
+    } else {
+      runSql('INSERT INTO calendar_feeds (user_id, url, timezone, enabled) VALUES (?, ?, ?, 1)',
+        [user.id, normalized, tz]);
+    }
+    // Connecting should show something immediately, so this one is awaited.
+    const result = await calendar.syncFeed(user.id, today);
+    if (result && result.error) {
+      return res.status(400).json({ error: result.error, ...calendarStatus(user.id) });
+    }
+    return res.json(calendarStatus(user.id));
+  }
+
+  if (!existing) return res.status(404).json({ error: 'No calendar connected' });
+
+  if (enabled !== undefined) {
+    const on = enabled ? 1 : 0;
+    runSql('UPDATE calendar_feeds SET enabled = ? WHERE user_id = ?', [on, user.id]);
+    if (!on) {
+      // Clear the board, but keep the URL so turning it back on costs no re-paste.
+      calendar.deleteAllEvents(user.id);
+    } else {
+      const result = await calendar.syncFeed(user.id, today);
+      if (result && result.error) {
+        return res.status(400).json({ error: result.error, ...calendarStatus(user.id) });
+      }
+    }
+  }
+
+  if (timezone !== undefined) {
+    runSql('UPDATE calendar_feeds SET timezone = ? WHERE user_id = ?', [timezone, user.id]);
+  }
+
+  res.json(calendarStatus(user.id));
+});
+
+app.post('/api/companies/:subdomain/users/:slug/calendar/sync', async (req, res) => {
+  const user = resolveCalendarUser(req, res);
+  if (!user) return;
+  const feed = calendar.getFeed(user.id);
+  if (!feed) return res.status(404).json({ error: 'No calendar connected' });
+
+  // Force a sync regardless of the 15-minute throttle.
+  runSql('UPDATE calendar_feeds SET last_synced_at = NULL WHERE user_id = ?', [user.id]);
+  const result = await calendar.syncFeed(user.id, new Date().toISOString().split('T')[0]);
+  if (result && result.error) {
+    return res.status(400).json({ error: result.error, ...calendarStatus(user.id) });
+  }
+  res.json({ ...calendarStatus(user.id), ...result });
+});
+
+app.delete('/api/companies/:subdomain/users/:slug/calendar', (req, res) => {
+  const user = resolveCalendarUser(req, res);
+  if (!user) return;
+  calendar.deleteAllEvents(user.id);
+  runSql('DELETE FROM calendar_feeds WHERE user_id = ?', [user.id]);
+  res.json({ connected: false, enabled: false });
+});
 
 app.get('/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

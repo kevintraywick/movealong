@@ -1,10 +1,10 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Move Along — Help</title>
-    <style>
+<meta charset="utf-8">
+<title>Repeat — MoveAlong animation</title>
+<style>
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
@@ -1754,625 +1754,99 @@
             line-height: 1;
         }
         .theme-toggle:hover { background: #f0f9ff; }
-    </style>
+    
+
+/* ---- extracted-scene shell (not part of help.html) ---- */
+  body { padding: 0; }
+  .xnav { position: sticky; top: 0; z-index: 9; display: flex; flex-wrap: wrap; gap: 4px;
+          padding: 8px 12px; background: rgba(255,255,255,.92); backdrop-filter: blur(8px);
+          border-bottom: 1px solid #e2e8f0; font-size: 12px; }
+  .xnav a { color: #475569; text-decoration: none; padding: 3px 8px; border-radius: 6px;
+            border: 1px solid #e2e8f0; white-space: nowrap; }
+  .xnav a:hover { border-color: #38bdf8; color: #0284c7; background: #f0f9ff; }
+  .xnav a.here { background: #f0f9ff; border-color: #38bdf8; color: #0284c7; }
+  .xwrap { max-width: 900px; margin: 0 auto; padding: 28px 20px 60px; }
+  .xhead { font-size: 20px; font-weight: 650; color: #0f172a; margin-bottom: 4px; }
+  .xbody { font-size: 13px; color: #475569; line-height: 1.55; margin-bottom: 20px; max-width: 62ch; }
+  .xstage { display: flex; justify-content: center; }
+  .xstage > .card.demo { min-width: 420px; }
+  .xnote { margin-top: 24px; font-size: 11.5px; color: #94a3b8; line-height: 1.6; }
+  body.dark .xnav { background: rgba(15,23,42,.92); border-bottom-color: #334155; }
+  body.dark .xnav a { border-color: #334155; color: #94a3b8; }
+  body.dark .xhead { color: #e2e8f0; }
+  body.dark .xbody { color: #94a3b8; }
+</style>
 </head>
 <body>
-<div class="page">
-    <header>
-        <h1>Move <span class="accent">Along</span> — Help</h1>
-        <span style="display:flex;align-items:center;gap:10px;">
-            <a class="back-link" href="/">&larr; Back to your board</a>
-            <button class="theme-toggle" id="themeToggle" title="Switch theme" aria-label="Switch between light and dark mode">🌙</button>
-        </span>
-    </header>
-    <p class="tagline">
-        <strong>Unfinished tasks move forward automatically.</strong> Every morning,
-        yesterday's unfinished work is already sitting on today — you're stuck with
-        it until it's done. That's the critical difference between Move Along and
-        every other to-do list, and everything else here builds on it.
-    </p>
-
-    <div class="video-placeholder">
-        &#127909; Getting-started video coming soon
-    </div>
-
-    <h2>The board</h2>
-    <div class="feature-grid three-col">
-        <div class="card">
-            <h3>Add a task</h3>
-            <p>Each column is a day; today is highlighted blue. Type into any day's
-               box and press <kbd>Enter</kbd> to add a task there. Scroll sideways
-               for later days.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="mini-card today-card" style="width:150px;">
-                    <div class="mini-day"><span id="todayDayName">Tuesday</span> <span style="font-weight:400;">· <span id="todayDate">Aug 4</span></span></div>
-                    <div class="mini-input"><span class="type-text">Add a backyard fence</span></div>
-                    <div class="mini-task typed-row"><span class="mini-circle"></span>Add a backyard fence</div>
-                </div>
-            </div>
-        </div>
-        <div class="card">
-            <h3>Tasks move forward automatically</h3>
-            <p>Anything unfinished from a past day spills onto today automatically —
-               you're stuck with it until it's done. A small grey number after a task
-               counts the days it's been pushed; it turns red past 10.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene midnight-scene">
-                <div class="strip-frame">
-                    <div class="strip">
-                        <div class="mini-card today-card">
-                            <div class="mini-day" data-day-offset="0"></div>
-                            <div class="mini-task" style="visibility:hidden;"><span class="mini-circle"></span>&nbsp;</div>
-                        </div>
-                        <div class="mini-card becomes-today">
-                            <div class="mini-day" data-day-offset="1"></div>
-                            <div class="mini-task thu-task"><span class="mini-circle"></span>dig post holes</div>
-                        </div>
-                        <div class="mini-card">
-                            <div class="mini-day" data-day-offset="2"></div>
-                            <div class="mini-task"><span class="mini-circle"></span>set the posts</div>
-                        </div>
-                    </div>
-                    <div class="mini-task stay-task"><span class="mini-circle"></span>pick up fence boards <span class="spill-count">2<svg class="nav-ring spill-ring" viewBox="0 0 66 26" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="33" cy="13" rx="31" ry="11" pathLength="100"/></svg></span></div>
-                    <div class="mini-task stay-task stay-2"><span class="mini-circle"></span>rent the auger <span class="spill-count">2</span></div>
-                </div>
-                <div class="mini-clock">
-                    <span class="c1">11:58 PM</span>
-                    <span class="c2">11:59 PM</span>
-                    <span class="c3">12:00 AM</span>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note important" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>This is the key thing. Tasks stick with you until they're done.</span>
-        </div>
-        <div class="card">
-            <h3>Lock a deadline 📅</h3>
-            <p>Click a task's 📅 to lock it to a date. Locked tasks (🔒, amber edge)
-               never spill forward — a real deadline. On its deadline day the task
-               text turns red. <kbd>Shift</kbd>+<kbd>Option</kbd>+click a task to
-               quick-lock it to the day it's on.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="mini-card today-card">
-                    <div class="mini-day" data-day-offset="0"></div>
-                    <div class="mini-task locked-stay"><span class="mini-circle"></span><span class="mini-text">fence inspection</span> <span class="mini-lock">🔒</span></div>
-                    <div class="mini-task"><span class="mini-circle"></span>water the plants</div>
-                </div>
-                <div class="mini-card">
-                    <div class="mini-day" data-day-offset="1"></div>
-                    <div class="mini-task"><span class="mini-circle"></span>trim hedges</div>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note important" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>This is the way to GTD.</span>
-        </div>
-        <div class="card">
-            <h3>Complete or postpone a task</h3>
-            <p>Click the circle <span style="display:inline-block;width:11px;height:11px;border:2px solid #cbd5e1;border-radius:50%;vertical-align:-1px;"></span>
-               to complete a task. Click <kbd>&rarr;</kbd> to bump it
-               to tomorrow. <kbd>Shift</kbd>+click <kbd>&rarr;</kbd> to move it forward one week.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="done-frame">
-                    <div class="mini-card dcard1">
-                        <div class="mini-day" data-day-offset="2"></div>
-                        <div class="mini-divider"></div>
-                    </div>
-                    <div class="mini-card dcard2">
-                        <div class="mini-day" data-day-offset="3"></div>
-                    </div>
-                    <div class="mini-task dig-row"><span class="mini-circle dig-circle"></span><span class="mini-arrow">&rarr;</span><span class="dig-text">dig post holes</span></div>
-                    <div class="mini-task set-row"><span class="mini-circle"></span><span class="mini-arrow">&rarr;</span>set the posts<span class="day-pop">2</span></div>
-                    <div class="done-cursor"></div>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>The little number counts the days a task has been on your board. It turns red after ten days.</span>
-        </div>
-        <div class="card">
-            <h3>Overflow</h3>
-            <p>A day holds at most 10 pending tasks per board. Add an 11th and it
-               overflows to the next free day.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="over-frame">
-                    <div class="mini-card ocard1">
-                        <div class="mini-day" data-day-offset="3"></div>
-                        <div class="mini-input over-input"><span class="over-type">buy gate hinges</span></div>
-                        <div class="mini-task"><span class="mini-circle"></span>set the posts</div>
-                        <div class="mini-task"><span class="mini-circle"></span>mix concrete</div>
-                        <div class="mini-task"><span class="mini-circle"></span>brace the corners</div>
-                        <div class="mini-task"><span class="mini-circle"></span>wash the car</div>
-                        <div class="mini-task"><span class="mini-circle"></span>call mom</div>
-                        <div class="mini-task"><span class="mini-circle"></span>pick up groceries</div>
-                        <div class="mini-task"><span class="mini-circle"></span>water plants</div>
-                        <div class="mini-task"><span class="mini-circle"></span>take out trash</div>
-                        <div class="mini-task"><span class="mini-circle"></span>pay water bill</div>
-                        <div class="mini-task"><span class="mini-circle"></span>book dentist</div>
-                    </div>
-                    <div class="mini-card ocard2">
-                        <div class="mini-day" data-day-offset="4"></div>
-                    </div>
-                    <div class="mini-task over-new"><span class="mini-circle"></span>buy gate hinges</div>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>Man, you are so guilty of overcommitting.</span>
-        </div>
-        <div class="card">
-            <h3>Projects</h3>
-            <p>Create as many boards as you like ("personal", "house", &hellip;) with
-               the <kbd>+</kbd> button. A project with a red border has an item due
-               that day.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="nav-frame">
-                    <div class="mini-nav">
-                        <span class="nav-mark">Move<span>Along</span></span>
-                        <span class="nav-plus">+ New project
-                            <svg class="nav-ring" viewBox="0 0 66 26" preserveAspectRatio="none" aria-hidden="true">
-                                <ellipse cx="33" cy="13" rx="31" ry="11" pathLength="100"/>
-                            </svg>
-                            <span class="nav-cursor"></span>
-                        </span>
-                        <span class="nav-tab">fence</span>
-                        <span class="nav-tab new-tab">garden</span>
-                        <span class="nav-toggle"><span class="nt-seg active">Calendar</span><span class="nt-seg">List</span></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="card demo demo-3" aria-hidden="true">
-            <div class="scene">
-                <div class="nav-frame static-nav">
-                    <div class="mini-nav">
-                        <span class="nav-mark">Move<span>Along</span></span>
-                        <span class="nav-plus">+ New project</span>
-                        <span class="nav-tab">fence</span>
-                        <span class="nav-tab due">garden</span>
-                        <span class="nav-toggle"><span class="nt-seg active">Calendar</span><span class="nt-seg">List</span></span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <h2>More fun</h2>
-    <div class="feature-grid three-col">
-        <div class="card">
-            <h3>Links in tasks</h3>
-            <p>Any URL you type in a task becomes a clickable link that opens in a
-               new tab.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="link-frame">
-                    <div class="mini-card">
-                        <div class="mini-day" data-day-offset="5"></div>
-                        <div class="mini-task"><span class="mini-circle"></span>hang the gate</div>
-                        <div class="mini-task" style="white-space:normal;align-items:flex-start;"><span class="mini-circle" style="margin-top:1px;"></span><span>share pics — <span class="mini-link">kevintraywick.com</span></span></div>
-                        <div class="mini-task"><span class="mini-circle"></span>sweep up sawdust</div>
-                    </div>
-                    <div class="mini-card ghost-day">
-                        <div class="mini-day" data-day-offset="6"></div>
-                    </div>
-                    <div class="mini-browser">
-                        <div class="mb-chrome">
-                            <span class="mb-dot"></span><span class="mb-dot"></span><span class="mb-dot"></span>
-                            <span class="mb-url">kevintraywick.com</span>
-                        </div>
-                        <div class="mb-body">
-                            <div class="mb-avatar">KT</div>
-                            <div class="mb-line title"></div>
-                            <div class="mb-line w80"></div>
-                            <div class="mb-line w60"></div>
-                            <div class="mb-line w80"></div>
-                        </div>
-                        <iframe class="mb-page" src="https://kevintraywick.com" title="kevintraywick.com" loading="lazy" tabindex="-1" aria-hidden="true"></iframe>
-                    </div>
-                    <div class="link-cursor"></div>
-                </div>
-            </div>
-        </div>
-        <div class="card">
-            <h3>Prioritize</h3>
-            <p>Hover a task and press <kbd>1</kbd>, <kbd>2</kbd>, or <kbd>3</kbd> —
-               blue <strong>!</strong> marks, most-urgent-first sorting. <kbd>0</kbd>
-               (or the same number again) clears it.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="prio-frame">
-                    <div class="mini-card">
-                        <div class="mini-day" data-day-offset="6"></div>
-                    </div>
-                    <div class="mini-task prio-row prio-r1"><span class="mini-circle"></span>touch-up stain</div>
-                    <div class="mini-task prio-row prio-r2"><span class="mini-circle"></span>return the ladder</div>
-                    <div class="mini-task prio-row prio-target"><span class="mini-circle"></span>oil the gate hinges<span class="prio-marks">!!</span></div>
-                    <div class="prio-key">2</div>
-                    <div class="prio-cursor"></div>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>I really only use this to push items to the top with <kbd>3</kbd>.</span>
-        </div>
-        <div class="card">
-            <h3>Repeat</h3>
-            <p>Some things just come back. Hover a task and press <kbd>r</kbd> to
+  <nav class="xnav">
+      <a href="index.html">&larr; all</a>
+      <a href="01-add-a-task.html" data-file="01-add-a-task.html">Add a task</a>
+      <a href="02-tasks-move-forward-automatically.html" data-file="02-tasks-move-forward-automatically.html">Tasks move forward automatically</a>
+      <a href="03-lock-a-deadline.html" data-file="03-lock-a-deadline.html">Lock a deadline 📅</a>
+      <a href="04-complete-or-postpone-a-task.html" data-file="04-complete-or-postpone-a-task.html">Complete or postpone a task</a>
+      <a href="05-overflow.html" data-file="05-overflow.html">Overflow</a>
+      <a href="06-projects.html" data-file="06-projects.html">Projects</a>
+      <a href="07-projects-2.html" data-file="07-projects-2.html">Projects</a>
+      <a href="08-links-in-tasks.html" data-file="08-links-in-tasks.html">Links in tasks</a>
+      <a href="09-prioritize.html" data-file="09-prioritize.html">Prioritize</a>
+      <a href="10-repeat.html" data-file="10-repeat.html">Repeat</a>
+      <a href="11-create-lists.html" data-file="11-create-lists.html">Create lists</a>
+      <a href="12-bring-in-your-calendar.html" data-file="12-bring-in-your-calendar.html">Bring in your calendar 📅</a>
+      <a href="13-dark-mode.html" data-file="13-dark-mode.html">Dark mode 🌙</a>
+      <a href="14-dark-mode-2.html" data-file="14-dark-mode-2.html">Dark mode 🌙</a>
+      <a href="15-chain-a-series.html" data-file="15-chain-a-series.html">Chain a series</a>
+      <a href="16-unlink-a-step.html" data-file="16-unlink-a-step.html">Unlink a step ✂️</a>
+      <a href="17-locked-tasks-don-t-advance-past-their-du.html" data-file="17-locked-tasks-don-t-advance-past-their-du.html">Locked tasks don't advance past their due date</a>
+      <a href="18-the-assistant.html" data-file="18-the-assistant.html">🧠 The assistant</a>
+  </nav>
+  <div class="xwrap">
+    <div class="xhead">Repeat</div>
+    <div class="xbody">Some things just come back. Hover a task and press <kbd>r</kbd> to
                cycle <strong>daily &rarr; weekly &rarr; monthly &rarr; off</strong>.
                There is only ever one copy on your board &mdash; tick it off and
-               the next one appears on its own.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="repeat-frame">
-                    <div class="mini-card repeat-card-a">
-                        <div class="mini-day" data-day-offset="1"></div>
-                        <div class="mini-task repeat-row-a">
-                            <span class="mini-circle repeat-done-circle"></span>oil the gate hinges<span class="repeat-glyph">&orarr;m</span>
-                        </div>
-                    </div>
-                    <div class="mini-card repeat-card-b">
-                        <div class="mini-day" data-day-offset="31"></div>
-                        <div class="mini-task">
-                            <span class="mini-circle"></span>oil the gate hinges<span class="repeat-glyph">&orarr;m</span>
-                        </div>
-                    </div>
-                    <div class="repeat-key">r</div>
-                    <div class="repeat-cursor"></div>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>Miss one? It just slides forward like anything else. No pile of guilt.</span>
-        </div>
-        <div class="card">
-            <h3>Create lists</h3>
-            <p>Start a task with the word <strong>list</strong> — "list movies to
-               go see" — to create your own list with AI suggestions. Click a
-               suggestion's <kbd>&uarr;</kbd> to move it onto your list.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="lp-frame">
-                    <div class="mini-card">
-                        <div class="mini-day" data-day-offset="2"></div>
-                        <div class="mini-task"><span class="mini-circle"></span>list plants for the fence line</div>
-                    </div>
-                    <div class="lp-pane">
-                        <div class="lp-label">My list</div>
-                        <div class="lp-slot"><span class="lp-check"></span><span class="lp-line"><span class="lp-item">climbing roses</span></span></div>
-                        <div class="lp-slot"><span class="lp-check"></span><span class="lp-line"></span></div>
-                        <div class="lp-slot"><span class="lp-check"></span><span class="lp-line"></span></div>
-                        <div class="lp-label">Suggestions</div>
-                        <div class="lp-sug lp-g1"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="lp-text">climbing roses</span><span class="lp-up">&uarr;<span class="lp-cursor"></span></span></div>
-                        <div class="lp-sug lp-g2"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="lp-text">clematis vine</span><span class="lp-up">&uarr;</span></div>
-                        <div class="lp-sug lp-g3"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="lp-text">boxwood hedge</span><span class="lp-up">&uarr;</span></div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <div class="card">
-            <h3>Bring in your calendar &#128197;</h3>
-            <p>Flip <strong>Calendar</strong> on in the header and paste your
-               calendar's private iCal address — Google, Proton, iCloud and
-               Outlook each publish one. The next two weeks of real events land
-               at the top of each day, above everything else, so the board shows
-               the day you actually have. All-day entries and holidays are
-               skipped. Events aren't tasks: you can't drag or move them, and
-               once the day passes they're simply gone.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="cal-frame">
-                    <div class="cal-switch">&#128197;<span class="cal-pill"><span class="cal-knob"></span></span></div>
-                    <div class="mini-card">
-                        <div class="mini-day" data-day-offset="1"></div>
-                    </div>
-                    <div class="cal-ev cal-ev1"><span class="cal-mark">&#128197;</span><span class="cal-time">9:30</span>site inspection</div>
-                    <div class="cal-ev cal-ev2"><span class="cal-mark">&#128197;</span><span class="cal-time">2:00</span>lumber delivery</div>
-                    <div class="mini-task cal-task1"><span class="mini-circle"></span>set the corner posts</div>
-                    <div class="mini-task cal-task2"><span class="mini-circle"></span>rent a post-hole digger</div>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>Your calendar link is a secret &mdash; anyone who can open your board can read these titles.</span>
-        </div>
-
-        <div class="card">
-            <h3>Dark mode &#127769;</h3>
-            <p>The &#9728;&#65039;/&#127769; button in the header flips the whole app
-               between light and dark — this help page follows along. The icon shows
-               the mode you'd switch <em>to</em>.</p>
-        </div>
-        <div class="card demo theme-demo" aria-hidden="true">
-            <div class="scene">
-                <div class="theme-frame">
-                    <div class="theme-bar"><span class="theme-mark">Move<span>Along</span></span><span class="theme-btn">&#127769;</span></div>
-                    <div class="mini-card">
-                        <div class="mini-day" data-day-offset="0"></div>
-                        <div class="mini-task"><span class="mini-circle"></span>set the posts</div>
-                        <div class="mini-task"><span class="mini-circle"></span>hang the gate</div>
-                    </div>
-                    <div class="theme-label">Light</div>
-                </div>
-            </div>
-        </div>
-        <div class="card demo theme-demo demo-3" aria-hidden="true">
-            <div class="scene">
-                <div class="theme-frame dark-frame">
-                    <div class="theme-bar"><span class="theme-mark">Move<span>Along</span></span><span class="theme-btn">&#9728;&#65039;</span></div>
-                    <div class="mini-card">
-                        <div class="mini-day" data-day-offset="0"></div>
-                        <div class="mini-task"><span class="mini-circle"></span>set the posts</div>
-                        <div class="mini-task"><span class="mini-circle"></span>hang the gate</div>
-                    </div>
-                    <div class="theme-label">Dark</div>
-                </div>
-            </div>
-        </div>
+               the next one appears on its own.</div>
+    <div class="xstage">
+      <div class="card demo" aria-hidden="true">
+      <div class="scene">
+      <div class="repeat-frame">
+      <div class="mini-card repeat-card-a">
+      <div class="mini-day" data-day-offset="1"></div>
+      <div class="mini-task repeat-row-a">
+      <span class="mini-circle repeat-done-circle"></span>oil the gate hinges<span class="repeat-glyph">&orarr;m</span>
+      </div>
+      </div>
+      <div class="mini-card repeat-card-b">
+      <div class="mini-day" data-day-offset="31"></div>
+      <div class="mini-task">
+      <span class="mini-circle"></span>oil the gate hinges<span class="repeat-glyph">&orarr;m</span>
+      </div>
+      </div>
+      <div class="repeat-key">r</div>
+      <div class="repeat-cursor"></div>
+      </div>
+      </div>
+      </div>
     </div>
-
-    <h2>Power moves</h2>
-    <div class="feature-grid three-col">
-        <div class="card">
-            <h3>Chain a series</h3>
-            <p><strong>Drag a task onto another task</strong> to make it the next
-               step in that series. Moving an earlier step moves every later step
-               by the same amount. Chained tasks show a numbered circle
-               <span style="display:inline-flex;width:12px;height:12px;border:2px solid #cbd5e1;border-radius:50%;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:#475569;vertical-align:-2px;">2</span>
-               showing the total number of steps in that chain.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <svg class="chain-thread" viewBox="0 0 246 128" preserveAspectRatio="none">
-                    <path d="M 116 31 C 138 31, 138 46, 146 46"/>
-                </svg>
-                <div class="mini-card">
-                    <div class="mini-day">Wed</div>
-                    <div class="mini-task chain-countdown-2"><span class="mini-circle"></span>choose stain color</div>
-                    <div class="mini-task spill-ghost" style="opacity:0.35;"><span class="mini-circle"></span>hang the gate</div>
-                </div>
-                <div class="mini-card">
-                    <div class="mini-day">Thu</div>
-                    <div class="mini-task"><span class="mini-circle"></span>trim hedges</div>
-                </div>
-                <div class="mini-task drag-task"><span class="mini-circle"></span>stain the fence</div>
-            </div>
-        </div>
-        <div class="margin-note" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>When you drop a task onto another task on the same day, it becomes the next step and moves forward one day automatically.</span>
-        </div>
-        <div class="card">
-            <h3>Unlink a step ✂️</h3>
-            <p>Hovering a chained task reveals scissors — click to cut its link to the
-               previous step. It becomes the start of its own series; nothing else
-               moves.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene unlink-scene">
-                <svg class="chain-thread" viewBox="0 0 246 128" preserveAspectRatio="none">
-                    <path d="M 95 31 C 112 23, 117 23, 132 31"/>
-                </svg>
-                <div class="mini-card">
-                    <div class="mini-day">Wed</div>
-                    <div class="mini-task static-count-2"><span class="mini-circle"></span>choose stain color</div>
-                </div>
-                <div class="mini-card">
-                    <div class="mini-day">Thu</div>
-                    <div class="mini-task static-count-1"><span class="mini-circle"></span>stain the fence<span class="mini-scissors">&#9986;&#65039;<svg class="nav-ring scissors-ring" viewBox="0 0 66 26" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="33" cy="13" rx="31" ry="11" pathLength="100"/></svg></span></div>
-                </div>
-            </div>
-        </div>
-        <div class="card">
-            <h3>Locked tasks don't advance past their due date</h3>
-            <p>Instead, the day remains on your board and stays there until you
-               either complete the task or advance it to a current day.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="mini-card past-red">
-                    <div class="mini-day">Fri · overdue</div>
-                    <div class="mini-task locked-stay"><span class="mini-circle"></span><span class="mini-text">fence inspection</span> <span class="mini-lock">🔒</span></div>
-                    <div class="mini-task spill-ghost"><span class="mini-circle"></span>return rental auger</div>
-                </div>
-                <div class="mini-card today-card">
-                    <div class="mini-day">Mon · today</div>
-                    <div class="mini-task"><span class="mini-circle"></span>grocery run</div>
-                </div>
-                <div class="mini-task held-spill"><span class="mini-circle"></span>return rental auger</div>
-            </div>
-        </div>
-    </div>
-
-    <h2>Subtasks</h2>
-    <div class="feature-grid three-col">
-        <div class="card">
-            <h3>&#129504; The assistant</h3>
-            <p>With the header's 🧠 switch on, adding a task instantly opens a pane of
-               up to 7 specific steps — real decisions, real links, real prices, not
-               "make a plan". Click ↺ on an open task (or in the pane's top-right
-               corner) to regenerate them all.</p>
-            <p>No Anthropic API key on the server? You get sensible placeholder steps
-               instead — everything else works the same.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="ai-frame">
-                    <div class="mini-card">
-                        <div class="mini-day" data-day-offset="0"></div>
-                        <div class="mini-task"><span class="mini-circle"></span>build a backyard fence</div>
-                    </div>
-                    <div class="ai-pane">
-                        <div class="ai-dots"><span></span><span></span><span></span></div>
-                        <div class="ai-step ai-s1"><span class="as-check"></span><span class="as-emoji">🧠</span>compare cedar vs vinyl prices</div>
-                        <div class="ai-step ai-s2"><span class="as-check"></span><span class="as-emoji">👩</span>measure the property line</div>
-                        <div class="ai-step ai-s3"><span class="as-check"></span><span class="as-emoji">🧠</span>check local fence-height rules</div>
-                        <div class="ai-step ai-s4"><span class="as-check"></span><span class="as-emoji">👩</span>call 811 to mark utility lines</div>
-                        <div class="ai-step ai-s5"><span class="as-check"></span><span class="as-emoji">🧠</span>get 3 installer quotes</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note important" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>This is the second most important thing, because it gets you thinking about how you get things done.</span>
-        </div>
-        <div class="card coming-soon">
-            <h3>Assign steps</h3>
-            <p>Every step shows its suggested owner: 🧠 for the AI agent, 👩 for a
-               human. Click the emoji to assign it; click <kbd>&rarr;</kbd> on an AI
-               step to dispatch it. Assigned tasks leave your board and appear on
-               the assignee's; they can return them, which puts them back on yours
-               today.</p>
-        </div>
-    </div>
-
-    <h2>Run your own copy</h2>
-    <p style="font-size:13px; margin-bottom:10px;">
-        Move Along is MIT-licensed and built to be forked: one vanilla-JS file for the
-        frontend, a small Express API, SQLite with zero native dependencies, no build
-        step. Fork it on
-        <a href="https://github.com/kevintraywick/movealong" style="color:#0284c7;">GitHub</a>, then:
-    </p>
-
-    <pre>git clone https://github.com/&lt;you&gt;/movealong.git
-cd movealong/server
-npm install
-npm start          <span class="c"># open http://localhost:3000 — that's the whole setup</span></pre>
-
-    <p style="font-size:13px;">
-        To deploy (Railway, Render, Fly, any Node host): run <code>npm start</code> from
-        <code>server/</code>, attach a persistent volume, and point <code>DB_PATH</code>
-        at it (e.g. <code>DB_PATH=/data/movealong.db</code>) so your data survives
-        deploys. Node 18+ required.
-    </p>
-
-    <h2>Enabling real AI steps</h2>
-    <ol class="steps">
-        <li>Get an Anthropic API key (<a href="https://console.anthropic.com" style="color:#0284c7;">console.anthropic.com</a>)
-            and set it as <code>ANTHROPIC_API_KEY</code> in your deployment's environment
-            variables.</li>
-        <li>Generate a private access key — any long random string. In your terminal:
-            <pre>openssl rand -hex 24</pre>
-            (or <code>node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"</code>)</li>
-        <li>Set that string as <code>AI_ACCESS_KEY</code> in the same environment
-            variables and redeploy.</li>
-        <li>Open your deployed app, <kbd>Shift</kbd>+click the 🧠 switch, and paste the
-            same string. Do this once in each browser you use.</li>
-    </ol>
-
-    <div class="callout warn">
-        <strong>Why the access key matters:</strong> the app has no login, so without
-        <code>AI_ACCESS_KEY</code> anyone who finds your URL can trigger AI calls billed
-        to <em>your</em> Anthropic account. With it set, strangers get free placeholder
-        steps and only your browsers spend real money. Rate limits
-        (<code>AI_LIMIT_PER_IP_HOUR</code>, default 20; <code>AI_LIMIT_GLOBAL_DAY</code>,
-        default 200) cap the worst case either way. Skip both keys entirely and the app
-        still works with placeholder steps.
-    </div>
-
-    <div class="callout">
-        <strong>All environment variables are optional:</strong>
-        <code>ANTHROPIC_API_KEY</code> (real AI),
-        <code>AI_ACCESS_KEY</code> (protect your AI spend),
-        <code>AI_LIMIT_PER_IP_HOUR</code> / <code>AI_LIMIT_GLOBAL_DAY</code> (rate caps),
-        <code>DB_PATH</code> (database location), <code>PORT</code> (default 3000).
-    </div>
-
-    <footer>
-        <span>MIT licensed — fork it, strip it for parts, build your own.</span>
-        <span>
-            <a href="https://github.com/kevintraywick/movealong">GitHub</a>
-            &nbsp;&middot;&nbsp;
-            <a href="/">Back to your board</a>
-        </span>
-    </footer>
-</div>
+    <div class="xnote">Extracted from <code>server/public/help.html</code> by
+      <code>docs/animation/build.js</code> — edit the scene there, then rerun the
+      build. Press <kbd>D</kbd> to toggle dark.</div>
+  </div>
 <script>
-    // Real today's date in the add-a-task demo, formatted exactly like the
-    // board's day header (UTC-keyed, same day/month names).
-    (function () {
-        const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-        const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-        const now = new Date();
-        document.getElementById('todayDayName').textContent = dayNames[now.getUTCDay()];
-        document.getElementById('todayDate').textContent = monthNames[now.getUTCMonth()] + ' ' + now.getUTCDate();
-
-        // Midnight-scene day cards: today, tomorrow, day after — board style.
-        // Theme: same key as the board, so the help page opens in
-        // whatever mode the person's board is in. Icon shows the theme
-        // you'd switch TO, matching the app header.
-        const THEME_KEY = 'movealong.theme';
-        const themeBtn = document.getElementById('themeToggle');
-        function applyTheme(theme) {
-            document.body.classList.toggle('dark', theme === 'dark');
-            themeBtn.textContent = theme === 'dark' ? '☀️' : '🌙';
-        }
-        let theme = 'light';
-        try { theme = localStorage.getItem(THEME_KEY) || 'light'; } catch (e) { /* default */ }
-        applyTheme(theme);
-        themeBtn.addEventListener('click', () => {
-            theme = theme === 'dark' ? 'light' : 'dark';
-            try { localStorage.setItem(THEME_KEY, theme); } catch (e) { /* session-only */ }
-            applyTheme(theme);
-        });
-
-        document.querySelectorAll('[data-day-offset]').forEach(el => {
-            const d = new Date(now);
-            d.setUTCDate(d.getUTCDate() + parseInt(el.dataset.dayOffset, 10));
-            el.textContent = dayNames[d.getUTCDay()] + ' · ' + monthNames[d.getUTCMonth()] + ' ' + d.getUTCDate();
-        });
-    })();
+  document.querySelectorAll('.xnav a[data-file]').forEach(a => {
+    if (a.dataset.file === location.pathname.split('/').pop()) a.classList.add('here');
+  });
+  const dayNames=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+  const monthNames=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+  const now=new Date();
+  document.querySelectorAll('[data-day-offset]').forEach(el=>{
+    const d=new Date(now); d.setUTCDate(d.getUTCDate()+parseInt(el.dataset.dayOffset,10));
+    el.textContent=dayNames[d.getUTCDay()].slice(0,3)+' \u00b7 '+monthNames[d.getUTCMonth()]+' '+d.getUTCDate();
+  });
+  const a1=document.getElementById('todayDayName'), a2=document.getElementById('todayDate');
+  if(a1) a1.textContent=dayNames[now.getUTCDay()];
+  if(a2) a2.textContent=monthNames[now.getUTCMonth()]+' '+now.getUTCDate();
+  try { if(localStorage.getItem('movealong.theme')==='dark') document.body.classList.add('dark'); } catch(e){}
+  addEventListener('keydown',e=>{ if(e.key==='d'||e.key==='D') document.body.classList.toggle('dark'); });
 </script>
 </body>
 </html>

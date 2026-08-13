@@ -85,6 +85,10 @@ async function initDb() {
       parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
       locked INTEGER DEFAULT 0,
       priority INTEGER DEFAULT 0,
+      repeat_rule TEXT,
+      source TEXT DEFAULT 'user',
+      external_uid TEXT,
+      event_start TEXT,
       completed INTEGER DEFAULT 0,
       completed_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -117,6 +121,25 @@ async function initDb() {
     )
   `);
 
+  // One subscribed calendar feed per user. The URL is a secret iCal address —
+  // a bearer credential for the whole calendar — so it is never returned to
+  // the client unmasked (see the calendar routes in server.js).
+  db.run(`
+    CREATE TABLE IF NOT EXISTS calendar_feeds (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL UNIQUE,
+      url TEXT NOT NULL,
+      timezone TEXT,
+      enabled INTEGER DEFAULT 1,
+      last_synced_at DATETIME,
+      last_status TEXT,
+      last_error TEXT,
+      event_count INTEGER DEFAULT 0,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+
   // Migrations for existing databases (ALTER TABLE is idempotent-guarded via table_info)
   ensureColumn('tasks', 'locked', 'INTEGER DEFAULT 0');
   ensureColumn('tasks', 'origin_date', 'DATE');
@@ -124,9 +147,23 @@ async function initDb() {
   ensureColumn('tasks', 'parent_task_id', 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
   // Priority: 0 = none, 1-3 = number of red exclamation marks (3 = most urgent).
   ensureColumn('tasks', 'priority', 'INTEGER DEFAULT 0');
+  // Repeat: NULL = one-off, else 'daily' | 'weekly' | 'monthly'. Only ever one
+  // instance of a repeating task exists — completing it spawns the next one.
+  ensureColumn('tasks', 'repeat_rule', 'TEXT');
   // Per-user tab order for the project bar. NULL = never dragged; the
   // projects query falls back to creation order for those.
   ensureColumn('project_members', 'position', 'INTEGER');
+  // Calendar import: rows with source='calendar' are mirrored from the user's
+  // subscribed iCal feed. They are deliberately NOT locked — every deadline
+  // behavior (board anchoring, red tabs, red text, the amber edge) gates on
+  // `locked`, and locking events would misfire all of them daily. Spillover
+  // exemption is instead an explicit source check in the tasks route.
+  ensureColumn('tasks', 'source', "TEXT DEFAULT 'user'");
+  // ICS UID plus the instance's date key: a recurring event's every instance
+  // shares one UID, so UID alone is not unique.
+  ensureColumn('tasks', 'external_uid', 'TEXT');
+  // Local HH:MM, for the row's time chip and intra-day ordering.
+  ensureColumn('tasks', 'event_start', 'TEXT');
   // Pre-migration tasks never recorded their origin; the best available
   // approximation is wherever they sit now (their true origin is lost).
   db.run('UPDATE tasks SET origin_date = scheduled_date WHERE origin_date IS NULL');
@@ -145,6 +182,8 @@ async function initDb() {
   db.run('CREATE INDEX IF NOT EXISTS idx_project_members_user ON project_members(user_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_subtasks_task ON subtasks(task_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_subtasks_parent ON subtasks(parent_subtask_id)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_tasks_external ON tasks(owner_id, external_uid)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_calendar_feeds_user ON calendar_feeds(user_id)');
 
   saveDb();
   return db;

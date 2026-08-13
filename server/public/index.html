@@ -494,6 +494,27 @@
             padding: 2px 2px 6px;
         }
 
+        /* Rename field: the board popup swaps its name line for this in place,
+           so renaming costs no second modal. Sized to match .account-who so
+           the popup doesn't resize when it appears. */
+        .rename-input {
+            width: 100%;
+            box-sizing: border-box;
+            font-size: 13px;
+            font-family: inherit;
+            color: #0f172a;
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            padding: 6px 8px;
+            margin-bottom: 6px;
+        }
+
+        .rename-input:focus {
+            outline: none;
+            border-color: #0ea5e9;
+        }
+
         .header-display.visible {
             display: flex;
         }
@@ -573,6 +594,17 @@
 
         .task-day-counter.lagging {
             color: #ef4444;
+        }
+
+        /* Repeat glyph: a quiet grey cycle arrow plus the cadence letter, set
+           by hovering a task and pressing r. It sits in the same metadata run
+           as the day counter — and replaces it, since "days since first
+           requested" means nothing for something designed to come back. */
+        .task-repeat {
+            font-size: 10px;
+            color: #94a3b8;
+            margin-left: 3px;
+            white-space: nowrap;
         }
 
         /* Priority: 1-3 accent-blue exclamation marks, set by hovering a task and
@@ -673,6 +705,82 @@
 
         /* Locked task whose deadline is today: the day has arrived. */
         .task-item.locked-today .task-description {
+            color: #ef4444;
+        }
+
+        /* Calendar events: fixed points in the day, mirrored from the user's
+           iCal feed. Deliberately quiet — no amber (that means "you locked
+           this") and no red (reserved for overdue and deadlines). They sort
+           above every priority level, so they need no extra emphasis. */
+        .task-item.calendar {
+            border-left: 2px solid #cbd5e1;
+            padding-left: 4px;
+            margin-left: -6px;
+        }
+
+        .task-event-mark {
+            flex-shrink: 0;
+            width: 12px;
+            font-size: 9px;
+            line-height: 1;
+            opacity: 0.5;
+            user-select: none;
+        }
+
+        .task-event-time {
+            display: inline-block;
+            margin-right: 4px;
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .task-item.calendar .task-description {
+            color: #475569;
+        }
+
+        .task-item.calendar.completed .task-event-time {
+            opacity: 0.5;
+        }
+
+        /* Connect form inside the shared popup box. */
+        .cal-popup-form {
+            padding: 8px 10px 4px;
+            max-width: 250px;
+        }
+
+        .cal-popup-form input {
+            width: 100%;
+            box-sizing: border-box;
+            padding: 6px 8px;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            font-size: 12px;
+            font-family: inherit;
+            color: #0f172a;
+            background: #fff;
+        }
+
+        .cal-note {
+            margin-top: 6px;
+            font-size: 11px;
+            line-height: 1.35;
+            color: #94a3b8;
+        }
+
+        .cal-note.warn {
+            color: #b45309;
+        }
+
+        .cal-status {
+            padding: 2px 10px 6px;
+            font-size: 11px;
+            color: #94a3b8;
+            max-width: 250px;
+        }
+
+        .cal-status.error {
             color: #ef4444;
         }
 
@@ -1852,6 +1960,14 @@
         body.dark .task-circle { border-color: #475569; color: #cbd5e1; }
         body.dark .task-divider { border-top-color: #334155; }
         body.dark .task-item.completed .task-description { color: #64748b; }
+        body.dark .task-item.calendar { border-left-color: #475569; }
+        body.dark .task-event-time { color: #94a3b8; }
+        /* Beats the light .task-item.calendar .task-description compound (0,3,0). */
+        body.dark .task-item.calendar .task-description { color: #cbd5e1; }
+        body.dark .cal-popup-form input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+        body.dark .cal-note { color: #64748b; }
+        body.dark .cal-note.warn { color: #fbbf24; }
+        body.dark .cal-status { color: #64748b; }
         body.dark .hint-chip {
             background: rgba(14, 165, 233, 0.08);
             border-color: rgba(14, 165, 233, 0.3);
@@ -1914,6 +2030,12 @@
             color: #e2e8f0;
         }
         body.dark .account-who { color: #e2e8f0; }
+        body.dark .rename-input {
+            background: #0f172a;
+            border-color: #334155;
+            color: #e2e8f0;
+        }
+        body.dark .rename-input:focus { border-color: #0ea5e9; }
         body.dark .header-display:hover { background: rgba(14, 165, 233, 0.12); }
         body.dark .modal { background: #1e293b; color: #e2e8f0; }
         body.dark .modal h3 { color: #f1f5f9; }
@@ -1955,9 +2077,13 @@
             </div>
 
             <!-- AI assistant master switch -->
-            <div class="assistant-switch" title="Toggle the AI assistant that auto-generates subtasks when you add a task">
+            <div class="assistant-switch" id="assistantSwitch" title="Toggle the AI assistant that auto-generates subtasks when you add a task">
                 <span class="assistant-label">🧠 Assistant</span>
                 <button class="assistant-toggle on" id="assistantToggleBtn" role="switch" aria-checked="true" aria-label="Toggle AI assistant"></button>
+            </div>
+            <div class="assistant-switch" id="calendarSwitch" title="Import the next two weeks from your calendar">
+                <span class="assistant-label">📅 Calendar</span>
+                <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import"></button>
             </div>
 
             <!-- Dark/light mode: shows the theme you'd switch to -->
@@ -1989,6 +2115,7 @@
         </div>
 
         <div class="team-popup lock-popup" id="accountPopup"></div>
+        <div class="team-popup lock-popup" id="calendarPopup"></div>
         <div class="team-popup lock-popup" id="lockPopup">
         </div>
 
@@ -2530,8 +2657,10 @@
                 }
                 // Completing a chained task splices it out server-side (its
                 // child re-links to its parent) — refetch so other rows'
-                // parent_task_id changes land locally.
-                if (willComplete && wasChained) {
+                // parent_task_id changes land locally. Completing a repeating
+                // task creates its next instance server-side, so that needs a
+                // refetch too or the new row stays invisible until reload.
+                if (willComplete && (wasChained || task.repeat_rule)) {
                     await loadTasks();
                 }
                 renderView();
@@ -2892,7 +3021,8 @@
             popup.innerHTML = `
                 <div class="lock-popup-menu">
                     <div class="lock-popup-title">Board</div>
-                    <div class="account-who">${escapeHtml(currentProject.name)}</div>
+                    <div class="account-who" data-role="board-name">${escapeHtml(currentProject.name)}</div>
+                    <div class="lock-opt" data-act="rename-project">Rename this board</div>
                     <div class="lock-opt danger" data-act="delete-project">Delete this board</div>
                 </div>`;
 
@@ -2901,6 +3031,38 @@
             popup.style.left = rect.left + 'px';
             popup.style.top = (rect.bottom + 6) + 'px';
             popup.classList.add('visible');
+
+            // Rename swaps the name line for a field in place rather than
+            // opening a modal — one deliberate step, no second surface.
+            popup.querySelector('[data-act="rename-project"]').addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                const nameEl = popup.querySelector('[data-role="board-name"]');
+                const renameRow = popup.querySelector('[data-act="rename-project"]');
+                if (!nameEl || nameEl.dataset.editing) return;
+                nameEl.dataset.editing = '1';
+                renameRow.remove();
+
+                const input = document.createElement('input');
+                input.className = 'rename-input';
+                input.type = 'text';
+                input.value = currentProject.name;
+                input.maxLength = 60;
+                nameEl.replaceWith(input);
+
+                // Safari ignores focus() on an element that was hidden in the
+                // same tick — the popup fades in on .visible, so defer it.
+                setTimeout(() => { input.focus(); input.select(); }, 50);
+
+                input.addEventListener('keydown', async (kev) => {
+                    kev.stopPropagation();
+                    if (kev.key === 'Escape') { hidePopups(); return; }
+                    if (kev.key !== 'Enter') return;
+                    const next = input.value.trim();
+                    if (!next || next === currentProject.name) { hidePopups(); return; }
+                    hidePopups();
+                    await renameProject(currentProject.id, next);
+                });
+            });
 
             popup.querySelector('[data-act="delete-project"]').addEventListener('click', async (ev) => {
                 ev.stopPropagation();
@@ -2916,6 +3078,25 @@
             });
 
             document.addEventListener('click', hidePopupsOnClickOutside);
+        }
+
+        async function renameProject(projectId, name) {
+            try {
+                const updated = await api(
+                    `/companies/${company.subdomain}/users/${currentUser.slug}/projects/${projectId}`,
+                    { method: 'PUT', body: { name } });
+                // Mutate in place: currentProject is a reference into `projects`,
+                // so replacing the array entry would leave it pointing at the
+                // old object and the header chip would keep the stale name.
+                const local = projects.find(p => p.id === projectId);
+                if (local) Object.assign(local, { name: updated.name, slug: updated.slug });
+                // The header chip is user • team, so the tab bar is the only
+                // place the board name shows — no other surface to refresh.
+                renderProjectBar();
+                showToast(`Renamed to "${updated.name}"`);
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
         }
 
         async function deleteProject(projectId) {
@@ -3264,6 +3445,13 @@
                     // Shift+Option+Click → quick-lock to this day (with confirm)
                     if (e.shiftKey && e.altKey) {
                         const task = tasks.find(t => t.id === taskId);
+                        // Calendar events cannot be locked: `locked` is what
+                        // drives board anchoring, red tabs and red text, and an
+                        // event carrying it would misfire all three daily.
+                        if (task && task.source === 'calendar') {
+                            showToast("Calendar events can't be locked");
+                            return;
+                        }
                         if (task && !task.completed) {
                             if (task.locked) {
                                 showToast('Already locked to ' + task.scheduled_date);
@@ -3595,7 +3783,22 @@
             return out;
         }
 
+        // Cadence letters, and the cycle order the r key walks.
+        const REPEAT_LABELS = { daily: 'd', weekly: 'w', monthly: 'm' };
+        const REPEAT_CYCLE = [null, 'daily', 'weekly', 'monthly'];
+
+        // A repeat replaces the day counter rather than sitting beside it: a
+        // daily habit would otherwise show a permanent red "14", which reads
+        // as a bug rather than a nag. The completed instance keeps its glyph —
+        // it is the record of a rhythm you kept.
+        function renderRepeatGlyph(task) {
+            const letter = REPEAT_LABELS[task.repeat_rule];
+            if (!letter) return '';
+            return ` <span class="task-repeat" title="Repeats ${task.repeat_rule} — press r to change">&orarr;${letter}</span>`;
+        }
+
         function renderDayCounter(task) {
+            if (task.repeat_rule) return '';
             if (!task.origin_date) return '';
             const todayKey = getTodayKey();
             const end = (!task.completed && task.scheduled_date < todayKey) ? todayKey : task.scheduled_date;
@@ -3615,10 +3818,18 @@
             return `<span class="task-priority" title="Priority ${level} — press 0 to clear">${marks}</span>`;
         }
 
-        // Highest priority first; JS sort is stable, so tasks at the same level
-        // keep the server's scheduled_date/created_at order.
+        // Calendar events first (they are fixed points in the day, and outrank
+        // every priority level), then highest priority. JS sort is stable, so
+        // tasks at the same level keep the server's date/created order.
+        // Events never carry a priority, so they need no ! marks to sort first.
         function sortByPriority(list) {
-            return [...list].sort((a, b) => (parseInt(b.priority, 10) || 0) - (parseInt(a.priority, 10) || 0));
+            return [...list].sort((a, b) => {
+                const aEvent = a.source === 'calendar' ? 1 : 0;
+                const bEvent = b.source === 'calendar' ? 1 : 0;
+                if (aEvent !== bEvent) return bEvent - aEvent;
+                if (aEvent) return (a.event_start || '').localeCompare(b.event_start || '');
+                return (parseInt(b.priority, 10) || 0) - (parseInt(a.priority, 10) || 0);
+            });
         }
 
         // ============================================
@@ -3629,14 +3840,17 @@
         // otherwise the row you are aiming at slides out from under the cursor
         // and a follow-up keystroke lands on its neighbour.
 
-        // The row currently under the cursor, if it can take a priority.
-        // Reads the live CSS :hover state, so the row that visibly changed
-        // colour is exactly the row that gets flagged.
-        function hoveredPriorityRow() {
+        // The row currently under the cursor, if it can take a priority or a
+        // repeat. Reads the live CSS :hover state, so the row that visibly
+        // changed colour is exactly the row that gets flagged. Shared by both
+        // hover+keypress features — their eligibility rules are identical.
+        function hoveredTaskRow() {
             const row = document.querySelector('.task-item:hover, .project-task-item:hover');
             if (!row) return null;
             // Completed, assigned-away and placeholder rows are not eligible.
             if (row.classList.contains('completed') || row.classList.contains('forwarded') || row.classList.contains('placeholder')) return null;
+            // Calendar events already sort above everything; marks would be noise.
+            if (row.classList.contains('calendar')) return null;
             const id = parseInt(row.dataset.id, 10);
             if (!id) return null;
             return { row, id };
@@ -3709,7 +3923,105 @@
             if (priorityWrites.get(taskId) === write) priorityWrites.delete(taskId);
         }
 
+        // ============================================
+        // REPEAT (hover + r)
+        // ============================================
+        // Hovering a task and pressing r cycles off -> daily -> weekly ->
+        // monthly -> off. Deliberately no popup: a cadence picker is exactly
+        // the rabbit hole this app exists to avoid, and three cadences cover
+        // the mortgage and the toothbrush. Only ever one instance of a
+        // repeating task exists — the server creates the next one when you
+        // complete this one (see spawnNextRepeat in server.js).
+        //
+        // Unlike priority, a repeat does not affect ordering, so there is no
+        // deferred re-sort to schedule — the glyph just paints in place.
+
+        function currentRepeatRule(row) {
+            const span = row.querySelector('.task-repeat');
+            if (!span) return null;
+            const letter = span.textContent.trim().slice(-1);
+            return Object.keys(REPEAT_LABELS).find(k => REPEAT_LABELS[k] === letter) || null;
+        }
+
+        // Optimistic paint, mirroring paintPriorityMarks: update the glyph in
+        // place so the row never moves under the cursor mid-cycle.
+        function paintRepeatGlyph(row, rule) {
+            const desc = priorityDescriptionEl(row);
+            if (!desc) return;
+            let span = row.querySelector('.task-repeat');
+            const letter = REPEAT_LABELS[rule];
+            if (!letter) {
+                if (span) span.remove();
+                return;
+            }
+            if (!span) {
+                span = document.createElement('span');
+                span.className = 'task-repeat';
+                // Sits before the priority marks, matching the render order.
+                const marks = row.querySelector('.task-priority');
+                if (marks) desc.insertBefore(span, marks);
+                else {
+                    const assignedLabel = desc.querySelector('.assigned-from');
+                    if (assignedLabel) desc.insertBefore(span, assignedLabel);
+                    else desc.appendChild(span);
+                }
+            }
+            span.innerHTML = '&orarr;' + letter;
+            span.title = `Repeats ${rule} — press r to change`;
+        }
+
+        // Setting a repeat hides the day counter, so it has to come off the
+        // row too — otherwise the count lingers until the next full render.
+        function paintDayCounter(row, task) {
+            const existing = row.querySelector('.task-day-counter');
+            if (task.repeat_rule) {
+                if (existing) existing.remove();
+                return;
+            }
+            if (existing) return;
+            const desc = priorityDescriptionEl(row);
+            const html = renderDayCounter(task);
+            if (!desc || !html) return;
+            const before = row.querySelector('.task-repeat') || row.querySelector('.task-priority')
+                || desc.querySelector('.assigned-from');
+            const tmp = document.createElement('div');
+            tmp.innerHTML = html.trim();
+            const node = tmp.firstChild;
+            if (before) desc.insertBefore(node, before);
+            else desc.appendChild(node);
+        }
+
+        // Shares priorityWrites with setPriority: both PUT the same task, so
+        // one chain per id keeps a fast r-then-2 from landing out of order.
+        async function setRepeat(taskId, row) {
+            // The DOM is the source of truth for the current rule — the one
+            // place that is correct in both the board and the Main view.
+            const current = currentRepeatRule(row);
+            const next = REPEAT_CYCLE[(REPEAT_CYCLE.indexOf(current) + 1) % REPEAT_CYCLE.length];
+
+            const task = tasks.find(t => t.id === taskId);
+            if (task) task.repeat_rule = next;
+            paintRepeatGlyph(row, next);
+            if (task) paintDayCounter(row, task);
+
+            const write = (priorityWrites.get(taskId) || Promise.resolve())
+                .then(() => api(`/tasks/${taskId}`, { method: 'PUT', body: { repeat_rule: next } }))
+                .then(updated => {
+                    if (task && priorityWrites.get(taskId) === write) Object.assign(task, updated);
+                })
+                .catch(err => showToast('Error: ' + err.message));
+
+            priorityWrites.set(taskId, write);
+            await write;
+            if (priorityWrites.get(taskId) === write) priorityWrites.delete(taskId);
+        }
+
         function renderTask(task) {
+            // Calendar events are mirrored from the user's iCal feed. They are
+            // not locked (locking would misfire every deadline behavior in the
+            // app), and the affordances that would fight the next sync — move,
+            // drag-to-series, lock, delete — are all withheld.
+            const isEvent = task.source === 'calendar';
             const assignedLabel = task.assigned_by_name ? ` <span class="assigned-from">(from: ${escapeHtml(task.assigned_by_name)})</span>` : '';
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
             const isExpanded = expandedTaskIds.has(task.id);
@@ -3719,7 +4031,7 @@
                 ? `<button class="task-regenerate" data-task-id="${task.id}" title="Regenerate steps">&orarr;</button>`
                 : '';
             // Lock control: only on pending (non-completed) tasks.
-            const lockButton = task.completed
+            const lockButton = (task.completed || isEvent)
                 ? ''
                 : `<div class="task-lock ${isLocked ? 'locked' : ''}" data-task-id="${task.id}" title="${isLocked ? 'Locked — click to manage' : 'Lock to a date'}">${isLocked ? '🔒' : '📅'}</div>`;
 
@@ -3728,7 +4040,7 @@
             const chain = chainInfo.get(task.id);
             const chainAttrs = chain ? ` data-chain-id="${chain.chainId}" data-countdown="${chain.countdown}"` : '';
             const circleContent = (chain && !task.completed) ? chain.countdown : '';
-            const draggable = task.completed ? '' : ' draggable="true"';
+            const draggable = (task.completed || isEvent) ? '' : ' draggable="true"';
 
             // Unlink: only for a task that has a predecessor in a live chain.
             // Cuts just this one edge — the task's own successors stay attached
@@ -3737,11 +4049,22 @@
                 ? `<div class="task-unlink" data-task-id="${task.id}" title="Unlink from previous step">&#9986;&#65039;</div>`
                 : '';
 
+            // A passive origin marker plus the event's local time. No arrow:
+            // moving an event would just be overwritten by the next sync.
+            const eventMarker = isEvent ? '<div class="task-event-mark" title="From your calendar">&#128197;</div>' : '';
+            const eventTime = (isEvent && task.event_start)
+                ? `<span class="task-event-time">${escapeHtml(task.event_start)}</span>`
+                : '';
+            const arrow = isEvent ? '' : `<div class="task-arrow" data-task-id="${task.id}">&rarr;</div>`;
+            const descTitle = isEvent
+                ? 'From your calendar'
+                : 'Shift+Option+Click to lock to this day · hover and press 1-3 to prioritize';
+
             return `
-                <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''}" data-id="${task.id}"${chainAttrs}${draggable}>
+                <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''} ${isEvent ? 'calendar' : ''}" data-id="${task.id}"${chainAttrs}${draggable}>
                     <div class="task-circle" data-task-id="${task.id}">${circleContent}</div>
-                    <div class="task-arrow" data-task-id="${task.id}">&rarr;</div>
-                    <div class="task-description" data-task-id="${task.id}" title="Shift+Option+Click to lock to this day · hover and press 1-3 to prioritize">${linkifyText(task.description)}${renderDayCounter(task)}${renderPriorityMarks(task)}${assignedLabel}</div>
+                    ${arrow}${eventMarker}
+                    <div class="task-description" data-task-id="${task.id}" title="${descTitle}">${eventTime}${linkifyText(task.description)}${renderDayCounter(task)}${renderRepeatGlyph(task)}${renderPriorityMarks(task)}${assignedLabel}</div>
                     ${regenerateButton}
                     ${unlinkButton}
                     ${lockButton}
@@ -3917,7 +4240,7 @@
                             return `
                                 <div class="project-task-item" data-id="${t.id}">
                                     <div class="task-circle" data-task-id="${t.id}"></div>
-                                    <div class="project-task-desc" data-task-id="${t.id}" title="Hover and press 1-3 to prioritize">${linkifyText(t.description)}${renderPriorityMarks(t)}</div>
+                                    <div class="project-task-desc" data-task-id="${t.id}" title="Hover and press 1-3 to prioritize, r to repeat">${linkifyText(t.description)}${renderRepeatGlyph(t)}${renderPriorityMarks(t)}</div>
                                     <span class="project-task-date${t.locked ? ' locked-date' : ''}">${t.scheduled_date}</span>
                                     ${progress}
                                 </div>
@@ -4266,7 +4589,7 @@
         }
         // Handler lives on the whole "🧠 Assistant [switch]" group, so
         // clicking the label or emoji works the same as the pill itself.
-        document.querySelector('.assistant-switch').addEventListener('click', (e) => {
+        document.getElementById('assistantSwitch').addEventListener('click', (e) => {
             // Shift+Click: set/clear the AI access key for this browser
             // (needed for real AI when the server sets AI_ACCESS_KEY).
             if (e.shiftKey) {
@@ -4294,6 +4617,146 @@
         });
         loadAssistantPref();
         renderAssistantToggle();
+
+        // ============================================
+        // CALENDAR IMPORT (📅 toggle)
+        // ============================================
+        // Unlike the assistant switch, this state lives server-side on
+        // calendar_feeds — the sync is server work, and the feed URL must never
+        // touch localStorage (it is a bearer credential for the whole calendar).
+        let calendarState = { connected: false, enabled: false };
+
+        function calendarBase() {
+            return `/companies/${company.subdomain}/users/${currentUser.slug}/calendar`;
+        }
+
+        function renderCalendarToggle() {
+            const btn = document.getElementById('calendarToggleBtn');
+            if (!btn) return;
+            const on = !!(calendarState.connected && calendarState.enabled);
+            btn.classList.toggle('on', on);
+            btn.setAttribute('aria-checked', on ? 'true' : 'false');
+        }
+
+        async function loadCalendarStatus() {
+            if (!isSignedUp) return;
+            try {
+                calendarState = await api(calendarBase());
+            } catch (err) {
+                calendarState = { connected: false, enabled: false };
+            }
+            renderCalendarToggle();
+        }
+
+        function relativeSince(iso) {
+            if (!iso) return 'never';
+            const mins = Math.floor((Date.now() - Date.parse(iso)) / 60000);
+            if (!isFinite(mins) || mins < 0) return 'just now';
+            if (mins < 1) return 'just now';
+            if (mins < 60) return `${mins} min ago`;
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return `${hrs} hr ago`;
+            return `${Math.floor(hrs / 24)} d ago`;
+        }
+
+        function showCalendarPopup() {
+            if (!isSignedUp) return;
+            const popup = document.getElementById('calendarPopup');
+            const anchor = document.getElementById('calendarSwitch');
+
+            if (!calendarState.connected) {
+                popup.innerHTML = `
+                    <div class="lock-popup-menu">
+                        <div class="lock-popup-title">Connect a calendar</div>
+                        <div class="cal-popup-form">
+                            <input type="text" id="calUrlInput" placeholder="Paste your secret iCal URL" autocomplete="off" spellcheck="false">
+                            <div class="cal-note">Google, Proton, iCloud and Outlook each publish a private iCal address in their calendar settings.</div>
+                            <div class="cal-note warn">Anyone who can open your board will see these event titles — this app has no password.</div>
+                        </div>
+                        <div class="lock-opt" data-act="connect">Connect</div>
+                    </div>`;
+            } else {
+                const err = calendarState.last_status === 'error'
+                    ? `<div class="cal-status error">Last sync failed: ${escapeHtml(calendarState.last_error || 'unknown error')}</div>`
+                    : '';
+                popup.innerHTML = `
+                    <div class="lock-popup-menu">
+                        <div class="lock-popup-title">Calendar</div>
+                        <div class="cal-status">${escapeHtml(calendarState.url_masked || '')}<br>
+                            ${calendarState.event_count || 0} events · synced ${relativeSince(calendarState.last_synced_at)}</div>
+                        ${err}
+                        <div class="lock-opt" data-act="sync">Sync now</div>
+                        <div class="lock-opt" data-act="toggle">${calendarState.enabled ? 'Turn off' : 'Turn on'}</div>
+                        <div class="lock-opt danger" data-act="disconnect">Disconnect</div>
+                    </div>`;
+            }
+
+            const rect = anchor.getBoundingClientRect();
+            popup.style.left = 'auto';
+            popup.style.right = Math.max(8, window.innerWidth - rect.right) + 'px';
+            popup.style.top = (rect.bottom + 5) + 'px';
+            popup.classList.add('visible');
+            document.addEventListener('click', hidePopupsOnClickOutside);
+
+            const input = popup.querySelector('#calUrlInput');
+            // Safari ignores focus() inside a visibility:hidden subtree, so defer it.
+            if (input) setTimeout(() => input.focus(), 50);
+
+            popup.querySelectorAll('.lock-opt').forEach(opt => {
+                opt.addEventListener('click', () => handleCalendarAction(opt.dataset.act, popup));
+            });
+            if (input) {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter') { e.preventDefault(); handleCalendarAction('connect', popup); }
+                });
+            }
+        }
+
+        async function handleCalendarAction(act, popup) {
+            const base = calendarBase();
+            try {
+                if (act === 'connect') {
+                    const url = (popup.querySelector('#calUrlInput') || {}).value || '';
+                    if (!url.trim()) { showToast('Paste your calendar URL first'); return; }
+                    showToast('Connecting…');
+                    calendarState = await api(base, {
+                        method: 'PUT',
+                        body: { url: url.trim(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+                    });
+                    showToast(`Calendar connected — ${calendarState.event_count || 0} events`);
+                } else if (act === 'sync') {
+                    showToast('Syncing…');
+                    calendarState = await api(base + '/sync', { method: 'POST' });
+                    showToast(`Synced — ${calendarState.event_count || 0} events`);
+                } else if (act === 'toggle') {
+                    calendarState = await api(base, { method: 'PUT', body: { enabled: !calendarState.enabled } });
+                    showToast(calendarState.enabled ? 'Calendar on' : 'Calendar off');
+                } else if (act === 'disconnect') {
+                    if (!confirm('Disconnect your calendar? Imported events will be removed from the board.')) return;
+                    calendarState = await api(base, { method: 'DELETE' });
+                    showToast('Calendar disconnected');
+                }
+            } catch (err) {
+                showToast(err.message || 'Calendar action failed');
+                await loadCalendarStatus();
+                return;
+            }
+            hidePopups();
+            renderCalendarToggle();
+            await loadTasks();
+            renderView();
+        }
+
+        document.getElementById('calendarSwitch').addEventListener('click', async (e) => {
+            if (!isSignedUp) { showToast('Sign in first'); return; }
+            e.stopPropagation();
+            // The pill flips it on/off once connected; the label opens the menu.
+            if (calendarState.connected && e.target.id === 'calendarToggleBtn') {
+                await handleCalendarAction('toggle', document.getElementById('calendarPopup'));
+                return;
+            }
+            showCalendarPopup();
+        });
 
         // ============================================
         // THEME (dark / light)
@@ -4324,6 +4787,7 @@
             document.getElementById('teamPopup').classList.remove('visible');
             document.getElementById('lockPopup').classList.remove('visible');
             document.getElementById('accountPopup').classList.remove('visible');
+            document.getElementById('calendarPopup').classList.remove('visible');
             document.removeEventListener('click', hidePopupsOnClickOutside);
         }
 
@@ -4334,6 +4798,7 @@
                 !e.target.closest('.task-lock') &&
                 !e.target.closest('.header-display') &&
                 !e.target.closest('.project-tab') &&
+                !e.target.closest('#calendarSwitch') &&
                 !e.target.closest('.modal')) {
                 hidePopups();
             }
@@ -4383,6 +4848,7 @@
                 await loadTasks();
                 renderProjectBar();
                 renderBoard();
+                loadCalendarStatus();
             } catch (err) {
                 console.error('Failed to restore session:', err);
                 clearSession();
@@ -4423,10 +4889,29 @@
                 const isEditing = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT'
                     || (document.activeElement && document.activeElement.isContentEditable);
                 if (!isEditing) {
-                    const hovered = hoveredPriorityRow();
+                    const hovered = hoveredTaskRow();
                     if (hovered) {
                         e.preventDefault();
                         setPriority(hovered.id, parseInt(e.key, 10), hovered.row);
+                        return;
+                    }
+                }
+            }
+
+            // Repeat: hover a pending task and press r to cycle the cadence.
+            // Same placement rules as priority above — it must sit before the
+            // type-to-focus fallback, which would otherwise swallow the "r"
+            // into the add-task input, and the editing guard keeps typing
+            // "return the drill" from setting a repeat.
+            if ((e.key === 'r' || e.key === 'R') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                const activeTag = (document.activeElement && document.activeElement.tagName) || '';
+                const isEditing = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT'
+                    || (document.activeElement && document.activeElement.isContentEditable);
+                if (!isEditing) {
+                    const hovered = hoveredTaskRow();
+                    if (hovered) {
+                        e.preventDefault();
+                        setRepeat(hovered.id, hovered.row);
                         return;
                     }
                 }
