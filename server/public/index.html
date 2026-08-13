@@ -2289,7 +2289,7 @@
     <!-- Add New User Modal -->
     <div class="modal-overlay" id="addUserModal">
         <div class="modal">
-            <h3>Add team member</h3>
+            <h3 id="addUserTitle">Add team member</h3>
             <div class="form-group">
                 <label>Name</label>
                 <input type="text" class="form-input" id="newUserName" placeholder="Bob R">
@@ -2986,14 +2986,21 @@
             }
         }
 
-        async function createUserAndAssign(name, taskId) {
+        // `target` is { taskId } for a whole task, or { subtaskId, taskId } for a
+        // single step. Both routes already exist server-side; only this frontend
+        // path was task-only.
+        async function createUserAndAssign(name, target) {
             try {
                 const newUser = await api(`/companies/${company.subdomain}/users`, {
                     method: 'POST',
                     body: { name }
                 });
                 allUsers.push(newUser);
-                await assignTaskToMember(taskId, newUser.id);
+                if (target.subtaskId) {
+                    await assignSubtask(target.subtaskId, target.taskId, newUser.id);
+                } else {
+                    await assignTaskToMember(target.taskId, newUser.id);
+                }
                 return newUser;
             } catch (err) {
                 showToast('Error: ' + err.message);
@@ -4860,11 +4867,15 @@
             popup.style.top = (rect.bottom + 5) + 'px';
             popup.classList.add('visible');
 
+            // The + was dead when this popup was opened from a subtask: it only
+            // fired for activeTaskId, which showSubtaskAssignPopup() explicitly
+            // nulls. Capture whichever target is live and hand it to the modal.
+            const target = activeSubtaskId
+                ? { subtaskId: activeSubtaskId, taskId: activeSubtaskTaskId }
+                : (activeTaskId ? { taskId: activeTaskId } : null);
             document.getElementById('addNewMemberBtn').addEventListener('click', () => {
                 hidePopups();
-                if (activeTaskId) {
-                    showAddUserModal(activeTaskId);
-                }
+                if (target) showAddUserModal(target);
             });
 
             popup.querySelectorAll('.team-member').forEach(memberEl => {
@@ -4896,23 +4907,28 @@
         const copyLinkBtn = document.getElementById('copyLinkBtn');
         const confirmAddUser = document.getElementById('confirmAddUser');
         const cancelAddUser = document.getElementById('cancelAddUser');
-        let pendingAssignTaskId = null;
+        // { taskId } or { subtaskId, taskId } — what the new user will be given.
+        let pendingAssignTarget = null;
         let newUserCreated = null;
 
-        function showAddUserModal(taskId) {
-            pendingAssignTaskId = taskId;
+        function showAddUserModal(target) {
+            pendingAssignTarget = target;
             newUserCreated = null;
             newUserName.value = '';
             newUserLinkDisplay.style.display = 'none';
             confirmAddUser.textContent = 'Add & get link';
             confirmAddUser.disabled = false;
+            document.getElementById('addUserTitle').textContent =
+                target && target.subtaskId ? 'Assign this step to someone new' : 'Add team member';
             addUserModal.classList.add('visible');
-            newUserName.focus();
+            // Safari ignores focus() while the overlay is still visibility:hidden
+            // mid-transition — the same trap the New project modal hit.
+            setTimeout(() => newUserName.focus(), 50);
         }
 
         function hideAddUserModal() {
             addUserModal.classList.remove('visible');
-            pendingAssignTaskId = null;
+            pendingAssignTarget = null;
             newUserCreated = null;
         }
 
@@ -4920,8 +4936,11 @@
 
         confirmAddUser.addEventListener('click', async () => {
             if (newUserCreated) {
+                // Read the name BEFORE hiding: hideAddUserModal() nulls
+                // newUserCreated, so touching it afterwards throws.
+                const name = newUserCreated.name;
                 hideAddUserModal();
-                showToast(`Assigned to ${newUserCreated.name}`);
+                showToast(`Assigned to ${name}`);
                 return;
             }
 
@@ -4932,7 +4951,8 @@
             confirmAddUser.textContent = '...';
 
             try {
-                newUserCreated = await createUserAndAssign(name, pendingAssignTaskId);
+                if (!pendingAssignTarget) { hideAddUserModal(); return; }
+                newUserCreated = await createUserAndAssign(name, pendingAssignTarget);
 
                 const fullUrl = `${company.subdomain}.movealong.com/${newUserCreated.slug}`;
                 newUserLink.textContent = fullUrl;

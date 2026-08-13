@@ -73,6 +73,12 @@ Subtasks must be **specific, actionable, and research-backed** — never vague p
 - `web_search` takes `user_location`; the only location this app knows is the IANA zone captured when a **calendar feed** was connected, which is enough to localize "stores near me" without asking for an address.
 - Calendar rows carry `project_id = NULL` and so have no board to bill — they are never researched.
 
+### Assigning a step to someone new (the + button)
+- The team popup's **+ New** creates a person and hands them the thing you were assigning. It was **dead on every reachable path** until 2026-08-13: the handler ran `if (activeTaskId) showAddUserModal(activeTaskId)`, but `showSubtaskAssignPopup()` explicitly nulls `activeTaskId`, and `showTeamPopup(e, taskId)` — the task-level entry point — **is defined but never called**. So the only live trigger is the subtask emoji, where the guard could never pass.
+- The fix threads a `target` of `{ taskId }` *or* `{ subtaskId, taskId }` through `showAddUserModal` → `pendingAssignTarget` → `createUserAndAssign`, which branches to `assignSubtask()` or `assignTaskToMember()`. Both server routes already existed; only this frontend path was task-shaped.
+- Two latent bugs on the same path, both live once the + is reachable: the modal called `newUserName.focus()` synchronously while the overlay was still `visibility: hidden` (**Safari ignores it** — the documented modal trap, now deferred 50ms), and the "Done" button read `newUserCreated.name` *after* `hideAddUserModal()` had nulled it, throwing every time.
+- `showTeamPopup()` is left in place as the re-entry point for whole-task assignment when collaboration comes off the back burner.
+
 ### Assignment Flow
 - Clicking the assignee emoji on a subtask assigns it (replaces the old Cmd+Click flow).
 - Once a task is assigned, it is removed from the sender's day pane and project page.
