@@ -9,11 +9,19 @@ const LIST_TASK_RE = /^list\b/i;
 
 const MODEL = 'claude-sonnet-5';
 
-// Published rates, used only to meter spend against a board's monthly budget.
-// Verify against platform.claude.com/docs pricing if the numbers ever look off —
-// nothing here reads a live price list.
-const USD_PER_INPUT_TOKEN = 3 / 1_000_000;
-const USD_PER_OUTPUT_TOKEN = 15 / 1_000_000;
+// Published rates for MODEL, used only to meter spend against a board's monthly
+// budget. Nothing here reads a live price list, so these are hand-maintained:
+// re-check platform.claude.com/docs/en/about-claude/pricing when changing MODEL,
+// because rates are per-model and NOT stable across a family — Sonnet 5 is
+// $2/$10 where Sonnet 4.6 and earlier were $3/$15.
+const USD_PER_INPUT_TOKEN = 2 / 1_000_000;
+const USD_PER_OUTPUT_TOKEN = 10 / 1_000_000;
+// Cache reads bill at 0.1x base input and 5-minute writes at 1.25x. These calls
+// don't use prompt caching today, so both fields come back 0 — but folding them
+// into base input (as this did originally) silently overcharges by 10x on reads
+// the moment anyone turns caching on.
+const CACHE_READ_MULTIPLIER = 0.1;
+const CACHE_WRITE_MULTIPLIER = 1.25;
 const USD_PER_WEB_SEARCH = 10 / 1000;
 
 // The metering side-channel. Every call overwrites this and the caller reads it
@@ -23,15 +31,20 @@ let lastUsage = null;
 
 function meterUsage(data) {
   const u = (data && data.usage) || {};
-  const input = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
+  const base = u.input_tokens || 0;
+  const cacheRead = u.cache_read_input_tokens || 0;
+  const cacheWrite = u.cache_creation_input_tokens || 0;
   const output = u.output_tokens || 0;
   const searches = (u.server_tool_use && u.server_tool_use.web_search_requests) || 0;
   return {
     model: MODEL,
-    input_tokens: input,
+    // Reported as one figure for the audit row; billed at their own rates below.
+    input_tokens: base + cacheRead + cacheWrite,
     output_tokens: output,
     web_searches: searches,
-    cost_usd: input * USD_PER_INPUT_TOKEN
+    cost_usd: base * USD_PER_INPUT_TOKEN
+            + cacheRead * USD_PER_INPUT_TOKEN * CACHE_READ_MULTIPLIER
+            + cacheWrite * USD_PER_INPUT_TOKEN * CACHE_WRITE_MULTIPLIER
             + output * USD_PER_OUTPUT_TOKEN
             + searches * USD_PER_WEB_SEARCH
   };
