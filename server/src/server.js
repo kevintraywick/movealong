@@ -1289,7 +1289,8 @@ app.get('/api/projects/:projectId/budget', (req, res) => {
   res.json({
     month: monthKey(),
     budget_usd: budgetUsd(projectId),
-    spent_usd: monthSpendUsd(projectId)
+    spent_usd: monthSpendUsd(projectId),
+    research_enabled: researchEnabled(projectId)
   });
 });
 
@@ -1297,20 +1298,28 @@ app.get('/api/projects/:projectId/budget', (req, res) => {
 // supposed to be saving people from.
 app.put('/api/projects/:projectId/budget', (req, res) => {
   const { projectId } = req.params;
-  const budget = parseInt(req.body.budget_usd, 10);
-
-  if (!Number.isFinite(budget) || budget < 0 || budget > 1000) {
-    return res.status(400).json({ error: 'budget_usd must be a whole number of dollars, 0-1000' });
-  }
 
   const project = queryOne('SELECT id FROM projects WHERE id = ?', [projectId]);
   if (!project) return res.status(404).json({ error: 'Project not found' });
 
-  runSql('UPDATE projects SET ai_budget_usd = ? WHERE id = ?', [budget, projectId]);
+  if (req.body.budget_usd !== undefined) {
+    const budget = parseInt(req.body.budget_usd, 10);
+    if (!Number.isFinite(budget) || budget < 0 || budget > 1000) {
+      return res.status(400).json({ error: 'budget_usd must be a whole number of dollars, 0-1000' });
+    }
+    runSql('UPDATE projects SET ai_budget_usd = ? WHERE id = ?', [budget, projectId]);
+  }
+
+  if (req.body.research_enabled !== undefined) {
+    runSql('UPDATE projects SET research_enabled = ? WHERE id = ?',
+      [req.body.research_enabled ? 1 : 0, projectId]);
+  }
+
   res.json({
     month: monthKey(),
-    budget_usd: budget,
-    spent_usd: monthSpendUsd(projectId)
+    budget_usd: budgetUsd(projectId),
+    spent_usd: monthSpendUsd(projectId),
+    research_enabled: researchEnabled(projectId)
   });
 });
 
@@ -1323,7 +1332,7 @@ app.get('/api/tasks/:taskId/subtasks', (req, res) => {
 
   const subtasks = queryAll(`
     SELECT id, task_id, parent_subtask_id, description, assignee_type,
-           assigned_to, assigned_by, sort_order, provisional, completed, completed_at,
+           assigned_to, assigned_by, sort_order, provisional, researched, completed, completed_at,
            created_at, updated_at
     FROM subtasks
     WHERE task_id = ?
@@ -1508,6 +1517,40 @@ app.post('/api/subtasks/:subtaskId/promote', (req, res) => {
   }
 });
 
+// Research a whole task's steps on demand — the pane's "Research these steps"
+// button. With auto-research off by default, this is the main way phase 2 runs.
+app.post('/api/tasks/:taskId/research', async (req, res) => {
+  const { taskId } = req.params;
+
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  if (!aiKeyAllows(req) || !aiBudgetAllows(req.ip)) {
+    return res.status(403).json({ error: 'AI is not available on this board' });
+  }
+  if (!researchAllowed(task.project_id)) {
+    return res.status(402).json({
+      error: 'over_budget',
+      spent: monthSpendUsd(task.project_id),
+      budget: budgetUsd(task.project_id)
+    });
+  }
+
+  // runResearch works off the provisional flag, so flag what needs doing first:
+  // every pending row that has not already been researched.
+  const pending = queryAll(
+    'SELECT id FROM subtasks WHERE task_id = ? AND completed = 0 AND researched = 0',
+    [taskId]
+  );
+  if (!pending.length) return res.status(200).json({ started: false, reason: 'nothing to research' });
+
+  runSql('UPDATE subtasks SET provisional = 1 WHERE task_id = ? AND completed = 0 AND researched = 0', [taskId]);
+  runSql(`UPDATE tasks SET research_status = 'running' WHERE id = ?`, [taskId]);
+
+  res.status(202).json({ started: true, count: pending.length });
+  runResearch(taskId).catch(err => console.error('Research dispatch failed:', err.message));
+});
+
 // Research one subtask on demand — what the → arrow on an AI row now does.
 // Same machinery as the whole-task pass, scoped to a single row.
 app.post('/api/subtasks/:subtaskId/research', async (req, res) => {
@@ -1543,7 +1586,7 @@ app.post('/api/subtasks/:subtaskId/research', async (req, res) => {
     if (!live) return res.status(404).json({ error: 'Subtask no longer exists' });
 
     const replace = r.illogical && r.replacement && r.confidence >= RESEARCH_REPLACE_CONFIDENCE;
-    runSql('UPDATE subtasks SET description = ?, provisional = 0, updated_at = ? WHERE id = ?',
+    runSql('UPDATE subtasks SET description = ?, provisional = 0, researched = 1, updated_at = ? WHERE id = ?',
       [replace ? r.replacement : r.refined, new Date().toISOString(), subtaskId]);
 
     res.json(queryOne('SELECT * FROM subtasks WHERE id = ?', [subtaskId]));
@@ -1680,6 +1723,11 @@ function recordUsage(projectId, taskId, kind, usage) {
   );
 }
 
+function researchEnabled(projectId) {
+  const row = queryOne('SELECT research_enabled FROM projects WHERE id = ?', [projectId]);
+  return !!(row && row.research_enabled);
+}
+
 // Research is billed to a board. Calendar rows carry project_id = NULL and so
 // have nothing to bill; they are never researched.
 function researchAllowed(projectId) {
@@ -1729,7 +1777,7 @@ async function runResearch(taskId) {
       const live = queryOne('SELECT id FROM subtasks WHERE id = ? AND provisional = 1 AND completed = 0', [row.id]);
       if (!live) return;
       const replace = r.illogical && r.replacement && r.confidence >= RESEARCH_REPLACE_CONFIDENCE;
-      runSql('UPDATE subtasks SET description = ?, provisional = 0, updated_at = ? WHERE id = ?',
+      runSql('UPDATE subtasks SET description = ?, provisional = 0, researched = 1, updated_at = ? WHERE id = ?',
         [replace ? r.replacement : r.refined, now, row.id]);
     });
 
@@ -1784,7 +1832,7 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
 
   const fullSet = () => queryAll(`
     SELECT id, task_id, parent_subtask_id, description, assignee_type,
-           assigned_to, assigned_by, sort_order, provisional, completed, completed_at,
+           assigned_to, assigned_by, sort_order, provisional, researched, completed, completed_at,
            created_at, updated_at
     FROM subtasks WHERE task_id = ?
     ORDER BY sort_order, created_at
@@ -1849,11 +1897,14 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
       subtaskList = subtaskList.map(st => ({ description: st.description, assignee_type: 'ai' }));
     }
 
-    // Phase 1 rows are marked provisional only when phase 2 is actually going to
-    // run. Mock rows and over-budget boards produce final text, and greying out
-    // something that will never be refined just reads as broken.
-    const overBudget = usedRealAi && !researchAllowed(task.project_id);
-    const willResearch = usedRealAi && !overBudget;
+    // Research is opt-in per board and NEVER fires on a regenerate: topping up
+    // one row costs a full search budget, so ↺ would be the most expensive habit
+    // in the app. Adding a task on a research-enabled board is the only automatic
+    // trigger; everything else goes through the pane's Research button or →.
+    const isRegenerate = req.body && req.body.regenerate === true;
+    const wants = usedRealAi && !isRegenerate && researchEnabled(task.project_id);
+    const overBudget = wants && !researchAllowed(task.project_id);
+    const willResearch = wants && !overBudget;
 
     subtaskList.forEach((st, i) => {
       runSql(

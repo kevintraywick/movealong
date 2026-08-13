@@ -1719,12 +1719,22 @@
             transform: translateY(-2px);
         }
 
-        /* Phase 1 rows: drafted from reasoning alone, waiting on research.
-           Greyed rather than skeletoned — the text is real and readable now,
-           it just isn't final. */
-        .subtask-item.provisional .subtask-desc {
-            color: #94a3b8;
-            font-style: italic;
+        /* Researched rows read light blue. Deliberately a row TINT plus
+           blue-tinted text rather than blue text alone: AI steps are full of
+           .task-link anchors at #0284c7, and blue text wrapped around blue
+           underlined links is unreadable. Drafted rows keep the normal
+           treatment — with research opt-in, a draft is a finished state, not a
+           degraded one, so it gets no styling of its own. */
+        .subtask-item.researched {
+            background: #f0f9ff;
+            border-radius: 5px;
+            box-shadow: inset 2px 0 0 #7dd3fc;
+            padding-left: 5px;
+            margin-left: -3px;
+        }
+
+        .subtask-item.researched .subtask-desc {
+            color: #0c4a6e;
         }
 
         .subtask-researching {
@@ -1737,6 +1747,26 @@
         }
 
         .subtask-researching .dot-pulse { transform: scale(0.7); transform-origin: left center; }
+
+        .subtask-research-btn {
+            display: block;
+            width: 100%;
+            margin-top: 6px;
+            padding: 5px 8px;
+            border: 1px dashed #bae6fd;
+            border-radius: 6px;
+            background: none;
+            color: #0284c7;
+            font: inherit;
+            font-size: 11px;
+            cursor: pointer;
+            transition: all 0.15s;
+        }
+
+        .subtask-research-btn:hover {
+            background: #f0f9ff;
+            border-style: solid;
+        }
 
         .subtask-budget-note {
             font-size: 11px;
@@ -1770,6 +1800,7 @@
 
         .budget-bar button:hover { text-decoration: underline; }
         .budget-bar.over { color: #b45309; }
+        .budget-sep { color: #cbd5e1; }
 
         /* ===== Quick list ("list ..." tasks) ===== */
         .quick-list-title {
@@ -2095,8 +2126,11 @@
         body.dark .subtask-check { border-color: #475569; }
         body.dark .subtask-emoji:hover { background: #334155; }
         body.dark .subtask-send { background: rgba(14, 165, 233, 0.15); }
-        body.dark .subtask-item.provisional .subtask-desc { color: #64748b; }
+        body.dark .subtask-item.researched { background: rgba(14, 165, 233, 0.10); box-shadow: inset 2px 0 0 #0284c7; }
+        body.dark .subtask-item.researched .subtask-desc { color: #bae6fd; }
         body.dark .subtask-budget-note { background: rgba(180, 83, 9, 0.15); border-color: #b45309; color: #fcd34d; }
+        body.dark .subtask-research-btn { border-color: #334155; color: #38bdf8; }
+        body.dark .subtask-research-btn:hover { background: rgba(14, 165, 233, 0.12); }
         body.dark .budget-bar { color: #64748b; }
         body.dark .budget-bar.over { color: #fcd34d; }
 
@@ -3058,7 +3092,12 @@
             renderView();
 
             try {
-                const result = await api(`/tasks/${taskId}/generate-subtasks`, { method: 'POST' });
+                // Draft only: topping up one row costs a full search budget, so ↺
+                // never researches. The pane's Research button does that.
+                const result = await api(`/tasks/${taskId}/generate-subtasks`, {
+                    method: 'POST',
+                    body: { regenerate: true }
+                });
                 applyGenerateResult(taskId, result);
                 if (result && result.full) {
                     showToast('Pane is full \u2014 tick a step off to make room');
@@ -3137,6 +3176,22 @@
             return d.toLocaleDateString('en-US', { weekday: 'long', timeZone: 'UTC' });
         }
 
+        // Kick off phase 2 for a whole task on demand. The server flags the rows
+        // provisional and answers 202 immediately; the poll picks it up from there.
+        async function researchTask(taskId) {
+            try {
+                const r = await api(`/tasks/${taskId}/research`, { method: 'POST' });
+                if (!r.started) { showToast('Every step has already been researched'); return; }
+                await loadSubtasks(taskId);
+                renderView();
+                scheduleResearchPoll();
+            } catch (err) {
+                showToast(/402|over_budget/.test(err.message)
+                    ? 'This board has spent its monthly AI budget'
+                    : 'Could not start research');
+            }
+        }
+
         // The → arrow, which used to only toast "Agent dispatched".
         async function researchSubtask(subtaskId, taskId) {
             const row = document.querySelector(`.subtask-promote[data-promote-id="${subtaskId}"]`);
@@ -3179,10 +3234,36 @@
             const spent = boardBudget.spent_usd || 0;
             const budget = boardBudget.budget_usd || 0;
             const over = spent >= budget;
+            const auto = !!boardBudget.research_enabled;
             el.className = 'budget-bar' + (over ? ' over' : '');
             el.innerHTML = `<span>AI research: $${spent.toFixed(2)} of $${budget} this month</span>`
-                + `<button id="budgetEditBtn">${over ? 'Raise budget' : 'Change'}</button>`;
+                + `<button id="budgetEditBtn">${over ? 'Raise budget' : 'Change'}</button>`
+                + `<span class="budget-sep">\u00b7</span>`
+                + `<button id="researchAutoBtn" title="${auto
+                    ? 'Every new task is researched automatically'
+                    : 'Research runs only when you ask for it, from the step pane'}">Auto-research: ${auto ? 'on' : 'off'}</button>`;
             document.getElementById('budgetEditBtn').addEventListener('click', editBudget);
+            document.getElementById('researchAutoBtn').addEventListener('click', toggleAutoResearch);
+        }
+
+        // Off by default. At roughly $0.12 a researched task, auto-researching
+        // everything you throw on a board empties a $5 budget in about a week —
+        // so the automatic path is the one you opt into, not out of.
+        async function toggleAutoResearch() {
+            if (!currentProject) return;
+            const next = !(boardBudget && boardBudget.research_enabled);
+            try {
+                boardBudget = await api(`/projects/${currentProject.id}/budget`, {
+                    method: 'PUT',
+                    body: { research_enabled: next }
+                });
+                renderBudgetBar();
+                showToast(next
+                    ? 'New tasks will be researched automatically'
+                    : 'Research is now on request only');
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
         }
 
         async function editBudget() {
@@ -3852,6 +3933,14 @@
                 });
             });
 
+            // "Research these steps" — the pane's manual phase-2 trigger
+            document.querySelectorAll('.subtask-research-btn[data-research-task]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    researchTask(parseInt(btn.dataset.researchTask));
+                });
+            });
+
             // → research this one step (the whole-task pass already ran; this is
             // for the step the user actually cares about)
             document.querySelectorAll('.subtask-send[data-subtask-id]:not(.subtask-up)').forEach(btn => {
@@ -4437,7 +4526,12 @@
                 return `<div class="subtask-researching"><div class="dot-pulse"><span></span><span></span><span></span></div>Researching these\u2026</div>`;
             }
             if (taskResearchStatus.get(taskId) === 'over_budget') {
-                return `<div class="subtask-budget-note">Drafted without research \u2014 this board has spent its monthly AI budget. Raise it under the board to research steps.</div>`;
+                return `<div class="subtask-budget-note">Drafted without research \u2014 this board has spent its monthly AI budget. Raise it under the board to research these.</div>`;
+            }
+            // With auto-research off by default, this button is the main way
+            // phase 2 ever runs. Hidden once every pending row has been done.
+            if (rows.some(st => !st.researched)) {
+                return `<button class="subtask-research-btn" data-research-task="${taskId}">Research these steps</button>`;
             }
             return '';
         }
@@ -4473,7 +4567,7 @@
                     : '';
 
                 return `
-                    <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''} ${st.provisional ? 'provisional' : ''}">
+                    <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''} ${st.provisional ? 'provisional' : ''} ${st.researched ? 'researched' : ''}">
                         <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
                         ${emojiEl}
                         <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifyText(st.description)}</div>

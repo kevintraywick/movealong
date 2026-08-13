@@ -2330,8 +2330,8 @@
     </div>
 
     <style>
-      .prov-word { color: #94a3b8; font-style: italic; }
-      body.dark .prov-word { color: #64748b; }
+      .res-word { color: #0c4a6e; background: #f0f9ff; box-shadow: inset 2px 0 0 #7dd3fc; padding: 1px 4px 1px 5px; border-radius: 4px; }
+      body.dark .res-word { color: #bae6fd; background: rgba(14,165,233,0.12); box-shadow: inset 2px 0 0 #0284c7; }
     </style>
     <h2>Subtasks</h2>
     <div class="feature-grid three-col">
@@ -2340,12 +2340,14 @@
             <p>With the header's 🧠 switch on, adding a task instantly opens a pane of
                up to 7 specific steps — real decisions, real links, real prices, not
                "make a plan".</p>
-            <p>The first steps arrive in seconds and show <span class="prov-word">greyed
-               out</span>: they're drafted from reasoning alone, to get you thinking
-               straight away. Behind them an agent goes and researches the real thing —
-               current prices, actual products, working links — and each step is
-               rewritten in place as the answers come back. A step that turns out not to
-               make sense for your task gets replaced outright.</p>
+            <p>Those first steps arrive in seconds, drafted from reasoning alone, to
+               get you thinking straight away. When you want the real thing, click
+               <strong>Research these steps</strong> at the bottom of the pane: an agent
+               goes and finds current prices, actual products and working links, and
+               rewrites each step in place as the answers come back. A step that turns
+               out not to make sense for your task gets replaced outright.</p>
+            <p>Researched steps stay marked in <span class="res-word">light blue</span>,
+               so you can always tell a finding from a first draft.</p>
             <p>No Anthropic API key on the server? You get sensible placeholder steps
                instead — everything else works the same.</p>
         </div>
@@ -2384,6 +2386,8 @@
             <p>Want more than seven? Hover a step and click <kbd>&uarr;</kbd> to move it
                onto the board as a task of its own. It lands on the day the task sits on
                and leaves the pane, which frees a slot too.</p>
+            <p>↺ only ever drafts — it never spends money on research. Ask for that
+               separately, once the seven steps are the seven you want.</p>
         </div>
         <div class="margin-note" aria-hidden="true">
             <svg class="note-arrow" viewBox="0 0 44 22">
@@ -2401,6 +2405,12 @@
             <p>When a board runs out, you still get your drafted steps instantly — they
                just don't get researched, and the pane says so. Raise the budget and
                research picks up again.</p>
+            <p>Research is <strong>on request by default</strong> — nothing is spent
+               until you click Research these steps, or <kbd>&rarr;</kbd> on a single
+               step. If you'd rather every new task be researched the moment you add it,
+               flip <strong>Auto-research</strong> on in that same line. It's off to
+               begin with because at roughly 12¢ a task, automatic research empties a $5
+               board in about a week.</p>
         </div>
         <div class="card coming-soon">
             <h3>Assign steps</h3>

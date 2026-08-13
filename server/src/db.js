@@ -53,6 +53,7 @@ async function initDb() {
       slug TEXT NOT NULL,
       created_by INTEGER NOT NULL,
       ai_budget_usd INTEGER DEFAULT 5,
+      research_enabled INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
       FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
@@ -113,6 +114,7 @@ async function initDb() {
       assigned_by INTEGER,
       sort_order INTEGER DEFAULT 0,
       provisional INTEGER DEFAULT 0,
+      researched INTEGER DEFAULT 0,
       completed INTEGER DEFAULT 0,
       completed_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -195,6 +197,13 @@ async function initDb() {
   ensureColumn('tasks', 'research_status', 'TEXT');
   // Whole-dollar monthly cap on researched AI calls for this board.
   ensureColumn('projects', 'ai_budget_usd', 'INTEGER DEFAULT 5');
+  // Auto-research on every new task. Default OFF: at ~$0.12 a task a $5 board
+  // buys about 40 of them, which a board you throw things at all day burns in a
+  // week. Research is opt-in per board, plus a button in the pane.
+  ensureColumn('projects', 'research_enabled', 'INTEGER DEFAULT 0');
+  // Marks a row the research pass actually rewrote, so the pane can show which
+  // steps are real findings and which are still drafts.
+  ensureColumn('subtasks', 'researched', 'INTEGER DEFAULT 0');
   // Pre-migration tasks never recorded their origin; the best available
   // approximation is wherever they sit now (their true origin is lost).
   db.run('UPDATE tasks SET origin_date = scheduled_date WHERE origin_date IS NULL');
