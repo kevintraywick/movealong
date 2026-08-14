@@ -180,7 +180,7 @@ afterward — spillover, reschedules, assign, and return all preserve it.
 It drives the frontend's days-pushed counter (inclusive days from origin
 to max(scheduled_date, today), hidden on the origin day).
 
-#### Update task (complete, reschedule, lock, prioritize, repeat)
+#### Update task (complete, reschedule, lock, repeat)
 ```
 PUT /api/tasks/:taskId
 Body: { "completed": true } or { "scheduled_date": "2024-12-20" }
@@ -276,6 +276,34 @@ Open (uncompleted) tasks grouped by project, each list sorted
 locked, repeat_rule, subtask_count, completed_subtask_count` — a hand-listed column
 set, so new flags the List view needs must be added to the SELECT
 explicitly (`locked` drives the red deadline date).
+
+### Reorder a day's tasks
+```
+PUT /api/companies/:subdomain/users/:slug/tasks/order
+Body: { task_ids: [3, 1, 2], scheduled_date: "2026-08-14", project_id: 4 }
+Response: { task_ids: [ ...the order actually stored... ] }
+```
+
+Writes `tasks.position` as a dense 0..n-1 sequence over one day of one board.
+Both reorder gestures — dragging a row to an edge, and hovering plus pressing
+1-9 — go through this single endpoint, so they cannot disagree about where a
+task sits.
+
+Defensive in the same way as `projects/order`: ids the caller doesn't own on
+that day are dropped, duplicates collapse to their first occurrence, and any
+owned task the payload omitted is **appended** rather than lost — a partial or
+hostile list can never knock a task off the board. Assignment hands over
+`owner_id` outright, so the `owner_id` filter already excludes anything given
+away. Completed and `source = 'calendar'` rows are excluded; events are
+force-sorted above everything by `event_start`, so a position among them would
+never be read.
+
+**MUST stay declared before any `.../tasks/:param` sibling** — Express matches in
+declaration order, and a `:taskId` above would swallow the literal `order`.
+
+A day holds at most 10 pending tasks, so the whole day is rewritten on every
+change rather than maintaining sparse or fractional indices; at that size it is
+cheaper and it cannot drift.
 
 ### Generate subtasks
 ```
@@ -468,7 +496,8 @@ tasks
 ├── origin_date - day first requested for; immutable, drives days-pushed counter
 ├── parent_task_id (FK → tasks, nullable) - predecessor in a series (linked list)
 ├── locked (0/1) - pinned to scheduled_date, exempt from spillover
-├── priority (0-3) - red exclamation marks; sorts the pending list
+├── position - manual order within a day (NULL sorts last); see tasks/order
+├── priority - deprecated; nothing reads it since 2026-08-14
 ├── repeat_rule - NULL | daily | weekly | monthly; completing spawns the next
 ├── completed (0/1)
 ├── completed_at

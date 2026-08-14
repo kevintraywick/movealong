@@ -892,10 +892,12 @@
             94%, 100% { stroke-dashoffset: 60; opacity: 0; }
         }
 
-        /* --- scene 3b: priority keys (9s) ---
-           Cursor hovers the last task, a "2" keycap pops, blue !! marks
-           appear — then, on mouse-leave, the list re-sorts and the row
-           rises to the top (exactly the real mouseleave-sort behavior). */
+        /* --- scene 3b: ordering keys (9s) ---
+           Cursor hovers the last task, a "1" keycap pops, a blue insertion
+           line marks the slot, and the row rises into it while the others
+           shift down. The move lands on the keypress, not on mouse-leave:
+           under manual ordering, moving the row IS the point, so the real
+           board no longer defers the sort. */
         .prio-frame {
             position: relative;
             width: 150px;
@@ -913,35 +915,37 @@
         .prio-r2 { top: 40px; animation: prioShift2 9s ease-in-out infinite; }
         .prio-target { top: 54px; z-index: 2; animation: prioRise 9s ease-in-out infinite; }
         @keyframes prioShift1 {
-            0%, 54%   { transform: translateY(0); }
-            62%, 100% { transform: translateY(14px); }
+            0%, 34%   { transform: translateY(0); }
+            44%, 100% { transform: translateY(14px); }
         }
         @keyframes prioShift2 {
-            0%, 54%   { transform: translateY(0); }
-            62%, 100% { transform: translateY(14px); }
+            0%, 34%   { transform: translateY(0); }
+            44%, 100% { transform: translateY(14px); }
         }
         @keyframes prioRise {
             0%, 14%   { background: #ffffff; transform: translateY(0); }
-            20%, 46%  { background: #f0f9ff; transform: translateY(0); }
-            52%       { background: #ffffff; }
-            54%       { transform: translateY(0); }
-            62%, 100% { background: #ffffff; transform: translateY(-28px); }
+            20%, 34%  { background: #f0f9ff; transform: translateY(0); }
+            44%, 100% { background: #ffffff; transform: translateY(-28px); }
         }
-        .prio-marks {
-            color: #0ea5e9;
-            font-weight: 700;
-            font-size: 8px;
-            letter-spacing: -0.3px;
-            margin-left: 2px;
+        /* The insertion line: the same solid blue edge the real board draws to
+           show where a dropped task will land. Flashes just before the row
+           arrives, then hands over to the row itself. */
+        .prio-line {
+            position: absolute;
+            top: 25px;
+            left: 8px;
+            width: 134px;
+            height: 2px;
+            background: #0ea5e9;
+            border-radius: 1px;
             opacity: 0;
-            display: inline-block;
-            animation: marksPop 9s ease-out infinite;
+            z-index: 4;
+            animation: prioLine 9s ease-out infinite;
         }
-        @keyframes marksPop {
-            0%, 31%  { opacity: 0; transform: scale(0.5); }
-            35%      { opacity: 1; transform: scale(1.35); }
-            39%, 92% { opacity: 1; transform: scale(1); }
-            96%, 100%{ opacity: 0; }
+        @keyframes prioLine {
+            0%, 30%   { opacity: 0; }
+            33%, 42%  { opacity: 1; }
+            48%, 100% { opacity: 0; }
         }
         /* A real-looking keycap, sitting in the card's empty lower half,
            that visibly gets pressed. */
@@ -1622,8 +1626,7 @@
             .chain-thread path { stroke-dashoffset: 0; opacity: 0.9; }
             .prio-r1, .prio-r2 { transform: translateY(14px); }
             .prio-target { transform: translateY(-28px); }
-            .prio-marks { opacity: 1; transform: scale(1); }
-            .prio-key, .prio-cursor { opacity: 0; }
+            .prio-line, .prio-key, .prio-cursor { opacity: 0; }
             .repeat-glyph { opacity: 1; transform: scale(1); }
             .repeat-card-b { opacity: 1; transform: translateY(0); }
             .repeat-key, .repeat-cursor { opacity: 0; }
@@ -1829,7 +1832,7 @@
       <a href="06-projects.html" data-file="06-projects.html">Projects</a>
       <a href="07-projects-2.html" data-file="07-projects-2.html">Projects</a>
       <a href="08-links-in-tasks.html" data-file="08-links-in-tasks.html">Links in tasks</a>
-      <a href="09-prioritize.html" data-file="09-prioritize.html">Prioritize</a>
+      <a href="09-put-them-in-order.html" data-file="09-put-them-in-order.html">Put them in order</a>
       <a href="10-repeat.html" data-file="10-repeat.html">Repeat</a>
       <a href="11-create-lists.html" data-file="11-create-lists.html">Create lists</a>
       <a href="12-bring-in-your-calendar.html" data-file="12-bring-in-your-calendar.html">Bring in your calendar 📅</a>

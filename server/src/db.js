@@ -87,6 +87,7 @@ async function initDb() {
       parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
       locked INTEGER DEFAULT 0,
       priority INTEGER DEFAULT 0,
+      position INTEGER,
       repeat_rule TEXT,
       research_status TEXT,
       source TEXT DEFAULT 'user',
@@ -201,6 +202,10 @@ async function initDb() {
   // buys about 40 of them, which a board you throw things at all day burns in a
   // week. Research is opt-in per board, plus a button in the pane.
   ensureColumn('projects', 'research_enabled', 'INTEGER DEFAULT 0');
+  // Manual ordering within a day. NULL = never positioned, and the sort puts
+  // NULLs last, so a newly created task appends to the bottom of its day with
+  // no INSERT site having to know this column exists.
+  if (ensureColumn('tasks', 'position', 'INTEGER')) seedTaskPositions();
   // Marks a row the research pass actually rewrote, so the pane can show which
   // steps are real findings and which are still drafts.
   ensureColumn('subtasks', 'researched', 'INTEGER DEFAULT 0');
@@ -230,13 +235,34 @@ async function initDb() {
   return db;
 }
 
+// One-shot backfill, run only on the boot that adds tasks.position: give every
+// existing day the order its owner currently SEES, so replacing the priority
+// ranking with manual ordering doesn't reshuffle anyone's board on deploy.
+// Priority DESC then created_at is exactly what the old sort did.
+function seedTaskPositions() {
+  const rows = queryAll(`
+    SELECT id, owner_id, project_id, scheduled_date
+    FROM tasks
+    WHERE completed = 0
+    ORDER BY owner_id, project_id, scheduled_date, priority DESC, created_at
+  `);
+  const seen = new Map();
+  rows.forEach(r => {
+    const key = `${r.owner_id}|${r.project_id}|${r.scheduled_date}`;
+    const next = seen.get(key) || 0;
+    seen.set(key, next + 1);
+    db.run('UPDATE tasks SET position = ? WHERE id = ?', [next, r.id]);
+  });
+  if (rows.length) console.log(`Seeded positions for ${rows.length} task(s) across ${seen.size} day(s)`);
+}
+
 // Add a column to a table if it doesn't already exist. sql.js has no
 // "ADD COLUMN IF NOT EXISTS", so we inspect the schema first.
 function ensureColumn(table, column, definition) {
   const cols = queryAll(`PRAGMA table_info(${table})`);
-  if (!cols.some(c => c.name === column)) {
-    db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
-  }
+  if (cols.some(c => c.name === column)) return false;
+  db.run(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+  return true;
 }
 
 // Atomic persistence: write to a temp file, then rename over the real one,

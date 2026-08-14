@@ -20,7 +20,7 @@
 - [x] Locked task on its lock day renders red
 - [x] Series (task chains): drag-to-link, countdown circles, hover threads, move/spillover cascade with lock-stop
 - [x] Hyperlink tasks — URLs in task text open in a new tab; completing a link task closes its pane
-- [x] Priority — hover a task and press 1/2/3 for red exclamation marks; board re-sorts highest-first on mouse-leave
+- [x] Manual order — drag a task to a row edge (blue insertion line), or hover and press 1-9; replaced the 1/2/3 priority marks 2026-08-14
 - [x] Series: unlink — hover a chained task for a ✂️ that cuts its link to its predecessor
 - [x] AI subtask default lowered to 7 (prompt asks 5-7; endpoint hard-caps AI + mock lists)
 - [x] ↺ "Regenerate all steps" pinned to the subtask pane's top-right corner

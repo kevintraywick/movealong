@@ -616,6 +616,68 @@ app.delete('/api/companies/:subdomain/users/:slug/projects/:projectId', (req, re
 // Reorder a user's project tabs. Order is per-user (stored on
 // project_members), so one member dragging tabs never reorders anyone
 // else's bar.
+// Manual task order within one day of one board.
+//
+// Mirrors PUT .../projects/order deliberately: take the whole list, keep only
+// ids the caller actually owns on that day, dedupe, and append anything that
+// wasn't sent — so a partial or hostile list can never drop a task off the
+// board. A day holds at most MAX_TASKS_PER_DAY pending tasks, so rewriting the
+// entire day's order on every change is cheaper than maintaining sparse indices
+// and cannot drift out of step.
+//
+// Calendar rows are excluded: they are force-sorted above everything by
+// event_start, so a position among them would never be read.
+app.put('/api/companies/:subdomain/users/:slug/tasks/order', (req, res) => {
+  const { subdomain, slug } = req.params;
+  const { task_ids, scheduled_date, project_id } = req.body;
+
+  if (!Array.isArray(task_ids)) {
+    return res.status(400).json({ error: 'task_ids array is required' });
+  }
+  if (!scheduled_date) {
+    return res.status(400).json({ error: 'scheduled_date is required' });
+  }
+
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+
+  const user = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const hasProject = project_id !== null && project_id !== undefined;
+
+  try {
+    // Assigning a task hands over owner_id outright, so owner_id = ? already
+    // excludes anything given away — there is no assigned-away row to skip.
+    const owned = queryAll(
+      `SELECT id FROM tasks
+       WHERE owner_id = ? AND scheduled_date = ? AND completed = 0
+         AND source != 'calendar'
+         AND ${hasProject ? 'project_id = ?' : 'project_id IS NULL'}
+       ORDER BY CASE WHEN position IS NULL THEN 1 ELSE 0 END, position, created_at`,
+      hasProject ? [user.id, scheduled_date, project_id] : [user.id, scheduled_date]
+    );
+    const ownedIds = owned.map(t => t.id);
+
+    const seen = new Set();
+    const ordered = [];
+    task_ids.forEach(raw => {
+      const id = parseInt(raw, 10);
+      if (ownedIds.includes(id) && !seen.has(id)) {
+        seen.add(id);
+        ordered.push(id);
+      }
+    });
+    ownedIds.forEach(id => { if (!seen.has(id)) ordered.push(id); });
+
+    ordered.forEach((id, i) => runSql('UPDATE tasks SET position = ? WHERE id = ?', [i, id]));
+    res.json({ task_ids: ordered });
+  } catch (err) {
+    console.error('Error reordering tasks:', err);
+    res.status(500).json({ error: 'Failed to reorder tasks' });
+  }
+});
+
 app.put('/api/companies/:subdomain/users/:slug/projects/order', (req, res) => {
   const { subdomain, slug } = req.params;
   const { project_ids } = req.body;
@@ -811,6 +873,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.parent_task_id,
       t.locked,
       t.priority,
+      t.position,
       t.repeat_rule,
       t.source,
       t.event_start,
@@ -938,8 +1001,10 @@ app.put('/api/tasks/:taskId', (req, res) => {
 
   // Priority: 0 = none, 1-3 exclamation marks. Clamped so a bad client can't
   // write an out-of-range level that the board would then fail to render.
+  // Retained so old clients don't 400, but nothing reads it any more: manual
+  // position replaced the priority ranking on 2026-08-14.
   if (priority !== undefined) {
-    const level = Math.min(3, Math.max(0, parseInt(priority, 10) || 0));
+    const level = Math.min(9, Math.max(0, parseInt(priority, 10) || 0));
     updates.push('priority = ?');
     values.push(level);
   }
@@ -997,6 +1062,7 @@ app.put('/api/tasks/:taskId', (req, res) => {
         t.parent_task_id,
         t.locked,
         t.priority,
+      t.position,
         t.repeat_rule,
         t.completed,
         t.completed_at,
@@ -1087,6 +1153,7 @@ app.post('/api/tasks/:taskId/link', (req, res) => {
         t.parent_task_id,
         t.locked,
         t.priority,
+      t.position,
         t.repeat_rule,
         t.completed,
         t.completed_at,
@@ -1133,6 +1200,7 @@ app.post('/api/tasks/:taskId/unlink', (req, res) => {
         t.parent_task_id,
         t.locked,
         t.priority,
+      t.position,
         t.repeat_rule,
         t.completed,
         t.completed_at,
@@ -2086,12 +2154,14 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
 
   const result = projects.map(project => {
     const tasks = queryAll(`
-      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.priority, t.locked, t.repeat_rule,
+      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.priority, t.position, t.locked, t.repeat_rule,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id) as subtask_count,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id AND completed = 1) as completed_subtask_count
       FROM tasks t
       WHERE t.project_id = ? AND t.owner_id = ? AND t.completed = 0
-      ORDER BY t.priority DESC, t.scheduled_date, t.created_at
+      ORDER BY t.scheduled_date,
+               CASE WHEN t.position IS NULL THEN 1 ELSE 0 END, t.position,
+               t.created_at
     `, [project.id, user.id]);
 
     return { ...project, tasks };
