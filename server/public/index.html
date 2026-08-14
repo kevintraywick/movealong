@@ -2308,6 +2308,7 @@
                 <li><code>&cir;</code> Complete</li>
                 <li><code>&rarr;</code> Next day</li>
                 <li><code>&#8679;&rarr;</code> +1 week</li>
+                <li><code>&rarr; 1-9</code> +N days</li>
                 <li><code>Task</code> Subtasks</li>
                 <li><code>📅</code> Lock</li>
                 <li><code>&#8679;&#8997; Task</code> Lock here</li>
@@ -2398,6 +2399,10 @@
         // Task id held under the keyboard after a number press, until the
         // pointer actually moves. See hoveredTaskRow().
         let stickyTaskId = null;
+        // Same idea for the → arrow, which slides to another day card the
+        // instant it is used. Separate from stickyTaskId because the arrow sits
+        // *inside* the row: both would otherwise match the same pointer.
+        let stickyArrowTaskId = null;
         // Project tab reordering — declared here because renderProjectBar()
         // sits well above the drag code that maintains them.
         let draggedProjectId = null;
@@ -4443,6 +4448,20 @@
             return { row, id };
         }
 
+        // The → arrow under the pointer, if any. Checked BEFORE hoveredTaskRow()
+        // in the digit handler: the arrow lives inside the row, so hovering it
+        // matches both, and the more specific target has to win.
+        function hoveredForwardArrow() {
+            if (stickyArrowTaskId !== null) {
+                const held = document.querySelector(`.task-arrow[data-task-id="${stickyArrowTaskId}"]`);
+                if (held) return stickyArrowTaskId;
+            }
+            const arrow = document.querySelector('.task-arrow:hover');
+            if (!arrow || !arrow.dataset.taskId) return null;   // forwarded rows carry a dead arrow
+            const id = parseInt(arrow.dataset.taskId, 10);
+            return id || null;
+        }
+
         function priorityDescriptionEl(row) {
             return row.querySelector('.task-description') || row.querySelector('.project-task-desc');
         }
@@ -4621,10 +4640,10 @@
             const eventTime = (isEvent && task.event_start)
                 ? `<span class="task-event-time">${escapeHtml(task.event_start)}</span>`
                 : '';
-            const arrow = isEvent ? '' : `<div class="task-arrow" data-task-id="${task.id}">&rarr;</div>`;
+            const arrow = isEvent ? '' : `<div class="task-arrow" data-task-id="${task.id}" title="Move to next day &middot; Shift+Click for +1 week &middot; hover and press 1-9 to jump that many days">&rarr;</div>`;
             const descTitle = isEvent
                 ? 'From your calendar'
-                : 'Shift+Option+Click to lock to this day · drag to reorder · hover and press 1-9 to move';
+                : 'Shift+Option+Click to lock to this day · drag to reorder · hover and press 1-9 to reorder';
 
             return `
                 <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''} ${isEvent ? 'calendar' : ''}" data-id="${task.id}"${chainAttrs}${draggable}>
@@ -4931,42 +4950,50 @@
         // ============================================
         // ARROW HANDLERS
         // ============================================
-        function handleArrowClick(e) {
-            e.stopPropagation();
-            const taskId = parseInt(e.target.closest('.task-arrow').dataset.taskId);
+        // Every forward move goes through here — click, Shift+click and the
+        // hover+1-9 keys — so the lock confirm and the series notice can't
+        // drift apart between them.
+        function moveTaskForwardDays(taskId, n, label) {
             const task = tasks.find(t => t.id === taskId);
-            if (!task) return;
+            if (!task || n < 1) return false;
 
             // Locked tasks are deadlines — confirm before pushing them forward.
             // The lock follows the task to its new day.
             if (task.locked && !confirm(`"${task.description}" is locked to ${task.scheduled_date}. Move this deadline forward?`)) {
-                return;
+                return false;
             }
 
             // Series members drag their later steps along with them.
             const chain = chainInfo.get(taskId);
             const seriesSuffix = (chain && chain.countdown > 1) ? ' — series follows' : '';
 
+            const target = new Date(task.scheduled_date + 'T00:00:00.000Z');
+            target.setUTCDate(target.getUTCDate() + n);
+            const key = target.toISOString().split('T')[0];
+
+            // Optimistic, so a fast "3 then 2" adds up to five days instead of
+            // computing both hops from the same stale date — moveTaskToDate()
+            // is async and nothing else updates the row until it returns.
+            // loadTasks() overwrites this with the server's answer either way.
+            task.scheduled_date = key;
+            moveTaskToDate(taskId, key);
+
+            // Name the day when it's on the board; otherwise say how far it went.
+            const onBoard = days.find(d => d.key === key);
+            const text = label
+                || (onBoard ? `Moved to ${onBoard.dayName}` : `Moved forward ${n} day${n === 1 ? '' : 's'}`);
+            showToast(text + seriesSuffix);
+            return true;
+        }
+
+        function handleArrowClick(e) {
+            e.stopPropagation();
+            const taskId = parseInt(e.target.closest('.task-arrow').dataset.taskId);
             // Shift+click: move forward one week
             if (e.shiftKey) {
-                const currentDate = new Date(task.scheduled_date + 'T00:00:00.000Z');
-                currentDate.setUTCDate(currentDate.getUTCDate() + 7);
-                moveTaskToDate(taskId, currentDate.toISOString().split('T')[0]);
-                showToast('Moved forward one week' + seriesSuffix);
-                return;
-            }
-
-            // Regular click: move to next day
-            const currentIndex = days.findIndex(d => d.key === task.scheduled_date);
-            if (currentIndex !== -1 && currentIndex < days.length - 1) {
-                moveTaskToDate(taskId, days[currentIndex + 1].key);
-                showToast(`Moved to ${days[currentIndex + 1].dayName}` + seriesSuffix);
-            } else if (currentIndex === -1) {
-                // Task sits outside the current window — just add a day.
-                const currentDate = new Date(task.scheduled_date + 'T00:00:00.000Z');
-                currentDate.setUTCDate(currentDate.getUTCDate() + 1);
-                moveTaskToDate(taskId, currentDate.toISOString().split('T')[0]);
-                showToast('Moved to next day');
+                moveTaskForwardDays(taskId, 7, 'Moved forward one week');
+            } else {
+                moveTaskForwardDays(taskId, 1);
             }
         }
 
@@ -5482,7 +5509,7 @@
         // only real pointer movement releases it. Re-rendering slides rows under
         // a stationary cursor and fires mouseover, but never mousemove, so the
         // hold survives exactly as long as the user hasn't moved.
-        document.addEventListener('mousemove', () => { stickyTaskId = null; }, { passive: true });
+        document.addEventListener('mousemove', () => { stickyTaskId = null; stickyArrowTaskId = null; }, { passive: true });
 
         document.addEventListener('keydown', (e) => {
             if (!isSignedUp) return;
@@ -5502,14 +5529,31 @@
 
             // Order: hover a pending task and press 1-9 to move it to that slot;
             // 0 sends it to the end (a day holds 10, so the ten single-key
-            // presses cover every slot). This must run before the type-to-focus
-            // fallback below, which would otherwise send the digit into the
-            // add-task input. Typing in a field wins.
+            // presses cover every slot). Hover the → arrow instead and 1-9
+            // means days forward, not slots — the arrow is a more specific
+            // target inside the same row, so it is tested first. This must run
+            // before the type-to-focus fallback below, which would otherwise
+            // send the digit into the add-task input. Typing in a field wins.
             if (/^[0-9]$/.test(e.key) && !e.ctrlKey && !e.metaKey && !e.altKey) {
                 const activeTag = (document.activeElement && document.activeElement.tagName) || '';
                 const isEditing = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT'
                     || (document.activeElement && document.activeElement.isContentEditable);
                 if (!isEditing) {
+                    const arrowTaskId = hoveredForwardArrow();
+                    if (arrowTaskId !== null) {
+                        e.preventDefault();
+                        // 0 would mean "forward nothing" — swallow it rather
+                        // than let it fall through and reorder the row, which
+                        // is not what the pointer is sitting on.
+                        const digit = parseInt(e.key, 10);
+                        if (digit === 0) return;
+                        // Hold the arrow under the keyboard: the move slides it
+                        // to another day card, so a follow-up digit would
+                        // otherwise land on whatever took its place.
+                        stickyArrowTaskId = arrowTaskId;
+                        moveTaskForwardDays(arrowTaskId, digit);
+                        return;
+                    }
                     const hovered = hoveredTaskRow();
                     if (hovered) {
                         e.preventDefault();
