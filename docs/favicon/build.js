@@ -167,6 +167,28 @@ function svg() {
 `;
 }
 
+// Safari PINNED TABS ignore the favicon entirely and use rel="mask-icon": a
+// single-colour silhouette that Safari tints itself. With no mask-icon a pinned
+// tab shows a letter taken from the DOMAIN — which is why this site read as a
+// grey "R" (railway.app) no matter how many times the favicon cache was cleared.
+//
+// The tile is dropped here: a mask icon is a silhouette, so a filled rounded
+// square would pin as a solid blob. The chevron alone is the mark. It is also
+// pulled back inside the canvas — the bleed only reads against the tile it is
+// cutting into, and clipped stroke ends look broken with nothing behind them.
+const MASK_CHEVRON = [[0.30, 0.14], [0.74, 0.5], [0.30, 0.86]];
+const MASK_STROKE = 0.115;
+
+function maskSvg() {
+    const s = 16;
+    const p = MASK_CHEVRON.map(([x, y]) => `${(x * s).toFixed(2)} ${(y * s).toFixed(2)}`);
+    return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${s} ${s}">
+  <path d="M ${p[0]} L ${p[1]} L ${p[2]}" fill="none" stroke="black"
+        stroke-width="${(MASK_STROKE * 2 * s).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+`;
+}
+
 // --- write ----------------------------------------------------------------
 const targets = [
     ['favicon-32.png', 32],
@@ -175,6 +197,7 @@ const targets = [
 ];
 
 fs.writeFileSync(path.join(OUT, 'favicon.svg'), svg());
+fs.writeFileSync(path.join(OUT, 'favicon-mask.svg'), maskSvg());
 console.log('favicon.svg');
 for (const [name, size] of targets) {
     const png = encodePng(size, render(size));
