@@ -1232,14 +1232,18 @@
             30%, 58%  { stroke-dashoffset: 0; opacity: 0.9; }
             65%, 100% { stroke-dashoffset: 0; opacity: 0; }
         }
+        /* One icon button, matching the real header's view toggle. */
         .nav-toggle {
             display: flex;
-            border: 1px solid #e2e8f0;
+            align-items: center;
+            justify-content: center;
+            width: 11px;
+            height: 11px;
             border-radius: 3px;
-            overflow: hidden;
+            color: #0284c7;
+            font-size: 8px;
+            line-height: 1;
         }
-        .nt-seg { font-size: 6.5px; padding: 2px 4px; color: #64748b; }
-        .nt-seg.active { background: #f0f9ff; color: #0284c7; font-weight: 600; }
         @keyframes tabPop {
             0%, 52%   { opacity: 0; transform: scale(0.6); }
             56%       { opacity: 1; transform: scale(1.2); }
@@ -1997,7 +2001,7 @@
                         </span>
                         <span class="nav-tab">fence</span>
                         <span class="nav-tab new-tab">garden</span>
-                        <span class="nav-toggle"><span class="nt-seg active">Calendar</span><span class="nt-seg">List</span></span>
+                        <span class="nav-toggle">≣</span>
                     </div>
                 </div>
             </div>
@@ -2010,7 +2014,7 @@
                         <span class="nav-plus">+ New project</span>
                         <span class="nav-tab">fence</span>
                         <span class="nav-tab due">garden</span>
-                        <span class="nav-toggle"><span class="nt-seg active">Calendar</span><span class="nt-seg">List</span></span>
+                        <span class="nav-toggle">≣</span>
                     </div>
                 </div>
             </div>
@@ -2407,18 +2411,20 @@
         <div class="card">
             <h3>&#128176; What research costs</h3>
             <p>Researching steps costs real money on your Anthropic account, so every
-               board carries its own budget — <strong>$5 a month</strong> to start. The
-               line under the board shows what you've spent; click it to change the
-               figure. Whole dollars only.</p>
+               board carries its own budget — <strong>$5 a month</strong> to start.
+               Hover the <strong>&#128270; Research</strong> switch in the top bar to
+               see what this board has spent, and <kbd>Shift</kbd>+click it to change
+               the figure. Whole dollars only.</p>
             <p>When a board runs out, you still get your drafted steps instantly — they
                just don't get researched, and the pane says so. Raise the budget and
                research picks up again.</p>
             <p>Research is <strong>on request by default</strong> — nothing is spent
                until you click Research these steps, or <kbd>&rarr;</kbd> on a single
                step. If you'd rather every new task be researched the moment you add it,
-               flip <strong>Auto-research</strong> on in that same line. It's off to
-               begin with because at roughly 10¢ a task, automatic research empties a $5
-               board in about a week.</p>
+               flip the <strong>&#128270; Research</strong> switch on in the top bar —
+               it tells you what that costs the first time, and you can tell it not to
+               ask again. It's off to begin with because at roughly 10¢ a task,
+               automatic research empties a $5 board in about a week.</p>
         </div>
         <div class="card coming-soon">
             <h3>Assign steps</h3>

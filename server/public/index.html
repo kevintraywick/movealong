@@ -992,12 +992,9 @@
             z-index: 100;
         }
 
-        /* Brand-blue badge — same accent as the wordmark's "Along" */
+        /* Brand-blue badge — same accent as the wordmark's "Along".
+           Lives at the far right of the header, past the account chip. */
         .help-link {
-            position: absolute;
-            right: 10px;
-            top: 50%;
-            transform: translateY(-50%);
             width: 20px;
             height: 20px;
             border-radius: 50%;
@@ -1011,6 +1008,7 @@
             align-items: center;
             justify-content: center;
             text-decoration: none;
+            flex-shrink: 0;
             transition: all 0.15s;
         }
 
@@ -1390,37 +1388,6 @@
             background: #f0f9ff;
         }
 
-        /* View toggle */
-        .view-toggle {
-            display: flex;
-            background: #f1f5f9;
-            border-radius: 6px;
-            padding: 2px;
-            margin-left: auto;
-        }
-
-        .view-toggle-btn {
-            padding: 3px 10px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 12px;
-            color: #64748b;
-            background: transparent;
-            border: none;
-            transition: all 0.2s;
-        }
-
-        .view-toggle-btn:hover {
-            color: #0f172a;
-        }
-
-        .view-toggle-btn.active {
-            background: #ffffff;
-            color: #0284c7;
-            font-weight: 600;
-            box-shadow: 0 1px 2px rgba(15, 23, 42, 0.08);
-        }
-
         /* AI assistant master switch */
         .assistant-switch {
             display: flex;
@@ -1430,6 +1397,10 @@
             color: #64748b;
             user-select: none;
         }
+
+        /* This is what splits the header into left (board identity) and right
+           (chrome) — it used to live on the old .view-toggle. */
+        #assistantSwitch { margin-left: auto; }
 
         .assistant-label {
             white-space: nowrap;
@@ -1775,17 +1746,41 @@
             line-height: 1.35;
         }
 
-        /* ===== AI budget bar (under the board) ===== */
-        .budget-bar {
-            font-size: 11px;
-            color: #94a3b8;
-            padding: 6px 2px 0;
-            display: flex;
-            align-items: center;
-            gap: 6px;
+        /* ===== Research warning dialog ===== */
+        .modal-text {
+            font-size: 13px;
+            color: #475569;
+            line-height: 1.5;
+            margin-bottom: 14px;
         }
 
-        .budget-bar button {
+        .cost-box {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 10px 12px;
+        }
+
+        .cost-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            font-size: 12px;
+            color: #64748b;
+            padding: 3px 0;
+        }
+
+        .cost-row strong { color: #0f172a; font-weight: 600; }
+        .cost-row.over strong { color: #b45309; }
+
+        .modal-note {
+            font-size: 11px;
+            color: #94a3b8;
+            line-height: 1.5;
+            margin-top: 10px;
+        }
+
+        .link-btn {
             border: none;
             background: none;
             font: inherit;
@@ -1794,9 +1789,20 @@
             padding: 0;
         }
 
-        .budget-bar button:hover { text-decoration: underline; }
-        .budget-bar.over { color: #b45309; }
-        .budget-sep { color: #cbd5e1; }
+        .link-btn:hover { text-decoration: underline; }
+
+        .modal-check {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 12px;
+            color: #475569;
+            margin-top: 16px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .modal-check input { accent-color: #0ea5e9; }
 
         /* ===== Quick list ("list ..." tasks) ===== */
         .quick-list-title {
@@ -1991,7 +1997,8 @@
            One override block, slate palette. Accent blue, semantic red,
            and lock amber all survive dark unchanged.
            ============================================ */
-        .theme-toggle {
+        .theme-toggle,
+        .icon-toggle {
             width: 26px;
             height: 26px;
             border-radius: 6px;
@@ -2007,9 +2014,27 @@
             line-height: 1;
         }
 
-        .theme-toggle:hover {
+        .theme-toggle:hover,
+        .icon-toggle:hover {
             background: #f0f9ff;
             color: #0ea5e9;
+        }
+
+        /* Blue on white, like everything else in the chrome. */
+        .icon-toggle {
+            color: #0284c7;
+            flex-shrink: 0;
+        }
+
+        .icon-toggle svg {
+            width: 15px;
+            height: 15px;
+            display: block;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 1.7;
+            stroke-linecap: round;
+            stroke-linejoin: round;
         }
 
         body.dark {
@@ -2040,13 +2065,6 @@
         body.dark .header-input.auto-generated.user-edited {
             color: #e2e8f0;
         }
-        body.dark .view-toggle { background: #1e293b; }
-        body.dark .view-toggle-btn { color: #94a3b8; }
-        body.dark .view-toggle-btn:hover { color: #e2e8f0; }
-        body.dark .view-toggle-btn.active {
-            background: #334155;
-            color: #38bdf8;
-        }
         body.dark .project-tab {
             background: #1e293b;
             border-color: #334155;
@@ -2068,7 +2086,8 @@
         body.dark .project-add-btn { color: #f1f5f9; }
         body.dark .project-tab:hover,
         body.dark .project-add-btn:hover,
-        body.dark .theme-toggle:hover {
+        body.dark .theme-toggle:hover,
+        body.dark .icon-toggle:hover {
             background: rgba(14, 165, 233, 0.12);
         }
         body.dark .header-sep { background: #334155; }
@@ -2126,8 +2145,14 @@
         body.dark .subtask-budget-note { background: rgba(180, 83, 9, 0.15); border-color: #b45309; color: #fcd34d; }
         body.dark .subtask-research-btn { border-color: #334155; color: #38bdf8; }
         body.dark .subtask-research-btn:hover { background: rgba(14, 165, 233, 0.12); }
-        body.dark .budget-bar { color: #64748b; }
-        body.dark .budget-bar.over { color: #fcd34d; }
+        body.dark .icon-toggle { color: #38bdf8; }
+        body.dark .modal-text { color: #cbd5e1; }
+        body.dark .cost-box { background: #0f172a; border-color: #334155; }
+        body.dark .cost-row { color: #94a3b8; }
+        body.dark .cost-row strong { color: #e2e8f0; }
+        body.dark .cost-row.over strong { color: #fcd34d; }
+        body.dark .modal-note { color: #64748b; }
+        body.dark .modal-check { color: #cbd5e1; }
 
         /* Master page */
         body.dark .project-section {
@@ -2209,21 +2234,27 @@
                  styled in place — it never moves to the front. -->
             <div id="projectTabs"></div>
 
-            <!-- View toggle -->
-            <div class="view-toggle">
-                <button class="view-toggle-btn active" id="viewCalendarBtn">Calendar</button>
-                <button class="view-toggle-btn" id="viewMasterBtn">List</button>
-            </div>
-
             <!-- AI assistant master switch -->
             <div class="assistant-switch" id="assistantSwitch" title="Toggle the AI assistant that auto-generates subtasks when you add a task">
                 <span class="assistant-label">🧠 Assistant</span>
                 <button class="assistant-toggle on" id="assistantToggleBtn" role="switch" aria-checked="true" aria-label="Toggle AI assistant"></button>
             </div>
+            <!-- Web research switch. Per board (projects.research_enabled), not
+                 per browser — it spends that board's budget. Turning it ON warns
+                 what that costs first, unless the user has dismissed the warning. -->
+            <div class="assistant-switch" id="researchSwitch" title="Research every new task with live web search">
+                <span class="assistant-label">🔎 Research</span>
+                <button class="assistant-toggle" id="researchToggleBtn" role="switch" aria-checked="false" aria-label="Toggle AI research"></button>
+            </div>
+
             <div class="assistant-switch" id="calendarSwitch" title="Import the next two weeks from your calendar">
                 <span class="assistant-label">📅 Calendar</span>
                 <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import"></button>
             </div>
+
+            <!-- One button, two views — it shows the icon of the view you'd
+                 switch TO, the same convention as the theme toggle beside it. -->
+            <button class="icon-toggle" id="viewToggleBtn"></button>
 
             <!-- Dark/light mode: shows the theme you'd switch to -->
             <button class="theme-toggle" id="themeToggleBtn" title="Switch theme" aria-label="Switch between light and dark mode">🌙</button>
@@ -2236,6 +2267,8 @@
                 <span class="header-separator">&bull;</span>
                 <span class="header-value" id="displayTeamName"></span>
             </div>
+
+            <a class="help-link" href="/help" target="_blank" rel="noopener" title="Help — features, gestures, and running your own copy" aria-label="Help">?</a>
         </div>
 
         <div class="user-switcher" id="userSwitcher" style="display: none;">
@@ -2246,11 +2279,6 @@
 
         <div class="board-container" id="board">
         </div>
-
-        <!-- Sits outside .board-container on purpose: that container is a clipping
-             scroll box whose padding-bottom is measured by fitExpandedPane(), so
-             anything inside it would be pushed around by an open subtask pane. -->
-        <div class="budget-bar" id="budgetBar"></div>
 
         <div class="master-container" id="masterContainer" style="display: none;">
         </div>
@@ -2277,7 +2305,6 @@
                 <li><code>Emoji</code> Assign</li>
                 <li><code>&cularr;</code> Return</li>
             </ul>
-            <a class="help-link" href="/help" target="_blank" rel="noopener" title="Help — features, gestures, and running your own copy" aria-label="Help">?</a>
         </div>
     </div>
 
@@ -2314,6 +2341,26 @@
             <div class="modal-actions">
                 <button class="btn btn-secondary btn-small" id="cancelCreateProject">Cancel</button>
                 <button class="btn btn-primary btn-small" id="confirmCreateProject">Create</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Research costs real money, so turning it on says what it costs before
+         it does anything. Dismissible for good — the checkbox writes
+         movealong.researchwarn, per browser, not per board. -->
+    <div class="modal-overlay" id="researchWarnModal">
+        <div class="modal">
+            <h3>Turn on research?</h3>
+            <p class="modal-text">Every task you add to this board gets a second pass with live web search &mdash; real links, prices and options instead of a first draft.</p>
+            <div class="cost-box">
+                <div class="cost-row"><span>Roughly, per researched task</span><strong>$0.10</strong></div>
+                <div class="cost-row" id="researchWarnSpendRow"><span>This board, this month</span><strong id="researchWarnSpend">&mdash;</strong></div>
+            </div>
+            <p class="modal-note">A $5 budget covers about 50 researched tasks. When it runs out, new tasks still get their drafted steps &mdash; only the research stops. <button class="link-btn" id="researchWarnBudget">Change budget</button></p>
+            <label class="modal-check"><input type="checkbox" id="researchWarnSuppress"> Don't warn me again</label>
+            <div class="modal-actions">
+                <button class="btn btn-secondary btn-small" id="researchWarnCancel">Cancel</button>
+                <button class="btn btn-primary btn-small" id="researchWarnConfirm">Turn it on</button>
             </div>
         </div>
     </div>
@@ -2407,6 +2454,11 @@
         function saveAssistantPref() {
             try { localStorage.setItem(ASSISTANT_KEY, assistantEnabled ? 'on' : 'off'); } catch (e) { /* ignore */ }
         }
+
+        // "Don't warn me again" on the research cost dialog. Per browser, not
+        // per board — it records that this person has read the price, and they
+        // shouldn't have to read it again on every board they own.
+        const RESEARCH_WARN_KEY = 'movealong.researchwarn';
 
         // Optional AI access key: when the server sets AI_ACCESS_KEY, only
         // requests carrying it get real (billed) AI generation — everyone
@@ -3225,43 +3277,43 @@
             } catch (e) {
                 boardBudget = null;
             }
-            renderBudgetBar();
+            renderResearchToggle();
         }
 
-        function renderBudgetBar() {
-            const el = document.getElementById('budgetBar');
-            if (!el) return;
-            if (!boardBudget || viewMode !== 'calendar') {
-                el.innerHTML = '';
+        // The 🔎 switch in the header. State is per board (research_enabled),
+        // so it repaints whenever the board's budget is refetched.
+        function renderResearchToggle() {
+            const btn = document.getElementById('researchToggleBtn');
+            const group = document.getElementById('researchSwitch');
+            if (!btn) return;
+            const on = !!(boardBudget && boardBudget.research_enabled);
+            btn.classList.toggle('on', on);
+            btn.setAttribute('aria-checked', on ? 'true' : 'false');
+            if (!group) return;
+            if (!boardBudget) {
+                group.title = 'Research every new task with live web search';
                 return;
             }
             const spent = boardBudget.spent_usd || 0;
             const budget = boardBudget.budget_usd || 0;
-            const over = spent >= budget;
-            const auto = !!boardBudget.research_enabled;
-            el.className = 'budget-bar' + (over ? ' over' : '');
-            el.innerHTML = `<span>AI research: $${spent.toFixed(2)} of $${budget} this month</span>`
-                + `<button id="budgetEditBtn">${over ? 'Raise budget' : 'Change'}</button>`
-                + `<span class="budget-sep">\u00b7</span>`
-                + `<button id="researchAutoBtn" title="${auto
-                    ? 'Every new task is researched automatically'
-                    : 'Research runs only when you ask for it, from the step pane'}">Auto-research: ${auto ? 'on' : 'off'}</button>`;
-            document.getElementById('budgetEditBtn').addEventListener('click', editBudget);
-            document.getElementById('researchAutoBtn').addEventListener('click', toggleAutoResearch);
+            group.title = (on
+                ? 'Every new task is researched with live web search'
+                : 'Research runs only when you ask for it, from the step pane')
+                + ` · $${spent.toFixed(2)} of $${budget} spent this month`
+                + ' · Shift+Click to change the budget';
         }
 
         // Off by default. At roughly $0.10 a researched task, auto-researching
         // everything you throw on a board empties a $5 budget in about a week —
         // so the automatic path is the one you opt into, not out of.
-        async function toggleAutoResearch() {
+        async function setResearchEnabled(next) {
             if (!currentProject) return;
-            const next = !(boardBudget && boardBudget.research_enabled);
             try {
                 boardBudget = await api(`/projects/${currentProject.id}/budget`, {
                     method: 'PUT',
                     body: { research_enabled: next }
                 });
-                renderBudgetBar();
+                renderResearchToggle();
                 showToast(next
                     ? 'New tasks will be researched automatically'
                     : 'Research is now on request only');
@@ -3269,6 +3321,62 @@
                 showToast('Error: ' + err.message);
             }
         }
+
+        function researchWarnSuppressed() {
+            try { return localStorage.getItem(RESEARCH_WARN_KEY) === 'off'; }
+            catch (e) { return false; }
+        }
+
+        function showResearchWarn() {
+            const modal = document.getElementById('researchWarnModal');
+            document.getElementById('researchWarnSuppress').checked = false;
+            paintResearchWarnSpend();
+            modal.classList.add('visible');
+        }
+
+        function paintResearchWarnSpend() {
+            const el = document.getElementById('researchWarnSpend');
+            if (!el || !boardBudget) return;
+            const spent = boardBudget.spent_usd || 0;
+            const budget = boardBudget.budget_usd || 0;
+            el.textContent = `$${spent.toFixed(2)} of $${budget}`;
+            document.getElementById('researchWarnSpendRow')
+                .classList.toggle('over', spent >= budget);
+        }
+
+        function hideResearchWarn() {
+            document.getElementById('researchWarnModal').classList.remove('visible');
+        }
+
+        // Toggling OFF never warns — only spending does.
+        document.getElementById('researchSwitch').addEventListener('click', (e) => {
+            if (!currentProject || !boardBudget) {
+                showToast('Pick a board first');
+                return;
+            }
+            // Same Shift+Click idiom as the 🧠 switch's access key: the budget
+            // has no other permanent home now the bottom bar is gone.
+            if (e.shiftKey) { editBudget(); return; }
+            const next = !boardBudget.research_enabled;
+            if (next && !researchWarnSuppressed()) { showResearchWarn(); return; }
+            setResearchEnabled(next);
+        });
+
+        document.getElementById('researchWarnCancel').addEventListener('click', hideResearchWarn);
+        document.getElementById('researchWarnModal').addEventListener('click', (e) => {
+            if (e.target.id === 'researchWarnModal') hideResearchWarn();
+        });
+        document.getElementById('researchWarnBudget').addEventListener('click', async () => {
+            await editBudget();
+            paintResearchWarnSpend();
+        });
+        document.getElementById('researchWarnConfirm').addEventListener('click', () => {
+            if (document.getElementById('researchWarnSuppress').checked) {
+                try { localStorage.setItem(RESEARCH_WARN_KEY, 'off'); } catch (e) {}
+            }
+            hideResearchWarn();
+            setResearchEnabled(true);
+        });
 
         async function editBudget() {
             const current = boardBudget ? boardBudget.budget_usd : 5;
@@ -3284,7 +3392,7 @@
                     method: 'PUT',
                     body: { budget_usd: dollars }
                 });
-                renderBudgetBar();
+                renderResearchToggle();
                 showToast(`Budget set to $${dollars}/month`);
             } catch (err) {
                 showToast('Error: ' + err.message);
@@ -3311,9 +3419,6 @@
         // RENDER VIEW (dispatches to calendar or master)
         // ============================================
         function renderView() {
-            // Any re-render replaces the rows, so a deferred priority sort has
-            // nothing left to wait for — drop the pointer at its stale node.
-            renderBudgetBar();
             if (viewMode === 'master') {
                 document.getElementById('board').style.display = 'none';
                 document.getElementById('masterContainer').style.display = 'flex';
@@ -5052,21 +5157,32 @@
         });
 
         // ============================================
-        // VIEW TOGGLE
+        // VIEW TOGGLE  (one button, two views)
         // ============================================
-        document.getElementById('viewCalendarBtn').addEventListener('click', () => {
-            viewMode = 'calendar';
-            document.getElementById('viewCalendarBtn').classList.add('active');
-            document.getElementById('viewMasterBtn').classList.remove('active');
+        // It shows the view you'd switch TO, matching the theme toggle beside
+        // it — so on the calendar you see the list icon, and vice versa.
+        const VIEW_ICONS = {
+            calendar: '<svg viewBox="0 0 20 20"><rect x="2.5" y="4" width="15" height="13" rx="2.5"/><path d="M2.5 8h15M6.5 2.5v3M13.5 2.5v3"/></svg>',
+            list: '<svg viewBox="0 0 20 20"><path d="M7 5.5h10M7 10h10M7 14.5h10"/><circle cx="3.4" cy="5.5" r="1.1"/><circle cx="3.4" cy="10" r="1.1"/><circle cx="3.4" cy="14.5" r="1.1"/></svg>'
+        };
+
+        function renderViewToggle() {
+            const btn = document.getElementById('viewToggleBtn');
+            if (!btn) return;
+            const target = viewMode === 'calendar' ? 'list' : 'calendar';
+            const label = target === 'list' ? 'Switch to List view' : 'Switch to Calendar view';
+            btn.innerHTML = VIEW_ICONS[target];
+            btn.title = label;
+            btn.setAttribute('aria-label', label);
+        }
+
+        document.getElementById('viewToggleBtn').addEventListener('click', () => {
+            viewMode = viewMode === 'calendar' ? 'master' : 'calendar';
+            renderViewToggle();
             renderView();
         });
 
-        document.getElementById('viewMasterBtn').addEventListener('click', () => {
-            viewMode = 'master';
-            document.getElementById('viewMasterBtn').classList.add('active');
-            document.getElementById('viewCalendarBtn').classList.remove('active');
-            renderView();
-        });
+        renderViewToggle();
 
         // ============================================
         // AI ASSISTANT MASTER SWITCH

@@ -46,6 +46,29 @@ iteration doesn't relitigate it.
   pulls the calendar back) get a red border that must out-specify `.selected`.
 - Day capacity is 10 pending tasks; the 11th overflows to the next day with room.
 
+## Ordering tasks
+
+- **A task's rank is where it sits.** The 1/2/3 exclamation marks are gone
+  (2026-08-14); there is no invisible priority level behind the order.
+- **One drag gesture, two meanings, split by pointer position** within the row:
+  the middle 40% links a series, the top and bottom 30% reorder. The series drag
+  existed first, so it keeps the forgiving centre target.
+- **The feedback must say which one you're getting** before you let go: a solid
+  blue insertion line for a reorder, the row highlight for a series link, plus a
+  `move` / `link` cursor. Two independent signals, because the two outcomes are
+  very different and only one is undoable by eye.
+- The line is an **inset box-shadow, not a border** — a border re-flows every row
+  below it as the pointer crosses a zone boundary, which reads as the list
+  flinching.
+- **Or hover and press 1-9** to send a task to that slot; `0` sends it last. A
+  day holds ten, so ten single-key presses cover every slot.
+- Reordering is **same-day only.** Across day cards a drag still means "series",
+  so nothing that already worked changed meaning.
+- **Don't bring back:** exclamation marks, or any sort that defers until
+  mouse-leave — moving the row is now the whole point, so it happens on the
+  keypress. A number press instead *holds* its task under the keyboard until the
+  pointer moves.
+
 ## Subtask pane
 
 - **One contained card**, listing up to 7 compact rows — check, assignee emoji,
@@ -55,8 +78,26 @@ iteration doesn't relitigate it.
 - **Single-pane rule: only one may be open at a time.** Every site that adds to
   `expandedTaskIds` must `clear()` it first. Same-day panes share coordinates,
   so two open at once silently occlude each other — this was a real bug.
+- **Seven rows is the cap, and ↺ tops up rather than starting over.** Anything
+  the user kept or typed survives; only slots freed by *ticking a step off* get
+  refilled. There is deliberately no delete affordance on a row — completing one
+  is the gesture that makes room, which keeps the pane honest about what's done.
+- **Hover a row and ↑ promotes it onto the board** as a real task, landing on the
+  parent task's day. That is the escape hatch when seven isn't enough, and its
+  departure frees a slot. Hover-reveal, because the pane is only as wide as a
+  200px day card.
+- **Steps arrive drafted, then get researched.** Phase 1 reasons and returns in
+  seconds so the user has something to think about; phase 2 searches the web and
+  rewrites the rows in place. Researched rows read **light blue** — a row tint
+  plus blue-tinted text, *never* blue text alone, because AI steps are full of
+  `#0284c7` links and blue text around blue underlined links is unreadable.
+- **Research is opt-in per board and costs money.** Off by default: at ~10¢ a
+  researched task, auto-researching everything empties a $5 board in a week. The
+  budget line under the board carries both the spend and the switch. A drafted
+  step is a *finished* state, not a degraded one, so it gets no styling of its own.
 - **Don't bring back:** 400×400 cards, a pane spanning three columns, tilt/fan
-  overlap, staircase indenting, weekday tints, or multiple panes open at once.
+  overlap, staircase indenting, weekday tints, multiple panes open at once, or
+  greyed-out "provisional" rows.
 
 ---
 
@@ -64,13 +105,34 @@ iteration doesn't relitigate it.
 
 - **Quiet single-row header**, 44px min-height, blurred white bar. Everything in
   it whispers (grey, 12–13px) — nothing in the chrome should outrank a day
-  header. Order: wordmark · + New project · project tabs · Calendar/List toggle ·
-  🧠 switch · theme toggle · user·project chip.
+  header. Order: wordmark · + New project · project tabs · 🧠 Assistant ·
+  🔎 Research · 📅 Calendar · view toggle · theme toggle · user·project chip ·
+  ? help.
+- **The bottom of the page is not navigation.** The AI-budget line that used to
+  sit under the board is gone; its switch moved into the header and its budget
+  editor onto Shift+Click. Anything worth clicking belongs in the one bar.
+- **The view toggle is a single icon button**, showing the view you'd switch
+  *to* — the same convention as the theme toggle beside it. Two labelled
+  segments asked the user to read a control that only ever has two states.
 - **Project tabs never move.** All tabs share one geometry so switching boards
   can't shift the row; `.active` carries no `font-weight`, because bolding the
   label widens that tab and nudges every tab after it.
 - **Active tab in dark mode takes a white border** — the board you're on should
   read as lit against the slate bar.
+
+## Icon
+
+- **A white chevron on the accent blue** — the same forward arrow that moves a
+  task to the next day, because that is the one gesture the product is about and
+  a single shape is all that survives 16px in a tab.
+- **It bleeds off all three ends.** Drawn to fit inside the tile it was a thin
+  stroke on a mostly-blue square and read as a media "next" button; running it
+  off the edges makes white half the mark. Chosen from eight variants judged at
+  16px, not as large renders.
+- **Pinned tabs are a separate channel.** Safari ignores the favicon there and
+  reads `rel="mask-icon"`, a silhouette it tints itself — with none supplied it
+  draws a letter taken from the *domain*. The mask drops the tile (a filled
+  square pins as a blob) and pulls the chevron back inside the canvas.
 
 ## Popups
 
@@ -102,10 +164,12 @@ iteration doesn't relitigate it.
 ## Keyboard
 
 - **← / →** scrolls the selected day card into view and focuses its task input.
+- **Hover + `1`-`9`** moves a task to that slot, `0` sends it last; **hover + `r`**
+  cycles its repeat.
 - **Type-to-focus:** any printable keystroke with no input focused routes to the
-  selected day's "Add a task" box. Priority digits are handled *above* this
-  fallback, and both early-return when focus is in a field — so typing
-  "3 eggs" never sets a priority.
+  selected day's "Add a task" box. The digit and `r` branches are handled *above*
+  this fallback, and all of them early-return when focus is in a field — so
+  typing "3 eggs" never reorders anything.
 
 ## Persistence
 

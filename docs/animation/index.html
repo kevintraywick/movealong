@@ -1220,14 +1220,18 @@
             30%, 58%  { stroke-dashoffset: 0; opacity: 0.9; }
             65%, 100% { stroke-dashoffset: 0; opacity: 0; }
         }
+        /* One icon button, matching the real header's view toggle. */
         .nav-toggle {
             display: flex;
-            border: 1px solid #e2e8f0;
+            align-items: center;
+            justify-content: center;
+            width: 11px;
+            height: 11px;
             border-radius: 3px;
-            overflow: hidden;
+            color: #0284c7;
+            font-size: 8px;
+            line-height: 1;
         }
-        .nt-seg { font-size: 6.5px; padding: 2px 4px; color: #64748b; }
-        .nt-seg.active { background: #f0f9ff; color: #0284c7; font-weight: 600; }
         @keyframes tabPop {
             0%, 52%   { opacity: 0; transform: scale(0.6); }
             56%       { opacity: 1; transform: scale(1.2); }
