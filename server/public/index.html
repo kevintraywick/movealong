@@ -2020,10 +2020,18 @@
             color: #0ea5e9;
         }
 
-        /* Blue on white, like everything else in the chrome. */
+        /* Blue on white, like everything else in the chrome. The thin border
+           is what stops it reading as a glyph floating in dead space — the
+           theme toggle beside it stays borderless on purpose, so the pair
+           don't read as a two-button group. */
         .icon-toggle {
             color: #0284c7;
             flex-shrink: 0;
+            border: 1px solid #e2e8f0;
+        }
+
+        .icon-toggle:hover {
+            border-color: #bae6fd;
         }
 
         .icon-toggle svg {
@@ -2145,7 +2153,8 @@
         body.dark .subtask-budget-note { background: rgba(180, 83, 9, 0.15); border-color: #b45309; color: #fcd34d; }
         body.dark .subtask-research-btn { border-color: #334155; color: #38bdf8; }
         body.dark .subtask-research-btn:hover { background: rgba(14, 165, 233, 0.12); }
-        body.dark .icon-toggle { color: #38bdf8; }
+        body.dark .icon-toggle { color: #38bdf8; border-color: #334155; }
+        body.dark .icon-toggle:hover { border-color: #0284c7; }
         body.dark .modal-text { color: #cbd5e1; }
         body.dark .cost-box { background: #0f172a; border-color: #334155; }
         body.dark .cost-row { color: #94a3b8; }
