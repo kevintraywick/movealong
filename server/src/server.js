@@ -897,6 +897,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.scheduled_date,
       t.origin_date,
       t.parent_task_id,
+      t.promoted_from,
       t.locked,
       t.priority,
       t.position,
@@ -1568,6 +1569,27 @@ app.delete('/api/subtasks/:subtaskId', (req, res) => {
   }
 });
 
+// Splice a task in immediately after another on the same day and renumber that
+// day densely. Positions are otherwise only written by PUT .../tasks/order —
+// this is the one other site, and it uses the same ordering so the two agree.
+function placeTaskAfter(taskId, afterTaskId, ownerId, projectId, date) {
+  const hasProject = projectId !== null && projectId !== undefined;
+  const day = queryAll(
+    `SELECT id FROM tasks
+     WHERE owner_id = ? AND scheduled_date = ? AND completed = 0
+       AND source != 'calendar'
+       AND ${hasProject ? 'project_id = ?' : 'project_id IS NULL'}
+     ORDER BY CASE WHEN position IS NULL THEN 1 ELSE 0 END, position, created_at`,
+    hasProject ? [ownerId, date, projectId] : [ownerId, date]
+  ).map(t => t.id);
+
+  const rest = day.filter(id => id !== taskId);
+  const at = rest.indexOf(afterTaskId);
+  if (at === -1) return;
+  rest.splice(at + 1, 0, taskId);
+  rest.forEach((id, i) => runSql('UPDATE tasks SET position = ? WHERE id = ?', [i, id]));
+}
+
 // Promote a subtask onto the board as a real task.
 // It lands on the PARENT TASK's day, not today: the pane may be hanging under
 // next Tuesday because that is when the user is planning to do this. The row is
@@ -1590,10 +1612,17 @@ app.post('/api/subtasks/:subtaskId/promote', (req, res) => {
     });
 
     const result = runSql(
-      `INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date, origin_date)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [task.company_id, task.owner_id, task.project_id, subtask.description, date, date]
+      `INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date, origin_date, promoted_from)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [task.company_id, task.owner_id, task.project_id, subtask.description, date, date, task.id]
     );
+
+    // Sit it directly under the task it came out of. Only possible when the
+    // day had room for it — an overflow lands on a different card entirely,
+    // where there is nothing to sit under, so it just appends there.
+    if (date === task.scheduled_date) {
+      placeTaskAfter(result.lastInsertRowid, task.id, task.owner_id, task.project_id, date);
+    }
 
     // Dependents would be orphaned pointing at a row that no longer exists;
     // ON DELETE CASCADE removes them, so lift them up to this row's parent first.

@@ -85,6 +85,7 @@ async function initDb() {
       scheduled_date DATE NOT NULL,
       origin_date DATE,
       parent_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      promoted_from INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
       locked INTEGER DEFAULT 0,
       priority INTEGER DEFAULT 0,
       position INTEGER,
@@ -172,6 +173,10 @@ async function initDb() {
   ensureColumn('tasks', 'origin_date', 'DATE');
   // Series: a task points at its predecessor; NULL = not in a series.
   ensureColumn('tasks', 'parent_task_id', 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
+  // The task this row was promoted out of, as a subtask step. Purely a
+  // display relation — it sits under its source on the board and shows a
+  // dotted circle — so SET NULL on delete just drops the cue.
+  ensureColumn('tasks', 'promoted_from', 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
   // Priority: 0 = none, 1-3 = number of red exclamation marks (3 = most urgent).
   ensureColumn('tasks', 'priority', 'INTEGER DEFAULT 0');
   // Repeat: NULL = one-off, else 'daily' | 'weekly' | 'monthly'. Only ever one

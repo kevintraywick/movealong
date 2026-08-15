@@ -259,6 +259,25 @@
             line-height: 1;
         }
 
+        /* Promoted from a step of another task: a dot inside the circle. It
+           sits directly under its source row, and the dot is what says it is a
+           peer task with a history, not that row's subtask. Withheld once the
+           circle has something else to say (a series countdown, the completed
+           check). */
+        .task-item.promoted:not(.completed) .task-circle:empty::before {
+            content: '';
+            width: 4px;
+            height: 4px;
+            border-radius: 50%;
+            background: #94a3b8;
+            flex-shrink: 0;
+        }
+
+        /* The row a hovered promoted task came out of. */
+        .task-item.source-highlight {
+            background: #bae6fd;
+        }
+
         .task-circle:hover {
             border-color: #38bdf8;
             background: rgba(56, 189, 248, 0.1);
@@ -2112,6 +2131,7 @@
         body.dark .task-description { color: #e2e8f0; }
         body.dark .task-item:hover { background: rgba(14, 165, 233, 0.12); }
         body.dark .task-circle { border-color: #475569; color: #cbd5e1; }
+        body.dark .task-item.source-highlight { background: rgba(56, 189, 248, 0.18); }
         body.dark .task-divider { border-top-color: #334155; }
         body.dark .task-item.completed .task-description { color: #64748b; }
         body.dark .task-item.calendar { border-left-color: #475569; }
@@ -3942,6 +3962,18 @@
                 });
             });
 
+            // Promoted step: hover it to tint the task it came out of. Same
+            // hover-to-reveal-the-relation idea as the series threads, but a
+            // plain tint — one edge, both rows usually in the same card.
+            document.querySelectorAll('.task-item[data-promoted-from]').forEach(item => {
+                const sourceId = item.dataset.promotedFrom;
+                item.addEventListener('mouseenter', () => {
+                    document.querySelectorAll(`.task-item[data-id="${sourceId}"]`)
+                        .forEach(el => el.classList.add('source-highlight'));
+                });
+                item.addEventListener('mouseleave', clearSourceHighlight);
+            });
+
             // Series: hover a chained task to reveal its thread.
             document.querySelectorAll('.task-item[data-chain-id]').forEach(item => {
                 item.addEventListener('mouseenter', () => drawChainThread(parseInt(item.dataset.chainId)));
@@ -4285,6 +4317,11 @@
         function dismissChainHint() {
             try { localStorage.setItem(CHAIN_HINT_KEY, 'dismissed'); } catch (e) { /* ignore */ }
             renderBoard();
+        }
+
+        function clearSourceHighlight() {
+            document.querySelectorAll('.task-item.source-highlight')
+                .forEach(el => el.classList.remove('source-highlight'));
         }
 
         function clearChainThread() {
@@ -4664,9 +4701,15 @@
                 ? 'From your calendar'
                 : 'Shift+Option+Click to lock to this day · drag to reorder · hover and press 1-9 to reorder';
 
+            // Promoted out of another task's steps: dotted circle, and the
+            // source row tints while this one is hovered.
+            const source = task.promoted_from ? tasks.find(t => t.id === task.promoted_from) : null;
+            const promotedAttrs = source ? ` data-promoted-from="${source.id}"` : '';
+            const circleTitle = source ? ` title="A step of: ${escapeHtml(source.description)}"` : '';
+
             return `
-                <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''} ${isEvent ? 'calendar' : ''}" data-id="${task.id}"${chainAttrs}${draggable}>
-                    <div class="task-circle" data-task-id="${task.id}">${circleContent}</div>
+                <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''} ${isEvent ? 'calendar' : ''} ${source ? 'promoted' : ''}" data-id="${task.id}"${chainAttrs}${promotedAttrs}${draggable}>
+                    <div class="task-circle" data-task-id="${task.id}"${circleTitle}>${circleContent}</div>
                     ${arrow}${eventMarker}
                     <div class="task-description" data-task-id="${task.id}" title="${descTitle}">${eventTime}${linkifyText(task.description)}${renderDayCounter(task)}${renderRepeatGlyph(task)}${assignedLabel}</div>
                     ${regenerateButton}
