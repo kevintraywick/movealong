@@ -2491,6 +2491,11 @@
             };
             const aiKey = getAiKey();
             if (aiKey) config.headers['x-ai-key'] = aiKey;
+            // "Today" is a local question — the server has no other way to know
+            // whose midnight it is. Sent on every call so spillover, deadline
+            // flags and the board all roll over at the same moment.
+            const tz = localTimeZone();
+            if (tz) config.headers['x-tz'] = tz;
             if (config.body && typeof config.body === 'object') {
                 config.body = JSON.stringify(config.body);
             }
@@ -2533,8 +2538,21 @@
             return days;
         }
 
+        // The browser's IANA zone (e.g. "America/Chicago"). Read fresh rather
+        // than cached: a laptop that crosses a timezone mid-session should
+        // follow, and this costs nothing.
+        function localTimeZone() {
+            try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; }
+            catch (e) { return ''; }
+        }
+
+        // Day keys are calendar labels, and the arithmetic on them is UTC-based
+        // — which is right. But *which* label is today is a local question:
+        // toISOString() rolled the board over to tomorrow at 6pm CST, hours
+        // before the user's day ended. en-CA formats as YYYY-MM-DD, which is
+        // exactly the key format, so no reassembly is needed.
         function getTodayKey() {
-            return new Date().toISOString().split('T')[0];
+            return new Date().toLocaleDateString('en-CA');
         }
 
         // Earliest date the calendar should start on: today, unless a locked,
@@ -2553,10 +2571,11 @@
 
         let days = generateDays(getTodayKey());
 
+        // Built off the local today, not off the clock — same reason.
         function getTomorrowKey() {
-            const tomorrow = new Date();
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            return tomorrow.toISOString().split('T')[0];
+            const d = new Date(getTodayKey() + 'T00:00:00.000Z');
+            d.setUTCDate(d.getUTCDate() + 1);
+            return d.toISOString().split('T')[0];
         }
 
         // ============================================

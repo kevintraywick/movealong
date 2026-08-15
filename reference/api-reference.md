@@ -22,6 +22,13 @@ To use a different path:
 DB_PATH=/path/to/db.sqlite npm start
 ```
 
+## Request headers
+
+| Header | Purpose |
+| --- | --- |
+| `x-tz` | The caller's IANA timezone (e.g. `America/Chicago`). The browser sends it on **every** call. The server resolves "today" from it — spillover, `due_today` deadline flags, subtask return and calendar sync all use `todayKeyFor(req)`. Absent or unrecognized, it falls back to UTC, which is what curl and older clients get. |
+| `x-ai-key` | Matches `AI_ACCESS_KEY` when the deployment sets one. Without it, AI endpoints silently return mock output. |
+
 ## API Endpoints
 
 ### Companies

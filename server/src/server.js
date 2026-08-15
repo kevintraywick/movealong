@@ -107,6 +107,32 @@ const MAX_SUBTASKS = 7;
 // Day capacity: max pending tasks per (owner, project) per day.
 const MAX_TASKS_PER_DAY = 10;
 
+// ============================================
+// "TODAY" IS A LOCAL QUESTION
+// ============================================
+// Day keys are calendar labels (YYYY-MM-DD), and arithmetic on them is
+// UTC-anchored, which is correct — but *which* label is today depends on where
+// the user is standing. Deriving it from the server's UTC clock rolled the
+// board over to tomorrow at 6pm CST / 5pm PST, hours before the user's day
+// ended. The browser sends its IANA zone on every request (x-tz); we validate
+// it and ask Intl, falling back to UTC for anything that isn't a browser.
+function todayInZone(timeZone) {
+  if (timeZone) {
+    try {
+      // en-CA formats as YYYY-MM-DD, which is exactly the key format.
+      return new Date().toLocaleDateString('en-CA', { timeZone });
+    } catch (e) { /* unknown zone — fall through to UTC */ }
+  }
+  return new Date().toISOString().split('T')[0];
+}
+
+// The caller's local date. Every request-scoped "what is today" goes through
+// here, so spillover, deadline flags and the board can't disagree.
+function todayKeyFor(req) {
+  const tz = req && req.get && req.get('x-tz');
+  return todayInZone(typeof tz === 'string' && tz.length <= 64 ? tz : null);
+}
+
 // Add N days to a YYYY-MM-DD string, returning a new YYYY-MM-DD string. UTC-safe.
 function addDays(dateStr, days) {
   const d = new Date(dateStr + 'T00:00:00.000Z');
@@ -531,7 +557,7 @@ app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
   // due_today: locked (deadline) tasks of this user that are due today or
   // already past their lock date. Drives the red border on off-screen
   // project tabs, so a deadline on another board can't go unnoticed.
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKeyFor(req);
   const projects = queryAll(`
     SELECT p.id, p.name, p.slug, p.created_by, p.created_at,
            (SELECT COUNT(*) FROM tasks t
@@ -826,7 +852,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
   // Spillover: incomplete past tasks move to today. Series members keep
   // their spacing: an overdue member spills to today and drags its
   // successors forward by the same delta (stopping at locked members).
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKeyFor(req);
   // Calendar rows never spill. An event that has passed is pruned by the sync,
   // not carried forward — a meeting happened whether or not you ticked it off.
   // This check and the `fresh.source` one below are the ONLY thing keeping
@@ -1722,7 +1748,7 @@ app.post('/api/subtasks/:subtaskId/return', (req, res) => {
   if (!subtask.assigned_by) return res.status(400).json({ error: 'Subtask was not assigned' });
 
   try {
-    const today = new Date().toISOString().split('T')[0];
+    const today = todayKeyFor(req);
     runSql(`UPDATE subtasks SET assigned_to = NULL, assigned_by = NULL, updated_at = ? WHERE id = ?`,
       [new Date().toISOString(), subtaskId]);
 
@@ -2224,7 +2250,7 @@ app.put('/api/companies/:subdomain/users/:slug/calendar', async (req, res) => {
 
   const { url, timezone, enabled } = req.body || {};
   const existing = calendar.getFeed(user.id);
-  const today = new Date().toISOString().split('T')[0];
+  const today = todayKeyFor(req);
 
   if (url !== undefined) {
     let normalized;
@@ -2282,7 +2308,7 @@ app.post('/api/companies/:subdomain/users/:slug/calendar/sync', async (req, res)
 
   // Force a sync regardless of the 15-minute throttle.
   runSql('UPDATE calendar_feeds SET last_synced_at = NULL WHERE user_id = ?', [user.id]);
-  const result = await calendar.syncFeed(user.id, new Date().toISOString().split('T')[0]);
+  const result = await calendar.syncFeed(user.id, todayKeyFor(req));
   if (result && result.error) {
     return res.status(400).json({ error: result.error, ...calendarStatus(user.id) });
   }
