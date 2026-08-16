@@ -1354,11 +1354,16 @@
             color: #0284c7;
         }
 
+        /* The bar reads as four groups — wordmark + plus, boards, the three
+           switches, then view/theme/account/help — and the 14px header gap alone
+           did not separate them. Each group boundary gets ~22px; inside a group
+           the items stay tight. */
         #projectTabs {
             display: flex;
             gap: 6px;
             align-items: center;
             flex-wrap: wrap;
+            margin-left: 8px;
         }
 
         /* An off-screen board has a deadline due (or overdue) — red, the
@@ -1423,27 +1428,44 @@
         }
 
         /* AI assistant master switch */
+        /* Icon-only since 2026-08-16: the words were three of the longest strings
+           in a bar that is supposed to whisper, and each one already carries a
+           title. The emoji is the label — the same bet the view and theme
+           toggles already make. */
         .assistant-switch {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 5px;
             font-size: 13px;
             color: #64748b;
             user-select: none;
+            cursor: pointer;
+        }
+
+        /* The three read as one cluster: 8px apart from each other, against the
+           header's 14px between everything else. */
+        .assistant-switch + .assistant-switch {
+            margin-left: -6px;
         }
 
         /* This is what splits the header into left (board identity) and right
            (chrome) — it used to live on the old .view-toggle. */
         #assistantSwitch { margin-left: auto; }
+        #calendarSwitch { margin-right: 8px; }
 
         .assistant-label {
             white-space: nowrap;
+            font-size: 14px;
+            line-height: 1;
         }
 
+        /* 26x14, down from 30x16. Beside a 14px emoji and 12px chrome text the
+           old pill was the largest object in the bar and read as the loudest
+           control in it, which it is not. */
         .assistant-toggle {
             position: relative;
-            width: 30px;
-            height: 16px;
+            width: 26px;
+            height: 14px;
             padding: 0;
             border: none;
             border-radius: 999px;
@@ -1458,8 +1480,8 @@
             position: absolute;
             top: 2px;
             left: 2px;
-            width: 12px;
-            height: 12px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             background: #fff;
             transition: transform 0.2s;
@@ -1470,7 +1492,7 @@
         }
 
         .assistant-toggle.on::after {
-            transform: translateX(14px);
+            transform: translateX(12px);
         }
 
         /* ============================================
@@ -2424,20 +2446,20 @@
             <div id="projectTabs"></div>
 
             <!-- AI assistant master switch -->
-            <div class="assistant-switch" id="assistantSwitch" title="Toggle the AI assistant that auto-generates subtasks when you add a task">
-                <span class="assistant-label">🧠 Assistant</span>
+            <div class="assistant-switch" id="assistantSwitch" title="Assistant — auto-generates steps when you add a task &middot; Shift+Click to set the AI access key">
+                <span class="assistant-label">🧠</span>
                 <button class="assistant-toggle on" id="assistantToggleBtn" role="switch" aria-checked="true" aria-label="Toggle AI assistant"></button>
             </div>
             <!-- Web research switch. Per board (projects.research_enabled), not
                  per browser — it spends that board's budget. Turning it ON warns
                  what that costs first, unless the user has dismissed the warning. -->
             <div class="assistant-switch" id="researchSwitch" title="Research every new task with live web search">
-                <span class="assistant-label">🔎 Research</span>
+                <span class="assistant-label">🔎</span>
                 <button class="assistant-toggle" id="researchToggleBtn" role="switch" aria-checked="false" aria-label="Toggle AI research"></button>
             </div>
 
-            <div class="assistant-switch" id="calendarSwitch" title="Import the next two weeks from your calendar">
-                <span class="assistant-label">📅 Calendar</span>
+            <div class="assistant-switch" id="calendarSwitch" title="Calendar — import the next two weeks of events onto the board">
+                <span class="assistant-label">📅</span>
                 <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import"></button>
             </div>
 
@@ -3506,14 +3528,14 @@
             btn.setAttribute('aria-checked', on ? 'true' : 'false');
             if (!group) return;
             if (!boardBudget) {
-                group.title = 'Research every new task with live web search';
+                group.title = 'Research — refine every new task with live web search';
                 return;
             }
             const spent = boardBudget.spent_usd || 0;
             const budget = boardBudget.budget_usd || 0;
             group.title = (on
-                ? 'Every new task is researched with live web search'
-                : 'Research runs only when you ask for it, from the step pane')
+                ? 'Research — every new task is researched with live web search'
+                : 'Research — runs only when you ask for it, from the step pane')
                 + ` · $${spent.toFixed(2)} of $${budget} spent this month`
                 + ' · Shift+Click to change the budget';
         }
