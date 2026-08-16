@@ -106,6 +106,19 @@ iteration doesn't relitigate it.
   would borrow the pane's own vocabulary for dependents and say the opposite of
   what's true. The dot yields the moment the circle has something else to say (a
   series countdown, the completed check): one slot, one meaning at a time.
+- **Controls ride above the step, not beside it.** Check · assignee · ↑ sit on
+  their own strip; the sentence gets the full 178px. The pane can't get wider —
+  it's pinned to a 200px day column — so the only way to give the text room is to
+  stop spending the line on chrome. Picked from four mockups (`archive/st-v*.html`).
+- **A URL is a citation, not the sentence.** Subtask links collapse to a glyph
+  where the URL stood, with the **domain** on hover — where it goes is the
+  decision; which page is not. An AI step's URL routinely ran longer than the
+  step citing it, so the sentence was losing to its own footnote.
+- **A control whose label and job disagree gets deleted, not relabelled.** The →
+  said "send to an AI agent" and re-researched the row. What came back in its
+  place is a ↻ that says exactly that — quieter than ↑, because it spends money,
+  and shown only on rows that have *been* researched, since an unresearched row
+  already has the pane's own button.
 - **Steps carry what they cost — as a range, never a figure.** A grey chip after
   the step text, the task total opposite the pane title. Whole dollars, the same
   reasoning as the whole-dollar budget: "$91.40–$127.75" claims a precision an
@@ -143,6 +156,22 @@ iteration doesn't relitigate it.
   label widens that tab and nudges every tab after it.
 - **Active tab in dark mode takes a white border** — the board you're on should
   read as lit against the slate bar.
+
+## Header
+
+- **It stays put.** Sticky at the top of the scroll, because an open subtask pane
+  is tall enough to scroll the whole bar away — and the bar is how you change
+  board, toggle the assistant, or reach help. Nothing you need mid-task should
+  require scrolling back up to find.
+- **Glyph over label wherever the glyph is unambiguous.** "+ New project" became
+  a bare `+`: the words were the loudest thing in a bar whose entire job is to
+  whisper. If a tooltip can carry the meaning, the bar shouldn't.
+- **A resting ring is clutter; a hover ring is an affordance.** The `+` wears no
+  border until you point at it. Judged against the neighbours — two bordered
+  icon toggles already sit at the far end, and a third bordered control beside
+  the wordmark would have read as a second toolbar.
+- **Bare glyphs need size back.** A `+` dropped to the body scale disappears;
+  18px is legible without shouting.
 
 ## Icon
 

@@ -1348,15 +1348,41 @@
             12%, 17% { opacity: 1; }
             19%, 100%{ opacity: 0; }
         }
+        /* Redrawn 2026-08-16 to match the app: controls ride on a strip above the
+           step, so the text gets the pane's full width. */
         .ai-step {
-            display: flex;
-            align-items: center;
-            gap: 3px;
             font-size: 7px;
             color: #0f172a;
             padding: 2px 0;
-            white-space: nowrap;
             opacity: 0;
+        }
+        .ai-step .as-strip {
+            display: flex;
+            align-items: center;
+            gap: 3px;
+            margin-bottom: 1px;
+        }
+        .ai-step .as-text { display: block; line-height: 1.35; }
+        .ai-step .as-up { color: #0ea5e9; font-size: 6px; line-height: 1; }
+        /* The link glyph: at 7px type a chain icon is a smudge, so the vignette
+           renders it as the blue mark it reads as on screen. */
+        .ai-step .as-link {
+            display: inline-block;
+            width: 5px;
+            height: 5px;
+            border: 1px solid #0284c7;
+            border-radius: 2px;
+            vertical-align: -1px;
+        }
+        .ai-step .as-cost {
+            display: inline-block;
+            margin-left: 2px;
+            padding: 0 2px;
+            border-radius: 2px;
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 6px;
+            font-weight: 700;
         }
         .ai-step .as-check {
             width: 7px;
@@ -1370,13 +1396,11 @@
         .ai-s2 { animation: stepIn2 10s ease-out infinite; }
         .ai-s3 { animation: stepIn3 10s ease-out infinite; }
         .ai-s4 { animation: stepIn4 10s ease-out infinite; }
-        .ai-s5 { animation: stepIn5 10s ease-out infinite; }
         @keyframes stepIn1 { 0%, 18% { opacity: 0; transform: translateY(2px); } 22%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
         @keyframes stepIn2 { 0%, 24% { opacity: 0; transform: translateY(2px); } 28%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
         @keyframes stepIn3 { 0%, 30% { opacity: 0; transform: translateY(2px); } 34%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
         @keyframes stepIn4 { 0%, 36% { opacity: 0; transform: translateY(2px); } 40%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
-        @keyframes stepIn5 { 0%, 42% { opacity: 0; transform: translateY(2px); } 46%, 96% { opacity: 1; transform: translateY(0); } 100% { opacity: 0; } }
-
+        
         /* --- scene: "list ..." tasks (10s) ---
            A list task's pane: quick list with blank slots on top, AI
            suggestions below. The cursor clicks the first suggestion's ↑
@@ -2376,11 +2400,10 @@
                     </div>
                     <div class="ai-pane">
                         <div class="ai-dots"><span></span><span></span><span></span></div>
-                        <div class="ai-step ai-s1"><span class="as-check"></span><span class="as-emoji">🧠</span>compare cedar vs vinyl prices</div>
-                        <div class="ai-step ai-s2"><span class="as-check"></span><span class="as-emoji">👩</span>measure the property line</div>
-                        <div class="ai-step ai-s3"><span class="as-check"></span><span class="as-emoji">🧠</span>check local fence-height rules</div>
-                        <div class="ai-step ai-s4"><span class="as-check"></span><span class="as-emoji">👩</span>call 811 to mark utility lines</div>
-                        <div class="ai-step ai-s5"><span class="as-check"></span><span class="as-emoji">🧠</span>get 3 installer quotes</div>
+                        <div class="ai-step ai-s1"><span class="as-strip"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="as-up">&uarr;</span></span><span class="as-text">compare cedar vs vinyl <span class="as-link"></span><span class="as-cost">$18&ndash;$32/ft</span></span></div>
+                        <div class="ai-step ai-s2"><span class="as-strip"><span class="as-check"></span><span class="as-emoji">👩</span><span class="as-up">&uarr;</span></span><span class="as-text">measure the property line</span></div>
+                        <div class="ai-step ai-s3"><span class="as-strip"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="as-up">&uarr;</span></span><span class="as-text">check fence-height rules <span class="as-link"></span></span></div>
+                        <div class="ai-step ai-s4"><span class="as-strip"><span class="as-check"></span><span class="as-emoji">👩</span><span class="as-up">&uarr;</span></span><span class="as-text">call 811 to mark utilities</span></div>
                     </div>
                 </div>
             </div>

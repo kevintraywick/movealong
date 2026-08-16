@@ -423,7 +423,15 @@
 
         /* Inline Header / Signup — one quiet 44px row; nothing in the chrome
            outranks a day header, so the board owns the screen. */
+        /* Frozen: the pane can run 600px+ tall, and scrolling to read step 6 used
+           to take the board switcher, the AI switches and the budget with it.
+           z-index 90 sits above the board and its panes but below every popup
+           (100) and modal (1000+), so nothing that opens *over* the header ends
+           up behind it. */
         .app-header {
+            position: sticky;
+            top: 0;
+            z-index: 90;
             display: flex;
             align-items: center;
             gap: 14px;
@@ -1381,26 +1389,33 @@
         .project-tab.drop-after::after { right: -5px; }
 
         /* Brand-colored like the wordmark — reads as app chrome, not board content */
+        /* Glyph only — the words "New project" were the loudest thing in a bar
+           whose whole job is to whisper, and the tooltip says it just as well.
+           No resting ring: a permanent circle here would be a second bordered
+           control beside the wordmark and read as clutter. The hover *is* the
+           circle, which is where the affordance is actually needed. */
         .project-add-btn {
-            padding: 4px 10px;
+            width: 26px;
             height: 26px;
-            border-radius: 6px;
+            padding: 0;
+            border-radius: 50%;
             border: none;
             background: transparent;
             color: #0f172a;
-            font-size: 13px;
+            /* A bare + at 13px disappears; 18px is legible without shouting. */
+            font-size: 18px;
             font-weight: 700;
-            letter-spacing: -0.01em;
+            line-height: 1;
             cursor: pointer;
             display: flex;
             align-items: center;
-            gap: 4px;
+            justify-content: center;
             flex-shrink: 0;
             transition: all 0.2s;
-            white-space: nowrap;
         }
 
         .project-add-btn .accent { color: #0ea5e9; }
+        .project-add-btn:hover .accent { color: #0284c7; }
 
         .project-add-btn:hover {
             color: #0284c7;
@@ -1553,10 +1568,12 @@
             background: rgba(14, 165, 233, 0.12);
         }
 
+        /* The row stacks now: a control strip, then the step at full width.
+           It was a flex ROW when the check/emoji/arrows sat beside the text —
+           leaving that in place would put the strip and the sentence
+           side by side and undo the whole point. */
         .subtask-item {
-            display: flex;
-            align-items: flex-start;
-            gap: 6px;
+            display: block;
             padding: 6px 2px;
             font-size: 12px;
             color: #0f172a;
@@ -1627,11 +1644,78 @@
             overflow-wrap: anywhere;
         }
 
+        /* Controls sit above the step, not beside it: the pane is 178px of usable
+           width and the text has first claim on it. */
+        .subtask-strip {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-bottom: 3px;
+        }
+
+        /* Quieter than ↑: this one spends money, so it should not read as the
+           row's primary action. Same 18px target, no fill until hover. */
+        .subtask-rerun {
+            background: transparent;
+            color: #94a3b8;
+            font-size: 12px;
+        }
+
+        .subtask-rerun:hover {
+            background: #f0f9ff;
+            color: #0ea5e9;
+        }
+
+        /* A URL printed in full routinely ran longer than the step citing it.
+           The glyph keeps the citation and gives the sentence its width back;
+           the domain — where it goes, not which page — arrives on hover. */
+        .step-link {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            margin-left: 3px;
+            color: #0284c7;
+            vertical-align: -2px;
+        }
+
+        .step-link svg { width: 12px; height: 12px; }
+        .step-link:hover { color: #0369a1; }
+
+        .step-link::after {
+            content: attr(data-domain);
+            position: absolute;
+            bottom: 135%;
+            left: 50%;
+            transform: translateX(-50%);
+            background: #0f172a;
+            color: #fff;
+            font-size: 10px;
+            font-weight: 500;
+            padding: 3px 6px;
+            border-radius: 5px;
+            white-space: nowrap;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.12s;
+            z-index: 5;
+        }
+
+        .step-link:hover::after { opacity: 1; }
+
         /* What the step costs to carry out — materials, labour, a booking.
            A range, never a point estimate, and never mixed with the board's AI
            spend: that is metered actuals, this is a guess about the world. */
+        /* max-width + the desc's own overflow-wrap keep this inside the column:
+           the chip is nowrap, so without a ceiling a wide range on a narrow pane
+           had nothing to break against and hung off the right edge. */
         .subtask-cost {
             display: inline-block;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
             margin-left: 5px;
             padding: 0 5px;
             border-radius: 4px;
@@ -2201,6 +2285,11 @@
         body.dark .subtask-cost { background: #334155; color: #cbd5e1; }
         body.dark a.subtask-cost:hover { background: #0c4a6e; color: #e0f2fe; }
         body.dark .subtask-cost-total { color: #94a3b8; }
+        body.dark .subtask-rerun { background: transparent; color: #64748b; }
+        body.dark .subtask-rerun:hover { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
+        body.dark .step-link { color: #38bdf8; }
+        body.dark .step-link:hover { color: #7dd3fc; }
+        body.dark .step-link::after { background: #0f172a; color: #e2e8f0; }
         body.dark .subtask-emoji:hover { background: #334155; }
         body.dark .subtask-send { background: rgba(14, 165, 233, 0.15); }
         body.dark .subtask-item.researched { background: rgba(14, 165, 233, 0.10); box-shadow: inset 2px 0 0 #0284c7; }
@@ -2285,7 +2374,7 @@
             <div class="app-logo">Move<span class="accent">Along</span></div>
 
             <!-- New project [+] -->
-            <button class="project-add-btn" id="projectAddBtn" title="New project"><span class="accent">+</span>&nbsp;New project</button>
+            <button class="project-add-btn" id="projectAddBtn" title="New project" aria-label="New project"><span class="accent">+</span></button>
 
             <!-- Signup form (before Go) -->
             <div class="header-form" id="headerForm">
@@ -3336,9 +3425,11 @@
             }
         }
 
-        // The → arrow, which used to only toast "Agent dispatched".
+        // Re-research ONE row — the strip's ↻, which replaced the → that used to
+        // do this under a label ("send to AI agent") that described something else.
         async function researchSubtask(subtaskId, taskId) {
-            const row = document.querySelector(`.subtask-promote[data-promote-id="${subtaskId}"]`);
+            const row = document.querySelector(`.subtask-rerun[data-rerun-id="${subtaskId}"]`)
+                || document.querySelector(`.subtask-promote[data-promote-id="${subtaskId}"]`);
             const item = row ? row.closest('.subtask-item') : null;
             if (item) item.classList.add('provisional');
 
@@ -4145,6 +4236,13 @@
             });
 
             // ↑ on a suggestion row → move it onto "My list"
+            document.querySelectorAll('.subtask-rerun[data-rerun-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    researchSubtask(parseInt(btn.dataset.rerunId), parseInt(btn.dataset.taskId));
+                });
+            });
+
             document.querySelectorAll('.subtask-up[data-subtask-id]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -4170,12 +4268,6 @@
 
             // → research this one step (the whole-task pass already ran; this is
             // for the step the user actually cares about)
-            document.querySelectorAll('.subtask-send[data-subtask-id]:not(.subtask-up)').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    researchSubtask(parseInt(btn.dataset.subtaskId), parseInt(btn.dataset.taskId));
-                });
-            });
 
             // Regenerate button (now lives on the expanded task row in the day card)
             document.querySelectorAll('.task-regenerate[data-task-id], .subtask-regenerate[data-task-id]').forEach(btn => {
@@ -4462,6 +4554,51 @@
             out += escapeHtml(src.slice(last));
             return out;
         }
+
+        // Subtask rows get the link as a GLYPH, not as text. A pane is only 178px
+        // wide once the day column's padding is off, and an AI step's URL routinely
+        // ran longer than the step itself — the sentence was losing to its own
+        // citation. The href survives; only its printed form goes. Board task rows
+        // keep linkifyText(): those URLs are typed by the user, who put them there
+        // to be read.
+        function linkifySubtask(text) {
+            const src = String(text ?? '');
+            let out = '';
+            let last = 0;
+            let match;
+            SUBTASK_URL_RE.lastIndex = 0;
+            while ((match = SUBTASK_URL_RE.exec(src)) !== null) {
+                const url = match[1].replace(URL_TRAILING_RE, '');
+                if (!url) continue;
+                // The glyph goes exactly where the URL was, not at the end of the
+                // row: a citation in trailing parens ends up at the end anyway,
+                // while "compare augers at sunbeltrentals.com and rent one" keeps
+                // its grammar instead of collapsing to "compare augers at and".
+                out += escapeHtml(src.slice(last, match.index));
+                const href = /^https?:\/\//i.test(url) ? url : 'https://' + url;
+                // The tooltip shows the DOMAIN, not the full URL: a query-string
+                // path is unreadable in a 10px chip and tells the user nothing
+                // they are deciding on. Where it goes is the question; which page
+                // is not.
+                let domain = href;
+                try { domain = new URL(href).hostname.replace(/^www\./, ''); } catch (e) { /* keep href */ }
+                out += `<a class="step-link" href="${escapeHtml(href)}" target="_blank" rel="noopener noreferrer" draggable="false" data-domain="${escapeHtml(domain)}" aria-label="${escapeHtml(domain)}">${LINK_GLYPH_SVG}</a>`;
+                last = match.index + match[0].length;
+                SUBTASK_URL_RE.lastIndex = last;
+            }
+            out += escapeHtml(src.slice(last));
+            return out;
+        }
+
+        const SUBTASK_TLDS = 'com|org|net|edu|gov|io|co|us|uk|ca|de|fr|au|shop|store|app|dev|info|guide';
+        const SUBTASK_URL_RE = new RegExp(
+            '\\(?(' +
+                'https?:\\/\\/[^\\s<)]+' +
+                '|www\\.[^\\s<)]+' +
+                '|[a-z][a-z0-9-]*(?:\\.[a-z0-9-]+)*\\.(?:' + SUBTASK_TLDS + ')(?:\\/[^\\s<)]*)?' +
+            ')\\)?', 'gi');
+
+        const LINK_GLYPH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>';
 
         // Cadence letters, and the cycle order the r key walks.
         const REPEAT_LABELS = { daily: 'd', weekly: 'w', monthly: 'm' };
@@ -4867,11 +5004,13 @@
                 // AI steps get a "send to agent" arrow \u2014 except list-pane suggestions,
                 // where the slot holds an up arrow that moves the row onto "My list"
                 // (send-to-agent is still a placeholder, so \u2191 replaces \u2192 there).
+                // The → is gone. Its tooltip said "send to AI agent" but it
+                // re-researched this one row, and a control whose label and job
+                // disagree is worse than no control — especially one costing a
+                // third of the line. ↑ survives only in its list-pane meaning.
                 const sendBtn = moveUp
                     ? `<button class="subtask-send subtask-up" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Move to my list">&uarr;</button>`
-                    : (st.assignee_type === 'ai' && !isAssigned)
-                        ? `<button class="subtask-send" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Send to AI agent">&rarr;</button>`
-                        : '';
+                    : '';
                 const emojiEl = isAssigned
                     ? `<span class="subtask-emoji assigned">${emoji}</span>`
                     : `<span class="subtask-emoji" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Assign this step">${emoji}</span>`;
@@ -4881,14 +5020,27 @@
                 const promoteBtn = (!moveUp && !isAssigned)
                     ? `<button class="subtask-send subtask-promote" data-promote-id="${st.id}" data-task-id="${taskId}" title="Move this onto the board">&uarr;</button>`
                     : '';
+                // Re-research THIS row. Only on rows research has already been
+                // through: an unresearched row is covered by the pane's
+                // "Research these steps" button, and offering both would be two
+                // controls for one job. It says what it does, which the → didn't.
+                const rerunBtn = (!moveUp && !isAssigned && st.researched && !st.completed)
+                    ? `<button class="subtask-send subtask-rerun" data-rerun-id="${st.id}" data-task-id="${taskId}" title="Research this step again">&orarr;</button>`
+                    : '';
 
+                // Controls ride on their own strip above the step, so the text
+                // gets the pane's full width. Three 20px controls plus gaps were
+                // eating a third of every line in a 178px column.
                 return `
                     <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''} ${st.provisional ? 'provisional' : ''} ${st.researched ? 'researched' : ''}">
-                        <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
-                        ${emojiEl}
-                        <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifyText(st.description)}${renderCostChip(st)}</div>
-                        ${promoteBtn}
-                        ${sendBtn}
+                        <div class="subtask-strip">
+                            <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
+                            ${emojiEl}
+                            ${promoteBtn}
+                            ${rerunBtn}
+                            ${sendBtn}
+                        </div>
+                        <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifySubtask(st.description)}${renderCostChip(st)}</div>
                     </div>
                 `;
             };
@@ -4912,8 +5064,10 @@
 
                 const mineRows = mine.map(st => `
                     <div class="subtask-item">
-                        <div class="subtask-check" data-subtask-id="${st.id}" data-task-id="${taskId}"></div>
-                        <div class="subtask-desc">${linkifyText(st.description)}</div>
+                        <div class="subtask-strip">
+                            <div class="subtask-check" data-subtask-id="${st.id}" data-task-id="${taskId}"></div>
+                        </div>
+                        <div class="subtask-desc">${linkifySubtask(st.description)}</div>
                     </div>
                 `).join('');
 
