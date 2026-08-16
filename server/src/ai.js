@@ -8,14 +8,22 @@ if (!ANTHROPIC_API_KEY) {
 const LIST_TASK_RE = /^list\b/i;
 
 const MODEL = 'claude-sonnet-5';
+// Which steps cost money is a classification, not research — it needs no search
+// and no reasoning depth, so it runs on the cheapest model there is. The point
+// is not the token saving (it is fractions of a cent): it is that the research
+// pass then spends its `max_uses` searches on the two or three rows that
+// actually buy something, and searches are the real cost lever.
+const TRIAGE_MODEL = 'claude-haiku-4-5';
 
-// Published rates for MODEL, used only to meter spend against a board's monthly
+// Published per-MTok rates, used only to meter spend against a board's monthly
 // budget. Nothing here reads a live price list, so these are hand-maintained:
-// re-check platform.claude.com/docs/en/about-claude/pricing when changing MODEL,
-// because rates are per-model and NOT stable across a family — Sonnet 5 is
-// $2/$10 where Sonnet 4.6 and earlier were $3/$15.
-const USD_PER_INPUT_TOKEN = 2 / 1_000_000;
-const USD_PER_OUTPUT_TOKEN = 10 / 1_000_000;
+// re-check platform.claude.com/docs/en/about-claude/pricing when changing either
+// model, because rates are per-model and NOT stable across a family — Sonnet 5
+// is $2/$10 (introductory) where Sonnet 4.6 and earlier were $3/$15.
+const RATES = {
+  'claude-sonnet-5': { input: 2 / 1_000_000, output: 10 / 1_000_000 },
+  'claude-haiku-4-5': { input: 1 / 1_000_000, output: 5 / 1_000_000 }
+};
 // Cache reads bill at 0.1x base input and 5-minute writes at 1.25x. These calls
 // don't use prompt caching today, so both fields come back 0 — but folding them
 // into base input (as this did originally) silently overcharges by 10x on reads
@@ -29,7 +37,8 @@ const USD_PER_WEB_SEARCH = 10 / 1000;
 // generateSubtasks' array return is consumed in several places.
 let lastUsage = null;
 
-function meterUsage(data) {
+function meterUsage(data, model = MODEL) {
+  const rate = RATES[model] || RATES[MODEL];
   const u = (data && data.usage) || {};
   const base = u.input_tokens || 0;
   const cacheRead = u.cache_read_input_tokens || 0;
@@ -37,15 +46,15 @@ function meterUsage(data) {
   const output = u.output_tokens || 0;
   const searches = (u.server_tool_use && u.server_tool_use.web_search_requests) || 0;
   return {
-    model: MODEL,
+    model,
     // Reported as one figure for the audit row; billed at their own rates below.
     input_tokens: base + cacheRead + cacheWrite,
     output_tokens: output,
     web_searches: searches,
-    cost_usd: base * USD_PER_INPUT_TOKEN
-            + cacheRead * USD_PER_INPUT_TOKEN * CACHE_READ_MULTIPLIER
-            + cacheWrite * USD_PER_INPUT_TOKEN * CACHE_WRITE_MULTIPLIER
-            + output * USD_PER_OUTPUT_TOKEN
+    cost_usd: base * rate.input
+            + cacheRead * rate.input * CACHE_READ_MULTIPLIER
+            + cacheWrite * rate.input * CACHE_WRITE_MULTIPLIER
+            + output * rate.output
             + searches * USD_PER_WEB_SEARCH
   };
 }
@@ -166,14 +175,82 @@ async function generateSubtasks(taskDescription, opts = {}) {
 
 
 // ============================================================
+// COST TRIAGE
+// ============================================================
+// Most steps cost nothing — "Decide: cook vs cater", "Pick a location", "Choose
+// target birds" buy nothing and hire nobody. Labelling them first is what lets
+// the research pass concentrate its searches on the rows that do, and lets a
+// 'none' row get its answer without spending a search at all.
+//
+// Failure here is deliberately non-fatal: a null return just means the research
+// pass decides for itself, which is the behaviour before this existed.
+const COST_KINDS = new Set(['material', 'labor', 'service', 'none']);
+
+async function triageCosts(taskDescription, steps) {
+  const prompt = `For the task "${taskDescription}", classify what each step COSTS to carry out.
+
+Steps:
+${steps.map((d, i) => `${i}. ${d}`).join('\n')}
+
+For each step return exactly one of:
+- "material" — the step buys physical goods (lumber, ingredients, a gift, a part)
+- "labor" — the step pays a person for their time (a contractor, a sitter, a mover)
+- "service" — the step pays for a booking, ticket, subscription, permit or fee
+- "none" — the step spends no money: deciding, choosing, planning, measuring, asking, looking something up, or doing it yourself with what you already have
+
+Most steps are "none". Only classify a step as costing money when carrying it out plainly requires spending some.
+
+Return ONLY a JSON array of exactly ${steps.length} strings, in order. Example: ["none","material","none","service"]`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    signal: AbortSignal.timeout(20000),
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: TRIAGE_MODEL,
+      max_tokens: 256,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+
+  if (!response.ok) throw new Error(`Claude API error: ${response.status}`);
+  const data = await response.json();
+  lastUsage = meterUsage(data, TRIAGE_MODEL);
+
+  const textBlock = data.content.find(block => block.type === 'text');
+  const jsonMatch = textBlock && textBlock.text.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) throw new Error('No JSON array in triage response');
+  const parsed = JSON.parse(jsonMatch[0]);
+  if (!Array.isArray(parsed)) throw new Error('Triage response was not an array');
+
+  // Index-matched like the research pass: a short answer must not shift every
+  // later step onto the wrong row. Anything unrecognised falls back to 'none'.
+  return steps.map((_, i) => {
+    const k = typeof parsed[i] === 'string' ? parsed[i].trim().toLowerCase() : '';
+    return COST_KINDS.has(k) ? k : 'none';
+  });
+}
+
+// ============================================================
 // PHASE 2 — RESEARCH
 // ============================================================
+// A cost range shown to the user is a claim the app is making, so a shaky one is
+// worse than none: below this the estimate is dropped and the row simply shows
+// no price. Lower than RESEARCH_REPLACE_CONFIDENCE (0.8) on purpose — that gate
+// guards *replacing text the user is reading*, this one only guards adding a
+// figure the user can take or leave, and a range already carries its own
+// uncertainty. Enforced server-side in runResearch(), where it is auditable.
+const COST_MIN_CONFIDENCE = 0.5;
 // Phase 1 gives the user something to think about within seconds, reasoning
 // only. This pass runs behind it with real web search and rewrites those rows
 // in place. It never adds, removes or reorders steps: it returns exactly one
 // verdict per input row, matched by index, so a row the user completed or
 // promoted while it was running is simply skipped by the caller.
-function buildResearchPrompt(taskDescription, steps, location, kind = 'step') {
+function buildResearchPrompt(taskDescription, steps, location, kind = 'step', costKinds = null) {
   const where = location && (location.city || location.region || location.country)
     ? `\n\nThe user is near ${[location.city, location.region, location.country].filter(Boolean).join(', ')} — prefer local options, stores and services where it matters.`
     : '';
@@ -181,7 +258,7 @@ function buildResearchPrompt(taskDescription, steps, location, kind = 'step') {
   return `A task app drafted these ${kind}s for the task "${taskDescription}" using reasoning alone, with no research. Your job is to make them real.
 
 The drafted ${kind}s:
-${steps.map((d, i) => `${i}. ${d}`).join('\n')}
+${steps.map((d, i) => `${i}. ${d}${costKinds && costKinds[i] && costKinds[i] !== 'none' ? `   [costs money: ${costKinds[i]}]` : ''}`).join('\n')}
 
 Search the web and return an improved version of EVERY ${kind}, in the same order.
 
@@ -191,16 +268,64 @@ For each step return an object with:
 - "confidence": 0.0-1.0, how sure you are that it is illogical. Only set this meaningfully when "illogical" is true.
 - "replacement": when "illogical" is true, the ${kind} that SHOULD be there instead — same research standard as "refined".
 
+Also price each ${kind}, because what the user most wants to know is what this is going to cost them. Add to the same object:
+- "cost_kind": "material" (buys goods), "labor" (pays a person for their time), "service" (a booking, ticket, fee or subscription), or "none".
+- "cost_low" and "cost_high": a range in whole US dollars for THIS ${kind} only. Never a single figure — if you would return the same number twice, widen it until it is honest.
+- "cost_unit": what the range covers, e.g. "total", "per hour", "each", "per person".
+- "cost_basis": the specific thing you priced — "8x 1x6 cedar picket, 6ft" or "handyman, 2-3 hrs at local rate". Without this the number cannot be checked, so it is required.
+- "cost_source_url": where the price came from, if a search found one.
+- "cost_as_of": the date of that price, YYYY-MM-DD, if you know it.
+- "cost_confidence": 0.0-1.0 in the range itself.
+
+Rules for pricing:
+- ${kind}s marked [costs money] above are the ones worth spending searches on. Price the rest from what you already know, or return "none".
+- Use "none" for anything that only decides, chooses, plans, measures, asks or looks something up. Most ${kind}s are "none" and that is the right answer.
+- Never guess to fill the field. A low "cost_confidence" is far better than a confident wrong number — anything under ${COST_MIN_CONFIDENCE} is discarded rather than shown.
+- Price only what this one ${kind} costs. Do not roll in the rest of the task.
+
 Be conservative with "illogical". Most drafted ${kind}s are merely vague, and the user has already read them; replacing one they are looking at is disruptive, so only flag a ${kind} you would defend.${where}
 
 Return ONLY a JSON array of exactly ${steps.length} objects, in the same order as the drafted ${kind}s. Example shape:
-[{"refined": "Order 6ft cedar pickets, $4.28 each (homedepot.com/s/cedar%20picket)", "illogical": false, "confidence": 0, "replacement": null}]`;
+[{"refined": "Order 6ft cedar pickets, $4.28 each (homedepot.com/s/cedar%20picket)", "illogical": false, "confidence": 0, "replacement": null, "cost_kind": "material", "cost_low": 90, "cost_high": 130, "cost_unit": "total", "cost_basis": "24x 6ft cedar picket at $4.28", "cost_source_url": "https://homedepot.com/s/cedar%20picket", "cost_as_of": "2026-08-16", "cost_confidence": 0.8}]`;
+}
+
+// Normalise the cost half of a research verdict. Returns null for anything that
+// isn't a usable range: a missing kind, 'none', a non-numeric or negative bound,
+// or a basis the user could not check the figure against. The confidence gate
+// itself is applied by the caller (server-side, where it is auditable).
+function parseCost(r) {
+  const kind = typeof r.cost_kind === 'string' ? r.cost_kind.trim().toLowerCase() : '';
+  if (!COST_KINDS.has(kind) || kind === 'none') return null;
+
+  const low = Number(r.cost_low);
+  const high = Number(r.cost_high);
+  if (!Number.isFinite(low) || !Number.isFinite(high) || low < 0 || high < 0) return null;
+
+  const basis = typeof r.cost_basis === 'string' ? r.cost_basis.trim() : '';
+  if (!basis) return null;
+
+  const url = typeof r.cost_source_url === 'string' ? r.cost_source_url.trim() : '';
+  const asOf = typeof r.cost_as_of === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r.cost_as_of.trim())
+    ? r.cost_as_of.trim()
+    : null;
+
+  return {
+    kind,
+    // A model that returns the bounds backwards is otherwise rendered as "$90-$40".
+    low: Math.min(low, high),
+    high: Math.max(low, high),
+    unit: (typeof r.cost_unit === 'string' && r.cost_unit.trim()) || 'total',
+    basis,
+    source_url: /^https?:\/\//i.test(url) ? url : null,
+    as_of: asOf,
+    confidence: typeof r.cost_confidence === 'number' ? r.cost_confidence : 0
+  };
 }
 
 async function researchSubtasks(taskDescription, steps, opts = {}) {
-  const { location, maxSearches = 5, kind = 'step' } = opts;
+  const { location, maxSearches = 5, kind = 'step', costKinds = null } = opts;
 
-  const messages = [{ role: 'user', content: buildResearchPrompt(taskDescription, steps, location, kind) }];
+  const messages = [{ role: 'user', content: buildResearchPrompt(taskDescription, steps, location, kind, costKinds) }];
   const totals = { model: MODEL, input_tokens: 0, output_tokens: 0, web_searches: 0, cost_usd: 0 };
   let data = null;
 
@@ -266,9 +391,10 @@ async function researchSubtasks(taskDescription, steps, opts = {}) {
       refined: refined || original,
       replacement: replacement || null,
       illogical: r.illogical === true,
-      confidence
+      confidence,
+      cost: parseCost(r)
     };
   });
 }
 
-module.exports = { generateSubtasks, researchSubtasks, takeUsage };
+module.exports = { generateSubtasks, researchSubtasks, triageCosts, takeUsage, COST_MIN_CONFIDENCE };

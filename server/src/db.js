@@ -117,6 +117,14 @@ async function initDb() {
       sort_order INTEGER DEFAULT 0,
       provisional INTEGER DEFAULT 0,
       researched INTEGER DEFAULT 0,
+      cost_kind TEXT,
+      cost_low REAL,
+      cost_high REAL,
+      cost_unit TEXT,
+      cost_basis TEXT,
+      cost_source_url TEXT,
+      cost_confidence REAL,
+      cost_as_of TEXT,
       completed INTEGER DEFAULT 0,
       completed_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -214,6 +222,27 @@ async function initDb() {
   // Marks a row the research pass actually rewrote, so the pane can show which
   // steps are real findings and which are still drafts.
   ensureColumn('subtasks', 'researched', 'INTEGER DEFAULT 0');
+  // What the step costs in the real world. Deliberately NOT merged with the AI
+  // budget: that is metered actuals from the API's own usage block, this is an
+  // estimate about the world, and one number covering both would be a lie.
+  // Written only by the research pass, and only above COST_MIN_CONFIDENCE.
+  // kind is 'material' | 'labor' | 'service' | 'none' — most steps are 'none'
+  // ("Decide: cook vs cater" costs nothing), which is what keeps the search
+  // budget on the two or three rows that actually buy something.
+  ensureColumn('subtasks', 'cost_kind', 'TEXT');
+  // A range, never a point estimate — low === high would claim a precision
+  // nothing here has.
+  ensureColumn('subtasks', 'cost_low', 'REAL');
+  ensureColumn('subtasks', 'cost_high', 'REAL');
+  ensureColumn('subtasks', 'cost_unit', 'TEXT');
+  // What was actually priced ("8x 1x6 cedar board, 6ft"). This is what makes an
+  // estimate checkable instead of merely plausible, so it is not optional.
+  ensureColumn('subtasks', 'cost_basis', 'TEXT');
+  ensureColumn('subtasks', 'cost_source_url', 'TEXT');
+  ensureColumn('subtasks', 'cost_confidence', 'REAL');
+  // Prices move. A figure with no date is worse than no figure.
+  ensureColumn('subtasks', 'cost_as_of', 'TEXT');
+
   // Pre-migration tasks never recorded their origin; the best available
   // approximation is wherever they sit now (their true origin is lost).
   db.run('UPDATE tasks SET origin_date = scheduled_date WHERE origin_date IS NULL');

@@ -1627,6 +1627,38 @@
             overflow-wrap: anywhere;
         }
 
+        /* What the step costs to carry out — materials, labour, a booking.
+           A range, never a point estimate, and never mixed with the board's AI
+           spend: that is metered actuals, this is a guess about the world. */
+        .subtask-cost {
+            display: inline-block;
+            margin-left: 5px;
+            padding: 0 5px;
+            border-radius: 4px;
+            background: #f1f5f9;
+            color: #475569;
+            font-size: 11px;
+            font-weight: 600;
+            white-space: nowrap;
+            vertical-align: baseline;
+            text-decoration: none;
+        }
+
+        a.subtask-cost:hover {
+            background: #bae6fd;
+            color: #0c4a6e;
+        }
+
+        /* Task total, in the pane header opposite the title. */
+        .subtask-cost-total {
+            margin-left: auto;
+            padding-left: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            color: #64748b;
+            white-space: nowrap;
+        }
+
         .subtask-desc.completed-subtask {
             text-decoration: line-through;
             color: #94a3b8;
@@ -2166,6 +2198,9 @@
         body.dark .quick-slot-input { color: #e2e8f0; border-bottom-color: #334155; }
         body.dark .quick-slot-input::placeholder { color: #475569; }
         body.dark .subtask-check { border-color: #475569; }
+        body.dark .subtask-cost { background: #334155; color: #cbd5e1; }
+        body.dark a.subtask-cost:hover { background: #0c4a6e; color: #e0f2fe; }
+        body.dark .subtask-cost-total { color: #94a3b8; }
         body.dark .subtask-emoji:hover { background: #334155; }
         body.dark .subtask-send { background: rgba(14, 165, 233, 0.15); }
         body.dark .subtask-item.researched { background: rgba(14, 165, 233, 0.10); box-shadow: inset 2px 0 0 #0284c7; }
@@ -4753,6 +4788,50 @@
         }
 
         // ============================================
+        // STEP COSTS
+        // ============================================
+        // Whole dollars, matching the AI budget's own control: a step that costs
+        // "$91.40-$127.75" is claiming a precision an estimate does not have.
+        function formatMoney(n) {
+            return '$' + Math.round(n).toLocaleString('en-US');
+        }
+
+        // A range, always — low === high would read as a quoted price. The chip
+        // links to its source when the research pass found one, so the number is
+        // one click from being checked.
+        function renderCostChip(st) {
+            if (st.cost_low === null || st.cost_low === undefined) return '';
+            const range = st.cost_low === st.cost_high
+                ? formatMoney(st.cost_low)
+                : `${formatMoney(st.cost_low)}\u2013${formatMoney(st.cost_high)}`;
+            const unit = st.cost_unit && st.cost_unit !== 'total' ? ` ${st.cost_unit}` : '';
+            const parts = [st.cost_basis, st.cost_as_of ? `as of ${st.cost_as_of}` : ''].filter(Boolean);
+            const title = escapeHtml(parts.join(' \u00b7 ') || 'Estimated cost');
+            const label = `${escapeHtml(range)}${escapeHtml(unit)}`;
+            return st.cost_source_url
+                ? `<a class="subtask-cost" href="${escapeHtml(st.cost_source_url)}" target="_blank" rel="noopener noreferrer" title="${title}">${label}</a>`
+                : `<span class="subtask-cost" title="${title}">${label}</span>`;
+        }
+
+        // Task total. Sums the priced rows and shows "\u2265" whenever any pending row
+        // has no verdict yet (never researched, or an estimate too shaky to show)
+        // \u2014 a total that silently omits the unknowns is a lie. A row researched
+        // and found to cost nothing (cost_kind 'none') is an answer, not a gap.
+        function renderCostTotal(rows) {
+            const pending = rows.filter(st => !st.completed);
+            const priced = pending.filter(st => st.cost_low !== null && st.cost_low !== undefined);
+            if (!priced.length) return '';
+            const low = priced.reduce((a, st) => a + st.cost_low, 0);
+            const high = priced.reduce((a, st) => a + st.cost_high, 0);
+            const partial = pending.some(st => !st.cost_kind);
+            const range = low === high ? formatMoney(low) : `${formatMoney(low)}\u2013${formatMoney(high)}`;
+            const title = partial
+                ? 'Estimated so far \u2014 some steps have no estimate yet'
+                : 'Estimated cost of the steps below';
+            return `<span class="subtask-cost-total" title="${title}">${partial ? '\u2265 ' : ''}${escapeHtml(range)}</span>`;
+        }
+
+        // ============================================
         // RENDER SUBTASK PANE
         // ============================================
         // Phase-2 status line under the rows: either "researching" while the
@@ -4807,7 +4886,7 @@
                     <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''} ${st.provisional ? 'provisional' : ''} ${st.researched ? 'researched' : ''}">
                         <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
                         ${emojiEl}
-                        <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifyText(st.description)}</div>
+                        <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifyText(st.description)}${renderCostChip(st)}</div>
                         ${promoteBtn}
                         ${sendBtn}
                     </div>
@@ -4815,7 +4894,7 @@
             };
 
             const header = taskTitle
-                ? `<div class="subtask-pane-header"><span class="subtask-pane-title">${escapeHtml(taskTitle)}</span></div>`
+                ? `<div class="subtask-pane-header"><span class="subtask-pane-title">${escapeHtml(taskTitle)}</span>${renderCostTotal(subtasks)}</div>`
                 : '';
 
             if (isGenerating) {

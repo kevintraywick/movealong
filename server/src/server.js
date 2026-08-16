@@ -1428,6 +1428,8 @@ app.get('/api/tasks/:taskId/subtasks', (req, res) => {
   const subtasks = queryAll(`
     SELECT id, task_id, parent_subtask_id, description, assignee_type,
            assigned_to, assigned_by, sort_order, provisional, researched, completed, completed_at,
+           cost_kind, cost_low, cost_high, cost_unit, cost_basis, cost_source_url,
+           cost_confidence, cost_as_of,
            created_at, updated_at
     FROM subtasks
     WHERE task_id = ?
@@ -1885,10 +1887,28 @@ async function runResearch(taskId) {
 
   try {
     const ai = require('./ai');
+    const descriptions = rows.map(r => r.description);
+
+    // Which rows actually spend money, decided first and cheaply, so the search
+    // budget below lands on those rows. Non-fatal: without it the research pass
+    // just decides for itself, exactly as it did before this existed. Its own
+    // audit row, because a budget's first question is where the money went.
+    let costKinds = null;
+    try {
+      costKinds = await ai.triageCosts(task.description, descriptions);
+      recordUsage(task.project_id, taskId, 'cost_triage', ai.takeUsage());
+    } catch (err) {
+      console.error(`Cost triage failed for task ${taskId}:`, err.message);
+    }
+
     const results = await ai.researchSubtasks(
       task.description,
-      rows.map(r => r.description),
-      { location: locationForUser(task.owner_id), kind: LIST_TASK_RE.test(task.description || '') ? 'item' : 'step' }
+      descriptions,
+      {
+        location: locationForUser(task.owner_id),
+        kind: LIST_TASK_RE.test(task.description || '') ? 'item' : 'step',
+        costKinds
+      }
     );
     recordUsage(task.project_id, taskId, 'research', ai.takeUsage());
 
@@ -1900,8 +1920,27 @@ async function runResearch(taskId) {
       const live = queryOne('SELECT id FROM subtasks WHERE id = ? AND provisional = 1 AND completed = 0', [row.id]);
       if (!live) return;
       const replace = r.illogical && r.replacement && r.confidence >= RESEARCH_REPLACE_CONFIDENCE;
-      runSql('UPDATE subtasks SET description = ?, provisional = 0, researched = 1, updated_at = ? WHERE id = ?',
-        [replace ? r.replacement : r.refined, now, row.id]);
+      // The cost gate, kept here beside the replacement gate rather than in
+      // ai.js: both decide what the user is shown, and both belong somewhere
+      // auditable. A shaky range is dropped outright — the row then shows no
+      // price, which is honest, where a wrong one would not be.
+      // Three states, and the difference matters to the total in the pane:
+      //   priced      — kind + a range
+      //   'none'      — research ran and this step spends nothing (a decision,
+      //                 a choice, a measurement); a real answer, not a gap
+      //   NULL        — unknown: the estimate came back too shaky to show, so
+      //                 the pane's total has to admit it is a floor
+      const priced = r.cost && r.cost.confidence >= ai.COST_MIN_CONFIDENCE;
+      const unknown = r.cost && !priced;
+      const c = priced ? r.cost : null;
+      runSql(`UPDATE subtasks SET description = ?, provisional = 0, researched = 1,
+                cost_kind = ?, cost_low = ?, cost_high = ?, cost_unit = ?,
+                cost_basis = ?, cost_source_url = ?, cost_confidence = ?, cost_as_of = ?,
+                updated_at = ? WHERE id = ?`,
+        [replace ? r.replacement : r.refined,
+         c ? c.kind : (unknown ? null : 'none'), c ? c.low : null, c ? c.high : null, c ? c.unit : null,
+         c ? c.basis : null, c ? c.source_url : null, c ? c.confidence : null, c ? c.as_of : null,
+         now, row.id]);
     });
 
     runSql(`UPDATE tasks SET research_status = 'done' WHERE id = ?`, [taskId]);
