@@ -1702,7 +1702,14 @@ app.post('/api/subtasks/:subtaskId/research', async (req, res) => {
     const ai = require('./ai');
     const results = await ai.researchSubtasks(task.description, [subtask.description], {
       location: locationForUser(task.owner_id),
-      kind: LIST_TASK_RE.test(task.description || '') ? 'item' : 'step'
+      kind: LIST_TASK_RE.test(task.description || '') ? 'item' : 'step',
+      // `max_uses` is per CALL, not per row, so a single row at the whole-task
+      // budget of 5 would cost the same as researching all seven together —
+      // seven one-at-a-time clicks would be 7x the batch. This is now the
+      // pane's primary control, so it gets a budget sized to one step.
+      maxSearches: SINGLE_STEP_SEARCHES
+      // No cost triage here: it exists to aim a shared search budget across
+      // seven rows. With one row there is nothing to aim.
     });
     recordUsage(task.project_id, subtask.task_id, 'research', ai.takeUsage());
 
@@ -1711,8 +1718,19 @@ app.post('/api/subtasks/:subtaskId/research', async (req, res) => {
     if (!live) return res.status(404).json({ error: 'Subtask no longer exists' });
 
     const replace = r.illogical && r.replacement && r.confidence >= RESEARCH_REPLACE_CONFIDENCE;
-    runSql('UPDATE subtasks SET description = ?, provisional = 0, researched = 1, updated_at = ? WHERE id = ?',
-      [replace ? r.replacement : r.refined, new Date().toISOString(), subtaskId]);
+    // Same three-state cost write as runResearch(): priced / 'none' / NULL.
+    // Missing it here meant a row researched from the pane got a price and the
+    // same row researched from its own button did not.
+    const priced = r.cost && r.cost.confidence >= ai.COST_MIN_CONFIDENCE;
+    const c = priced ? r.cost : null;
+    runSql(`UPDATE subtasks SET description = ?, provisional = 0, researched = 1,
+              cost_kind = ?, cost_low = ?, cost_high = ?, cost_unit = ?,
+              cost_basis = ?, cost_source_url = ?, cost_confidence = ?, cost_as_of = ?,
+              updated_at = ? WHERE id = ?`,
+      [replace ? r.replacement : r.refined,
+       c ? c.kind : (r.cost ? null : 'none'), c ? c.low : null, c ? c.high : null, c ? c.unit : null,
+       c ? c.basis : null, c ? c.source_url : null, c ? c.confidence : null, c ? c.as_of : null,
+       new Date().toISOString(), subtaskId]);
 
     res.json(queryOne('SELECT * FROM subtasks WHERE id = ?', [subtaskId]));
   } catch (err) {
@@ -1820,6 +1838,10 @@ const DEFAULT_BUDGET_USD = 5;
 // The user is already looking at that row; swapping it out on a hunch is worse
 // than leaving a merely-vague step in place.
 const RESEARCH_REPLACE_CONFIDENCE = 0.8;
+// Web searches a single-row research pass may make. Lower than the whole-task
+// pass's 5 because one step is one question — and because this is the control
+// the user reaches for repeatedly, so its unit cost is the one that compounds.
+const SINGLE_STEP_SEARCHES = 2;
 
 function monthKey() {
   return new Date().toISOString().slice(0, 7);

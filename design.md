@@ -116,6 +116,10 @@ iteration doesn't relitigate it.
   borrowed from the board's one-line rows where width is genuinely scarce. In the
   rail it costs nothing, and something you can only find by pointing at it is
   something most people never find.
+- **Money is chosen per step, not per pane.** The 🔎 that used to research all
+  seven steps at once now sits on each step's rail. Research costs real dollars
+  and only two or three steps in a pane are worth it — deciding *which* is the
+  user's call, and a single button made it for them.
 - **A slow action has to say it started.** ↻ spins for the 15-60s its research
   takes. Nothing else on the row changes in that window, so without it the click
   reads as broken — and the glyph is already a circular arrow, so turning it is
@@ -127,8 +131,8 @@ iteration doesn't relitigate it.
 - **A control whose label and job disagree gets deleted, not relabelled.** The →
   said "send to an AI agent" and re-researched the row. What came back in its
   place is a ↻ that says exactly that — quieter than ↑, because it spends money,
-  and shown only on rows that have *been* researched, since an unresearched row
-  already has the pane's own button.
+  and on every pending row — its title says whether it would be the first pass or
+  another one.
 - **Steps carry what they cost — as a range, never a figure.** A grey chip after
   the step text, the task total opposite the pane title. Whole dollars, the same
   reasoning as the whole-dollar budget: "$91.40–$127.75" claims a precision an
@@ -189,6 +193,10 @@ iteration doesn't relitigate it.
 - **Size follows loudness, not function.** The switch pill was the biggest object
   in the bar while being nowhere near its most important control. 26×14 puts it
   back in scale with the 14px emoji beside it.
+- **Middle groups float, ends anchor.** Boards and switches get an `auto` margin
+  on each side so they settle toward the centre; the wordmark and the account
+  chrome stay pinned to their ends. Pinning all four groups left-to-right made
+  the two in the middle look like overflow from the two at the edges.
 - **Space groups, not items.** The bar is four groups — identity, boards,
   switches, chrome — and even spacing made it read as eleven things in a row.
   Boundaries get ~22px, items inside a group stay tight, and the grouping does

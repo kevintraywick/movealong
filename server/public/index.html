@@ -1363,7 +1363,11 @@
             gap: 6px;
             align-items: center;
             flex-wrap: wrap;
-            margin-left: 8px;
+            /* auto here and on #assistantSwitch and #calendarSwitch splits the
+               free space three ways, so the boards and the switches sit toward
+               the middle with breathing room on both sides instead of being
+               pinned to the wordmark and the view toggle. */
+            margin-left: auto;
         }
 
         /* An off-screen board has a deadline due (or overdue) — red, the
@@ -1451,7 +1455,7 @@
         /* This is what splits the header into left (board identity) and right
            (chrome) — it used to live on the old .view-toggle. */
         #assistantSwitch { margin-left: auto; }
-        #calendarSwitch { margin-right: 8px; }
+        #calendarSwitch { margin-right: auto; }
 
         .assistant-label {
             white-space: nowrap;
@@ -1692,13 +1696,17 @@
 
         /* Quieter than ↑: this one spends money, so it should not read as the
            row's primary action. Same 18px target, no fill until hover. */
-        .subtask-rerun {
+        .subtask-research {
             background: transparent;
             color: #94a3b8;
-            font-size: 12px;
         }
 
-        .subtask-rerun:hover {
+        .subtask-research svg {
+            width: 11px;
+            height: 11px;
+        }
+
+        .subtask-research:hover {
             background: #f0f9ff;
             color: #0ea5e9;
         }
@@ -1706,22 +1714,24 @@
         /* Research takes 15-60s and nothing else on the row changes while it
            runs, so without this the click reads as having done nothing. The
            glyph is already a circular arrow — turning it is the obvious tell. */
-        .subtask-item.provisional .subtask-rerun,
-        .subtask-rerun.working {
+        .subtask-item.provisional .subtask-research,
+        .subtask-research.working {
             color: #0ea5e9;
             background: #f0f9ff;
-            animation: rerunSpin 1.1s linear infinite;
+            animation: researchPulse 1.1s ease-in-out infinite;
             pointer-events: none;
         }
 
-        @keyframes rerunSpin {
-            from { transform: rotate(0deg); }
-            to { transform: rotate(360deg); }
+        /* A pulse, not a spin: a magnifier turning in place reads as loading
+           something, and this is a search that takes 15-60s. */
+        @keyframes researchPulse {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.45; transform: scale(0.88); }
         }
 
         @media (prefers-reduced-motion: reduce) {
-            .subtask-item.provisional .subtask-rerun,
-            .subtask-rerun.working { animation: none; opacity: 0.5; }
+            .subtask-item.provisional .subtask-research,
+            .subtask-research.working { animation: none; opacity: 0.5; }
         }
 
         /* A URL printed in full routinely ran longer than the step citing it.
@@ -1908,25 +1918,7 @@
 
         .subtask-researching .dot-pulse { transform: scale(0.7); transform-origin: left center; }
 
-        .subtask-research-btn {
-            display: block;
-            width: 100%;
-            margin-top: 6px;
-            padding: 5px 8px;
-            border: 1px dashed #bae6fd;
-            border-radius: 6px;
-            background: none;
-            color: #0284c7;
-            font: inherit;
-            font-size: 11px;
-            cursor: pointer;
-            transition: all 0.15s;
-        }
 
-        .subtask-research-btn:hover {
-            background: #f0f9ff;
-            border-style: solid;
-        }
 
         .subtask-budget-note {
             font-size: 11px;
@@ -2343,8 +2335,8 @@
         body.dark .subtask-cost { background: #334155; color: #cbd5e1; }
         body.dark a.subtask-cost:hover { background: #0c4a6e; color: #e0f2fe; }
         body.dark .subtask-cost-total { color: #94a3b8; }
-        body.dark .subtask-rerun { background: transparent; color: #64748b; }
-        body.dark .subtask-rerun:hover { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
+        body.dark .subtask-research { background: transparent; color: #64748b; }
+        body.dark .subtask-research:hover { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
         body.dark .step-link { color: #38bdf8; }
         body.dark .step-link:hover { color: #7dd3fc; }
         body.dark .step-link::after { background: #0f172a; color: #e2e8f0; }
@@ -2353,8 +2345,6 @@
         body.dark .subtask-item.researched { background: rgba(14, 165, 233, 0.10); box-shadow: inset 2px 0 0 #0284c7; }
         body.dark .subtask-item.researched .subtask-desc { color: #bae6fd; }
         body.dark .subtask-budget-note { background: rgba(180, 83, 9, 0.15); border-color: #b45309; color: #fcd34d; }
-        body.dark .subtask-research-btn { border-color: #334155; color: #38bdf8; }
-        body.dark .subtask-research-btn:hover { background: rgba(14, 165, 233, 0.12); }
         body.dark .icon-toggle { color: #38bdf8; border-color: #334155; }
         body.dark .icon-toggle:hover { border-color: #0284c7; }
         body.dark .modal-text { color: #cbd5e1; }
@@ -3469,6 +3459,10 @@
 
         // Kick off phase 2 for a whole task on demand. The server flags the rows
         // provisional and answers 202 immediately; the poll picks it up from there.
+        // Whole-task research. Unreached from the UI since the pane's "Research
+        // these steps" button was replaced by the rail's per-step 🔎 (2026-08-16);
+        // POST /tasks/:id/research is still live and this is its only client, so
+        // a future "research all" belongs here rather than rebuilt.
         async function researchTask(taskId) {
             try {
                 const r = await api(`/tasks/${taskId}/research`, { method: 'POST' });
@@ -3486,7 +3480,7 @@
         // Re-research ONE row — the strip's ↻, which replaced the → that used to
         // do this under a label ("send to AI agent") that described something else.
         async function researchSubtask(subtaskId, taskId) {
-            const row = document.querySelector(`.subtask-rerun[data-rerun-id="${subtaskId}"]`)
+            const row = document.querySelector(`.subtask-research[data-research-id="${subtaskId}"]`)
                 || document.querySelector(`.subtask-promote[data-promote-id="${subtaskId}"]`);
             const item = row ? row.closest('.subtask-item') : null;
             if (item) item.classList.add('provisional');
@@ -4294,10 +4288,10 @@
             });
 
             // ↑ on a suggestion row → move it onto "My list"
-            document.querySelectorAll('.subtask-rerun[data-rerun-id]').forEach(btn => {
+            document.querySelectorAll('.subtask-research[data-research-id]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
-                    researchSubtask(parseInt(btn.dataset.rerunId), parseInt(btn.dataset.taskId));
+                    researchSubtask(parseInt(btn.dataset.researchId), parseInt(btn.dataset.taskId));
                 });
             });
 
@@ -4313,14 +4307,6 @@
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     promoteSubtask(parseInt(btn.dataset.promoteId), parseInt(btn.dataset.taskId));
-                });
-            });
-
-            // "Research these steps" — the pane's manual phase-2 trigger
-            document.querySelectorAll('.subtask-research-btn[data-research-task]').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    researchTask(parseInt(btn.dataset.researchTask));
                 });
             });
 
@@ -4655,6 +4641,8 @@
                 '|www\\.[^\\s<)]+' +
                 '|[a-z][a-z0-9-]*(?:\\.[a-z0-9-]+)*\\.(?:' + SUBTASK_TLDS + ')(?:\\/[^\\s<)]*)?' +
             ')\\)?', 'gi');
+
+        const RESEARCH_GLYPH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"/><path d="M15.5 15.5 L21 21"/></svg>';
 
         const LINK_GLYPH_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7 0l3-3a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-3 3a5 5 0 0 0 7 7l1-1"/></svg>';
 
@@ -5039,11 +5027,10 @@
             if (taskResearchStatus.get(taskId) === 'over_budget') {
                 return `<div class="subtask-budget-note">Drafted without research \u2014 this board has spent its monthly AI budget. Raise it under the board to research these.</div>`;
             }
-            // With auto-research off by default, this button is the main way
-            // phase 2 ever runs. Hidden once every pending row has been done.
-            if (rows.some(st => !st.researched)) {
-                return `<button class="subtask-research-btn" data-research-task="${taskId}">Research these steps</button>`;
-            }
+            // No whole-pane button since 2026-08-16: researching all seven at
+            // once decided for the user which steps were worth money. The rail's
+            // 🔎 does it per step instead. POST /tasks/:id/research is still
+            // live — the 🔎 header switch drives it when a task is created.
             return '';
         }
 
@@ -5078,12 +5065,14 @@
                 const promoteBtn = (!moveUp && !isAssigned)
                     ? `<button class="subtask-send subtask-promote" data-promote-id="${st.id}" data-task-id="${taskId}" title="Move this onto the board">&uarr;</button>`
                     : '';
-                // Re-research THIS row. Only on rows research has already been
-                // through: an unresearched row is covered by the pane's
-                // "Research these steps" button, and offering both would be two
-                // controls for one job. It says what it does, which the → didn't.
-                const rerunBtn = (!moveUp && !isAssigned && st.researched && !st.completed)
-                    ? `<button class="subtask-send subtask-rerun" data-rerun-id="${st.id}" data-task-id="${taskId}" title="Research this step again">&orarr;</button>`
+                // Research THIS row — on every pending row, not just researched
+                // ones. It replaced the pane's "Research these steps" button
+                // (2026-08-16): research is per-step money, so the choice of
+                // which steps are worth it belongs on the step. Same glyph as
+                // the header's 🔎 switch, so "research" means one thing in the
+                // app; the title carries whether it would be the first pass.
+                const researchBtn = (!moveUp && !isAssigned && !st.completed)
+                    ? `<button class="subtask-send subtask-research" data-research-id="${st.id}" data-task-id="${taskId}" title="${st.researched ? 'Research this step again' : 'Research this step'}">${RESEARCH_GLYPH_SVG}</button>`
                     : '';
 
                 // Controls ride on their own strip above the step, so the text
@@ -5095,7 +5084,7 @@
                             <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
                             ${emojiEl}
                             ${promoteBtn}
-                            ${rerunBtn}
+                            ${researchBtn}
                             ${sendBtn}
                         </div>
                         <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifySubtask(st.description)}${renderCostChip(st)}</div>
