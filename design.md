@@ -182,6 +182,17 @@ iteration doesn't relitigate it.
   the wordmark would have read as a second toolbar.
 - **Bare glyphs need size back.** A `+` dropped to the body scale disappears;
   18px is legible without shouting.
+- **The switches are icons too.** 🧠 🔎 📅 lost their words for the same reason
+  the `+` did. When a label goes, its `title` inherits the job — including the
+  hidden gestures (Shift+Click for the AI key, for the budget), which used to be
+  findable only because the word beside them invited a poke.
+- **Size follows loudness, not function.** The switch pill was the biggest object
+  in the bar while being nowhere near its most important control. 26×14 puts it
+  back in scale with the 14px emoji beside it.
+- **Space groups, not items.** The bar is four groups — identity, boards,
+  switches, chrome — and even spacing made it read as eleven things in a row.
+  Boundaries get ~22px, items inside a group stay tight, and the grouping does
+  the explaining.
 
 ## Icon
 
