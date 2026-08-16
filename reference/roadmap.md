@@ -33,6 +33,9 @@
 - [x] Help page: "More fun" section (Links, Prioritize, Create lists + list vignette); series copy uses next-step language, not parent/child
 - [x] New-project modal focuses the name field on open (Safari visibility-transition fix)
 
+- [x] Promoted steps land under the task they came from, with a dotted circle and a hover tint on the source row
+- [x] Step costs — material/labour/service ranges per subtask from the research pass, Haiku cost-triage to focus the search budget, task total with `≥` when anything is unpriced
+
 ## Next
 - [ ] Authentication (currently URL-based access only)
 - [ ] Subdomain routing (DNS wildcard + proxy for *.movealong.com)

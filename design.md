@@ -64,6 +64,10 @@ iteration doesn't relitigate it.
   day holds ten, so ten single-key presses cover every slot.
 - Reordering is **same-day only.** Across day cards a drag still means "series",
   so nothing that already worked changed meaning.
+- **A promoted step is the one thing the app places for you**, right under the
+  task it came out of. Everything else appends to the bottom, and that default is
+  worth protecting — but a row with an obvious home should land in it, not make
+  the user go find it.
 - **Don't bring back:** exclamation marks, or any sort that defers until
   mouse-leave — moving the row is now the whole point, so it happens on the
   keypress. A number press instead *holds* its task under the keyboard until the
@@ -95,6 +99,26 @@ iteration doesn't relitigate it.
   researched task, auto-researching everything empties a $5 board in a week. The
   budget line under the board carries both the spend and the switch. A drafted
   step is a *finished* state, not a degraded one, so it gets no styling of its own.
+- **A promoted step keeps a thread back to where it came from.** It lands
+  directly under its source task and shows a **dot inside its completion
+  circle**; hovering it tints the source row. It must read as a *peer* — same
+  left edge, same circle, full task anatomy — because indenting or greying it
+  would borrow the pane's own vocabulary for dependents and say the opposite of
+  what's true. The dot yields the moment the circle has something else to say (a
+  series countdown, the completed check): one slot, one meaning at a time.
+- **Steps carry what they cost — as a range, never a figure.** A grey chip after
+  the step text, the task total opposite the pane title. Whole dollars, the same
+  reasoning as the whole-dollar budget: "$91.40–$127.75" claims a precision an
+  estimate doesn't have. The chip links to its source where there is one and
+  names what was priced in its tooltip, so the number is one click from being
+  checked rather than something to take on faith.
+- **The total says ≥ when anything is unpriced.** A step researched and found to
+  cost nothing is an answer; a step with no estimate is a hole, and a total that
+  quietly swallows it is a lie. Same instinct as the ↺ that tops up rather than
+  wiping: never let the display imply completeness it doesn't have.
+- **Two costs, never added together.** What the AI spent is metered to the cent;
+  what the fence costs is a guess about the world. They can share a screen; they
+  can't share a number.
 - **Don't bring back:** 400×400 cards, a pane spanning three columns, tilt/fan
   overlap, staircase indenting, weekday tints, multiple panes open at once, or
   greyed-out "provisional" rows.
@@ -164,12 +188,37 @@ iteration doesn't relitigate it.
 ## Keyboard
 
 - **← / →** scrolls the selected day card into view and focuses its task input.
-- **Hover + `1`-`9`** moves a task to that slot, `0` sends it last; **hover + `r`**
-  cycles its repeat.
+- **Hover + a number is the app's number pad.** What it means depends on what the
+  pointer is on: over a **row** it's a slot (`0` sends it last), over the **→
+  arrow** it's days forward. Same key, read off the target — which is only
+  honest because the arrow already meant "forward" when clicked.
+- The more specific target wins the hit-test. The arrow sits *inside* the row, so
+  it is tested first; anything nested inside a row that later wants digits has to
+  slot in above it, not beside it.
+- **Every hover+number holds its target under the keyboard** until the pointer
+  actually moves, because acting on it moves it out from under the cursor. So
+  `3` then `2` is five days, not two — repeat presses accumulate.
+- **`0` on the arrow does nothing** rather than falling through to a reorder. A
+  key that quietly does a *different* feature's job is worse than one that does
+  nothing.
+- **Hover + `r`** cycles a task's repeat.
 - **Type-to-focus:** any printable keystroke with no input focused routes to the
   selected day's "Add a task" box. The digit and `r` branches are handled *above*
   this fallback, and all of them early-return when focus is in a field — so
   typing "3 eggs" never reorders anything.
+
+## Time
+
+- **A day key is a label, not an instant.** `YYYY-MM-DD` and every bit of
+  arithmetic on it stays UTC-anchored, so a month of day math never drifts with
+  DST.
+- **But "today" is a local question**, and the only one. Deriving it from the
+  server's clock made the board read Saturday at 9pm Friday in CST — the last
+  six hours of every day were wrong. The browser answers it (`en-CA` formats as
+  `YYYY-MM-DD` already) and tells the server its zone on every request.
+- **Location, cheaply.** No geolocation prompt, no stored address, no schema
+  column — a header the browser already knows, with UTC as the fallback so
+  anything that isn't a browser behaves exactly as before.
 
 ## Persistence
 
