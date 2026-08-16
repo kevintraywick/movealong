@@ -1568,12 +1568,15 @@
             background: rgba(14, 165, 233, 0.12);
         }
 
-        /* The row stacks now: a control strip, then the step at full width.
-           It was a flex ROW when the check/emoji/arrows sat beside the text —
-           leaving that in place would put the strip and the sentence
-           side by side and undo the whole point. */
+        /* Controls stack in a narrow left rail rather than running across the top
+           (2026-08-16). A horizontal strip cost a whole LINE per row; the rail
+           costs ~24px of width and no line at all, and the icons line up down the
+           pane instead of restarting at every row. The trade is height on rows
+           carrying four icons — the rail is then taller than two lines of text. */
         .subtask-item {
-            display: block;
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
             padding: 6px 2px;
             font-size: 12px;
             color: #0f172a;
@@ -1644,14 +1647,26 @@
             overflow-wrap: anywhere;
         }
 
-        /* Controls sit above the step, not beside it: the pane is 178px of usable
-           width and the text has first claim on it. */
-        .subtask-strip {
+        .subtask-rail {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 6px;
-            margin-bottom: 3px;
+            gap: 4px;
+            width: 18px;
+            flex-shrink: 0;
+            padding-top: 1px;
         }
+
+        /* Rail buttons are smaller than they were inline — at 20px a column of
+           four out-measured the step beside it. */
+        .subtask-rail .subtask-send {
+            width: 16px;
+            height: 16px;
+            font-size: 11px;
+            margin-top: 0;
+        }
+
+        .subtask-desc { flex: 1; }
 
         /* Quieter than ↑: this one spends money, so it should not read as the
            row's primary action. Same 18px target, no fill until hover. */
@@ -1664,6 +1679,27 @@
         .subtask-rerun:hover {
             background: #f0f9ff;
             color: #0ea5e9;
+        }
+
+        /* Research takes 15-60s and nothing else on the row changes while it
+           runs, so without this the click reads as having done nothing. The
+           glyph is already a circular arrow — turning it is the obvious tell. */
+        .subtask-item.provisional .subtask-rerun,
+        .subtask-rerun.working {
+            color: #0ea5e9;
+            background: #f0f9ff;
+            animation: rerunSpin 1.1s linear infinite;
+            pointer-events: none;
+        }
+
+        @keyframes rerunSpin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+
+        @media (prefers-reduced-motion: reduce) {
+            .subtask-item.provisional .subtask-rerun,
+            .subtask-rerun.working { animation: none; opacity: 0.5; }
         }
 
         /* A URL printed in full routinely ran longer than the step citing it.
@@ -1808,13 +1844,13 @@
         /* Promote-to-board arrow. Hover-reveal, like .task-lock and .task-unlink —
            the pane is only as wide as a 200px day card, so a second always-on
            button in every row would eat the description. */
+        /* Always visible (2026-08-16). It used to hover-reveal, borrowed from
+           .task-lock on the board — but a control that appears only once you are
+           already pointing at the row cannot be discovered by looking, and in the
+           rail it costs nothing to leave on. The board's hover-reveals stay: rows
+           there are one line and can't spare the width. */
         .subtask-promote {
-            opacity: 0;
-            transition: opacity 0.15s, background 0.15s, color 0.15s, transform 0.15s;
-        }
-
-        .subtask-item:hover .subtask-promote {
-            opacity: 1;
+            transition: background 0.15s, color 0.15s, transform 0.15s;
         }
 
         .subtask-promote:hover {
@@ -5033,7 +5069,7 @@
                 // eating a third of every line in a 178px column.
                 return `
                     <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''} ${st.provisional ? 'provisional' : ''} ${st.researched ? 'researched' : ''}">
-                        <div class="subtask-strip">
+                        <div class="subtask-rail">
                             <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
                             ${emojiEl}
                             ${promoteBtn}
@@ -5064,7 +5100,7 @@
 
                 const mineRows = mine.map(st => `
                     <div class="subtask-item">
-                        <div class="subtask-strip">
+                        <div class="subtask-rail">
                             <div class="subtask-check" data-subtask-id="${st.id}" data-task-id="${taskId}"></div>
                         </div>
                         <div class="subtask-desc">${linkifySubtask(st.description)}</div>

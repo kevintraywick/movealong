@@ -106,10 +106,20 @@ iteration doesn't relitigate it.
   would borrow the pane's own vocabulary for dependents and say the opposite of
   what's true. The dot yields the moment the circle has something else to say (a
   series countdown, the completed check): one slot, one meaning at a time.
-- **Controls ride above the step, not beside it.** Check · assignee · ↑ sit on
-  their own strip; the sentence gets the full 178px. The pane can't get wider —
-  it's pinned to a 200px day column — so the only way to give the text room is to
-  stop spending the line on chrome. Picked from four mockups (`archive/st-v*.html`).
+- **Controls stack in a left rail, not across the row.** Check · assignee · ↑ · ↻
+  run down an 18px column with the step beside them. The pane can't get wider —
+  it's pinned to a 200px day column — so the room has to come from somewhere:
+  inline controls took ~60px of every line, and a horizontal strip (tried first,
+  from `archive/st-v*.html`) took a whole line instead. The rail takes ~24px and
+  no line, and the icons align down the pane instead of restarting each row.
+- **Don't hide a control the row has room for.** ↑ used to fade in on hover,
+  borrowed from the board's one-line rows where width is genuinely scarce. In the
+  rail it costs nothing, and something you can only find by pointing at it is
+  something most people never find.
+- **A slow action has to say it started.** ↻ spins for the 15-60s its research
+  takes. Nothing else on the row changes in that window, so without it the click
+  reads as broken — and the glyph is already a circular arrow, so turning it is
+  the obvious tell rather than a new one.
 - **A URL is a citation, not the sentence.** Subtask links collapse to a glyph
   where the URL stood, with the **domain** on hover — where it goes is the
   decision; which page is not. An AI step's URL routinely ran longer than the
