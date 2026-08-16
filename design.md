@@ -116,6 +116,15 @@ iteration doesn't relitigate it.
   borrowed from the board's one-line rows where width is genuinely scarce. In the
   rail it costs nothing, and something you can only find by pointing at it is
   something most people never find.
+- **A list is not a plan, so it doesn't get the plan's furniture.** List panes
+  drop the rail, both section headings and the assignee emoji: a row is a
+  checkbox and a thing, or an arrow and a thing. The heading "My list" only
+  repeated a task literally called "list stuff for taco night", and a label that
+  restates the title is two lines of a 178px pane spent on nothing.
+- **Let the controls do the labelling.** What separates the user's items from the
+  suggestions is that one set has checkboxes and the other has arrows, plus a
+  dashed rule. If the affordances already say which half you're in, the words
+  above them are redundant.
 - **Money is chosen per step, not per pane.** The 🔎 that used to research all
   seven steps at once now sits on each step's rail. Research costs real dollars
   and only two or three steps in a pane are worth it — deciding *which* is the

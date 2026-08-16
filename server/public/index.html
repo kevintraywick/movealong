@@ -1673,6 +1673,31 @@
             overflow-wrap: anywhere;
         }
 
+        /* A list pane has no rail: its rows carry one control each. */
+        .list-row {
+            align-items: center;
+            gap: 7px;
+        }
+
+        .list-row .subtask-check { margin-top: 0; }
+
+        /* The only thing separating the user's list from the suggestions now
+           that both headings are gone — so it has to do the whole job. */
+        .list-suggestions {
+            margin-top: 6px;
+            padding-top: 4px;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        .list-suggestion .subtask-desc { color: #475569; }
+
+        .list-suggestion .subtask-up {
+            width: 16px;
+            height: 16px;
+            font-size: 11px;
+            margin-top: 0;
+        }
+
         .subtask-rail {
             display: flex;
             flex-direction: column;
@@ -1990,14 +2015,6 @@
         .modal-check input { accent-color: #0ea5e9; }
 
         /* ===== Quick list ("list ..." tasks) ===== */
-        .quick-list-title {
-            font-size: 11px;
-            text-transform: uppercase;
-            letter-spacing: 0.6px;
-            color: #64748b;
-            font-weight: 600;
-            margin: 8px 0 4px;
-        }
 
         .quick-slot {
             display: flex;
@@ -2328,13 +2345,14 @@
         }
         body.dark .subtask-item.dependent { color: #94a3b8; }
         body.dark .subtask-loading { color: #94a3b8; }
-        body.dark .quick-list-title { color: #94a3b8; }
         body.dark .quick-slot-input { color: #e2e8f0; border-bottom-color: #334155; }
         body.dark .quick-slot-input::placeholder { color: #475569; }
         body.dark .subtask-check { border-color: #475569; }
         body.dark .subtask-cost { background: #334155; color: #cbd5e1; }
         body.dark a.subtask-cost:hover { background: #0c4a6e; color: #e0f2fe; }
         body.dark .subtask-cost-total { color: #94a3b8; }
+        body.dark .list-suggestions { border-top-color: #334155; }
+        body.dark .list-suggestion .subtask-desc { color: #94a3b8; }
         body.dark .subtask-research { background: transparent; color: #64748b; }
         body.dark .subtask-research:hover { background: rgba(14, 165, 233, 0.15); color: #38bdf8; }
         body.dark .step-link { color: #38bdf8; }
@@ -5042,27 +5060,21 @@
 
             // Standard subtask row anatomy \u2014 shared by the normal pane and the
             // AI-suggestion section of "list ..." panes.
-            const subtaskRow = (st, moveUp = false) => {
+            const subtaskRow = (st) => {
                 const isDependent = st.parent_subtask_id !== null;
                 const isAssigned = st.assigned_to !== null;
                 const emoji = st.assignee_type === 'ai' ? '\uD83E\uDDE0' : '\uD83D\uDC69';
                 // AI steps get a "send to agent" arrow \u2014 except list-pane suggestions,
                 // where the slot holds an up arrow that moves the row onto "My list"
                 // (send-to-agent is still a placeholder, so \u2191 replaces \u2192 there).
-                // The → is gone. Its tooltip said "send to AI agent" but it
-                // re-researched this one row, and a control whose label and job
-                // disagree is worse than no control — especially one costing a
-                // third of the line. ↑ survives only in its list-pane meaning.
-                const sendBtn = moveUp
-                    ? `<button class="subtask-send subtask-up" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Move to my list">&uarr;</button>`
-                    : '';
+
                 const emojiEl = isAssigned
                     ? `<span class="subtask-emoji assigned">${emoji}</span>`
                     : `<span class="subtask-emoji" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Assign this step">${emoji}</span>`;
-                // Promote-to-board. Withheld on list-pane suggestions, where \u2191
-                // already means "move to my list" — two arrows, two meanings, one
-                // pane would be indefensible.
-                const promoteBtn = (!moveUp && !isAssigned)
+                // Promote-to-board. List panes build their own rows and never
+                // reach this builder, so the old two-arrows-one-pane problem is
+                // gone with them.
+                const promoteBtn = (!isAssigned)
                     ? `<button class="subtask-send subtask-promote" data-promote-id="${st.id}" data-task-id="${taskId}" title="Move this onto the board">&uarr;</button>`
                     : '';
                 // Research THIS row — on every pending row, not just researched
@@ -5071,7 +5083,7 @@
                 // which steps are worth it belongs on the step. Same glyph as
                 // the header's 🔎 switch, so "research" means one thing in the
                 // app; the title carries whether it would be the first pass.
-                const researchBtn = (!moveUp && !isAssigned && !st.completed)
+                const researchBtn = (!isAssigned && !st.completed)
                     ? `<button class="subtask-send subtask-research" data-research-id="${st.id}" data-task-id="${taskId}" title="${st.researched ? 'Research this step again' : 'Research this step'}">${RESEARCH_GLYPH_SVG}</button>`
                     : '';
 
@@ -5085,7 +5097,6 @@
                             ${emojiEl}
                             ${promoteBtn}
                             ${researchBtn}
-                            ${sendBtn}
                         </div>
                         <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifySubtask(st.description)}${renderCostChip(st)}</div>
                     </div>
@@ -5109,11 +5120,11 @@
                 const mine = subtasks.filter(st => st.assignee_type !== 'ai' && !st.completed);
                 const suggestions = subtasks.filter(st => st.assignee_type === 'ai' && !st.completed);
 
+                // No rail on a list pane. A list row is a checkbox and a thing;
+                // a suggestion is an arrow and a thing. Nothing else to hang.
                 const mineRows = mine.map(st => `
-                    <div class="subtask-item">
-                        <div class="subtask-rail">
-                            <div class="subtask-check" data-subtask-id="${st.id}" data-task-id="${taskId}"></div>
-                        </div>
+                    <div class="subtask-item list-row">
+                        <div class="subtask-check" data-subtask-id="${st.id}" data-task-id="${taskId}"></div>
                         <div class="subtask-desc">${linkifySubtask(st.description)}</div>
                     </div>
                 `).join('');
@@ -5131,17 +5142,31 @@
                     `;
                 }
 
+                // Suggestions carry ↑ and their text — no assignee emoji (every
+                // one of them is the AI's; saying so on each row is noise), no
+                // promote (a list item has no business on the board), no 🔎.
+                // The ↑ is the only thing to do with one, so it is the only
+                // thing on the row.
+                const suggestionRows = suggestions.map(st => `
+                    <div class="subtask-item list-row list-suggestion">
+                        <button class="subtask-send subtask-up" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Add to the list">&uarr;</button>
+                        <div class="subtask-desc">${linkifySubtask(st.description)}</div>
+                    </div>
+                `).join('');
                 const suggestionSection = suggestions.length
-                    ? `<div class="quick-list-title">Suggestions</div><div class="subtask-list">${suggestions.map(st => subtaskRow(st, true)).join('')}</div>`
+                    ? `<div class="subtask-list list-suggestions">${suggestionRows}</div>`
                     : '';
 
-                const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate suggestions">&orarr;</button>`;
-                content = `${regenAll}${header}<div class="quick-list-title">My list</div><div class="subtask-list">${mineRows}</div>${slots}${suggestionSection}${researchNote(taskId, suggestions)}`;
+                // No section headings: the task is called "list stuff for taco
+                // night", so "My list" only repeats it, and "Suggestions" is
+                // already said by the ↑ that no list row has. Two labels bought
+                // nothing and cost two lines of a pane that is 178px wide.
+                const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Suggest a fresh set — anything you haven't added is replaced">&orarr;</button>`;
+                content = `${regenAll}${header}<div class="subtask-list">${mineRows}</div>${slots}${suggestionSection}${researchNote(taskId, suggestions)}`;
             } else {
                 // Completed steps disappear from the pane (server keeps them for the List-view progress count).
                 const pending = subtasks.filter(st => !st.completed);
-                // Not pending.map(subtaskRow) — map's index argument would land in moveUp.
-                const rows = pending.map(st => subtaskRow(st)).join('');
+                const rows = pending.map(subtaskRow).join('');
 
                 const list = pending.length ? `<div class="subtask-list">${rows}</div>` : '';
                 const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Regenerate all steps">&orarr;</button>`;
