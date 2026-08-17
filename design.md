@@ -302,7 +302,11 @@ iteration doesn't relitigate it.
   pane — lifts the dimming from every day it touches. Fading half a series reads
   as broken, not as quiet.
 - **The switch shows its own state.** The ghost is grey while focus is off and
-  blue when it's on, so the bar answers "is this on?" without a click.
+  blue when it's on, so the bar answers "is this on?" without a click — an
+  outline in both, with no filled pill behind it. The other toggles get a tinted
+  background on activation; on an already-bright blue glyph that read as the
+  loudest thing in the bar, which a view preference is not. It carries the
+  wordmark's own blue, so the header has one blue and not two.
 - **You can't grey out a white emoji.** The first version used 👻 with
   `grayscale` + reduced opacity for the off state, which on a white header bar
   came out invisible — visible in dark mode only. Chrome icons are inline SVG

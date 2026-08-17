@@ -2253,15 +2253,20 @@
             height: 16px;
         }
 
+        /* No background in either state — the outline alone carries it. The
+           filled pill the other toggles get made an already-bright blue glyph
+           read as the loudest thing in the bar, which a view preference is not.
+           The wordmark's own #0ea5e9 is the "on" colour, so the bar has one
+           blue rather than two. */
         .focus-toggle:hover {
             color: #94a3b8;
-            background: #f0f9ff;
+            background: transparent;
         }
 
         .focus-toggle.on,
         .focus-toggle.on:hover {
             color: #0ea5e9;
-            background: #f0f9ff;
+            background: transparent;
         }
 
         /* Blue on white, like everything else in the chrome. The thin border
