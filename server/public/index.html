@@ -2239,22 +2239,29 @@
             color: #0ea5e9;
         }
 
-        /* Off is the resting state, and it says so: greyed out, like a light
-           switch you can see is down. On, it's simply itself. */
+        /* An inline SVG, not the 👻 emoji, and the reason is worth keeping: that
+           emoji is WHITE. Greying it out (grayscale + opacity) on a white header
+           bar rendered it invisible in light mode and fine in dark — an actually
+           invisible ghost. Stroked in currentColor it can be grey when off and
+           blue when on, legibly, in both themes. */
         .focus-toggle {
-            filter: grayscale(1);
-            opacity: 0.45;
-            font-size: 15px;
+            color: #cbd5e1;
+        }
+
+        .focus-toggle svg {
+            width: 16px;
+            height: 16px;
         }
 
         .focus-toggle:hover {
-            opacity: 0.8;
-            background: transparent;
+            color: #94a3b8;
+            background: #f0f9ff;
         }
 
-        .focus-toggle.on {
-            filter: none;
-            opacity: 1;
+        .focus-toggle.on,
+        .focus-toggle.on:hover {
+            color: #0ea5e9;
+            background: #f0f9ff;
         }
 
         /* Blue on white, like everything else in the chrome. The thin border
@@ -2331,6 +2338,10 @@
         body.dark .project-add-btn { color: #f1f5f9; }
         body.dark .project-tab:hover,
         body.dark .project-add-btn:hover,
+        body.dark .focus-toggle { color: #475569; }
+        body.dark .focus-toggle:hover { color: #94a3b8; }
+        body.dark .focus-toggle.on,
+        body.dark .focus-toggle.on:hover { color: #38bdf8; }
         body.dark .theme-toggle:hover,
         body.dark .icon-toggle:hover {
             background: rgba(14, 165, 233, 0.12);
@@ -2516,7 +2527,7 @@
             <!-- Focus mode: dim every day but the one you're working on. Grey
                  until it's on, like a light switch that shows its own state. -->
             <button class="theme-toggle focus-toggle" id="focusToggleBtn" role="switch" aria-checked="false"
-                    title="Focus — dim every day but the one you're on" aria-label="Toggle focus mode">👻</button>
+                    title="Focus — dim every day but the one you're on" aria-label="Toggle focus mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 20.5V11a7 7 0 0 1 14 0v9.5l-2.3-2-2.3 2-2.4-2-2.3 2z"/><circle cx="9.6" cy="10.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="14.4" cy="10.6" r="1.15" fill="currentColor" stroke="none"/></svg></button>
 
             <!-- Display (after Go): quiet user · project chip. Click it for the
                  account popup (sign out) — same click-to-popup idiom as the lock. -->
