@@ -287,6 +287,20 @@ iteration doesn't relitigate it.
   column — a header the browser already knows, with UTC as the fallback so
   anything that isn't a browser behaves exactly as before.
 
+## Process
+
+- **Mockups only test what they vary.** The subtask-row set offered four ways to
+  arrange controls and three of them moved the controls to their own line — so
+  the choice was never really tested against giving up width instead, and the
+  winner was reversed within hours. When the whole exercise is about reclaiming
+  space along one axis, one variant has to reclaim it along the other.
+- **Short sample content hides the cost of a layout.** Those mockups used
+  five-word steps, which made an extra line per row look cheap; real researched
+  steps run two or three lines with a price chip on the end.
+- **A structural test is not a look.** Every automated check on the focus toggle
+  passed while the icon was invisible. If the question is "can you see it", the
+  answer has to come from something that renders.
+
 ## Focus
 
 - **Dim, don't hide.** Focus mode quiets the other days to 30% rather than
