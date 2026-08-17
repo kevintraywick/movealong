@@ -125,6 +125,23 @@
             color: #ef4444;
         }
 
+        /* Focus mode. Dimmed, not hidden: the point is to quiet the other days,
+           and a day that disappeared would take the shape of the month with it.
+           Still fully clickable — clicking a dimmed day is how you move focus
+           to it. */
+        .day-card.dimmed {
+            opacity: 0.3;
+            filter: saturate(0.5);
+            transition: opacity 0.2s, filter 0.2s;
+        }
+
+        /* A hovered series outranks the dimming: a chain half-faded across days
+           reads as broken rather than quiet. */
+        .day-card.dimmed.chain-lit {
+            opacity: 1;
+            filter: none;
+        }
+
         .day-card.selected {
             border: 2px solid #0ea5e9;
             box-shadow: 0 4px 16px rgba(14, 165, 233, 0.18);
@@ -2222,6 +2239,24 @@
             color: #0ea5e9;
         }
 
+        /* Off is the resting state, and it says so: greyed out, like a light
+           switch you can see is down. On, it's simply itself. */
+        .focus-toggle {
+            filter: grayscale(1);
+            opacity: 0.45;
+            font-size: 15px;
+        }
+
+        .focus-toggle:hover {
+            opacity: 0.8;
+            background: transparent;
+        }
+
+        .focus-toggle.on {
+            filter: none;
+            opacity: 1;
+        }
+
         /* Blue on white, like everything else in the chrome. The thin border
            is what stops it reading as a glyph floating in dead space — the
            theme toggle beside it stays borderless on purpose, so the pair
@@ -2478,6 +2513,11 @@
             <!-- Dark/light mode: shows the theme you'd switch to -->
             <button class="theme-toggle" id="themeToggleBtn" title="Switch theme" aria-label="Switch between light and dark mode">🌙</button>
 
+            <!-- Focus mode: dim every day but the one you're working on. Grey
+                 until it's on, like a light switch that shows its own state. -->
+            <button class="theme-toggle focus-toggle" id="focusToggleBtn" role="switch" aria-checked="false"
+                    title="Focus — dim every day but the one you're on" aria-label="Toggle focus mode">👻</button>
+
             <!-- Display (after Go): quiet user · project chip. Click it for the
                  account popup (sign out) — same click-to-popup idiom as the lock. -->
             <div class="header-display" id="headerDisplay" role="button" tabindex="0"
@@ -2600,6 +2640,14 @@
         let currentUser = null;
         let tasks = [];
         let selectedDayIndex = 0;
+        // Focus mode dims every day but the one in focus. Per browser, like the
+        // theme and the assistant switch — it's a way of looking at the board,
+        // not a property of the board.
+        let focusMode = false;
+        // Until the user picks a day, focus follows TODAY rather than
+        // selectedDayIndex: that defaults to 0, which is the anchor day, and the
+        // anchor is pulled back to a past-due lock date whenever one exists.
+        let hasPickedDay = false;
         let projects = [];
         let currentProject = null;
         let viewMode = 'calendar'; // 'calendar' or 'master'
@@ -3940,6 +3988,9 @@
 
             // Locked past-due tasks pull the calendar's first day back to their date.
             days = generateDays(computeAnchorKey());
+            // Computed once per render, after computeChains() has filled
+            // chainInfo — a series' days are part of the answer.
+            const focusKeys = focusMode ? focusedDayKeys() : null;
 
             const myTasks = isSignedUp ? tasks : [];
 
@@ -3961,7 +4012,8 @@
                 const isSelected = isSignedUp && index === selectedDayIndex;
 
                 const card = document.createElement('div');
-                card.className = `day-card dow-${day.dayName.toLowerCase()} ${day.isToday ? 'today' : ''} ${day.isOverdue ? 'overdue' : ''} ${isSelected ? 'selected' : ''}`;
+                const dimmed = focusMode && !focusKeys.has(day.key);
+                card.className = `day-card dow-${day.dayName.toLowerCase()} ${day.isToday ? 'today' : ''} ${day.isOverdue ? 'overdue' : ''} ${isSelected ? 'selected' : ''} ${dimmed ? 'dimmed' : ''}`;
                 card.dataset.dayIndex = index;
 
                 let tasksHtml = '';
@@ -4340,9 +4392,29 @@
             });
         }
 
+        // The days focus mode leaves alone: the one in focus, plus every day a
+        // visible series touches — a chain that vanished at the edge of the
+        // focused day would be a worse lie than the dimming solves.
+        function focusedDayKeys() {
+            const keys = new Set();
+            const sel = hasPickedDay && days[selectedDayIndex];
+            keys.add(sel ? sel.key : getTodayKey());
+
+            expandedTaskIds.forEach(id => {
+                const info = chainInfo.get(id);
+                if (!info) return;
+                tasks.forEach(t => {
+                    const ti = chainInfo.get(t.id);
+                    if (ti && ti.chainId === info.chainId) keys.add(t.scheduled_date);
+                });
+            });
+            return keys;
+        }
+
         function selectDay(index) {
             if (index < 0 || index >= days.length) return;
             selectedDayIndex = index;
+            hasPickedDay = true;
             renderView();
             setTimeout(() => {
                 const card = document.querySelector(`.day-card[data-day-index="${index}"]`);
@@ -4518,6 +4590,7 @@
             if (overlay) overlay.innerHTML = '';
             const board = document.getElementById('board');
             board.classList.remove('threading');
+            document.querySelectorAll('.day-card.chain-lit').forEach(el => el.classList.remove('chain-lit'));
             document.querySelectorAll('.task-item.chain-active').forEach(el => {
                 el.classList.remove('chain-active');
                 el.style.background = '';
@@ -4547,6 +4620,10 @@
             members.forEach(el => {
                 el.classList.add('chain-active');
                 el.style.background = bg;
+                // In focus mode the chain's other days are dimmed; lift it while
+                // the series is being read.
+                const card = el.closest('.day-card');
+                if (card) card.classList.add('chain-lit');
             });
 
             overlay.setAttribute('width', board.scrollWidth);
@@ -5788,6 +5865,34 @@
             applyTheme(next);
         });
         loadTheme();
+
+        // Focus mode — dim every day but the one in focus. Stored per browser
+        // beside the theme: both are ways of looking at the board rather than
+        // facts about it, so neither belongs on the board's own record.
+        const FOCUS_KEY = 'movealong.focus';
+        function applyFocusMode(on) {
+            focusMode = !!on;
+            const btn = document.getElementById('focusToggleBtn');
+            if (btn) {
+                btn.classList.toggle('on', focusMode);
+                btn.setAttribute('aria-checked', focusMode ? 'true' : 'false');
+                btn.title = focusMode
+                    ? 'Focus is on — click a day to move it there'
+                    : "Focus — dim every day but the one you're on";
+            }
+            if (isSignedUp) renderView();
+        }
+        function loadFocusMode() {
+            let on = false;
+            try { on = localStorage.getItem(FOCUS_KEY) === 'on'; } catch (e) { /* default off */ }
+            applyFocusMode(on);
+        }
+        document.getElementById('focusToggleBtn').addEventListener('click', () => {
+            const next = !focusMode;
+            try { localStorage.setItem(FOCUS_KEY, next ? 'on' : 'off'); } catch (e) { /* session-only */ }
+            applyFocusMode(next);
+        });
+        loadFocusMode();
 
         // ============================================
         // POPUP HELPERS

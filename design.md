@@ -287,6 +287,23 @@ iteration doesn't relitigate it.
   column — a header the browser already knows, with UTC as the fallback so
   anything that isn't a browser behaves exactly as before.
 
+## Focus
+
+- **Dim, don't hide.** Focus mode quiets the other days to 30% rather than
+  removing them: the month's shape is information too, and a board that
+  collapsed to one column would cost more than the distraction it removed.
+- **Dimmed things stay live.** Clicking a quiet day is how you move focus to it.
+  A dimmed day that couldn't be clicked would make the mode a trap you had to
+  leave before you could steer it.
+- **Focus follows the day you picked, or today.** Never the selected *index* —
+  that's the anchor, and the anchor slides back to a past-due deadline, which
+  would focus the one day you're least likely to be working in.
+- **A series is never half-lit.** Reading a chain — hovering it, or opening its
+  pane — lifts the dimming from every day it touches. Fading half a series reads
+  as broken, not as quiet.
+- **The switch shows its own state.** The ghost is grey while focus is off and
+  full colour when it's on, so the bar answers "is this on?" without a click.
+
 ## Persistence
 
 - **localStorage session** (subdomain / slug / projectId) restores on reload.
