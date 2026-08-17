@@ -135,9 +135,19 @@
             transition: opacity 0.2s, filter 0.2s;
         }
 
+        /* The subtask pane is a SIBLING of the day card, not a child, so it
+           does not inherit the card's dimming — a bright pane hanging under a
+           faded day reads as broken. The column carries the class for both. */
+        .day-column.dimmed .subtask-pane.board-pane {
+            opacity: 0.3;
+            filter: saturate(0.5);
+            transition: opacity 0.2s, filter 0.2s;
+        }
+
         /* A hovered series outranks the dimming: a chain half-faded across days
            reads as broken rather than quiet. */
-        .day-card.dimmed.chain-lit {
+        .day-card.dimmed.chain-lit,
+        .day-column.dimmed.chain-lit .subtask-pane.board-pane {
             opacity: 1;
             filter: none;
         }
@@ -4080,7 +4090,7 @@
                 `;
 
                 const column = document.createElement('div');
-                column.className = 'day-column';
+                column.className = `day-column ${dimmed ? 'dimmed' : ''}`;
                 column.appendChild(card);
 
                 const expandedDayTasks = dayTasks.filter(t => expandedTaskIds.has(t.id));
@@ -4606,7 +4616,8 @@
             if (overlay) overlay.innerHTML = '';
             const board = document.getElementById('board');
             board.classList.remove('threading');
-            document.querySelectorAll('.day-card.chain-lit').forEach(el => el.classList.remove('chain-lit'));
+            document.querySelectorAll('.day-card.chain-lit, .day-column.chain-lit')
+                .forEach(el => el.classList.remove('chain-lit'));
             document.querySelectorAll('.task-item.chain-active').forEach(el => {
                 el.classList.remove('chain-active');
                 el.style.background = '';
@@ -4640,6 +4651,8 @@
                 // the series is being read.
                 const card = el.closest('.day-card');
                 if (card) card.classList.add('chain-lit');
+                const col = el.closest('.day-column');
+                if (col) col.classList.add('chain-lit');
             });
 
             overlay.setAttribute('width', board.scrollWidth);
