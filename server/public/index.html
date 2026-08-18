@@ -1493,36 +1493,57 @@
         /* 26x14, down from 30x16. Beside a 14px emoji and 12px chrome text the
            old pill was the largest object in the bar and read as the loudest
            control in it, which it is not. */
+        /* Off is an OUTLINE, not a grey fill — the same reading the focus
+           ghost settled on (2026-08-17). A filled grey pill is a solid object
+           the eye has to dismiss three times over; white-with-an-edge reads as
+           an empty socket, so "on" is the only thing in the cluster carrying
+           any weight. The on colour is the wordmark's #0ea5e9, not the darker
+           #0284c7, so the header keeps one blue rather than two. */
         .assistant-toggle {
             position: relative;
             width: 26px;
             height: 14px;
             padding: 0;
-            border: none;
+            box-sizing: border-box;
+            border: 1.5px solid #cbd5e1;
             border-radius: 999px;
-            background: #cbd5e1;
+            background: #ffffff;
             cursor: pointer;
             flex: 0 0 auto;
-            transition: background 0.2s;
+            transition: background 0.2s, border-color 0.2s;
         }
 
+        /* The knob is grey against white and white against blue, so the pill
+           always has exactly one filled shape in it. */
         .assistant-toggle::after {
             content: '';
             position: absolute;
-            top: 2px;
-            left: 2px;
-            width: 10px;
-            height: 10px;
+            top: 1px;
+            left: 1px;
+            width: 9px;
+            height: 9px;
             border-radius: 50%;
-            background: #fff;
-            transition: transform 0.2s;
+            background: #cbd5e1;
+            transition: transform 0.2s, background 0.2s;
         }
 
-        .assistant-toggle.on {
-            background: #0284c7;
+        .assistant-toggle:hover {
+            border-color: #94a3b8;
         }
 
-        .assistant-toggle.on::after {
+        .assistant-toggle:hover::after {
+            background: #94a3b8;
+        }
+
+        .assistant-toggle.on,
+        .assistant-toggle.on:hover {
+            background: #0ea5e9;
+            border-color: #0ea5e9;
+        }
+
+        .assistant-toggle.on::after,
+        .assistant-toggle.on:hover::after {
+            background: #ffffff;
             transform: translateX(12px);
         }
 
@@ -2353,6 +2374,23 @@
         body.dark .project-add-btn { color: #f1f5f9; }
         body.dark .project-tab:hover,
         body.dark .project-add-btn:hover,
+        /* The off state is an empty socket in dark too — a white pill would be
+           the brightest object on a slate bar. */
+        body.dark .assistant-toggle {
+            background: transparent;
+            border-color: #475569;
+        }
+        body.dark .assistant-toggle::after { background: #475569; }
+        body.dark .assistant-toggle:hover { border-color: #94a3b8; }
+        body.dark .assistant-toggle:hover::after { background: #94a3b8; }
+        body.dark .assistant-toggle.on,
+        body.dark .assistant-toggle.on:hover {
+            background: #38bdf8;
+            border-color: #38bdf8;
+        }
+        body.dark .assistant-toggle.on::after,
+        body.dark .assistant-toggle.on:hover::after { background: #ffffff; }
+
         body.dark .focus-toggle { color: #475569; }
         body.dark .focus-toggle:hover { color: #94a3b8; }
         body.dark .focus-toggle.on,
