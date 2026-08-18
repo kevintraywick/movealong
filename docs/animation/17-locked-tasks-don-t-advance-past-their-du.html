@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Links in tasks — MoveAlong animation</title>
+<title>Locked tasks don't advance past their due date — MoveAlong animation</title>
 <style>
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1948,38 +1948,22 @@
       <a href="19-bring-in-your-calendar.html" data-file="19-bring-in-your-calendar.html">Bring in your calendar 📅</a>
   </nav>
   <div class="xwrap">
-    <div class="xhead">Links in tasks</div>
-    <div class="xbody">Any URL you type in a task becomes a clickable link that opens in a
-               new tab.</div>
+    <div class="xhead">Locked tasks don't advance past their due date</div>
+    <div class="xbody">Instead, the day remains on your board and stays there until you
+               either complete the task or advance it to a current day.</div>
     <div class="xstage">
       <div class="card demo" aria-hidden="true">
       <div class="scene">
-      <div class="link-frame">
-      <div class="mini-card">
-      <div class="mini-day" data-day-offset="5"></div>
-      <div class="mini-task"><span class="mini-circle"></span>hang the gate</div>
-      <div class="mini-task" style="white-space:normal;align-items:flex-start;"><span class="mini-circle" style="margin-top:1px;"></span><span>share pics — <span class="mini-link">kevintraywick.com</span></span></div>
-      <div class="mini-task"><span class="mini-circle"></span>sweep up sawdust</div>
+      <div class="mini-card past-red">
+      <div class="mini-day">Fri · overdue</div>
+      <div class="mini-task locked-stay"><span class="mini-circle"></span><span class="mini-text">fence inspection</span> <span class="mini-lock">🔒</span></div>
+      <div class="mini-task spill-ghost"><span class="mini-circle"></span>return rental auger</div>
       </div>
-      <div class="mini-card ghost-day">
-      <div class="mini-day" data-day-offset="6"></div>
+      <div class="mini-card today-card">
+      <div class="mini-day">Mon · today</div>
+      <div class="mini-task"><span class="mini-circle"></span>grocery run</div>
       </div>
-      <div class="mini-browser">
-      <div class="mb-chrome">
-      <span class="mb-dot"></span><span class="mb-dot"></span><span class="mb-dot"></span>
-      <span class="mb-url">kevintraywick.com</span>
-      </div>
-      <div class="mb-body">
-      <div class="mb-avatar">KT</div>
-      <div class="mb-line title"></div>
-      <div class="mb-line w80"></div>
-      <div class="mb-line w60"></div>
-      <div class="mb-line w80"></div>
-      </div>
-      <iframe class="mb-page" src="https://kevintraywick.com" title="kevintraywick.com" loading="lazy" tabindex="-1" aria-hidden="true"></iframe>
-      </div>
-      <div class="link-cursor"></div>
-      </div>
+      <div class="mini-task held-spill"><span class="mini-circle"></span>return rental auger</div>
       </div>
       </div>
     </div>

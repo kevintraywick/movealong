@@ -1617,12 +1617,87 @@
             96%, 100% { opacity: 1; transform: translateY(0); }
         }
 
+
+        /* ---- Focus mode (ghost) scene ----
+           Two days side by side: the focused one keeps its colour while the
+           other fades, and the finished row on the focused day drops out. The
+           ghost is the app's own outline SVG, not the emoji — 👻 is a white
+           emoji and greys out to nothing on a white bar. */
+        .gh-frame {
+            position: relative;
+            width: 150px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .gh-switch {
+            display: flex;
+            justify-content: flex-end;
+            margin-bottom: 6px;
+        }
+        .gh-btn {
+            position: relative;
+            display: inline-flex;
+            width: 15px;
+            height: 15px;
+            color: #cbd5e1;
+            animation: ghBtn 9s linear infinite;
+        }
+        .gh-btn svg { width: 100%; height: 100%; }
+        .gh-days { display: flex; gap: 6px; }
+        .gh-days .mini-card { width: 72px; min-height: 78px; padding: 6px; }
+        .gh-days .mini-task { font-size: 7.5px; }
+        .gh-dim { animation: ghDim 9s linear infinite; }
+        .gh-done { animation: ghDone 9s linear infinite; }
+        .gh-done .mini-circle {
+            background: #38bdf8;
+            border-color: #38bdf8;
+        }
+        .gh-done .gh-strike { text-decoration: line-through; color: #94a3b8; }
+        .gh-cursor {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 10px;
+            height: 10px;
+            margin: -5px 0 0 -5px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            opacity: 0;
+            animation: ghCursor 9s ease-in-out infinite;
+        }
+        @keyframes ghBtn {
+            0%, 20%   { color: #cbd5e1; }
+            28%, 90%  { color: #0ea5e9; }
+            96%, 100% { color: #cbd5e1; }
+        }
+        @keyframes ghDim {
+            0%, 20%   { opacity: 1; filter: none; }
+            30%, 90%  { opacity: 0.3; filter: saturate(0.5); }
+            96%, 100% { opacity: 1; filter: none; }
+        }
+        @keyframes ghDone {
+            0%, 20%   { opacity: 1; }
+            30%, 90%  { opacity: 0; }
+            96%, 100% { opacity: 1; }
+        }
+        /* Rests below-right of the ghost rather than on top of it — a 10px
+           cursor centred on a 15px icon hides the thing being clicked. */
+        @keyframes ghCursor {
+            0%, 8%    { opacity: 0; transform: translate(18px, 16px); }
+            16%, 24%  { opacity: 1; transform: translate(5px, 6px); }
+            34%, 100% { opacity: 0; transform: translate(5px, 6px); }
+        }
+
         @media (prefers-reduced-motion: reduce) {
             .scene * { animation: none !important; }
             .cal-ev { opacity: 1; }
             .cal-pill { background: #0284c7; }
             .cal-knob { transform: translateX(7px); }
             .cal-task1, .cal-task2 { transform: translateY(30px); }
+            .gh-btn { color: #0ea5e9; }
+            .gh-dim { opacity: 0.3; filter: saturate(0.5); }
+            .gh-done, .gh-cursor { opacity: 0; }
             .strip-frame { opacity: 1; }
             .strip { transform: translateX(-128px); }
             .thu-task { transform: translateY(42px); }
@@ -1874,15 +1949,17 @@
                between light and dark — this help page follows along.</span></a>
     <a class="tile" href="13-dark-mode-2.html"><b>Dark mode 🌙</b><span>The ☀️/🌙 button in the header flips the whole app
                between light and dark — this help page follows along.</span></a>
-    <a class="tile" href="14-chain-a-series.html"><b>Chain a series</b><span>Drag a task onto another task to make it the next
+    <a class="tile" href="14-focus-on-one-day.html"><b>Focus on one day 👻</b><span>The ghost in the header dims every day but the one you're on, so
+               a thirty-day board stops shouting at you</span></a>
+    <a class="tile" href="15-chain-a-series.html"><b>Chain a series</b><span>Drag a task onto another task to make it the next
                step in that series. Moving an earlier step moves every</span></a>
-    <a class="tile" href="15-unlink-a-step.html"><b>Unlink a step ✂️</b><span>Hovering a chained task reveals scissors — click to cut its link to the
+    <a class="tile" href="16-unlink-a-step.html"><b>Unlink a step ✂️</b><span>Hovering a chained task reveals scissors — click to cut its link to the
                previous step. It becomes the sta</span></a>
-    <a class="tile" href="16-locked-tasks-don-t-advance-past-their-du.html"><b>Locked tasks don't advance past their due date</b><span>Instead, the day remains on your board and stays there until you
+    <a class="tile" href="17-locked-tasks-don-t-advance-past-their-du.html"><b>Locked tasks don't advance past their due date</b><span>Instead, the day remains on your board and stays there until you
                either complete the task or advance it t</span></a>
-    <a class="tile" href="17-the-assistant.html"><b>🧠 The assistant</b><span>With the header's 🧠 switch on, adding a task instantly opens a pane of
+    <a class="tile" href="18-the-assistant.html"><b>🧠 The assistant</b><span>With the header's 🧠 switch on, adding a task instantly opens a pane of
                up to 7 specific steps — real dec</span></a>
-    <a class="tile" href="18-bring-in-your-calendar.html"><b>Bring in your calendar 📅</b><span>Flip Calendar on in the header and paste your
+    <a class="tile" href="19-bring-in-your-calendar.html"><b>Bring in your calendar 📅</b><span>Flip Calendar on in the header and paste your
                calendar's private iCal address — Google, Proton, iCloud an</span></a>
   </div>
 </div>
