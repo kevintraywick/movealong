@@ -1556,24 +1556,16 @@
             color: #94a3b8;
             white-space: nowrap;
         }
-        .cal-pill {
-            position: relative;
-            width: 16px;
-            height: 9px;
-            border-radius: 5px;
-            background: #cbd5e1;
-            animation: calPill 9s linear infinite;
+        /* The header switch is the icon itself — grey off, blue on. There is
+           no pill any more (2026-08-17), so the scene doesn't draw one. */
+        .cal-icon {
+            display: inline-flex;
+            width: 11px;
+            height: 11px;
+            color: #cbd5e1;
+            animation: calIcon 9s linear infinite;
         }
-        .cal-knob {
-            position: absolute;
-            top: 1.5px;
-            left: 1.5px;
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #fff;
-            animation: calKnob 9s linear infinite;
-        }
+        .cal-icon svg { width: 100%; height: 100%; }
         /* Imported events: quiet slate edge, never amber (that means "locked")
            and never red (reserved for overdue). */
         .cal-ev {
@@ -1598,15 +1590,10 @@
         .cal-task1 { position: absolute; left: 8px; width: 134px; top: 26px; background:#fff; animation: calTask1 9s linear infinite; }
         .cal-task2 { position: absolute; left: 8px; width: 134px; top: 41px; background:#fff; animation: calTask2 9s linear infinite; }
 
-        @keyframes calPill {
-            0%, 12%   { background: #cbd5e1; }
-            18%, 92%  { background: #0284c7; }
-            97%, 100% { background: #cbd5e1; }
-        }
-        @keyframes calKnob {
-            0%, 12%   { transform: translateX(0); }
-            18%, 92%  { transform: translateX(7px); }
-            97%, 100% { transform: translateX(0); }
+        @keyframes calIcon {
+            0%, 12%   { color: #cbd5e1; }
+            18%, 92%  { color: #0ea5e9; }
+            97%, 100% { color: #cbd5e1; }
         }
         @keyframes calEv1 {
             0%, 20%   { opacity: 0; transform: translateY(-6px); }
@@ -1704,8 +1691,7 @@
         @media (prefers-reduced-motion: reduce) {
             .scene * { animation: none !important; }
             .cal-ev { opacity: 1; }
-            .cal-pill { background: #0284c7; }
-            .cal-knob { transform: translateX(7px); }
+            .cal-icon { color: #0ea5e9; }
             .cal-task1, .cal-task2 { transform: translateY(30px); }
             .gh-btn { color: #0ea5e9; }
             .gh-dim { opacity: 0.3; filter: saturate(0.5); }
@@ -2398,7 +2384,7 @@
     <div class="feature-grid three-col">
         <div class="card">
             <h3>&#129504; The assistant</h3>
-            <p>With the header's 🧠 switch on, adding a task instantly opens a pane of
+            <p>With the header's brain switch on, adding a task instantly opens a pane of
                up to 7 specific steps — real decisions, real links, real prices, not
                "make a plan".</p>
             <p>Those first steps arrive in seconds, drafted from reasoning alone, to
@@ -2489,7 +2475,7 @@
     <div class="feature-grid three-col">
         <div class="card beta">
             <h3>Bring in your calendar &#128197;</h3>
-            <p>Flip <strong>Calendar</strong> on in the header and paste your
+            <p>Click the <strong>calendar icon</strong> in the header and paste your
                calendar's private iCal address — Google, Proton, iCloud and
                Outlook each publish one. The next two weeks of real events land
                at the top of each day, above everything else, so the board shows
@@ -2502,13 +2488,13 @@
                and your calendar address is kept on the server. Until that's
                settled, connect a work calendar or a spare one rather than the
                calendar you'd mind a stranger reading. You can disconnect at any
-               time from the same &#128197; menu, which deletes the address and
+               time from the same calendar menu, which deletes the address and
                every imported event.</p>
         </div>
         <div class="card demo" aria-hidden="true">
             <div class="scene">
                 <div class="cal-frame">
-                    <div class="cal-switch">&#128197;<span class="cal-pill"><span class="cal-knob"></span></span></div>
+                    <div class="cal-switch"><span class="cal-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.4" y="5.6" width="17.2" height="15" rx="2.6"/><path d="M8 3.2v4.4M16 3.2v4.4M3.4 10.8h17.2"/></svg></span></div>
                     <div class="mini-card">
                         <div class="mini-day" data-day-offset="1"></div>
                     </div>
@@ -2544,7 +2530,7 @@
                Calendar &rarr; <em>Shared calendars</em> &rarr;
                <em>Publish a calendar</em>, then copy the <strong>ICS</strong>
                link (not the HTML one).</p>
-            <p>Paste whichever you get straight into the &#128197; menu. If the
+            <p>Paste whichever you get straight into the calendar menu. If the
                link is wrong or gets regenerated later, the menu tells you the
                sync failed rather than quietly emptying your board.</p>
         </div>
@@ -2557,7 +2543,7 @@
                <em>Calendars</em>, pick the calendar, and use its
                <em>Share</em> option to <strong>share with anyone</strong> —
                that creates a link ending in <code>.ics</code>. Paste that into
-               the &#128197; menu.</p>
+               the calendar menu.</p>
             <p class="beta-note"><strong>Sharing a calendar link is a paid Proton
                feature.</strong> On the free plan the option simply isn't there,
                and there is no way around it — Proton publishes no calendar API,
@@ -2599,7 +2585,7 @@ npm start          <span class="c"># open http://localhost:3000 — that's the w
             (or <code>node -e "console.log(require('crypto').randomBytes(24).toString('hex'))"</code>)</li>
         <li>Set that string as <code>AI_ACCESS_KEY</code> in the same environment
             variables and redeploy.</li>
-        <li>Open your deployed app, <kbd>Shift</kbd>+click the 🧠 switch, and paste the
+        <li>Open your deployed app, <kbd>Shift</kbd>+click the brain switch, and paste the
             same string. Do this once in each browser you use.</li>
     </ol>
 
