@@ -1484,13 +1484,12 @@
         #assistantSwitch { margin-left: auto; }
         #calendarSwitch { margin-right: auto; }
 
-        /* The icon IS the switch (2026-08-17). The pill said the same thing
-           twice: a control that is already blue-when-on and grey-when-off does
-           not need a second object beside it repeating that. Deleting it took
-           three objects out of the bar and left the meaning intact.
-           The icons are inline SVG stroked in currentColor, NOT emoji — an
-           emoji cannot be recoloured, and greying one out is the trap that
-           made the focus ghost invisible. */
+        /* The icon IS the switch (2026-08-17): the pill said the same thing
+           twice, so it is gone. State is carried by the emoji itself —
+           greyscaled and faded when off, its own colour when on.
+           This works here and NOT for the focus ghost: 👻 is a white emoji, so
+           desaturating it leaves nothing on a white bar. These three each have
+           real colour to lose. 16px to match the stroked icons beside them. */
         .assistant-toggle {
             display: inline-flex;
             align-items: center;
@@ -1500,26 +1499,23 @@
             padding: 0;
             border: none;
             background: none;
-            color: #cbd5e1;
+            font-size: 16px;
+            line-height: 1;
             cursor: pointer;
             flex: 0 0 auto;
-            transition: color 0.15s;
-        }
-
-        .assistant-toggle svg {
-            width: 16px;
-            height: 16px;
+            filter: grayscale(1);
+            opacity: 0.45;
+            transition: filter 0.15s, opacity 0.15s;
         }
 
         .assistant-toggle:hover {
-            color: #94a3b8;
+            opacity: 0.7;
         }
 
-        /* The wordmark's own blue, the same "on" the focus ghost uses, so the
-           header carries one blue rather than two. */
         .assistant-toggle.on,
         .assistant-toggle.on:hover {
-            color: #0ea5e9;
+            filter: none;
+            opacity: 1;
         }
 
         /* ============================================
@@ -2349,10 +2345,10 @@
         body.dark .project-add-btn { color: #f1f5f9; }
         body.dark .project-tab:hover,
         body.dark .project-add-btn:hover,
-        body.dark .assistant-toggle { color: #475569; }
-        body.dark .assistant-toggle:hover { color: #94a3b8; }
+        body.dark .assistant-toggle { opacity: 0.4; }
+        body.dark .assistant-toggle:hover { opacity: 0.65; }
         body.dark .assistant-toggle.on,
-        body.dark .assistant-toggle.on:hover { color: #38bdf8; }
+        body.dark .assistant-toggle.on:hover { opacity: 1; }
 
         body.dark .focus-toggle { color: #475569; }
         body.dark .focus-toggle:hover { color: #94a3b8; }
@@ -2517,17 +2513,17 @@
 
             <!-- AI assistant master switch -->
             <div class="assistant-switch" id="assistantSwitch" title="Assistant — auto-generates steps when you add a task &middot; Shift+Click to set the AI access key">
-                <button class="assistant-toggle on" id="assistantToggleBtn" role="switch" aria-checked="true" aria-label="Toggle AI assistant"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5A3.2 3.2 0 0 1 17.4 6.6 3 3 0 0 1 20.6 10.2 2.6 2.6 0 0 1 19.6 13.9 2.8 2.8 0 0 1 15.6 17 2.2 2.2 0 0 0 12 16a2.2 2.2 0 0 0-3.6 1A2.8 2.8 0 0 1 4.4 13.9 2.6 2.6 0 0 1 3.4 10.2 3 3 0 0 1 6.6 6.6 3.2 3.2 0 0 1 12 5Z"/></svg></button>
+                <button class="assistant-toggle on" id="assistantToggleBtn" role="switch" aria-checked="true" aria-label="Toggle AI assistant">&#129504;</button>
             </div>
             <!-- Web research switch. Per board (projects.research_enabled), not
                  per browser — it spends that board's budget. Turning it ON warns
                  what that costs first, unless the user has dismissed the warning. -->
             <div class="assistant-switch" id="researchSwitch" title="Research every new task with live web search">
-                <button class="assistant-toggle" id="researchToggleBtn" role="switch" aria-checked="false" aria-label="Toggle AI research"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="5.6"/><path d="M14.7 14.7 19.6 19.6"/></svg></button>
+                <button class="assistant-toggle" id="researchToggleBtn" role="switch" aria-checked="false" aria-label="Toggle AI research">&#128269;</button>
             </div>
 
             <div class="assistant-switch" id="calendarSwitch" title="Calendar — import the next two weeks of events onto the board">
-                <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.4" y="5.6" width="17.2" height="15" rx="2.6"/><path d="M8 3.2v4.4M16 3.2v4.4M3.4 10.8h17.2"/></svg></button>
+                <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import">&#128197;</button>
             </div>
 
             <!-- One button, two views — it shows the icon of the view you'd

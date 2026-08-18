@@ -1551,12 +1551,10 @@
            no pill any more (2026-08-17), so the scene doesn't draw one. */
         .cal-icon {
             display: inline-flex;
-            width: 11px;
-            height: 11px;
-            color: #cbd5e1;
+            font-size: 11px;
+            line-height: 1;
             animation: calIcon 9s linear infinite;
         }
-        .cal-icon svg { width: 100%; height: 100%; }
         /* Imported events: quiet slate edge, never amber (that means "locked")
            and never red (reserved for overdue). */
         .cal-ev {
@@ -1582,9 +1580,9 @@
         .cal-task2 { position: absolute; left: 8px; width: 134px; top: 41px; background:#fff; animation: calTask2 9s linear infinite; }
 
         @keyframes calIcon {
-            0%, 12%   { color: #cbd5e1; }
-            18%, 92%  { color: #0ea5e9; }
-            97%, 100% { color: #cbd5e1; }
+            0%, 12%   { filter: grayscale(1); opacity: 0.45; }
+            18%, 92%  { filter: none; opacity: 1; }
+            97%, 100% { filter: grayscale(1); opacity: 0.45; }
         }
         @keyframes calEv1 {
             0%, 20%   { opacity: 0; transform: translateY(-6px); }
@@ -1682,7 +1680,7 @@
         @media (prefers-reduced-motion: reduce) {
             .scene * { animation: none !important; }
             .cal-ev { opacity: 1; }
-            .cal-icon { color: #0ea5e9; }
+            .cal-icon { filter: none; opacity: 1; }
             .cal-task1, .cal-task2 { transform: translateY(30px); }
             .gh-btn { color: #0ea5e9; }
             .gh-dim { opacity: 0.3; filter: saturate(0.5); }
