@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>Chain a series — MoveAlong animation</title>
+<title>Unlink a step ✂️ — MoveAlong animation</title>
 <style>
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -1863,37 +1863,33 @@
       <a href="09-put-them-in-order.html" data-file="09-put-them-in-order.html">Put them in order</a>
       <a href="10-repeat.html" data-file="10-repeat.html">Repeat</a>
       <a href="11-create-lists.html" data-file="11-create-lists.html">Create lists</a>
-      <a href="12-bring-in-your-calendar.html" data-file="12-bring-in-your-calendar.html">Bring in your calendar 📅</a>
-      <a href="13-dark-mode.html" data-file="13-dark-mode.html">Dark mode 🌙</a>
-      <a href="14-dark-mode-2.html" data-file="14-dark-mode-2.html">Dark mode 🌙</a>
-      <a href="15-chain-a-series.html" data-file="15-chain-a-series.html">Chain a series</a>
-      <a href="16-unlink-a-step.html" data-file="16-unlink-a-step.html">Unlink a step ✂️</a>
-      <a href="17-locked-tasks-don-t-advance-past-their-du.html" data-file="17-locked-tasks-don-t-advance-past-their-du.html">Locked tasks don't advance past their due date</a>
-      <a href="18-the-assistant.html" data-file="18-the-assistant.html">🧠 The assistant</a>
+      <a href="12-dark-mode.html" data-file="12-dark-mode.html">Dark mode 🌙</a>
+      <a href="13-dark-mode-2.html" data-file="13-dark-mode-2.html">Dark mode 🌙</a>
+      <a href="14-chain-a-series.html" data-file="14-chain-a-series.html">Chain a series</a>
+      <a href="15-unlink-a-step.html" data-file="15-unlink-a-step.html">Unlink a step ✂️</a>
+      <a href="16-locked-tasks-don-t-advance-past-their-du.html" data-file="16-locked-tasks-don-t-advance-past-their-du.html">Locked tasks don't advance past their due date</a>
+      <a href="17-the-assistant.html" data-file="17-the-assistant.html">🧠 The assistant</a>
+      <a href="18-bring-in-your-calendar.html" data-file="18-bring-in-your-calendar.html">Bring in your calendar 📅</a>
   </nav>
   <div class="xwrap">
-    <div class="xhead">Chain a series</div>
-    <div class="xbody"><strong>Drag a task onto another task</strong> to make it the next
-               step in that series. Moving an earlier step moves every later step
-               by the same amount. Chained tasks show a numbered circle
-               <span style="display:inline-flex;width:12px;height:12px;border:2px solid #cbd5e1;border-radius:50%;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:#475569;vertical-align:-2px;">2</span>
-               showing the total number of steps in that chain.</div>
+    <div class="xhead">Unlink a step ✂️</div>
+    <div class="xbody">Hovering a chained task reveals scissors — click to cut its link to the
+               previous step. It becomes the start of its own series; nothing else
+               moves.</div>
     <div class="xstage">
       <div class="card demo" aria-hidden="true">
-      <div class="scene">
+      <div class="scene unlink-scene">
       <svg class="chain-thread" viewBox="0 0 246 128" preserveAspectRatio="none">
-      <path d="M 116 31 C 138 31, 138 46, 146 46"/>
+      <path d="M 95 31 C 112 23, 117 23, 132 31"/>
       </svg>
       <div class="mini-card">
       <div class="mini-day">Wed</div>
-      <div class="mini-task chain-countdown-2"><span class="mini-circle"></span>choose stain color</div>
-      <div class="mini-task spill-ghost" style="opacity:0.35;"><span class="mini-circle"></span>hang the gate</div>
+      <div class="mini-task static-count-2"><span class="mini-circle"></span>choose stain color</div>
       </div>
       <div class="mini-card">
       <div class="mini-day">Thu</div>
-      <div class="mini-task"><span class="mini-circle"></span>trim hedges</div>
+      <div class="mini-task static-count-1"><span class="mini-circle"></span>stain the fence<span class="mini-scissors">&#9986;&#65039;<svg class="nav-ring scissors-ring" viewBox="0 0 66 26" preserveAspectRatio="none" aria-hidden="true"><ellipse cx="33" cy="13" rx="31" ry="11" pathLength="100"/></svg></span></div>
       </div>
-      <div class="mini-task drag-task"><span class="mini-circle"></span>stain the fence</div>
       </div>
       </div>
     </div>

@@ -2178,87 +2178,6 @@
             </div>
         </div>
 
-        <div class="card beta">
-            <h3>Bring in your calendar &#128197;<span class="beta-badge">Beta</span></h3>
-            <p>Flip <strong>Calendar</strong> on in the header and paste your
-               calendar's private iCal address — Google, Proton, iCloud and
-               Outlook each publish one. The next two weeks of real events land
-               at the top of each day, above everything else, so the board shows
-               the day you actually have. All-day entries and holidays are
-               skipped. Events aren't tasks: you can't drag or move them, and
-               once the day passes they're simply gone.</p>
-            <p class="beta-note"><strong>This one is still being figured out —
-               especially the privacy side.</strong> Move Along has no password
-               yet, so anyone who can open your board can read your event titles,
-               and your calendar address is kept on the server. Until that's
-               settled, connect a work calendar or a spare one rather than the
-               calendar you'd mind a stranger reading. You can disconnect at any
-               time from the same &#128197; menu, which deletes the address and
-               every imported event.</p>
-        </div>
-        <div class="card demo" aria-hidden="true">
-            <div class="scene">
-                <div class="cal-frame">
-                    <div class="cal-switch">&#128197;<span class="cal-pill"><span class="cal-knob"></span></span></div>
-                    <div class="mini-card">
-                        <div class="mini-day" data-day-offset="1"></div>
-                    </div>
-                    <div class="cal-ev cal-ev1"><span class="cal-mark">&#128197;</span><span class="cal-time">9:30</span>site inspection</div>
-                    <div class="cal-ev cal-ev2"><span class="cal-mark">&#128197;</span><span class="cal-time">2:00</span>lumber delivery</div>
-                    <div class="mini-task cal-task1"><span class="mini-circle"></span>set the corner posts</div>
-                    <div class="mini-task cal-task2"><span class="mini-circle"></span>rent a post-hole digger</div>
-                </div>
-            </div>
-        </div>
-        <div class="margin-note" aria-hidden="true">
-            <svg class="note-arrow" viewBox="0 0 44 22">
-                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
-                <path d="M 12 9 L 5 13 L 11 18"/>
-            </svg>
-            <span>Your calendar link is a secret &mdash; anyone who can open your board can read these titles.</span>
-        </div>
-
-        <div class="card">
-            <h3>Finding your calendar link</h3>
-            <p>Every provider hides it somewhere different, and all of them call
-               it something slightly different. Look for the words
-               <em>secret</em>, <em>private</em>, <em>publish</em> or
-               <em>iCal</em>:</p>
-            <p><strong>Google Calendar</strong> — Settings &rarr; the calendar's
-               name in the left column &rarr; <em>Integrate calendar</em> &rarr;
-               <strong>Secret address in iCal format</strong>.</p>
-            <p><strong>iCloud</strong> — on iCloud.com open Calendar, click the
-               share icon beside a calendar, tick <em>Public Calendar</em> and
-               copy the link. It starts <code>webcal://</code>, which is fine —
-               paste it as-is.</p>
-            <p><strong>Outlook / Microsoft&nbsp;365</strong> — Settings &rarr;
-               Calendar &rarr; <em>Shared calendars</em> &rarr;
-               <em>Publish a calendar</em>, then copy the <strong>ICS</strong>
-               link (not the HTML one).</p>
-            <p>Paste whichever you get straight into the &#128197; menu. If the
-               link is wrong or gets regenerated later, the menu tells you the
-               sync failed rather than quietly emptying your board.</p>
-        </div>
-
-        <div class="card beta">
-            <h3>Proton Calendar &#128197;<span class="beta-badge">Paid plan</span></h3>
-            <p>Proton works, with one catch worth knowing before you go looking
-               for the setting.</p>
-            <p>In Proton Calendar, open <em>Settings</em> &rarr;
-               <em>Calendars</em>, pick the calendar, and use its
-               <em>Share</em> option to <strong>share with anyone</strong> —
-               that creates a link ending in <code>.ics</code>. Paste that into
-               the &#128197; menu.</p>
-            <p class="beta-note"><strong>Sharing a calendar link is a paid Proton
-               feature.</strong> On the free plan the option simply isn't there,
-               and there is no way around it — Proton publishes no calendar API,
-               so this link is the only door in. If you can't find the setting,
-               check your plan before assuming Move Along is broken.</p>
-            <p class="beta-note">Anyone holding that link can read the calendar,
-               so treat it like a password — and see the privacy note above,
-               which applies here too.</p>
-        </div>
-
         <div class="card">
             <h3>Dark mode &#127769;</h3>
             <p>The &#9728;&#65039;/&#127769; button in the header flips the whole app
@@ -2461,6 +2380,90 @@
                the first pass didn't dig deep enough on the thing you actually care
                about. Assigned tasks leave your board and appear on the assignee's;
                they can return them, which puts them back on yours today.</p>
+        </div>
+    </div>
+
+    <h2>Add calendar events <span class="beta-badge">Beta</span></h2>
+    <div class="feature-grid three-col">
+        <div class="card beta">
+            <h3>Bring in your calendar &#128197;</h3>
+            <p>Flip <strong>Calendar</strong> on in the header and paste your
+               calendar's private iCal address — Google, Proton, iCloud and
+               Outlook each publish one. The next two weeks of real events land
+               at the top of each day, above everything else, so the board shows
+               the day you actually have. All-day entries and holidays are
+               skipped. Events aren't tasks: you can't drag or move them, and
+               once the day passes they're simply gone.</p>
+            <p class="beta-note"><strong>This one is still being figured out —
+               especially the privacy side.</strong> Move Along has no password
+               yet, so anyone who can open your board can read your event titles,
+               and your calendar address is kept on the server. Until that's
+               settled, connect a work calendar or a spare one rather than the
+               calendar you'd mind a stranger reading. You can disconnect at any
+               time from the same &#128197; menu, which deletes the address and
+               every imported event.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="cal-frame">
+                    <div class="cal-switch">&#128197;<span class="cal-pill"><span class="cal-knob"></span></span></div>
+                    <div class="mini-card">
+                        <div class="mini-day" data-day-offset="1"></div>
+                    </div>
+                    <div class="cal-ev cal-ev1"><span class="cal-mark">&#128197;</span><span class="cal-time">9:30</span>site inspection</div>
+                    <div class="cal-ev cal-ev2"><span class="cal-mark">&#128197;</span><span class="cal-time">2:00</span>lumber delivery</div>
+                    <div class="mini-task cal-task1"><span class="mini-circle"></span>set the corner posts</div>
+                    <div class="mini-task cal-task2"><span class="mini-circle"></span>rent a post-hole digger</div>
+                </div>
+            </div>
+        </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>Your calendar link is a secret &mdash; anyone who can open your board can read these titles.</span>
+        </div>
+
+        <div class="card">
+            <h3>Finding your calendar link</h3>
+            <p>Every provider hides it somewhere different, and all of them call
+               it something slightly different. Look for the words
+               <em>secret</em>, <em>private</em>, <em>publish</em> or
+               <em>iCal</em>:</p>
+            <p><strong>Google Calendar</strong> — Settings &rarr; the calendar's
+               name in the left column &rarr; <em>Integrate calendar</em> &rarr;
+               <strong>Secret address in iCal format</strong>.</p>
+            <p><strong>iCloud</strong> — on iCloud.com open Calendar, click the
+               share icon beside a calendar, tick <em>Public Calendar</em> and
+               copy the link. It starts <code>webcal://</code>, which is fine —
+               paste it as-is.</p>
+            <p><strong>Outlook / Microsoft&nbsp;365</strong> — Settings &rarr;
+               Calendar &rarr; <em>Shared calendars</em> &rarr;
+               <em>Publish a calendar</em>, then copy the <strong>ICS</strong>
+               link (not the HTML one).</p>
+            <p>Paste whichever you get straight into the &#128197; menu. If the
+               link is wrong or gets regenerated later, the menu tells you the
+               sync failed rather than quietly emptying your board.</p>
+        </div>
+
+        <div class="card beta">
+            <h3>Proton Calendar &#128197;<span class="beta-badge">Paid plan</span></h3>
+            <p>Proton works, with one catch worth knowing before you go looking
+               for the setting.</p>
+            <p>In Proton Calendar, open <em>Settings</em> &rarr;
+               <em>Calendars</em>, pick the calendar, and use its
+               <em>Share</em> option to <strong>share with anyone</strong> —
+               that creates a link ending in <code>.ics</code>. Paste that into
+               the &#128197; menu.</p>
+            <p class="beta-note"><strong>Sharing a calendar link is a paid Proton
+               feature.</strong> On the free plan the option simply isn't there,
+               and there is no way around it — Proton publishes no calendar API,
+               so this link is the only door in. If you can't find the setting,
+               check your plan before assuming Move Along is broken.</p>
+            <p class="beta-note">Anyone holding that link can read the calendar,
+               so treat it like a password — and see the privacy note above,
+               which applies here too.</p>
         </div>
     </div>
 
