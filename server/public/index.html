@@ -4061,8 +4061,11 @@
                     `;
                 }
 
-                // Divider + completed
-                const hasCompleted = completedTasks.length > 0;
+                // Divider + completed. Focus mode hides completed rows outright
+                // — dimming quiets the days you are not on, and a finished task
+                // is noise on the day you *are* on. Assigned-away rows stay:
+                // they are still owed to someone.
+                const hasCompleted = !focusMode && completedTasks.length > 0;
                 const hasAssigned = assignedTasks.length > 0;
                 if (hasCompleted || hasAssigned) {
                     tasksHtml += '<hr class="task-divider">';
