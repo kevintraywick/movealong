@@ -374,69 +374,6 @@
             background: rgba(245, 158, 11, 0.1);
         }
 
-        /* User Switcher */
-        .user-switcher {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 20px;
-            padding: 12px 16px;
-            background: #ffffff;
-            border: 1px solid #e2e8f0;
-            border-radius: 8px;
-            width: fit-content;
-        }
-
-        .user-switcher-label {
-            color: #64748b;
-            font-size: 12px;
-        }
-
-        .user-switcher-buttons {
-            display: flex;
-            gap: 8px;
-        }
-
-        .user-switch-btn {
-            display: flex;
-            align-items: center;
-            gap: 6px;
-            padding: 6px 12px;
-            border-radius: 6px;
-            cursor: pointer;
-            border: 1px solid transparent;
-            background: transparent;
-            transition: all 0.2s;
-        }
-
-        .user-switch-btn:hover {
-            background: #f1f5f9;
-        }
-
-        .user-switch-btn.active {
-            background: #f0f9ff;
-            border-color: #38bdf8;
-        }
-
-        .user-switch-avatar {
-            width: 24px;
-            height: 24px;
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 11px;
-            color: white;
-        }
-
-        .user-switch-name {
-            font-size: 12px;
-            color: #475569;
-        }
-
-        .user-switch-btn.active .user-switch-name {
-            color: #0284c7;
-        }
 
         /* Wordmark face — the only non-system type in the app (self-hosted,
            single 800 weight, ~38 KB). Used once, on the logo. */
@@ -2296,6 +2233,358 @@
             stroke-linejoin: round;
         }
 
+
+        /* ============================================
+           HANDED OVER — a task awaiting your answer
+           ============================================
+           Amber, not blue: this is the app's "held, not settled" colour, the
+           same reading the lock and the Beta badge use. A row someone handed
+           you is not yet your work, and it should not look like it is.
+
+           Both controls sit on the row permanently. A hover-reveal would be
+           wrong here for a reason it isn't wrong on an ordinary row: this is
+           the one row on the board that is a question, and a question whose
+           answers only appear once you point at it cannot be answered by
+           looking. */
+        .task-item.awaiting,
+        .project-task-item.awaiting {
+            background: #fffbeb;
+            box-shadow: inset 3px 0 0 #f59e0b;
+            padding-left: 8px;
+        }
+
+        .task-item.awaiting:hover,
+        .project-task-item.awaiting:hover {
+            background: #fef3c7;
+        }
+
+        /* Not a completion circle — you cannot tick off work you have not
+           taken on (the server refuses it too). Dashed, and inert. */
+        .task-item.awaiting .task-circle,
+        .project-task-item.awaiting .task-circle {
+            border-style: dashed;
+            border-color: #f59e0b;
+            cursor: default;
+        }
+
+        .task-item.awaiting .task-circle:hover,
+        .project-task-item.awaiting .task-circle:hover {
+            background: transparent;
+            border-color: #f59e0b;
+        }
+
+        .task-accept,
+        .task-item.awaiting .task-return,
+        .project-task-item.awaiting .task-return {
+            width: 18px;
+            height: 18px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 12px;
+            flex-shrink: 0;
+            transition: all 0.15s;
+        }
+
+        .task-accept {
+            color: #0284c7;
+            border: 1px solid #bae6fd;
+            background: #f0f9ff;
+            margin-left: auto;
+        }
+
+        .task-accept:hover {
+            background: #0ea5e9;
+            border-color: #0ea5e9;
+            color: #ffffff;
+        }
+
+        .task-item.awaiting .task-return,
+        .project-task-item.awaiting .task-return {
+            margin-left: 0;
+            color: #b45309;
+            border: 1px solid #fde68a;
+            background: #fffbeb;
+        }
+
+        .task-item.awaiting .task-return:hover,
+        .project-task-item.awaiting .task-return:hover {
+            background: #f59e0b;
+            border-color: #f59e0b;
+            color: #ffffff;
+        }
+
+        /* Who handed it over, in the row's own voice. */
+        .task-item.awaiting .assigned-from,
+        .project-task-item.awaiting .assigned-from {
+            color: #b45309;
+            font-style: normal;
+        }
+
+        /* Where a handed-over step went, in the sender's pane. The state is
+           the point — "Margo has it" and "Margo has taken it on" are different
+           answers to the question you opened the pane to ask. */
+        .subtask-handoff {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            margin-left: 4px;
+            font-size: 10px;
+            white-space: nowrap;
+            vertical-align: middle;
+        }
+
+        .subtask-handoff .handoff-who {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            color: #ffffff;
+            font-size: 8px;
+            font-weight: 600;
+        }
+
+        .subtask-handoff .handoff-state {
+            color: #94a3b8;
+        }
+
+        .subtask-handoff.awaiting .handoff-state { color: #b45309; }
+        .subtask-handoff.accepted .handoff-state { color: #0284c7; }
+        /* Settled — quiet grey, not green (green is banned from the app's UI;
+           a finished handover needs no attention, so it gets no colour). */
+        .subtask-handoff.done .handoff-state { color: #64748b; }
+
+        /* ============================================
+           TEAM VIEW — a teammate's shared week
+           ============================================
+           Read-only by construction: nothing in here writes. The banner is not
+           decoration — a board with no controls and no "add a task" field
+           would otherwise read as your own board gone wrong. */
+        .team-container {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .team-view-banner {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px 14px;
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .team-back {
+            font-size: 12px;
+            color: #0284c7;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .team-back:hover { text-decoration: underline; }
+
+        .team-banner-avatar {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 12px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .team-banner-who {
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+        }
+
+        .team-banner-name {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .team-banner-role {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        /* The sharing rule, said out loud. Without auth this is a product rule
+           rather than a guarantee, and the copy says exactly that much. */
+        .team-banner-note {
+            margin-left: auto;
+            font-size: 11px;
+            color: #64748b;
+            text-align: right;
+            max-width: 260px;
+            line-height: 1.45;
+        }
+
+        .team-person-tabs {
+            display: flex;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .team-person-tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 10px 5px 5px;
+            border-radius: 20px;
+            border: 1px solid #e2e8f0;
+            background: #ffffff;
+            cursor: pointer;
+            font-size: 12px;
+            color: #475569;
+        }
+
+        .team-person-tab:hover { border-color: #cbd5e1; }
+
+        .team-person-tab.active {
+            border-color: #38bdf8;
+            background: #f0f9ff;
+            color: #0284c7;
+        }
+
+        .team-person-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: 600;
+        }
+
+        .team-days {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding-bottom: 8px;
+        }
+
+        .team-task {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            padding: 5px 4px;
+            font-size: 12px;
+            line-height: 1.35;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .team-task:last-child { border-bottom: none; }
+
+        .team-task-circle {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            border: 1.5px solid #cbd5e1;
+            flex-shrink: 0;
+            margin-top: 2px;
+        }
+
+        .team-task.completed .team-task-circle {
+            background: #38bdf8;
+            border-color: #38bdf8;
+        }
+
+        .team-task.completed .team-task-desc {
+            text-decoration: line-through;
+            color: #94a3b8;
+        }
+
+        .team-task.awaiting {
+            background: #fffbeb;
+            box-shadow: inset 3px 0 0 #f59e0b;
+            padding-left: 7px;
+        }
+
+        .team-task.awaiting .team-task-circle {
+            border-style: dashed;
+            border-color: #f59e0b;
+        }
+
+        .team-task-desc { flex: 1; }
+
+        .team-task-project {
+            display: block;
+            font-size: 10px;
+            color: #94a3b8;
+            margin-top: 1px;
+        }
+
+        /* Says which of the three states this row is in, in words. A tint alone
+           would be a colour the viewer has to learn. */
+        .team-task-flag {
+            display: inline-block;
+            font-size: 10px;
+            color: #b45309;
+            background: #fef3c7;
+            border-radius: 8px;
+            padding: 0 6px;
+            margin-top: 2px;
+        }
+
+        .team-empty-day {
+            font-size: 11px;
+            color: #cbd5e1;
+            padding: 6px 2px;
+        }
+
+        .team-empty {
+            font-size: 13px;
+            color: #64748b;
+            padding: 24px;
+            text-align: center;
+            background: #ffffff;
+            border: 1px dashed #e2e8f0;
+            border-radius: 10px;
+        }
+
+        /* Roster rows inside the account popup. `.lock-opt` is the shared row
+           vocabulary; this only adds the avatar and the role line. */
+        .team-opt {
+            justify-content: flex-start;
+        }
+
+        .team-opt.locked-out {
+            opacity: 0.55;
+            cursor: default;
+        }
+
+        .team-opt-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: 600;
+            flex-shrink: 0;
+        }
+
+        .team-opt-role {
+            margin-left: auto;
+            font-size: 11px;
+            color: #64748b;
+        }
+
         body.dark {
             background: #0f172a;
             color: #e2e8f0;
@@ -2486,8 +2775,61 @@
             border-top-color: #1e293b;
         }
         /* .help-link is a filled brand-blue badge — needs no dark override */
-        body.dark .user-switcher { background: #1e293b; border-color: #334155; }
         body.dark .add-new-icon { background: #334155; color: #94a3b8; }
+        /* Handed-over rows and the team view. Amber survives into dark mode the
+           way the lock's amber does — it is the same "held, not settled" idea,
+           so it must not turn into a second blue here. */
+        body.dark .task-item.awaiting,
+        body.dark .project-task-item.awaiting {
+            background: rgba(245, 158, 11, 0.12);
+            box-shadow: inset 3px 0 0 #d97706;
+        }
+        body.dark .task-item.awaiting:hover,
+        body.dark .project-task-item.awaiting:hover { background: rgba(245, 158, 11, 0.2); }
+        body.dark .task-item.awaiting .assigned-from,
+        body.dark .project-task-item.awaiting .assigned-from { color: #fbbf24; }
+        body.dark .task-accept {
+            color: #38bdf8;
+            background: rgba(14, 165, 233, 0.12);
+            border-color: #0369a1;
+        }
+        body.dark .task-accept:hover { background: #0ea5e9; border-color: #0ea5e9; color: #0f172a; }
+        body.dark .task-item.awaiting .task-return,
+        body.dark .project-task-item.awaiting .task-return {
+            color: #fbbf24;
+            background: rgba(245, 158, 11, 0.12);
+            border-color: #b45309;
+        }
+        body.dark .task-item.awaiting .task-return:hover,
+        body.dark .project-task-item.awaiting .task-return:hover { background: #f59e0b; border-color: #f59e0b; color: #0f172a; }
+        body.dark .subtask-handoff .handoff-state { color: #94a3b8; }
+        body.dark .subtask-handoff.awaiting .handoff-state { color: #fbbf24; }
+        body.dark .subtask-handoff.accepted .handoff-state { color: #38bdf8; }
+        body.dark .subtask-handoff.done .handoff-state { color: #94a3b8; }
+
+        body.dark .team-view-banner,
+        body.dark .team-person-tab,
+        body.dark .team-empty { background: #1e293b; border-color: #334155; }
+        body.dark .team-banner-name { color: #f1f5f9; }
+        body.dark .team-banner-role,
+        body.dark .team-banner-note,
+        body.dark .team-task-project,
+        body.dark .team-opt-role { color: #94a3b8; }
+        body.dark .team-back { color: #38bdf8; }
+        body.dark .team-person-tab { color: #cbd5e1; }
+        body.dark .team-person-tab.active {
+            background: rgba(14, 165, 233, 0.14);
+            border-color: #38bdf8;
+            color: #38bdf8;
+        }
+        body.dark .team-task { border-bottom-color: #334155; }
+        body.dark .team-task-circle { border-color: #475569; }
+        body.dark .team-task.awaiting {
+            background: rgba(245, 158, 11, 0.12);
+            box-shadow: inset 3px 0 0 #d97706;
+        }
+        body.dark .team-task-flag { color: #fbbf24; background: rgba(245, 158, 11, 0.16); }
+        body.dark .team-empty-day { color: #475569; }
         body.dark .empty-project { color: #64748b; }
     </style>
 </head>
@@ -2550,16 +2892,15 @@
             <a class="help-link" href="/help" target="_blank" rel="noopener" title="Help — features, gestures, and running your own copy" aria-label="Help">?</a>
         </div>
 
-        <div class="user-switcher" id="userSwitcher" style="display: none;">
-            <span class="user-switcher-label">Viewing as:</span>
-            <div class="user-switcher-buttons" id="userSwitcherButtons">
-            </div>
-        </div>
-
         <div class="board-container" id="board">
         </div>
 
         <div class="master-container" id="masterContainer" style="display: none;">
+        </div>
+
+        <!-- A teammate's shared week. Its own container rather than a mode of
+             the board, because every affordance the board has is wrong here. -->
+        <div class="team-container" id="teamContainer" style="display: none;">
         </div>
 
         <div class="team-popup" id="teamPopup">
@@ -2949,6 +3290,9 @@
                     }
                 }
                 await loadTasks();
+                // A returning account may already have teammates — the assign
+                // popup and the account-popup roster both read allUsers.
+                await loadUsers();
 
                 renderProjectBar();
                 renderBoard();
@@ -2971,6 +3315,11 @@
         async function loadUsers() {
             try {
                 allUsers = await api(`/companies/${company.subdomain}/users`);
+                // Keep currentUser pointing at the fresh row — role and
+                // share_board can change server-side, and the account popup
+                // reads them off this object.
+                const mine = allUsers.find(u => u.id === currentUser.id);
+                if (mine) currentUser = mine;
             } catch (err) {
                 console.error('Failed to load users:', err);
             }
@@ -3287,10 +3636,36 @@
             if (!isSignedUp) return;
             e.stopPropagation();
             const popup = document.getElementById('accountPopup');
+            // The team lives in this popup rather than in the header: it is a
+            // place you go occasionally, and the header's job is to whisper.
+            // The roster is the same `.lock-opt` row as everything else here,
+            // with an avatar and the person's role hung off it.
+            const teammates = allUsers.filter(u => u.id !== currentUser.id);
+            const roster = teammates.map(u => `
+                <div class="lock-opt team-opt ${u.share_board ? '' : 'locked-out'}"
+                     ${u.share_board ? `data-act="openteam" data-slug="${escapeHtml(u.slug)}"` : ''}
+                     title="${u.share_board ? `Open ${escapeHtml(u.name)}'s week` : `${escapeHtml(u.name)} has not shared their board`}">
+                    <span class="team-opt-avatar" style="background: ${escapeHtml(u.color)}">${escapeHtml(u.initials)}</span>
+                    <span>${escapeHtml(u.name)}</span>
+                    <span class="team-opt-role">${escapeHtml(u.role || (u.share_board ? '' : 'private'))}</span>
+                </div>`).join('');
+
+            // The seed row stays offered until Margo, Jay and Yarwen all exist —
+            // a board that already has other people on it (the + New button
+            // makes them) must not hide the demo team behind them.
+            const demoNames = ['margo', 'jay', 'yarwen'];
+            const demoMissing = demoNames.some(n => !allUsers.some(u => (u.name || '').toLowerCase() === n));
+            const demoRow = demoMissing
+                ? `<div class="lock-opt" data-act="demoteam">Add the demo team</div>`
+                : '';
+            const teamSection = `<div class="lock-popup-title">${teammates.length ? 'Team boards' : 'Team'}</div>${roster}${demoRow}`;
+
             popup.innerHTML = `
                 <div class="lock-popup-menu">
                     <div class="lock-popup-title">Signed in as</div>
                     <div class="account-who">${escapeHtml(currentUser.name)} &middot; ${escapeHtml(company.name)}</div>
+                    ${teamSection}
+                    <div class="lock-opt" data-act="share">${currentUser.share_board ? 'Make my board private' : 'Share my board with the team'}</div>
                     <div class="lock-opt danger" data-act="signout">Sign out</div>
                 </div>`;
 
@@ -3301,6 +3676,27 @@
             popup.style.right = Math.max(8, window.innerWidth - rect.right) + 'px';
             popup.style.top = (rect.bottom + 5) + 'px';
             popup.classList.add('visible');
+
+            popup.querySelectorAll('[data-act="openteam"]').forEach(row => {
+                row.addEventListener('click', (ev) => {
+                    ev.stopPropagation();
+                    hidePopups();
+                    openTeamView(row.dataset.slug);
+                });
+            });
+
+            const demoBtn = popup.querySelector('[data-act="demoteam"]');
+            if (demoBtn) demoBtn.addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                hidePopups();
+                seedDemoTeam();
+            });
+
+            popup.querySelector('[data-act="share"]').addEventListener('click', async (ev) => {
+                ev.stopPropagation();
+                hidePopups();
+                await toggleShareMyBoard();
+            });
 
             popup.querySelector('[data-act="signout"]').addEventListener('click', (ev) => {
                 ev.stopPropagation();
@@ -3327,6 +3723,41 @@
                     task.assigned_to_name = assignee ? assignee.name : 'Someone';
                 }
                 renderView();
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        // Assigned, and the recipient has neither accepted nor returned it.
+        // `assigned_by` alone was never enough: a returned task also carries an
+        // assigner, and it is not waiting on anybody.
+        function isAwaiting(task) {
+            return !!task && !!task.assigned_by && !task.accepted_at;
+        }
+
+        async function acceptTask(taskId) {
+            try {
+                const updated = await api(`/tasks/${taskId}/accept`, { method: 'POST', body: {} });
+                // An awaiting row shows on every board (like a calendar row);
+                // accepting settles it onto its own project's board, so it may
+                // leave the one you are looking at. Refetch — including the
+                // project list, since the handover may have put you on a board
+                // you didn't have when this session loaded — and say where the
+                // row went rather than letting it silently vanish.
+                await loadProjects();
+                // loadProjects replaces the array; currentProject must point
+                // back into it or later rename/reorder mutations diverge.
+                if (currentProject) {
+                    currentProject = projects.find(p => p.id === currentProject.id) || currentProject;
+                }
+                await loadTasks();
+                renderProjectBar();
+                renderView();
+                const home = projects.find(p => p.id === updated.project_id);
+                const elsewhere = home && currentProject && home.id !== currentProject.id;
+                showToast(elsewhere
+                    ? `Accepted \u2014 it is on your ${home.name} board`
+                    : 'Accepted \u2014 it is yours now');
             } catch (err) {
                 showToast('Error: ' + err.message);
             }
@@ -3736,14 +4167,237 @@
         // RENDER VIEW (dispatches to calendar or master)
         // ============================================
         function renderView() {
+            const board = document.getElementById('board');
+            const master = document.getElementById('masterContainer');
+            const team = document.getElementById('teamContainer');
+            board.style.display = 'none';
+            master.style.display = 'none';
+            team.style.display = 'none';
+
             if (viewMode === 'master') {
-                document.getElementById('board').style.display = 'none';
-                document.getElementById('masterContainer').style.display = 'flex';
+                master.style.display = 'flex';
                 renderMasterPage();
+            } else if (viewMode === 'team') {
+                // A teammate's board is not yours, so the project bar — which
+                // switches YOUR boards — has nothing to say while it is open.
+                team.style.display = 'flex';
+                renderTeamView();
             } else {
-                document.getElementById('board').style.display = 'flex';
-                document.getElementById('masterContainer').style.display = 'none';
+                board.style.display = 'flex';
                 renderBoard();
+            }
+            document.getElementById('projectTabs').style.visibility = viewMode === 'team' ? 'hidden' : 'visible';
+        }
+
+        // ============================================
+        // TEAM VIEW — a teammate's shared week
+        // ============================================
+        // Read-only, and deliberately not a mode of renderBoard(). Every one of
+        // the board's affordances — the add field, the arrow, the lock, drag,
+        // the subtask pane — is wrong on someone else's week, and a board
+        // rendered with all of them disabled reads as broken rather than as
+        // somebody else's. A smaller, quieter surface says what it is by shape.
+        //
+        // The window is seven days, not thirty: what a shared board answers is
+        // "what is this person on this week".
+        let teamViewSlug = null;
+        let teamViewData = null;
+        let teamViewError = '';
+
+        async function openTeamView(slug) {
+            teamViewSlug = slug;
+            teamViewData = null;
+            teamViewError = '';
+            viewMode = 'team';
+            renderViewToggle();
+            renderView();
+            await loadSharedBoard(slug);
+        }
+
+        function closeTeamView() {
+            teamViewSlug = null;
+            teamViewData = null;
+            teamViewError = '';
+            viewMode = 'calendar';
+            renderViewToggle();
+            renderView();
+        }
+
+        async function loadSharedBoard(slug) {
+            try {
+                const data = await api(`/companies/${company.subdomain}/users/${slug}/shared-board`);
+                // A slower fetch for a board the user has since navigated away
+                // from must not paint over the one they are looking at.
+                if (teamViewSlug !== slug) return;
+                teamViewData = data;
+                teamViewError = '';
+            } catch (err) {
+                if (teamViewSlug !== slug) return;
+                teamViewData = null;
+                teamViewError = err.message || 'Could not open that board';
+            }
+            if (viewMode === 'team') renderTeamView();
+        }
+
+        // The seven day cards, built from the viewer's own today rather than
+        // the server's: the labels are the ones on their own board.
+        function teamViewDays(count) {
+            const todayKey = getTodayKey();
+            const start = new Date(todayKey + 'T00:00:00.000Z');
+            const out = [];
+            for (let i = 0; i < count; i++) {
+                const date = new Date(start);
+                date.setUTCDate(start.getUTCDate() + i);
+                const key = date.toISOString().split('T')[0];
+                out.push({
+                    key,
+                    dayName: dayNames[date.getUTCDay()],
+                    dateStr: `${monthNames[date.getUTCMonth()]} ${date.getUTCDate()}`,
+                    isToday: key === todayKey
+                });
+            }
+            return out;
+        }
+
+        function renderTeamView() {
+            const container = document.getElementById('teamContainer');
+            const shared = allUsers.filter(u => u.id !== currentUser.id && u.share_board);
+
+            const tabs = shared.length
+                ? `<div class="team-person-tabs">${shared.map(u => `
+                        <div class="team-person-tab ${u.slug === teamViewSlug ? 'active' : ''}" data-slug="${escapeHtml(u.slug)}">
+                            <span class="team-person-avatar" style="background: ${escapeHtml(u.color)}">${escapeHtml(u.initials)}</span>
+                            <span>${escapeHtml(u.name)}</span>
+                        </div>`).join('')}</div>`
+                : '';
+
+            if (teamViewError) {
+                container.innerHTML = `
+                    <div class="team-view-banner">
+                        <span class="team-back" data-act="back">&larr; Back to your board</span>
+                    </div>
+                    ${tabs}
+                    <div class="team-empty">${escapeHtml(teamViewError)}</div>`;
+                attachTeamListeners();
+                return;
+            }
+
+            if (!teamViewData) {
+                container.innerHTML = `
+                    <div class="team-view-banner">
+                        <span class="team-back" data-act="back">&larr; Back to your board</span>
+                    </div>
+                    ${tabs}
+                    <div class="team-empty">Opening&hellip;</div>`;
+                attachTeamListeners();
+                return;
+            }
+
+            const person = teamViewData.user;
+            const days = teamViewDays(teamViewData.days || 7);
+
+            const dayCards = days.map(day => {
+                const rows = teamViewData.tasks.filter(t => t.scheduled_date === day.key);
+                const body = rows.length
+                    ? rows.map(t => renderTeamTask(t, person)).join('')
+                    : '<div class="team-empty-day">&mdash;</div>';
+                return `
+                    <div class="day-card ${day.isToday ? 'today' : ''}">
+                        <div class="day-header-row">
+                            <div class="day-header">${day.dayName}</div>
+                            <div class="day-date">${day.dateStr}</div>
+                        </div>
+                        <div class="tasks-container">${body}</div>
+                    </div>`;
+            }).join('');
+
+            const waiting = teamViewData.tasks.filter(t => isAwaiting(t) && t.assigned_by === currentUser.id).length;
+            const note = waiting
+                ? `${escapeHtml(person.name)} shared this board with the team. ${waiting} thing${waiting === 1 ? '' : 's'} you sent ${waiting === 1 ? 'is' : 'are'} still unanswered.`
+                : `${escapeHtml(person.name)} shared this board with the team. Nothing here can be changed from your side.`;
+
+            container.innerHTML = `
+                <div class="team-view-banner">
+                    <span class="team-back" data-act="back">&larr; Back to your board</span>
+                    <span class="team-banner-avatar" style="background: ${escapeHtml(person.color)}">${escapeHtml(person.initials)}</span>
+                    <span class="team-banner-who">
+                        <span class="team-banner-name">${escapeHtml(person.name)}</span>
+                        <span class="team-banner-role">${escapeHtml(person.role || 'Team')}</span>
+                    </span>
+                    <span class="team-banner-note">${note}</span>
+                </div>
+                ${tabs}
+                <div class="team-days">${dayCards}</div>`;
+
+            attachTeamListeners();
+        }
+
+        function renderTeamTask(task, person) {
+            const awaiting = isAwaiting(task);
+            // Two different sentences, and the difference matters: one is a
+            // question you are still waiting on, the other is somebody else's.
+            const flag = awaiting
+                ? (task.assigned_by === currentUser.id
+                    ? `<span class="team-task-flag">Waiting on ${escapeHtml(person.name)}</span>`
+                    : `<span class="team-task-flag">Sent by ${escapeHtml(task.assigned_by_name || 'a teammate')} &middot; not accepted</span>`)
+                : '';
+            const project = task.project_name
+                ? `<span class="team-task-project">${escapeHtml(task.project_name)}</span>`
+                : '';
+            return `
+                <div class="team-task ${task.completed ? 'completed' : ''} ${awaiting ? 'awaiting' : ''}">
+                    <div class="team-task-circle"></div>
+                    <div class="team-task-desc">${escapeHtml(task.description)}${project}${flag}</div>
+                </div>`;
+        }
+
+        function attachTeamListeners() {
+            const container = document.getElementById('teamContainer');
+            const back = container.querySelector('[data-act="back"]');
+            if (back) back.addEventListener('click', closeTeamView);
+            container.querySelectorAll('.team-person-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const slug = tab.dataset.slug;
+                    if (slug !== teamViewSlug) openTeamView(slug);
+                });
+            });
+        }
+
+        // Create Margo, Jay and Yarwen with a role, a board of their own and a
+        // week already on it. Idempotent server-side, so the button is safe to
+        // press twice.
+        async function seedDemoTeam() {
+            try {
+                showToast('Setting up the team…');
+                const result = await api(`/companies/${company.subdomain}/demo-team`, { method: 'POST', body: {} });
+                allUsers = result.team;
+                showToast('Margo, Jay and Yarwen are on the team');
+                const first = allUsers.find(u => u.id !== currentUser.id && u.share_board);
+                if (first) openTeamView(first.slug);
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        // Your own board's visibility to the team. Without authentication this
+        // is a product rule, not a guarantee — anyone with the URL can still
+        // read any board — but it is the seam real permissions will sit in, and
+        // holding the line now is what keeps the demo honest.
+        async function toggleShareMyBoard() {
+            const next = !currentUser.share_board;
+            try {
+                await api(`/companies/${company.subdomain}/users/${currentUser.slug}/share`, {
+                    method: 'PUT',
+                    body: { share_board: next }
+                });
+                currentUser.share_board = next ? 1 : 0;
+                const mine = allUsers.find(u => u.id === currentUser.id);
+                if (mine) mine.share_board = currentUser.share_board;
+                showToast(next
+                    ? 'Your board is visible to the team'
+                    : 'Your board is private again');
+            } catch (err) {
+                showToast('Error: ' + err.message);
             }
         }
 
@@ -4113,10 +4767,6 @@
 
             fitExpandedPane(board);
 
-            if (isSignedUp) {
-                renderUserSwitcher();
-            }
-
             attachBoardListeners();
         }
 
@@ -4177,8 +4827,14 @@
                 });
             });
 
+            // Scoped to the board: the hidden #masterContainer keeps its last
+            // DOM while the calendar view re-renders, and a document-wide
+            // sweep would stack a fresh listener onto those stale rows on
+            // every renderBoard() — the master view attaches its own.
+            const boardEl = document.getElementById('board');
+
             // Task circles
-            document.querySelectorAll('.task-circle[data-task-id]').forEach(circle => {
+            boardEl.querySelectorAll('.task-circle[data-task-id]').forEach(circle => {
                 circle.addEventListener('click', (e) => {
                     e.stopPropagation();
                     toggleComplete(parseInt(circle.dataset.taskId));
@@ -4256,8 +4912,16 @@
                 arrow.addEventListener('click', handleArrowClick);
             });
 
+            // Accept buttons (handed-over rows only)
+            boardEl.querySelectorAll('.task-accept[data-task-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    acceptTask(parseInt(btn.dataset.taskId));
+                });
+            });
+
             // Return buttons
-            document.querySelectorAll('.task-return[data-task-id]').forEach(returnBtn => {
+            boardEl.querySelectorAll('.task-return[data-task-id]').forEach(returnBtn => {
                 returnBtn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     returnTask(parseInt(returnBtn.dataset.taskId));
@@ -4835,7 +5499,10 @@
             const row = document.querySelector('.task-item:hover, .project-task-item:hover');
             if (!row) return null;
             // Completed, assigned-away and placeholder rows are not eligible.
-            if (row.classList.contains('completed') || row.classList.contains('forwarded') || row.classList.contains('placeholder')) return null;
+            // `.awaiting` joins the exclusions for the same reason as the rest:
+            // reordering, repeating or moving a row you have not accepted acts
+            // on someone else's question.
+            if (row.classList.contains('completed') || row.classList.contains('forwarded') || row.classList.contains('placeholder') || row.classList.contains('awaiting')) return null;
             // Calendar events are force-sorted to the top and are not reorderable.
             if (row.classList.contains('calendar')) return null;
             const id = parseInt(row.dataset.id, 10);
@@ -4863,8 +5530,12 @@
 
         // The pending, reorderable tasks of one day, in the order shown.
         function orderedDayTasks(dateKey) {
+            // Awaiting handovers are excluded like calendar rows: they may
+            // belong to another project entirely, so counting them in slot
+            // math would write positions the server (rightly) discards and
+            // desync the optimistic repaint from the persisted order.
             return sortByPosition(tasks.filter(t =>
-                t.scheduled_date === dateKey && !t.completed && !t.assigned_to_id && t.source !== 'calendar'));
+                t.scheduled_date === dateKey && !t.completed && !t.assigned_to_id && t.source !== 'calendar' && !isAwaiting(t)));
         }
 
         // Writes are chained per day so two fast reorders can't land out of
@@ -5002,6 +5673,25 @@
             // app), and the affordances that would fight the next sync — move,
             // drag-to-series, lock, delete — are all withheld.
             const isEvent = task.source === 'calendar';
+
+            // Handed over and still unanswered. This row is a question, not
+            // work, so every affordance that would treat it as work is
+            // withheld: no completion circle (the server refuses that too), no
+            // arrow, no lock, no drag, no subtask pane. What is left is the two
+            // answers — take it on, or hand it back — and both are permanently
+            // visible, because a question you have to hover to answer is not
+            // one the board is really asking.
+            if (isAwaiting(task)) {
+                return `
+                    <div class="task-item awaiting" data-id="${task.id}">
+                        <div class="task-circle" title="Accept this first — you can't tick off work you haven't taken on"></div>
+                        <div class="task-description" title="${escapeHtml(task.assigned_by_name || 'A teammate')} sent you this">${linkifyText(task.description)} <span class="assigned-from">from ${escapeHtml(task.assigned_by_name || 'a teammate')}</span></div>
+                        <div class="task-accept" data-task-id="${task.id}" title="Accept — put this on your board">&check;</div>
+                        <div class="task-return" data-task-id="${task.id}" title="Return to ${escapeHtml(task.assigned_by_name || 'sender')}">&cularr;</div>
+                    </div>
+                `;
+            }
+
             const assignedLabel = task.assigned_by_name ? ` <span class="assigned-from">(from: ${escapeHtml(task.assigned_by_name)})</span>` : '';
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
             const isExpanded = expandedTaskIds.has(task.id);
@@ -5155,6 +5845,32 @@
             return '';
         }
 
+        // Where a handed-over step went, and whether they have answered yet.
+        // The server derives assignment_state from the task the handover
+        // created ('awaiting' / 'accepted' / 'done'); a step assigned before
+        // that link existed just says who has it.
+        function renderHandoffChip(st) {
+            if (!st.assigned_to) return '';
+            const name = st.assigned_to_name || 'a teammate';
+            const state = st.assignment_state || 'assigned';
+            const word = {
+                awaiting: 'not accepted yet',
+                accepted: 'accepted',
+                done: 'done',
+                assigned: 'assigned'
+            }[state] || 'assigned';
+            const title = {
+                awaiting: `${name} has this — not accepted yet`,
+                accepted: `${name} accepted this`,
+                done: `${name} finished this`,
+                assigned: `${name} has this`
+            }[state];
+            const who = st.assigned_to_initials
+                ? `<span class="handoff-who" style="background: ${escapeHtml(st.assigned_to_color || '#94a3b8')}">${escapeHtml(st.assigned_to_initials)}</span>`
+                : '';
+            return `<span class="subtask-handoff ${state}" title="${escapeHtml(title)}">${who}<span class="handoff-state">${escapeHtml(name)} · ${word}</span></span>`;
+        }
+
         function renderSubtaskPane(taskId, taskTitle, dayName) {
             const isGenerating = generatingSubtasksFor === taskId;
             const subtasks = taskSubtasks.get(taskId) || [];
@@ -5201,7 +5917,7 @@
                             ${promoteBtn}
                             ${researchBtn}
                         </div>
-                        <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifySubtask(st.description)}${renderCostChip(st)}</div>
+                        <div class="subtask-desc ${st.completed ? 'completed-subtask' : ''}">${linkifySubtask(st.description)}${renderCostChip(st)}${renderHandoffChip(st)}</div>
                     </div>
                 `;
             };
@@ -5307,6 +6023,21 @@
                 container.innerHTML = masterProjects.map(proj => {
                     const taskListHtml = proj.tasks.length > 0
                         ? proj.tasks.map(t => {
+                            // Same rule as the day board: a handed-over row you
+                            // have not answered is a question, not work. The
+                            // circle is inert (no data-task-id), the pane stays
+                            // closed, and the two answers ride on the row.
+                            if (isAwaiting(t)) {
+                                return `
+                                    <div class="project-task-item awaiting" data-id="${t.id}">
+                                        <div class="task-circle" title="Accept this first — you can't tick off work you haven't taken on"></div>
+                                        <div class="project-task-desc" title="${escapeHtml(t.assigned_by_name || 'A teammate')} sent you this">${linkifyText(t.description)} <span class="assigned-from">from ${escapeHtml(t.assigned_by_name || 'a teammate')}</span></div>
+                                        <span class="project-task-date">${t.scheduled_date}</span>
+                                        <div class="task-accept" data-task-id="${t.id}" title="Accept — put this on your board">&check;</div>
+                                        <div class="task-return" data-task-id="${t.id}" title="Return to ${escapeHtml(t.assigned_by_name || 'sender')}">&cularr;</div>
+                                    </div>
+                                `;
+                            }
                             const progress = t.subtask_count > 0
                                 ? `<span class="subtask-progress">${t.completed_subtask_count}/${t.subtask_count}</span>`
                                 : '';
@@ -5357,6 +6088,20 @@
                     });
                 });
 
+                // Handed-over rows: the two answers.
+                container.querySelectorAll('.task-accept[data-task-id]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        acceptTask(parseInt(btn.dataset.taskId));
+                    });
+                });
+                container.querySelectorAll('.task-return[data-task-id]').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        e.stopPropagation();
+                        returnTask(parseInt(btn.dataset.taskId));
+                    });
+                });
+
                 container.querySelectorAll('.project-task-desc[data-task-id]').forEach(desc => {
                     desc.addEventListener('click', async (e) => {
                         // Link clicks open in a new tab, they don't toggle the pane.
@@ -5380,41 +6125,6 @@
             } catch (err) {
                 container.innerHTML = `<div class="empty-project">Error loading: ${escapeHtml(err.message)}</div>`;
             }
-        }
-
-        // ============================================
-        // USER SWITCHER
-        // ============================================
-        function renderUserSwitcher() {
-            const switcher = document.getElementById('userSwitcher');
-            const container = document.getElementById('userSwitcherButtons');
-
-            if (allUsers.length <= 1) {
-                switcher.style.display = 'none';
-                return;
-            }
-
-            switcher.style.display = 'flex';
-            container.innerHTML = allUsers.map(user => `
-                <div class="user-switch-btn ${user.id === currentUser.id ? 'active' : ''}" data-user-id="${user.id}">
-                    <div class="user-switch-avatar" style="background: ${escapeHtml(user.color)}">${escapeHtml(user.initials)}</div>
-                    <span class="user-switch-name">${escapeHtml(user.name)}</span>
-                </div>
-            `).join('');
-
-            container.querySelectorAll('.user-switch-btn').forEach(btn => {
-                btn.addEventListener('click', async () => {
-                    const userId = parseInt(btn.dataset.userId);
-                    currentUser = allUsers.find(u => u.id === userId);
-                    expandedTaskIds.clear();
-                    taskSubtasks.clear();
-                    await loadProjects();
-                    await loadTasks();
-                    renderProjectBar();
-                    renderView();
-                    showToast(`Viewing as ${currentUser.name}`);
-                });
-            });
         }
 
         // ============================================
@@ -5676,6 +6386,12 @@
             const btn = document.getElementById('viewToggleBtn');
             if (!btn) return;
             const target = viewMode === 'calendar' ? 'list' : 'calendar';
+            if (viewMode === 'team') {
+                btn.innerHTML = VIEW_ICONS.calendar;
+                btn.title = 'Back to your board';
+                btn.setAttribute('aria-label', 'Back to your board');
+                return;
+            }
             const label = target === 'list' ? 'Switch to List view' : 'Switch to Calendar view';
             btn.innerHTML = VIEW_ICONS[target];
             btn.title = label;
@@ -5683,6 +6399,9 @@
         }
 
         document.getElementById('viewToggleBtn').addEventListener('click', () => {
+            // From a teammate's board the toggle means "back to mine" — there
+            // is no List view of somebody else's week.
+            if (viewMode === 'team') { closeTeamView(); return; }
             viewMode = viewMode === 'calendar' ? 'master' : 'calendar';
             renderViewToggle();
             renderView();
@@ -5985,6 +6704,8 @@
                     if (match) currentProject = match;
                 }
                 await loadTasks();
+                // Teammates for the assign popup and the account-popup roster.
+                await loadUsers();
                 renderProjectBar();
                 renderBoard();
                 loadCalendarStatus();

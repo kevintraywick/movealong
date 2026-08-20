@@ -39,6 +39,8 @@ async function initDb() {
       slug TEXT NOT NULL,
       initials TEXT NOT NULL,
       color TEXT NOT NULL,
+      role TEXT,
+      share_board INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
       UNIQUE(company_id, slug)
@@ -81,6 +83,7 @@ async function initDb() {
       owner_id INTEGER NOT NULL,
       project_id INTEGER,
       assigned_by INTEGER,
+      accepted_at DATETIME,
       description TEXT NOT NULL,
       scheduled_date DATE NOT NULL,
       origin_date DATE,
@@ -114,6 +117,7 @@ async function initDb() {
       assignee_type TEXT DEFAULT 'human',
       assigned_to INTEGER,
       assigned_by INTEGER,
+      assigned_task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
       sort_order INTEGER DEFAULT 0,
       provisional INTEGER DEFAULT 0,
       researched INTEGER DEFAULT 0,
@@ -242,6 +246,27 @@ async function initDb() {
   ensureColumn('subtasks', 'cost_confidence', 'REAL');
   // Prices move. A figure with no date is worse than no figure.
   ensureColumn('subtasks', 'cost_as_of', 'TEXT');
+  // What this person does. Display only — nothing branches on it. It exists so
+  // a shared board reads as "Margo, Accounting" rather than a bare first name,
+  // which is the whole reason you would look at a teammate's week.
+  ensureColumn('users', 'role', 'TEXT');
+  // Has this person shared their board with the rest of the team. 0 by default,
+  // and the shared-board route 403s without it — so "you cannot see someone
+  // else's board unless they shared it" is enforced in the server, not merely
+  // described in the copy.
+  ensureColumn('users', 'share_board', 'INTEGER DEFAULT 0');
+  // When the recipient accepted an assigned task. NULL on a row that has an
+  // assigner means it is still sitting in their inbox, neither accepted nor
+  // returned — the one state the assignment flow never had. Backfilled on the
+  // boot that adds it, so every task assigned before this shipped counts as
+  // long since accepted rather than retroactively appearing unanswered.
+  if (ensureColumn('tasks', 'accepted_at', 'DATETIME')) {
+    db.run("UPDATE tasks SET accepted_at = updated_at WHERE assigned_by IS NOT NULL");
+  }
+  // The task created on the assignee's board when this step was handed over.
+  // It is what lets the sender's pane say "Margo has it, not yet accepted"
+  // without hunting for a task by matching description text.
+  ensureColumn('subtasks', 'assigned_task_id', 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
 
   // Pre-migration tasks never recorded their origin; the best available
   // approximation is wherever they sit now (their true origin is lost).
@@ -264,6 +289,7 @@ async function initDb() {
   db.run('CREATE INDEX IF NOT EXISTS idx_tasks_external ON tasks(owner_id, external_uid)');
   db.run('CREATE INDEX IF NOT EXISTS idx_calendar_feeds_user ON calendar_feeds(user_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_ai_usage_month ON ai_usage(project_id, month)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_tasks_assigned_by ON tasks(assigned_by)');
 
   saveDb();
   return db;

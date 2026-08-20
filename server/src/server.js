@@ -291,6 +291,18 @@ function spliceOutOfChain(task) {
   }
 }
 
+// A task that somebody handed over and the recipient has neither accepted nor
+// returned. `assigned_by` alone never carried this: a row landed on the other
+// person's board already looking like work they had taken on. The pair is what
+// makes the state readable — an assigner, and no answer yet.
+//
+// Returning a task sets `accepted_at` rather than clearing it, so the row that
+// comes back to the sender reads as theirs again (labelled "from Margo") and
+// not as a second inbox item they have to accept.
+function isAwaitingAcceptance(task) {
+  return !!task && !!task.assigned_by && !task.accepted_at;
+}
+
 // ============================================
 // COMPANY ROUTES
 // ============================================
@@ -316,7 +328,7 @@ app.post('/api/companies', (req, res) => {
     'SELECT id, name, subdomain FROM companies WHERE subdomain = ?', [subdomain]);
   if (existing) {
     const user = queryOne(
-      'SELECT id, name, slug, initials, color FROM users WHERE company_id = ? AND slug = ?',
+      'SELECT id, name, slug, initials, color, role, share_board FROM users WHERE company_id = ? AND slug = ?',
       [existing.id, userSlug]);
 
     if (user) {
@@ -339,7 +351,7 @@ app.post('/api/companies', (req, res) => {
       );
       return res.status(201).json({
         company: { id: existing.id, name: existing.name, subdomain },
-        user: { id: added.lastInsertRowid, name: userName, slug: userSlug, initials, color },
+        user: { id: added.lastInsertRowid, name: userName, slug: userSlug, initials, color, role: null, share_board: 0 },
         returning: true
       });
     } catch (err) {
@@ -375,7 +387,9 @@ app.post('/api/companies', (req, res) => {
         name: userName,
         slug: userSlug,
         initials: userInitials,
-        color: userColor
+        color: userColor,
+        role: null,
+        share_board: 0
       }
     });
   } catch (err) {
@@ -413,8 +427,10 @@ app.get('/api/companies/:subdomain/users', (req, res) => {
     return res.status(404).json({ error: 'Company not found' });
   }
 
+  // `role` and `share_board` ride along on the roster: the team popup shows
+  // what each person does, and whether their board is open to you at all.
   const users = queryAll(
-    'SELECT id, name, slug, initials, color, created_at FROM users WHERE company_id = ?',
+    'SELECT id, name, slug, initials, color, role, share_board, created_at FROM users WHERE company_id = ?',
     [company.id]
   );
 
@@ -431,7 +447,7 @@ app.get('/api/companies/:subdomain/users/:slug', (req, res) => {
   }
 
   const user = queryOne(
-    'SELECT id, name, slug, initials, color, created_at FROM users WHERE company_id = ? AND slug = ?',
+    'SELECT id, name, slug, initials, color, role, share_board, created_at FROM users WHERE company_id = ? AND slug = ?',
     [company.id, slug]
   );
 
@@ -490,6 +506,243 @@ app.post('/api/companies/:subdomain/users', (req, res) => {
   } catch (err) {
     console.error('Error creating user:', err);
     res.status(500).json({ error: 'Failed to create user' });
+  }
+});
+
+
+// ============================================
+// TEAM ROUTES — shared boards
+// ============================================
+// MoveAlong has no authentication, so "private" here is a product rule rather
+// than a security boundary: anyone holding the URL can read any board. What
+// `users.share_board` buys is that the *app* never offers you a teammate's
+// week until they have opened it, so the demo doesn't teach a habit the real
+// product wouldn't allow. Treat it as the seam where real permissions go when
+// auth lands, not as protection today.
+
+// How many days of a shared board come back. A week — the question a shared
+// board answers is "what is this person on this week", not "what is their
+// month". Clamped so a caller cannot ask for a year of every teammate.
+const SHARED_BOARD_DAYS = 7;
+const SHARED_BOARD_MAX_DAYS = 30;
+
+// Turn your own board's visibility to the team on or off.
+app.put('/api/companies/:subdomain/users/:slug/share', (req, res) => {
+  const { subdomain, slug } = req.params;
+  const { share_board } = req.body;
+
+  if (share_board === undefined) {
+    return res.status(400).json({ error: 'share_board is required' });
+  }
+
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+
+  const user = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  try {
+    runSql('UPDATE users SET share_board = ? WHERE id = ?', [share_board ? 1 : 0, user.id]);
+    res.json({ id: user.id, share_board: share_board ? 1 : 0 });
+  } catch (err) {
+    console.error('Error updating board sharing:', err);
+    res.status(500).json({ error: 'Failed to update sharing' });
+  }
+});
+
+// Read one teammate's week. Read-only in the strongest sense: unlike
+// GET .../tasks, this route runs no spillover and no calendar sync — looking
+// at someone else's board must never move anything on it. It is also
+// deliberately NOT filtered by project: the question is "what is Margo on this
+// week", and she does not sort her week by which of your boards it came from.
+app.get('/api/companies/:subdomain/users/:slug/shared-board', (req, res) => {
+  const { subdomain, slug } = req.params;
+
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+
+  const user = queryOne(
+    'SELECT id, name, slug, initials, color, role, share_board FROM users WHERE company_id = ? AND slug = ?',
+    [company.id, slug]
+  );
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  if (!user.share_board) {
+    return res.status(403).json({ error: `${user.name} has not shared their board` });
+  }
+
+  const requested = parseInt(req.query.days, 10);
+  const days = Math.min(SHARED_BOARD_MAX_DAYS, Math.max(1, requested || SHARED_BOARD_DAYS));
+  const today = todayKeyFor(req);
+  const until = addDays(today, days - 1);
+
+  // Anything still open before today comes back too, folded onto the first
+  // day. On your own board spillover would have moved those rows already; here
+  // nothing may be written, so the window is widened instead of the data.
+  // Past calendar events are the exception: the owner's own board PRUNES
+  // those (a meeting happened whether or not it was ticked), and their prune
+  // only runs when they open their own board — so a viewer must not see
+  // Monday's stale standup folded onto Thursday as if it were planned work.
+  // Position sorts NULL last, matching the owner's own board (NULL = never
+  // arranged, appends at the bottom).
+  const tasks = queryAll(`
+    SELECT
+      t.id, t.description, t.scheduled_date, t.origin_date, t.completed,
+      t.completed_at, t.assigned_by, t.accepted_at, t.project_id, t.locked,
+      t.repeat_rule, t.source, t.event_start, t.position, t.created_at,
+      u.name as assigned_by_name,
+      p.name as project_name
+    FROM tasks t
+    LEFT JOIN users u ON t.assigned_by = u.id
+    LEFT JOIN projects p ON t.project_id = p.id
+    WHERE t.owner_id = ?
+      AND t.scheduled_date <= ?
+      AND (t.completed = 0 OR t.scheduled_date >= ?)
+      AND NOT (t.source = 'calendar' AND t.scheduled_date < ?)
+    ORDER BY t.scheduled_date,
+             CASE WHEN t.position IS NULL THEN 1 ELSE 0 END, t.position,
+             t.created_at
+  `, [user.id, until, today, today]);
+
+  res.json({
+    user,
+    today,
+    days,
+    tasks: tasks.map(t => ({ ...t, scheduled_date: t.scheduled_date < today ? today : t.scheduled_date }))
+  });
+});
+
+// ============================================
+// DEMO TEAM
+// ============================================
+// Seeds the three teammates the help page and the walkthrough talk about, each
+// with a role, a board of their own, and a plausible week already on it — the
+// point being that when you hand Margo a step, it lands in the middle of work
+// she is visibly already doing, not on an empty board.
+//
+// Idempotent in two independent ways, because it is reachable from a button:
+// a teammate who already exists is reused rather than duplicated, and their
+// week is only seeded if they have no tasks at all. Running it twice is a
+// no-op, not a doubled board.
+const DEMO_TEAM = [
+  {
+    name: 'Margo',
+    role: 'Accounting',
+    project: 'Accounting',
+    tasks: [
+      [0, 'Close the July books'],
+      [0, 'Reconcile Stripe payouts against the ledger'],
+      [1, 'Chase overdue invoices — Northwind, Cask, Palmer'],
+      [2, 'Send the Q3 tax estimate to Bell & Reyes'],
+      [3, 'Approve contractor timesheets'],
+      [4, 'Draft the August cash-flow forecast']
+    ]
+  },
+  {
+    name: 'Jay',
+    role: 'Product Marketing',
+    project: 'Product Marketing',
+    tasks: [
+      [0, 'Draft the launch email for calendar import'],
+      [0, 'Rewrite the pricing page headline'],
+      [1, 'Interview two users about the research switch'],
+      [2, 'Ship the changelog post for the subtask rail'],
+      [3, 'Competitive scan — Todoist, Sunsama, Amie'],
+      [5, 'Book the demo video shoot']
+    ]
+  },
+  {
+    name: 'Yarwen',
+    role: 'CTO',
+    project: 'Engineering',
+    tasks: [
+      [0, 'Sign off on the Postgres migration plan'],
+      [0, '1:1s with the platform team'],
+      [1, 'Decide: Railway volume vs managed Postgres'],
+      [2, 'Review the SOC 2 gap analysis'],
+      [3, 'Architecture review — assignment and acceptance'],
+      [4, 'Cut the 0.9 release branch']
+    ]
+  }
+];
+
+app.post('/api/companies/:subdomain/demo-team', (req, res) => {
+  const { subdomain } = req.params;
+
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+
+  const today = todayKeyFor(req);
+  const now = new Date().toISOString();
+
+  try {
+    for (const person of DEMO_TEAM) {
+      let user = queryOne('SELECT * FROM users WHERE company_id = ? AND slug = ?',
+        [company.id, generateSlug(person.name)]);
+
+      if (!user) {
+        const created = runSql(
+          'INSERT INTO users (company_id, name, slug, initials, color, role, share_board) VALUES (?, ?, ?, ?, ?, ?, 1)',
+          [company.id, person.name, generateSlug(person.name), generateInitials(person.name),
+           getRandomColor(), person.role]
+        );
+        user = queryOne('SELECT * FROM users WHERE id = ?', [created.lastInsertRowid]);
+      } else {
+        // An existing teammate picks up the role and the shared board — but
+        // only if they look unused (no tasks). A real person who happens to
+        // be named Margo must not have her board force-shared and a demo role
+        // stamped on her because someone pressed the seed button; "you cannot
+        // see a board that wasn't shared" is the feature's one product rule.
+        const inUse = queryOne('SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ?', [user.id]);
+        if (!inUse || inUse.cnt === 0) {
+          runSql('UPDATE users SET role = COALESCE(role, ?), share_board = 1 WHERE id = ?',
+            [person.role, user.id]);
+        }
+      }
+
+      // Their own board.
+      let project = queryOne(
+        `SELECT p.* FROM projects p
+         JOIN project_members pm ON pm.project_id = p.id
+         WHERE p.company_id = ? AND pm.user_id = ? AND p.name = ?`,
+        [company.id, user.id, person.project]
+      );
+      if (!project) {
+        let pslug = projectSlugFrom(person.project);
+        if (queryOne('SELECT id FROM projects WHERE company_id = ? AND slug = ?', [company.id, pslug])) {
+          pslug = `${pslug}-${user.id}`;
+        }
+        const createdProject = runSql(
+          'INSERT INTO projects (company_id, name, slug, created_by) VALUES (?, ?, ?, ?)',
+          [company.id, person.project, pslug, user.id]
+        );
+        project = queryOne('SELECT * FROM projects WHERE id = ?', [createdProject.lastInsertRowid]);
+        runSql('INSERT INTO project_members (project_id, user_id) VALUES (?, ?)', [project.id, user.id]);
+      }
+
+      // Only seed a week onto an empty board. Re-running must never double a
+      // board that already has work — including work you assigned them.
+      const hasTasks = queryOne('SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ?', [user.id]);
+      if (hasTasks && hasTasks.cnt > 0) continue;
+
+      person.tasks.forEach(([offset, description], i) => {
+        const date = addDays(today, offset);
+        runSql(
+          `INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date, origin_date, position, accepted_at, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, NULL, ?, ?)`,
+          [company.id, user.id, project.id, description, date, date, i, now, now]
+        );
+      });
+    }
+
+    const team = queryAll(
+      'SELECT id, name, slug, initials, color, role, share_board FROM users WHERE company_id = ?',
+      [company.id]
+    );
+    res.status(201).json({ team });
+  } catch (err) {
+    console.error('Error seeding demo team:', err);
+    res.status(500).json({ error: 'Failed to create demo team' });
   }
 });
 
@@ -867,7 +1120,11 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
   `;
   const overdueParams = [user.id, today];
   if (req.query.project_id) {
-    overdueSql += ' AND project_id = ?';
+    // Awaiting handovers show on every board (see the read filter below), so
+    // they must also SPILL from every board — a project-scoped spillover
+    // would leave a cross-project inbox row stranded on a past date the
+    // frontend never renders.
+    overdueSql += ' AND (project_id = ? OR (assigned_by IS NOT NULL AND accepted_at IS NULL))';
     overdueParams.push(parseInt(req.query.project_id));
   }
   overdueSql += ' ORDER BY scheduled_date';
@@ -908,6 +1165,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.completed,
       t.completed_at,
       t.assigned_by,
+      t.accepted_at,
       t.project_id,
       t.created_at,
       t.updated_at,
@@ -922,7 +1180,13 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     // shows on every board, since your 2pm dentist appointment constrains
     // whatever board you happen to be looking at. This is the only place that
     // NULL is meaningful — do not "repair" those rows to a project.
-    taskSql += " AND (t.project_id = ? OR t.source = 'calendar')";
+    //
+    // Awaiting handovers get the same treatment for the same reason: the task
+    // someone sent you lands under the SENDER's project, which may be a board
+    // you never look at — an inbox item hidden behind a tab is not an inbox.
+    // The moment you accept (or return) it, the row settles onto that
+    // project's board alone.
+    taskSql += " AND (t.project_id = ? OR t.source = 'calendar' OR (t.assigned_by IS NOT NULL AND t.accepted_at IS NULL AND t.completed = 0))";
     taskParams.push(parseInt(req.query.project_id));
   }
   taskSql += ' ORDER BY t.scheduled_date, t.created_at';
@@ -1007,6 +1271,14 @@ app.put('/api/tasks/:taskId', (req, res) => {
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
+  }
+
+  // A task somebody handed you is not yours until you take it. Ticking it off
+  // while it still sits unanswered would report work done on something you
+  // never agreed to — so the two answers an inbox row has are accept and
+  // return, and the server holds that line rather than only the UI.
+  if (completed && isAwaitingAcceptance(task)) {
+    return res.status(409).json({ error: 'Accept this task before completing it' });
   }
 
   const updates = [];
@@ -1094,6 +1366,7 @@ app.put('/api/tasks/:taskId', (req, res) => {
         t.completed,
         t.completed_at,
         t.assigned_by,
+        t.accepted_at,
         t.project_id,
         t.created_at,
         t.updated_at,
@@ -1185,6 +1458,7 @@ app.post('/api/tasks/:taskId/link', (req, res) => {
         t.completed,
         t.completed_at,
         t.assigned_by,
+        t.accepted_at,
         t.project_id,
         t.created_at,
         t.updated_at,
@@ -1232,6 +1506,7 @@ app.post('/api/tasks/:taskId/unlink', (req, res) => {
         t.completed,
         t.completed_at,
         t.assigned_by,
+        t.accepted_at,
         t.project_id,
         t.created_at,
         t.updated_at,
@@ -1267,15 +1542,73 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
     return res.status(404).json({ error: 'Target user not found' });
   }
 
+  // An imported event is regenerated by the feed; moving the row to another
+  // board would just duplicate it on the owner's next sync. (No UI offers
+  // this — the guard matches the PUT route's lock/repeat refusals.)
+  if (task.source === 'calendar') {
+    return res.status(400).json({ error: 'Calendar events cannot be assigned' });
+  }
+
   try {
     // Assigning moves the task to another board — it leaves its series.
     spliceOutOfChain(task);
 
+    // The task must land on a board the recipient can actually see once they
+    // accept it: while awaiting it shows everywhere, but acceptance settles it
+    // onto its project — so a project the recipient isn't a member of would
+    // make the row unreachable the moment they say yes. A task with no project
+    // at all (a step handed over from a calendar row) adopts the recipient's
+    // first board for the same reason.
+    let projectId = task.project_id;
+    if (projectId) {
+      const isMember = queryOne('SELECT id FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, to_user_id]);
+      if (!isMember) {
+        runSql('INSERT INTO project_members (project_id, user_id) VALUES (?, ?)', [projectId, to_user_id]);
+      }
+    } else {
+      const firstBoard = queryOne(`
+        SELECT p.id FROM projects p
+        JOIN project_members pm ON pm.project_id = p.id
+        WHERE pm.user_id = ?
+        ORDER BY CASE WHEN pm.position IS NULL THEN 1 ELSE 0 END, pm.position, p.created_at
+        LIMIT 1
+      `, [to_user_id]);
+      projectId = firstBoard ? firstBoard.id : null;
+    }
+
+    // accepted_at back to NULL: however this row got here, it is now sitting
+    // in someone else's inbox unanswered. Re-assigning an already-accepted
+    // task has to reset that or the new owner inherits the old one's answer.
+    const now = new Date().toISOString();
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, accepted_at = NULL, project_id = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
       WHERE id = ?
-    `, [to_user_id, task.owner_id, scheduled_date, new Date().toISOString(), taskId]);
+    `, [to_user_id, task.owner_id, projectId, scheduled_date, now, taskId]);
+
+    // If this task is itself a handed-over step, keep the sender's pane chip
+    // pointed at whoever actually holds it now — Margo passing it on to Jay
+    // must not leave the chip reading "Margo · not accepted yet". And if the
+    // chain lands it back on the original sender's own board, the step is
+    // simply home: clear the chip rather than have their pane report
+    // "Kevin has it" to Kevin.
+    const linkedStep = queryOne(`
+      SELECT s.id, pt.owner_id as sender_id
+      FROM subtasks s JOIN tasks pt ON s.task_id = pt.id
+      WHERE s.assigned_task_id = ?
+    `, [taskId]);
+    if (linkedStep) {
+      if (linkedStep.sender_id === parseInt(to_user_id)) {
+        runSql('UPDATE subtasks SET assigned_to = NULL, assigned_by = NULL, updated_at = ? WHERE parent_subtask_id = ? AND assigned_to IS NOT NULL',
+          [now, linkedStep.id]);
+        runSql('UPDATE subtasks SET assigned_to = NULL, assigned_by = NULL, assigned_task_id = NULL, updated_at = ? WHERE id = ?',
+          [now, linkedStep.id]);
+      } else {
+        runSql('UPDATE subtasks SET assigned_to = ?, updated_at = ? WHERE id = ?', [to_user_id, now, linkedStep.id]);
+        runSql('UPDATE subtasks SET assigned_to = ?, updated_at = ? WHERE parent_subtask_id = ? AND assigned_to IS NOT NULL',
+          [to_user_id, now, linkedStep.id]);
+      }
+    }
 
     const updated = queryOne(`
       SELECT 
@@ -1286,6 +1619,7 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
         t.completed,
         t.completed_at,
         t.assigned_by,
+        t.accepted_at,
         t.owner_id,
         t.created_at,
         t.updated_at,
@@ -1299,6 +1633,40 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
   } catch (err) {
     console.error('Error assigning task:', err);
     res.status(500).json({ error: 'Failed to assign task' });
+  }
+});
+
+// Accept a task that was assigned to you.
+// The third answer the flow was missing: until this fires, the row sits on the
+// recipient's board as an inbox item — not draggable, not completable, and
+// visibly someone else's question. Accepting is what turns it into their work.
+app.post('/api/tasks/:taskId/accept', (req, res) => {
+  const { taskId } = req.params;
+
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  if (!task.assigned_by) return res.status(400).json({ error: 'Task was not assigned, nothing to accept' });
+  if (task.accepted_at) return res.status(409).json({ error: 'Already accepted' });
+
+  try {
+    runSql('UPDATE tasks SET accepted_at = ?, updated_at = ? WHERE id = ?',
+      [new Date().toISOString(), new Date().toISOString(), taskId]);
+
+    const updated = queryOne(`
+      SELECT
+        t.id, t.description, t.scheduled_date, t.origin_date, t.completed,
+        t.completed_at, t.assigned_by, t.accepted_at, t.owner_id, t.project_id,
+        t.created_at, t.updated_at,
+        u.name as assigned_by_name
+      FROM tasks t
+      LEFT JOIN users u ON t.assigned_by = u.id
+      WHERE t.id = ?
+    `, [taskId]);
+
+    res.json(updated);
+  } catch (err) {
+    console.error('Error accepting task:', err);
+    res.status(500).json({ error: 'Failed to accept task' });
   }
 });
 
@@ -1320,11 +1688,38 @@ app.post('/api/tasks/:taskId/return', (req, res) => {
   const originalAssignerId = task.assigned_by;
 
   try {
+    // Returning IS an answer, so the row lands back on the sender's board
+    // already accepted. Leaving accepted_at NULL would hand them an inbox item
+    // for a task that was theirs to begin with.
+    const now = new Date().toISOString();
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, accepted_at = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
       WHERE id = ?
-    `, [originalAssignerId, currentOwnerId, scheduled_date || task.scheduled_date, new Date().toISOString(), taskId]);
+    `, [originalAssignerId, currentOwnerId, now, scheduled_date || task.scheduled_date, now, taskId]);
+
+    // If this task was a handed-over step, keep the sender's pane truthful.
+    // Two cases: returned all the way home (the new owner IS the pane's
+    // owner) — the step and its dependents go back to unassigned; or returned
+    // mid-chain (Jay hands it back to Margo, who passed it on) — someone
+    // still holds it, so the chip follows to the new holder instead.
+    const linkedStep = queryOne(`
+      SELECT s.id, pt.owner_id as sender_id
+      FROM subtasks s JOIN tasks pt ON s.task_id = pt.id
+      WHERE s.assigned_task_id = ?
+    `, [taskId]);
+    if (linkedStep) {
+      if (linkedStep.sender_id === originalAssignerId) {
+        runSql('UPDATE subtasks SET assigned_to = NULL, assigned_by = NULL, updated_at = ? WHERE parent_subtask_id = ? AND assigned_to IS NOT NULL',
+          [now, linkedStep.id]);
+        runSql('UPDATE subtasks SET assigned_to = NULL, assigned_by = NULL, assigned_task_id = NULL, updated_at = ? WHERE id = ?',
+          [now, linkedStep.id]);
+      } else {
+        runSql('UPDATE subtasks SET assigned_to = ?, updated_at = ? WHERE id = ?', [originalAssignerId, now, linkedStep.id]);
+        runSql('UPDATE subtasks SET assigned_to = ?, updated_at = ? WHERE parent_subtask_id = ? AND assigned_to IS NOT NULL',
+          [originalAssignerId, now, linkedStep.id]);
+      }
+    }
 
     const updated = queryOne(`
       SELECT 
@@ -1335,6 +1730,7 @@ app.post('/api/tasks/:taskId/return', (req, res) => {
         t.completed,
         t.completed_at,
         t.assigned_by,
+        t.accepted_at,
         t.owner_id,
         t.created_at,
         t.updated_at,
@@ -1425,15 +1821,32 @@ app.get('/api/tasks/:taskId/subtasks', (req, res) => {
   const task = queryOne('SELECT id FROM tasks WHERE id = ?', [taskId]);
   if (!task) return res.status(404).json({ error: 'Task not found' });
 
+  // The two joins carry the handover back to the sender's pane: who holds the
+  // step, and whether they have answered yet. `assignment_state` is derived
+  // here rather than in the client so one definition of "awaiting" serves both
+  // ends of the flow.
   const subtasks = queryAll(`
-    SELECT id, task_id, parent_subtask_id, description, assignee_type,
-           assigned_to, assigned_by, sort_order, provisional, researched, completed, completed_at,
-           cost_kind, cost_low, cost_high, cost_unit, cost_basis, cost_source_url,
-           cost_confidence, cost_as_of,
-           created_at, updated_at
-    FROM subtasks
-    WHERE task_id = ?
-    ORDER BY sort_order, created_at
+    SELECT s.id, s.task_id, s.parent_subtask_id, s.description, s.assignee_type,
+           s.assigned_to, s.assigned_by, s.assigned_task_id, s.sort_order,
+           s.provisional, s.researched, s.completed, s.completed_at,
+           s.cost_kind, s.cost_low, s.cost_high, s.cost_unit, s.cost_basis,
+           s.cost_source_url, s.cost_confidence, s.cost_as_of,
+           s.created_at, s.updated_at,
+           a.name as assigned_to_name,
+           a.initials as assigned_to_initials,
+           a.color as assigned_to_color,
+           CASE
+             WHEN s.assigned_to IS NULL THEN NULL
+             WHEN ht.id IS NULL THEN 'assigned'
+             WHEN ht.completed = 1 THEN 'done'
+             WHEN ht.accepted_at IS NULL THEN 'awaiting'
+             ELSE 'accepted'
+           END as assignment_state
+    FROM subtasks s
+    LEFT JOIN users a ON s.assigned_to = a.id
+    LEFT JOIN tasks ht ON s.assigned_task_id = ht.id
+    WHERE s.task_id = ?
+    ORDER BY s.sort_order, s.created_at
   `, [taskId]);
 
   res.json(subtasks);
@@ -1759,11 +2172,32 @@ app.post('/api/subtasks/:subtaskId/assign', (req, res) => {
     runSql(`UPDATE subtasks SET assigned_to = ?, assigned_by = ?, updated_at = ? WHERE id = ?`,
       [to_user_id, task.owner_id, new Date().toISOString(), subtaskId]);
 
-    // Create a task on the assignee's board
+    // A step handed over from a calendar row has no project (calendar rows
+    // are project_id NULL by design). The handover task needs one — once the
+    // recipient accepts, it settles onto its project's board, and a NULL
+    // there would make it unreachable — so it adopts their first board.
+    let handoverProjectId = task.project_id;
+    if (!handoverProjectId) {
+      const firstBoard = queryOne(`
+        SELECT p.id FROM projects p
+        JOIN project_members pm ON pm.project_id = p.id
+        WHERE pm.user_id = ?
+        ORDER BY CASE WHEN pm.position IS NULL THEN 1 ELSE 0 END, pm.position, p.created_at
+        LIMIT 1
+      `, [to_user_id]);
+      handoverProjectId = firstBoard ? firstBoard.id : null;
+    }
+
+    // Create a task on the assignee's board. accepted_at is left NULL, so it
+    // arrives as an inbox item rather than as work they are already doing.
     const newTask = runSql(
       'INSERT INTO tasks (company_id, owner_id, project_id, assigned_by, description, scheduled_date, origin_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [task.company_id, to_user_id, task.project_id, task.owner_id, subtask.description, scheduled_date, scheduled_date]
+      [task.company_id, to_user_id, handoverProjectId, task.owner_id, subtask.description, scheduled_date, scheduled_date]
     );
+    // Hold on to the id: it is what lets this step's row in the sender's pane
+    // report "Margo has it, not yet accepted" without matching on description
+    // text, and what lets a return by the recipient un-assign the step here.
+    runSql('UPDATE subtasks SET assigned_task_id = ? WHERE id = ?', [newTask.lastInsertRowid, subtaskId]);
 
     // Auto-add assignee to project if not already a member
     if (task.project_id) {
@@ -2270,10 +2704,12 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
 
   const result = projects.map(project => {
     const tasks = queryAll(`
-      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.priority, t.position, t.locked, t.repeat_rule,
+      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.accepted_at, t.priority, t.position, t.locked, t.repeat_rule,
+        u.name as assigned_by_name,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id) as subtask_count,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id AND completed = 1) as completed_subtask_count
       FROM tasks t
+      LEFT JOIN users u ON t.assigned_by = u.id
       WHERE t.project_id = ? AND t.owner_id = ? AND t.completed = 0
       ORDER BY t.scheduled_date,
                CASE WHEN t.position IS NULL THEN 1 ELSE 0 END, t.position,

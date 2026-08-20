@@ -68,14 +68,48 @@ Response: { id, name, subdomain, created_at }
 #### List all users in company
 ```
 GET /api/companies/:subdomain/users
-Response: [{ id, name, slug, initials, color, created_at }, ...]
+Response: [{ id, name, slug, initials, color, role, share_board, created_at }, ...]
 ```
+`role` is display-only ("Accounting", "CTO", ...); nothing branches on it.
+`share_board` (0/1) is whether this person's board is open to the team.
 
 #### Get user by slug
 ```
 GET /api/companies/:subdomain/users/:slug
-Response: { id, name, slug, initials, color, created_at }
+Response: { id, name, slug, initials, color, role, share_board, created_at }
 ```
+
+#### Share / unshare your board
+```
+PUT /api/companies/:subdomain/users/:slug/share
+Body: { "share_board": true }
+Response: { id, share_board }
+```
+Gates the shared-board route below. With no auth this is a product rule, not a
+security boundary — it is the seam real permissions go in when auth lands.
+
+#### Read a teammate's shared board
+```
+GET /api/companies/:subdomain/users/:slug/shared-board?days=7
+Response: { user, today, days, tasks: [...] }
+  403  that user has not shared their board
+```
+Read-only in the strongest sense: runs **no spillover and no calendar sync** —
+looking at someone's board must never move anything on it. Not filtered by
+project (the question is "what is Margo on this week", whatever board it's
+from). Open past-due rows come back folded onto today; `days` clamps to 1–30
+(default 7). Each task carries `assigned_by_name`, `accepted_at` and
+`project_name` so the viewer can see what is still awaiting an answer.
+
+#### Seed the demo team
+```
+POST /api/companies/:subdomain/demo-team
+Response: { team: [all users] }  (201)
+```
+Creates Margo (Accounting), Jay (Product Marketing) and Yarwen (CTO), each with
+`share_board = 1`, a board of their own and a plausible seeded week. Idempotent
+two ways: an existing teammate is reused (picking up role + sharing), and a
+week is only seeded onto an empty board.
 
 #### Create user (for task assignment)
 ```
@@ -257,6 +291,23 @@ POST /api/tasks/:taskId/assign
 Body: { "to_user_id": 2, "scheduled_date": "2024-12-20" }
 Response: { updated task }
 ```
+Rewrites `owner_id` (the row moves boards), clears lock/repeat, splices the
+task out of any series, and **resets `accepted_at` to NULL** — it lands on the
+recipient's board as an inbox row, awaiting their answer.
+
+#### Accept an assigned task
+```
+POST /api/tasks/:taskId/accept
+Response: { updated task }
+  400  the task was never assigned
+  409  already accepted
+```
+Sets `accepted_at`. Until then the row is "awaiting": the server refuses
+`completed: true` on it (409 from `PUT /api/tasks/:id`), and the frontend
+withholds every affordance except accept and return. Awaiting rows also show
+on **every** board of the recipient (like calendar rows) — an inbox item
+hidden behind a project tab is not an inbox; accepting settles the row onto
+its own project's board.
 
 #### Return task to sender
 ```
@@ -264,6 +315,10 @@ POST /api/tasks/:taskId/return
 Body: { "scheduled_date": "2024-12-20" }
 Response: { updated task }
 ```
+Returning **is** an answer: the row lands back on the sender's board already
+accepted (labelled "from ..."), not as a fresh inbox item. If the task was a
+handed-over subtask, that step in the sender's pane is un-assigned again
+(`assigned_task_id` is how the two are linked).
 
 #### Delete task
 ```

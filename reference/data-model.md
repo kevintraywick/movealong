@@ -17,6 +17,8 @@
 | slug       | TEXT     | "alice", UNIQUE per company |
 | initials   | TEXT     | "K" or "KT"     |
 | color      | TEXT     | hex color        |
+| role       | TEXT     | Display only ("Accounting", "CTO"); nothing branches on it. Shown in the team roster and the shared-board banner |
+| share_board| INTEGER  | 0 or 1, default 0. Whether this board is open to the team; the shared-board route 403s without it. A product rule, not a security boundary (no auth) — the seam real permissions go in |
 | created_at | DATETIME | auto             |
 
 ## tasks
@@ -26,6 +28,7 @@
 | company_id     | INTEGER  | FK → companies   |
 | owner_id       | INTEGER  | FK → users (whose board) |
 | assigned_by    | INTEGER  | FK → users, nullable |
+| accepted_at    | DATETIME | When the recipient accepted an assigned task. **NULL + assigned_by set = "awaiting"**: an inbox row, neither accepted nor returned — the server refuses `completed: true` on it, the frontend withholds every affordance but accept/return, and it shows on every board of the recipient (like calendar rows). Assign resets it to NULL; accept stamps it; **return also stamps it** (returning is an answer — the sender must not get an inbox item for their own task back). Backfilled to `updated_at` on the migrating boot so pre-feature assignments don't retroactively appear unanswered |
 | description    | TEXT     |                  |
 | scheduled_date | DATE     | when locked, this IS the lock date |
 | origin_date    | DATE     | day the task was first requested for; never changes (spillover, → moves, assign/return all preserve it). Drives the days-pushed counter: inclusive days from origin to max(scheduled, today), hidden when 1 |
@@ -54,6 +57,7 @@ Steps under a task. Only the columns that carry non-obvious behaviour:
 | parent_subtask_id | INTEGER | FK → subtasks, ON DELETE CASCADE. Dependents render indented. Promoting a row lifts its dependents to its own parent first, or the cascade would destroy them |
 | provisional | INTEGER | 0 or 1. Set by phase 1 **only when phase 2 will actually run**; the research pass rewrites the row in place and clears it. Renders greyed. Cleared on research failure and on boot, or rows stay greyed forever and the frontend polls for a result that is never coming |
 | researched | INTEGER | 0 or 1. Marks a row the research pass actually rewrote; those render light blue |
+| assigned_task_id | INTEGER | FK → tasks, ON DELETE SET NULL. The task created on the assignee's board when this step was handed over. It is what lets the sender's pane derive `assignment_state` ('awaiting'/'accepted'/'done') without matching description text, and what lets a return un-assign the step |
 | completed | INTEGER | Completed rows leave the pane (the server keeps them for the List view's n/m count). There is no delete affordance, so ticking a step off is the only way to free one of the pane's 7 slots |
 | cost_kind | TEXT | `'material'` / `'labor'` / `'service'` — or `'none'` (research ran, the step spends nothing) or **NULL** (unknown: never researched, or the estimate fell below `COST_MIN_CONFIDENCE`). The pane total shows `≥` when any pending row is NULL, so the none/NULL split is load-bearing, not cosmetic |
 | cost_low / cost_high | REAL | Whole-dollar range. Never a point estimate; `ai.js` orders the bounds so a reversed answer can't render as "$130–$90" |
@@ -124,4 +128,5 @@ One subscribed iCal feed per user (`user_id` is UNIQUE).
 - `idx_tasks_parent` on tasks(parent_task_id)
 - `idx_tasks_external` on tasks(owner_id, external_uid)
 - `idx_calendar_feeds_user` on calendar_feeds(user_id)
+- `idx_tasks_assigned_by` on tasks(assigned_by)
 - `idx_companies_subdomain` on companies(subdomain)
