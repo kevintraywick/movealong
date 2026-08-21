@@ -2360,6 +2360,85 @@
             font-style: normal;
         }
 
+        /* ============================================
+           REVIEW — a teammate finished it, your move
+           ============================================
+           Blue where the awaiting row is amber: amber is their unanswered
+           question, blue is yours. Not greyed, circle empty — this is not a
+           done deal until you say so. All the answers sit on the row
+           permanently, same rule as the awaiting row. */
+        .review-label {
+            font-size: 10px;
+            color: #94a3b8;
+            padding: 6px 2px 2px;
+        }
+
+        .task-item.review {
+            background: #f0f9ff;
+            box-shadow: inset 3px 0 0 #38bdf8;
+            padding-left: 8px;
+        }
+
+        .task-item.review:hover {
+            background: #e0f2fe;
+        }
+
+        .task-item.review .assigned-from,
+        .project-task-item.review .assigned-from {
+            color: #0284c7;
+            font-style: normal;
+        }
+
+        .project-task-item.review {
+            background: #f0f9ff;
+            box-shadow: inset 3px 0 0 #38bdf8;
+        }
+
+        .project-task-item.review .project-task-desc { cursor: pointer; }
+
+        .task-item.review .task-description {
+            cursor: pointer;
+        }
+
+        .task-item.review .task-reclaim,
+        .task-item.review .task-send,
+        .task-item.review .task-sendback {
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 11px;
+            flex-shrink: 0;
+            opacity: 1;
+            transition: all 0.15s;
+            border: 1px solid #bae6fd;
+            background: #ffffff;
+            color: #0284c7;
+            user-select: none;
+        }
+
+        .task-item.review .task-reclaim:hover,
+        .task-item.review .task-send:hover {
+            background: #0ea5e9;
+            border-color: #0ea5e9;
+            color: #ffffff;
+        }
+
+        .task-item.review .task-sendback {
+            border-color: #fde68a;
+            background: #fffbeb;
+            color: #b45309;
+        }
+
+        .task-item.review .task-sendback:hover {
+            background: #f59e0b;
+            border-color: #f59e0b;
+            color: #ffffff;
+        }
+
         /* Where a handed-over step went, in the sender's pane. The state is
            the point — "Margo has it" and "Margo has taken it on" are different
            answers to the question you opened the pane to ask. */
@@ -2839,6 +2918,32 @@
         }
         body.dark .task-item.awaiting .task-return:hover,
         body.dark .project-task-item.awaiting .task-return:hover { background: #f59e0b; border-color: #f59e0b; color: #0f172a; }
+        body.dark .review-label { color: #64748b; }
+        body.dark .task-item.review {
+            background: rgba(14, 165, 233, 0.10);
+            box-shadow: inset 3px 0 0 #0284c7;
+        }
+        body.dark .task-item.review:hover { background: rgba(14, 165, 233, 0.18); }
+        body.dark .task-item.review .assigned-from,
+        body.dark .project-task-item.review .assigned-from { color: #38bdf8; }
+        body.dark .project-task-item.review {
+            background: rgba(14, 165, 233, 0.10);
+            box-shadow: inset 3px 0 0 #0284c7;
+        }
+        body.dark .task-item.review .task-reclaim,
+        body.dark .task-item.review .task-send {
+            background: rgba(14, 165, 233, 0.12);
+            border-color: #0369a1;
+            color: #38bdf8;
+        }
+        body.dark .task-item.review .task-reclaim:hover,
+        body.dark .task-item.review .task-send:hover { background: #0ea5e9; border-color: #0ea5e9; color: #0f172a; }
+        body.dark .task-item.review .task-sendback {
+            background: rgba(245, 158, 11, 0.12);
+            border-color: #b45309;
+            color: #fbbf24;
+        }
+        body.dark .task-item.review .task-sendback:hover { background: #f59e0b; border-color: #f59e0b; color: #0f172a; }
         body.dark .subtask-handoff .handoff-state { color: #94a3b8; }
         body.dark .subtask-handoff.awaiting .handoff-state { color: #fbbf24; }
         body.dark .subtask-handoff.accepted .handoff-state { color: #38bdf8; }
@@ -3796,6 +3901,14 @@
             return !!task && !!task.assigned_by && !task.accepted_at;
         }
 
+        // A teammate finished this and it is back for YOUR review: pending,
+        // with completed_by set. Ticking the circle accepts the work, ↑
+        // reclaims it onto your list, ↩ sends it back to whoever did it, and
+        // 👤 sends it to someone else.
+        function isReview(task) {
+            return !!task && !task.completed && !!task.completed_by && !isAwaiting(task);
+        }
+
         async function acceptTask(taskId) {
             try {
                 const updated = await api(`/tasks/${taskId}/accept`, { method: 'POST', body: {} });
@@ -3822,6 +3935,33 @@
             } catch (err) {
                 showToast('Error: ' + err.message);
             }
+        }
+
+        // ↑ on a review row: the work needs more from you — take it back onto
+        // your own pending list. completed: false also clears completed_by
+        // server-side, so the row becomes plainly yours (still "(from: X)").
+        async function reclaimTask(taskId) {
+            try {
+                await api(`/tasks/${taskId}`, { method: 'PUT', body: { completed: false } });
+                await loadTasks();
+                renderView();
+                showToast('Back on your list');
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        // ↩ on a review row: not done yet — send it back to whoever did it.
+        // Deliberately the ASSIGN route, not the return route: assigning
+        // re-arms return_when_done (so their next completion comes back for
+        // review again) and lands it as an inbox row they must accept.
+        async function sendBackTask(taskId, toUserId) {
+            const member = allUsers.find(u => u.id === toUserId);
+            const name = member ? member.name : 'them';
+            if (!toUserId) { showToast('No one to send it back to'); return; }
+            if (!confirm(`Send this back to ${name}?`)) return;
+            await assignTaskToMember(taskId, toUserId);
+            showToast(member && member.is_ai ? `${name} is on it again` : `Sent back to ${name}`);
         }
 
         async function returnTask(taskId) {
@@ -4738,7 +4878,8 @@
                 const dayTasks = myTasks.filter(t => t.scheduled_date === day.key);
                 // Priority sorts the pending list only — the completed and
                 // assigned sections below the divider keep their own order.
-                const pendingTasks = sortByPosition(dayTasks.filter(t => !t.completed && !t.assigned_to_id));
+                const pendingTasks = sortByPosition(dayTasks.filter(t => !t.completed && !t.assigned_to_id && !isReview(t)));
+                const reviewTasks = dayTasks.filter(t => isReview(t) && !t.assigned_to_id);
                 const completedTasks = dayTasks.filter(t => t.completed);
                 const assignedTasks = dayTasks.filter(t => t.assigned_to_id && !t.completed);
 
@@ -4768,6 +4909,17 @@
                             <span class="hint-dismiss" title="Dismiss">&#10005;</span>
                         </div>
                     `;
+                }
+
+                // Done by teammates, awaiting review — its own section above
+                // the completed one. NOT hidden by focus mode: unlike a
+                // finished task, a review row is your move.
+                if (reviewTasks.length > 0) {
+                    tasksHtml += `
+                        <div class="review-section">
+                            <div class="review-label">Done by teammates</div>
+                            ${reviewTasks.map(t => renderTask(t)).join('')}
+                        </div>`;
                 }
 
                 // Divider + completed. Focus mode hides completed rows outright
@@ -4982,6 +5134,28 @@
                     e.stopPropagation();
                     const row = desc.closest('.task-item');
                     if (row) window.open(`/task/${row.dataset.id}`, '_blank', 'noopener');
+                });
+            });
+
+            // Review rows: the text opens the task page — the results are
+            // what you came to read — and the three answers beside the circle.
+            boardEl.querySelectorAll('.task-description[data-review-id]').forEach(desc => {
+                desc.addEventListener('click', (e) => {
+                    if (e.target.closest('a.task-link')) return;
+                    e.stopPropagation();
+                    window.open(`/task/${desc.dataset.reviewId}`, '_blank', 'noopener');
+                });
+            });
+            boardEl.querySelectorAll('.task-reclaim[data-task-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    reclaimTask(parseInt(btn.dataset.taskId));
+                });
+            });
+            boardEl.querySelectorAll('.task-sendback[data-task-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    sendBackTask(parseInt(btn.dataset.taskId), parseInt(btn.dataset.toId));
                 });
             });
 
@@ -5592,7 +5766,7 @@
             // `.awaiting` joins the exclusions for the same reason as the rest:
             // reordering, repeating or moving a row you have not accepted acts
             // on someone else's question.
-            if (row.classList.contains('completed') || row.classList.contains('forwarded') || row.classList.contains('placeholder') || row.classList.contains('awaiting')) return null;
+            if (row.classList.contains('completed') || row.classList.contains('forwarded') || row.classList.contains('placeholder') || row.classList.contains('awaiting') || row.classList.contains('review')) return null;
             // Calendar events are force-sorted to the top and are not reorderable.
             if (row.classList.contains('calendar')) return null;
             const id = parseInt(row.dataset.id, 10);
@@ -5625,7 +5799,7 @@
             // math would write positions the server (rightly) discards and
             // desync the optimistic repaint from the persisted order.
             return sortByPosition(tasks.filter(t =>
-                t.scheduled_date === dateKey && !t.completed && !t.assigned_to_id && t.source !== 'calendar' && !isAwaiting(t)));
+                t.scheduled_date === dateKey && !t.completed && !t.assigned_to_id && t.source !== 'calendar' && !isAwaiting(t) && !isReview(t)));
         }
 
         // Writes are chained per day so two fast reorders can't land out of
@@ -5778,6 +5952,27 @@
                         <div class="task-description" title="${escapeHtml(task.assigned_by_name || 'A teammate')} sent you this · Option+Click opens its page">${linkifyText(task.description)} <span class="assigned-from">from ${escapeHtml(task.assigned_by_name || 'a teammate')}</span></div>
                         <div class="task-accept" data-task-id="${task.id}" title="Accept — put this on your board">&check;</div>
                         <div class="task-return" data-task-id="${task.id}" title="Return to ${escapeHtml(task.assigned_by_name || 'sender')}">&cularr;</div>
+                    </div>
+                `;
+            }
+
+            // Back from a teammate, finished, awaiting YOUR review. Not
+            // greyed and the circle is empty — this is your move, not a done
+            // deal. Clicking the text opens the task page (the results are
+            // what you came to read); the circle accepts the completion; ↑
+            // reclaims it onto your list; 👤 sends it elsewhere; ↩ sends it
+            // back to whoever did it. All four answers permanently visible,
+            // same rule as the awaiting row: a question you must hover to
+            // answer isn't one the board is really asking.
+            if (isReview(task)) {
+                const who = escapeHtml(task.completed_by_name || 'a teammate');
+                return `
+                    <div class="task-item review" data-id="${task.id}">
+                        <div class="task-circle" data-task-id="${task.id}" title="Looks good — mark it completed"></div>
+                        <div class="task-description" data-review-id="${task.id}" title="Done by ${who} · click to review the results">${linkifyText(task.description)} <span class="assigned-from">done by ${who}</span></div>
+                        <div class="task-reclaim" data-task-id="${task.id}" title="More to do — take it back onto your list">&uarr;</div>
+                        <div class="task-send" data-task-id="${task.id}" title="Send to a teammate or AI assistant">&#128100;</div>
+                        <div class="task-sendback" data-task-id="${task.id}" data-to-id="${task.assigned_by || ''}" title="Send back to ${who}">&cularr;</div>
                     </div>
                 `;
             }
@@ -6141,6 +6336,20 @@
                                     </div>
                                 `;
                             }
+                            // Review rows: circle completes, the text opens
+                            // the task page (the results are the point). The
+                            // board is the full review surface — ↑/👤/↩ live
+                            // there; this one-line row keeps the two clicks.
+                            if (isReview(t)) {
+                                const who = escapeHtml(t.completed_by_name || 'a teammate');
+                                return `
+                                    <div class="project-task-item review" data-id="${t.id}">
+                                        <div class="task-circle" data-task-id="${t.id}" title="Looks good — mark it completed"></div>
+                                        <div class="project-task-desc" data-review-id="${t.id}" title="Done by ${who} · click to review the results">${linkifyText(t.description)} <span class="assigned-from">done by ${who}</span></div>
+                                        <span class="project-task-date">${t.scheduled_date}</span>
+                                    </div>
+                                `;
+                            }
                             const progress = t.subtask_count > 0
                                 ? `<span class="subtask-progress">${t.completed_subtask_count}/${t.subtask_count}</span>`
                                 : '';
@@ -6188,6 +6397,14 @@
                 container.querySelectorAll('.task-circle[data-task-id]').forEach(circle => {
                     circle.addEventListener('click', () => {
                         toggleComplete(parseInt(circle.dataset.taskId));
+                    });
+                });
+
+                container.querySelectorAll('.project-task-desc[data-review-id]').forEach(desc => {
+                    desc.addEventListener('click', (e) => {
+                        if (e.target.closest('a.task-link')) return;
+                        e.stopPropagation();
+                        window.open(`/task/${desc.dataset.reviewId}`, '_blank', 'noopener');
                     });
                 });
 

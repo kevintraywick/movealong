@@ -10,7 +10,7 @@
 - [x] Shared boards + team view (demo team: Margo, Jay, Yarwen)
 - [x] Whole-task forward gesture (👤 on the row) + Tessa the AI teammate (auto-accepts)
 - [x] Task pages (/task/:id) — background, notes feed, results; Option+Click on the task name
-- [x] Finished handovers come home — completed row lands on the sender's board, "done by X", no strikethrough
+- [x] Finished handovers come home for review — "Done by teammates" section; tick / reclaim ↑ / send back ↩ / reassign 👤
 - [x] Task return-to-sender flow
 - [x] User switcher for viewing other boards
 - [x] Keyboard navigation (arrow keys between days)

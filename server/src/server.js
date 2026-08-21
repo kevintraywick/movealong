@@ -1402,14 +1402,19 @@ app.put('/api/tasks/:taskId', (req, res) => {
         spawnNextRepeat(task);
       }
 
-      // Finished handed-over work comes home: the completed row moves back to
-      // the sender's board, dated the day it finished — that landing is the
+      // Finished handed-over work comes home FOR REVIEW: the row moves back
+      // to the sender's board, dated the day it finished, as a pending row
+      // with completed_by set — "review" IS that pair. The landing is the
       // "Margo finished it" notification, made of state rather than a
-      // message. Runs AFTER spawnNextRepeat so a repeat's next instance
-      // stays on the completer's board. Guarded by return_when_done (set at
-      // assign, cleared at return) because assigned_by alone cannot tell
-      // "work someone gave me" from "my work that came back" — bouncing a
-      // returned task onto its returner would be the exact wrong move.
+      // message, and because the row is pending it spills forward to today
+      // until the sender deals with it: tick the circle (it joins their
+      // completed), ↑ reclaim it (completed=false clears completed_by), or
+      // send it back / onward (the assign route re-arms return_when_done).
+      // Runs AFTER spawnNextRepeat so a repeat's next instance stays on the
+      // completer's board. Guarded by return_when_done (set at assign,
+      // cleared at return) because assigned_by alone cannot tell "work
+      // someone gave me" from "my work that came back" — bouncing a returned
+      // task onto its returner would be the exact wrong move.
       if (task.assigned_by && task.return_when_done) {
         const completerId = task.owner_id;
         const senderId = task.assigned_by;
@@ -1423,14 +1428,23 @@ app.put('/api/tasks/:taskId', (req, res) => {
         runSql(`
           UPDATE tasks
           SET owner_id = ?, assigned_by = ?, accepted_at = ?, completed_by = ?,
+              completed = 0, completed_at = NULL,
               return_when_done = 0, project_id = ?, scheduled_date = ?, updated_at = ?
           WHERE id = ?
         `, [senderId, completerId, now, completerId, homeProject, todayKeyFor(req), now, taskId]);
 
-        // If this was a handed-over step, the step in the sender's pane is
-        // done too — the finished row on their board and a still-pending step
-        // in the pane would be the same fact told two ways. Dependents that
-        // rode along at assign time complete with it.
+        // The linked step in the sender's pane does NOT complete here — the
+        // review can still end in a reclaim or a send-back. It completes
+        // when the sender accepts (ticks the review row), below. Until then
+        // the chip reads 'done' off completed_by.
+      }
+
+      // Accepting a review row (completing a task a teammate finished) is
+      // what completes the handed-over step in the sender's pane, dependents
+      // included — the accepted row and a still-pending step would be one
+      // fact told two ways.
+      if (task.completed_by) {
+        const now = new Date().toISOString();
         const linkedStep = queryOne('SELECT id FROM subtasks WHERE assigned_task_id = ?', [taskId]);
         if (linkedStep) {
           runSql('UPDATE subtasks SET completed = 1, completed_at = ?, updated_at = ? WHERE parent_subtask_id = ? AND assigned_to IS NOT NULL AND completed = 0',
@@ -1438,6 +1452,21 @@ app.put('/api/tasks/:taskId', (req, res) => {
           runSql('UPDATE subtasks SET completed = 1, completed_at = ?, updated_at = ? WHERE id = ? AND completed = 0',
             [now, now, linkedStep.id]);
         }
+      }
+    }
+
+    // Reclaiming (or reopening) a row a teammate finished takes the work
+    // back: if it was a handed-over step, the step in the sender's pane is
+    // theirs again — un-assign it and sever the link, or the pane would say
+    // "Margo has it" about work sitting on the sender's own board.
+    if (completed !== undefined && !completed && task.completed_by) {
+      const now = new Date().toISOString();
+      const linkedStep = queryOne('SELECT id FROM subtasks WHERE assigned_task_id = ?', [taskId]);
+      if (linkedStep) {
+        runSql('UPDATE subtasks SET assigned_to = NULL, assigned_by = NULL, updated_at = ? WHERE parent_subtask_id = ? AND assigned_to IS NOT NULL',
+          [now, linkedStep.id]);
+        runSql('UPDATE subtasks SET assigned_to = NULL, assigned_by = NULL, assigned_task_id = NULL, updated_at = ? WHERE id = ?',
+          [now, linkedStep.id]);
       }
     }
 
@@ -2060,7 +2089,7 @@ app.get('/api/tasks/:taskId/subtasks', (req, res) => {
            CASE
              WHEN s.assigned_to IS NULL THEN NULL
              WHEN ht.id IS NULL THEN 'assigned'
-             WHEN ht.completed = 1 THEN 'done'
+             WHEN ht.completed = 1 OR ht.completed_by IS NOT NULL THEN 'done'
              WHEN ht.accepted_at IS NULL THEN 'awaiting'
              ELSE 'accepted'
            END as assignment_state
@@ -2923,12 +2952,14 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
 
   const result = projects.map(project => {
     const tasks = queryAll(`
-      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.accepted_at, t.priority, t.position, t.locked, t.repeat_rule,
+      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.accepted_at, t.completed_by, t.priority, t.position, t.locked, t.repeat_rule,
         u.name as assigned_by_name,
+        cb.name as completed_by_name,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id) as subtask_count,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id AND completed = 1) as completed_subtask_count
       FROM tasks t
       LEFT JOIN users u ON t.assigned_by = u.id
+      LEFT JOIN users cb ON t.completed_by = cb.id
       WHERE t.project_id = ? AND t.owner_id = ? AND t.completed = 0
       ORDER BY t.scheduled_date,
                CASE WHEN t.position IS NULL THEN 1 ELSE 0 END, t.position,
