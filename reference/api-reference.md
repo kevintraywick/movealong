@@ -312,6 +312,14 @@ on **every** board of the recipient (like calendar rows) — an inbox item
 hidden behind a project tab is not an inbox; accepting settles the row onto
 its own project's board.
 
+#### Completion bounces finished handovers home
+Completing a task whose `return_when_done` is set (any task that arrived by
+assignment and was not returned) moves the completed row back to the sender's
+board via `PUT /api/tasks/:id { completed: true }` — dated the completer's
+today, `completed_by` stamped, landing on a board the sender belongs to, and
+auto-completing the linked subtask (+ dependents) in the sender's pane. The
+response's `owner_id` therefore changes; clients should refetch when it does.
+
 #### Return task to sender
 ```
 POST /api/tasks/:taskId/return

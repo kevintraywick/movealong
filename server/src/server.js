@@ -303,6 +303,21 @@ function isAwaitingAcceptance(task) {
   return !!task && !!task.assigned_by && !task.accepted_at;
 }
 
+// The user's first board, in their own tab order — where a task lands when it
+// arrives on their board with no project the app can show them (a handover
+// from a calendar row's step, or finished work coming home to a sender who
+// was never a member of the board it sat on).
+function firstBoardOf(userId) {
+  const row = queryOne(`
+    SELECT p.id FROM projects p
+    JOIN project_members pm ON pm.project_id = p.id
+    WHERE pm.user_id = ?
+    ORDER BY CASE WHEN pm.position IS NULL THEN 1 ELSE 0 END, pm.position, p.created_at
+    LIMIT 1
+  `, [userId]);
+  return row ? row.id : null;
+}
+
 // ============================================
 // COMPANY ROUTES
 // ============================================
@@ -590,10 +605,13 @@ app.get('/api/companies/:subdomain/users/:slug/shared-board', (req, res) => {
       t.id, t.description, t.scheduled_date, t.origin_date, t.completed,
       t.completed_at, t.assigned_by, t.accepted_at, t.project_id, t.locked,
       t.repeat_rule, t.source, t.event_start, t.position, t.created_at,
+      t.completed_by,
       u.name as assigned_by_name,
+      cb.name as completed_by_name,
       p.name as project_name
     FROM tasks t
     LEFT JOIN users u ON t.assigned_by = u.id
+    LEFT JOIN users cb ON t.completed_by = cb.id
     LEFT JOIN projects p ON t.project_id = p.id
     WHERE t.owner_id = ?
       AND t.scheduled_date <= ?
@@ -1183,12 +1201,15 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.completed_at,
       t.assigned_by,
       t.accepted_at,
+      t.completed_by,
       t.project_id,
       t.created_at,
       t.updated_at,
-      u.name as assigned_by_name
+      u.name as assigned_by_name,
+      cb.name as completed_by_name
     FROM tasks t
     LEFT JOIN users u ON t.assigned_by = u.id
+    LEFT JOIN users cb ON t.completed_by = cb.id
     WHERE t.owner_id = ?
   `;
   const taskParams = [user.id];
@@ -1340,6 +1361,11 @@ app.put('/api/tasks/:taskId', (req, res) => {
     values.push(completed ? 1 : 0);
     updates.push('completed_at = ?');
     values.push(completed ? new Date().toISOString() : null);
+    // Reopening a row someone else finished makes it plainly yours again —
+    // "done by Margo" must not linger on a task that is now pending.
+    if (!completed) {
+      updates.push('completed_by = NULL');
+    }
   }
 
   updates.push('updated_at = ?');
@@ -1367,6 +1393,44 @@ app.put('/api/tasks/:taskId', (req, res) => {
       if (task.repeat_rule) {
         spawnNextRepeat(task);
       }
+
+      // Finished handed-over work comes home: the completed row moves back to
+      // the sender's board, dated the day it finished — that landing is the
+      // "Margo finished it" notification, made of state rather than a
+      // message. Runs AFTER spawnNextRepeat so a repeat's next instance
+      // stays on the completer's board. Guarded by return_when_done (set at
+      // assign, cleared at return) because assigned_by alone cannot tell
+      // "work someone gave me" from "my work that came back" — bouncing a
+      // returned task onto its returner would be the exact wrong move.
+      if (task.assigned_by && task.return_when_done) {
+        const completerId = task.owner_id;
+        const senderId = task.assigned_by;
+        const now = new Date().toISOString();
+        // The row must land on a board the sender can actually see.
+        let homeProject = task.project_id;
+        if (!homeProject ||
+            !queryOne('SELECT id FROM project_members WHERE project_id = ? AND user_id = ?', [homeProject, senderId])) {
+          homeProject = firstBoardOf(senderId);
+        }
+        runSql(`
+          UPDATE tasks
+          SET owner_id = ?, assigned_by = ?, accepted_at = ?, completed_by = ?,
+              return_when_done = 0, project_id = ?, scheduled_date = ?, updated_at = ?
+          WHERE id = ?
+        `, [senderId, completerId, now, completerId, homeProject, todayKeyFor(req), now, taskId]);
+
+        // If this was a handed-over step, the step in the sender's pane is
+        // done too — the finished row on their board and a still-pending step
+        // in the pane would be the same fact told two ways. Dependents that
+        // rode along at assign time complete with it.
+        const linkedStep = queryOne('SELECT id FROM subtasks WHERE assigned_task_id = ?', [taskId]);
+        if (linkedStep) {
+          runSql('UPDATE subtasks SET completed = 1, completed_at = ?, updated_at = ? WHERE parent_subtask_id = ? AND assigned_to IS NOT NULL AND completed = 0',
+            [now, now, linkedStep.id]);
+          runSql('UPDATE subtasks SET completed = 1, completed_at = ?, updated_at = ? WHERE id = ? AND completed = 0',
+            [now, now, linkedStep.id]);
+        }
+      }
     }
 
     const updated = queryOne(`
@@ -1384,12 +1448,16 @@ app.put('/api/tasks/:taskId', (req, res) => {
         t.completed_at,
         t.assigned_by,
         t.accepted_at,
+        t.owner_id,
+        t.completed_by,
         t.project_id,
         t.created_at,
         t.updated_at,
-        u.name as assigned_by_name
+        u.name as assigned_by_name,
+        cb.name as completed_by_name
       FROM tasks t
       LEFT JOIN users u ON t.assigned_by = u.id
+      LEFT JOIN users cb ON t.completed_by = cb.id
       WHERE t.id = ?
     `, [taskId]);
 
@@ -1476,12 +1544,16 @@ app.post('/api/tasks/:taskId/link', (req, res) => {
         t.completed_at,
         t.assigned_by,
         t.accepted_at,
+        t.owner_id,
+        t.completed_by,
         t.project_id,
         t.created_at,
         t.updated_at,
-        u.name as assigned_by_name
+        u.name as assigned_by_name,
+        cb.name as completed_by_name
       FROM tasks t
       LEFT JOIN users u ON t.assigned_by = u.id
+      LEFT JOIN users cb ON t.completed_by = cb.id
       WHERE t.id = ?
     `, [taskId]);
 
@@ -1524,12 +1596,16 @@ app.post('/api/tasks/:taskId/unlink', (req, res) => {
         t.completed_at,
         t.assigned_by,
         t.accepted_at,
+        t.owner_id,
+        t.completed_by,
         t.project_id,
         t.created_at,
         t.updated_at,
-        u.name as assigned_by_name
+        u.name as assigned_by_name,
+        cb.name as completed_by_name
       FROM tasks t
       LEFT JOIN users u ON t.assigned_by = u.id
+      LEFT JOIN users cb ON t.completed_by = cb.id
       WHERE t.id = ?
     `, [taskId]);
 
@@ -1583,14 +1659,7 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
         runSql('INSERT INTO project_members (project_id, user_id) VALUES (?, ?)', [projectId, to_user_id]);
       }
     } else {
-      const firstBoard = queryOne(`
-        SELECT p.id FROM projects p
-        JOIN project_members pm ON pm.project_id = p.id
-        WHERE pm.user_id = ?
-        ORDER BY CASE WHEN pm.position IS NULL THEN 1 ELSE 0 END, pm.position, p.created_at
-        LIMIT 1
-      `, [to_user_id]);
-      projectId = firstBoard ? firstBoard.id : null;
+      projectId = firstBoardOf(to_user_id);
     }
 
     // accepted_at back to NULL: however this row got here, it is now sitting
@@ -1601,9 +1670,13 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
     // assistant's behalf would be an approval step this app exists to delete.
     const now = new Date().toISOString();
     const acceptedAt = toUser.is_ai ? now : null;
+    // return_when_done: when the recipient completes this, it comes home to
+    // the sender's board as a finished row — that landing is the "it's done"
+    // notification. completed_by resets: a re-assigned task is nobody's
+    // finished work yet.
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, accepted_at = ?, project_id = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, accepted_at = ?, return_when_done = 1, completed_by = NULL, project_id = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
       WHERE id = ?
     `, [to_user_id, task.owner_id, acceptedAt, projectId, scheduled_date, now, taskId]);
 
@@ -1711,11 +1784,13 @@ app.post('/api/tasks/:taskId/return', (req, res) => {
   try {
     // Returning IS an answer, so the row lands back on the sender's board
     // already accepted. Leaving accepted_at NULL would hand them an inbox item
-    // for a task that was theirs to begin with.
+    // for a task that was theirs to begin with. return_when_done clears too:
+    // the assignment episode is over, and a returned task completing later
+    // must stay put rather than bounce onto its returner's board.
     const now = new Date().toISOString();
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, accepted_at = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, accepted_at = ?, return_when_done = 0, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
       WHERE id = ?
     `, [originalAssignerId, currentOwnerId, now, scheduled_date || task.scheduled_date, now, taskId]);
 
@@ -2199,14 +2274,7 @@ app.post('/api/subtasks/:subtaskId/assign', (req, res) => {
     // there would make it unreachable — so it adopts their first board.
     let handoverProjectId = task.project_id;
     if (!handoverProjectId) {
-      const firstBoard = queryOne(`
-        SELECT p.id FROM projects p
-        JOIN project_members pm ON pm.project_id = p.id
-        WHERE pm.user_id = ?
-        ORDER BY CASE WHEN pm.position IS NULL THEN 1 ELSE 0 END, pm.position, p.created_at
-        LIMIT 1
-      `, [to_user_id]);
-      handoverProjectId = firstBoard ? firstBoard.id : null;
+      handoverProjectId = firstBoardOf(to_user_id);
     }
 
     // Create a task on the assignee's board. accepted_at is left NULL, so it
@@ -2216,7 +2284,7 @@ app.post('/api/subtasks/:subtaskId/assign', (req, res) => {
     const recipient = queryOne('SELECT is_ai FROM users WHERE id = ?', [to_user_id]);
     const acceptedAt = recipient && recipient.is_ai ? new Date().toISOString() : null;
     const newTask = runSql(
-      'INSERT INTO tasks (company_id, owner_id, project_id, assigned_by, description, scheduled_date, origin_date, accepted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      'INSERT INTO tasks (company_id, owner_id, project_id, assigned_by, description, scheduled_date, origin_date, accepted_at, return_when_done) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1)',
       [task.company_id, to_user_id, handoverProjectId, task.owner_id, subtask.description, scheduled_date, scheduled_date, acceptedAt]
     );
     // Hold on to the id: it is what lets this step's row in the sender's pane

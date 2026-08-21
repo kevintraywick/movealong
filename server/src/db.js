@@ -85,6 +85,8 @@ async function initDb() {
       project_id INTEGER,
       assigned_by INTEGER,
       accepted_at DATETIME,
+      return_when_done INTEGER DEFAULT 0,
+      completed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
       description TEXT NOT NULL,
       scheduled_date DATE NOT NULL,
       origin_date DATE,
@@ -269,6 +271,17 @@ async function initDb() {
   if (ensureColumn('tasks', 'accepted_at', 'DATETIME')) {
     db.run("UPDATE tasks SET accepted_at = updated_at WHERE assigned_by IS NOT NULL");
   }
+  // Set by both assign routes: when the recipient completes this task, it
+  // moves back to the sender's board as a finished row — the notification IS
+  // the work landing home. Cleared by return (the episode is over; a returned
+  // task completing afterwards stays put). Deliberately NOT backfilled: an
+  // old row can't tell "work someone gave me" from "my work that came back"
+  // (both carry assigned_by + accepted_at), and wrongly bouncing a returned
+  // task onto its returner's board is worse than old handovers not reporting.
+  ensureColumn('tasks', 'return_when_done', 'INTEGER DEFAULT 0');
+  // Who actually did the work, once it came home. What lets the sender's row
+  // read "done by Margo" and skip the strikethrough their own ticks get.
+  ensureColumn('tasks', 'completed_by', 'INTEGER REFERENCES users(id) ON DELETE SET NULL');
   // The task created on the assignee's board when this step was handed over.
   // It is what lets the sender's pane say "Margo has it, not yet accepted"
   // without hunting for a task by matching description text.

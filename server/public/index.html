@@ -326,6 +326,14 @@
             color: #94a3b8;
         }
 
+        /* Finished work that came home from a teammate: check in the circle,
+           greyed — but NO strikethrough. The strike is the mark of a task YOU
+           ticked off; this row is a report that someone else finished, and it
+           should read as news, not as your own crossed-out item. */
+        .task-item.completed.done-elsewhere .task-description {
+            text-decoration: none;
+        }
+
         /* Assigned (forwarded) task styling */
         .task-item.forwarded .task-circle {
             background: #f59e0b;
@@ -3542,6 +3550,11 @@
             const wasChained = chainInfo.has(taskId);
 
             try {
+                // The sender's name, read BEFORE the response lands: when a
+                // finished handover moves home, the server swaps assigned_by
+                // to the completer, so the pre-update row is the only place
+                // "who gets this back" is still written.
+                const senderName = task.assigned_by_name;
                 const updated = await api(`/tasks/${taskId}`, {
                     method: 'PUT',
                     body: { completed: willComplete }
@@ -3551,16 +3564,22 @@
                 if (willComplete) {
                     expandedTaskIds.delete(taskId);
                 }
+                // Finished handed-over work moves home server-side — the row
+                // is no longer on this board, so refetch, and say where it
+                // went rather than letting it silently vanish.
+                const wentHome = willComplete && updated.owner_id && currentUser && updated.owner_id !== currentUser.id;
                 // Completing a chained task splices it out server-side (its
                 // child re-links to its parent) — refetch so other rows'
                 // parent_task_id changes land locally. Completing a repeating
                 // task creates its next instance server-side, so that needs a
                 // refetch too or the new row stays invisible until reload.
-                if (willComplete && (wasChained || task.repeat_rule)) {
+                if (wentHome || (willComplete && (wasChained || task.repeat_rule))) {
                     await loadTasks();
                 }
                 renderView();
-                showToast(task.completed ? 'Task completed!' : 'Task reopened');
+                showToast(wentHome
+                    ? `Done — sent back to ${senderName || 'the sender'}`
+                    : (task.completed ? 'Task completed!' : 'Task reopened'));
             } catch (err) {
                 showToast('Error: ' + err.message);
             }
@@ -5743,7 +5762,12 @@
                 `;
             }
 
-            const assignedLabel = task.assigned_by_name ? ` <span class="assigned-from">(from: ${escapeHtml(task.assigned_by_name)})</span>` : '';
+            // Finished work that came home reads "done by Margo", not
+            // "(from: Margo)" — who did it is the news the row exists to carry.
+            const doneElsewhere = !!(task.completed && task.completed_by_name);
+            const assignedLabel = doneElsewhere
+                ? ` <span class="assigned-from">done by ${escapeHtml(task.completed_by_name)}</span>`
+                : (task.assigned_by_name ? ` <span class="assigned-from">(from: ${escapeHtml(task.assigned_by_name)})</span>` : '');
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
             const isExpanded = expandedTaskIds.has(task.id);
             const isLocked = !!task.locked;
@@ -5795,7 +5819,7 @@
             const circleTitle = source ? ` title="A step of: ${escapeHtml(source.description)}"` : '';
 
             return `
-                <div class="task-item ${task.completed ? 'completed' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''} ${isEvent ? 'calendar' : ''} ${source ? 'promoted' : ''}" data-id="${task.id}"${chainAttrs}${promotedAttrs}${draggable}>
+                <div class="task-item ${task.completed ? 'completed' : ''} ${doneElsewhere ? 'done-elsewhere' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''} ${isEvent ? 'calendar' : ''} ${source ? 'promoted' : ''}" data-id="${task.id}"${chainAttrs}${promotedAttrs}${draggable}>
                     <div class="task-circle" data-task-id="${task.id}"${circleTitle}>${circleContent}</div>
                     ${arrow}${eventMarker}
                     <div class="task-description" data-task-id="${task.id}" title="${descTitle}">${eventTime}${linkifyText(task.description)}${renderDayCounter(task)}${renderRepeatGlyph(task)}${assignedLabel}</div>

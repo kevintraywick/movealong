@@ -30,6 +30,8 @@
 | owner_id       | INTEGER  | FK → users (whose board) |
 | assigned_by    | INTEGER  | FK → users, nullable |
 | accepted_at    | DATETIME | When the recipient accepted an assigned task. **NULL + assigned_by set = "awaiting"**: an inbox row, neither accepted nor returned — the server refuses `completed: true` on it, the frontend withholds every affordance but accept/return, and it shows on every board of the recipient (like calendar rows). Assign resets it to NULL; accept stamps it; **return also stamps it** (returning is an answer — the sender must not get an inbox item for their own task back). Backfilled to `updated_at` on the migrating boot so pre-feature assignments don't retroactively appear unanswered |
+| return_when_done | INTEGER | 0/1. Set by both assign routes, cleared by return: when the recipient completes this task it moves home to the sender's board as a finished row (the completion notification). The flag exists because `assigned_by` alone cannot tell "work someone gave me" from "my work that came back" — bouncing a returned task onto its returner would be the exact wrong move. Not backfilled |
+| completed_by   | INTEGER  | FK → users, SET NULL. Who actually finished it, stamped when finished work comes home; drives the "done by Margo" no-strikethrough row. Cleared on reopen |
 | description    | TEXT     |                  |
 | scheduled_date | DATE     | when locked, this IS the lock date |
 | origin_date    | DATE     | day the task was first requested for; never changes (spillover, → moves, assign/return all preserve it). Drives the days-pushed counter: inclusive days from origin to max(scheduled, today), hidden when 1 |
