@@ -2595,16 +2595,6 @@
             cursor: default;
         }
 
-        /* The AI avatar's brain SVG scales with whichever circle holds it. */
-        .team-avatar svg,
-        .team-opt-avatar svg,
-        .team-person-avatar svg,
-        .team-banner-avatar svg {
-            width: 62%;
-            height: 62%;
-            display: block;
-        }
-
         .team-opt-avatar {
             width: 20px;
             height: 20px;
@@ -3767,20 +3757,17 @@
             }
         }
 
-        // AI teammates render a white brain on the accent blue where a person
-        // shows initials. A stroked SVG in currentColor, not the 🧠 emoji — a
-        // filter can only rotate an emoji's existing hues, so "white brain"
-        // is unreachable from the pink artwork (same lesson as the focus
-        // ghost). Outline + centre crease only: at 14px an icon is its
-        // outline, and lobule squiggles read as noise (archive/brain-variants
-        // lesson, re-verified for this mark).
-        const AI_AVATAR_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 4A3 3 0 0 0 6.6 7.4 3.3 3.3 0 0 0 5.2 12.6 3.3 3.3 0 0 0 7.4 17.4 3.2 3.2 0 0 0 12 19.6 3.2 3.2 0 0 0 16.6 17.4 3.3 3.3 0 0 0 18.8 12.6 3.3 3.3 0 0 0 17.4 7.4 3 3 0 0 0 14.5 4 2.9 2.9 0 0 0 12 5.6 2.9 2.9 0 0 0 9.5 4Z"/><path d="M12 5.6v14"/></svg>';
+        // AI teammates render a \ud83e\udde0 where a person shows initials — the
+        // same glyph the subtask pane already uses for an AI assignee, so
+        // "this one is the assistant" reads the same everywhere.
         function avatarGlyph(u) {
-            return u && u.is_ai ? AI_AVATAR_SVG : escapeHtml((u && u.initials) || '?');
+            return u && u.is_ai ? '\ud83e\udde0' : escapeHtml((u && u.initials) || '?');
         }
 
+        // The \ud83e\udde0 is a pink emoji, so an AI avatar keeps a neutral sky
+        // tint instead of the person-color circle — brain-on-pink disappears.
         function avatarBg(u) {
-            return u && u.is_ai ? '#0ea5e9' : ((u && u.color) || '#94a3b8');
+            return u && u.is_ai ? '#e0f2fe' : ((u && u.color) || '#94a3b8');
         }
 
         // Assigned, and the recipient has neither accepted nor returned it.

@@ -18,7 +18,7 @@
 | initials   | TEXT     | "K" or "KT"     |
 | color      | TEXT     | hex color        |
 | role       | TEXT     | Display only ("Accounting", "CTO"); nothing branches on it. Shown in the team roster and the shared-board banner |
-| is_ai      | INTEGER  | 0 or 1, default 0. An AI teammate (Tessa). Renders with a white brain SVG on accent blue, and work assigned to her **auto-accepts** in both assign routes — an AI has no inbox. Real agent dispatch will hang off this flag |
+| is_ai      | INTEGER  | 0 or 1, default 0. An AI teammate (Tessa). Renders with a 🧠 avatar on a neutral tint, and work assigned to her **auto-accepts** in both assign routes — an AI has no inbox. Real agent dispatch will hang off this flag |
 | share_board| INTEGER  | 0 or 1, default 0. Whether this board is open to the team; the shared-board route 403s without it. A product rule, not a security boundary (no auth) — the seam real permissions go in |
 | created_at | DATETIME | auto             |
 
