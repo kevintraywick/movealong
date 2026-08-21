@@ -41,6 +41,7 @@ async function initDb() {
       color TEXT NOT NULL,
       role TEXT,
       share_board INTEGER DEFAULT 0,
+      is_ai INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
       UNIQUE(company_id, slug)
@@ -255,6 +256,11 @@ async function initDb() {
   // else's board unless they shared it" is enforced in the server, not merely
   // described in the copy.
   ensureColumn('users', 'share_board', 'INTEGER DEFAULT 0');
+  // An AI teammate (Tessa). Renders with a 🧠 avatar, and work assigned to
+  // her auto-accepts — an AI has no inbox to deliberate over, and making a
+  // human click "accept" on the assistant's behalf would be an approval step
+  // this app exists to delete. Real agent dispatch will hang off this flag.
+  ensureColumn('users', 'is_ai', 'INTEGER DEFAULT 0');
   // When the recipient accepted an assigned task. NULL on a row that has an
   // assigner means it is still sitting in their inbox, neither accepted nor
   // returned — the one state the assignment flow never had. Backfilled on the

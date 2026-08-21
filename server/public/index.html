@@ -716,6 +716,35 @@
             background: rgba(239, 68, 68, 0.15);
         }
 
+        /* Send to a teammate or AI assistant. Hover-reveal like .task-unlink —
+           board rows are one line and can't spare a second permanent icon
+           beside the lock (the sanctioned carve-out from "no hidden
+           affordances"). Blue hover, not red: sending is ordinary work. */
+        .task-send {
+            flex-shrink: 0;
+            width: 16px;
+            height: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            font-size: 11px;
+            line-height: 1;
+            border-radius: 4px;
+            opacity: 0;
+            transition: all 0.15s;
+            user-select: none;
+        }
+
+        .task-item:hover .task-send {
+            opacity: 0.35;
+        }
+
+        .task-send:hover {
+            opacity: 1 !important;
+            background: rgba(14, 165, 233, 0.15);
+        }
+
         /* Locked tasks get a deadline accent */
         .task-item.locked {
             border-left: 2px solid #f59e0b;
@@ -3645,7 +3674,7 @@
                 <div class="lock-opt team-opt ${u.share_board ? '' : 'locked-out'}"
                      ${u.share_board ? `data-act="openteam" data-slug="${escapeHtml(u.slug)}"` : ''}
                      title="${u.share_board ? `Open ${escapeHtml(u.name)}'s week` : `${escapeHtml(u.name)} has not shared their board`}">
-                    <span class="team-opt-avatar" style="background: ${escapeHtml(u.color)}">${escapeHtml(u.initials)}</span>
+                    <span class="team-opt-avatar" style="background: ${escapeHtml(avatarBg(u))}">${avatarGlyph(u)}</span>
                     <span>${escapeHtml(u.name)}</span>
                     <span class="team-opt-role">${escapeHtml(u.role || (u.share_board ? '' : 'private'))}</span>
                 </div>`).join('');
@@ -3653,7 +3682,7 @@
             // The seed row stays offered until Margo, Jay and Yarwen all exist —
             // a board that already has other people on it (the + New button
             // makes them) must not hide the demo team behind them.
-            const demoNames = ['margo', 'jay', 'yarwen'];
+            const demoNames = ['margo', 'jay', 'yarwen', 'tessa'];
             const demoMissing = demoNames.some(n => !allUsers.some(u => (u.name || '').toLowerCase() === n));
             const demoRow = demoMissing
                 ? `<div class="lock-opt" data-act="demoteam">Add the demo team</div>`
@@ -3726,6 +3755,19 @@
             } catch (err) {
                 showToast('Error: ' + err.message);
             }
+        }
+
+        // AI teammates render a \ud83e\udde0 where a person shows initials — the
+        // same glyph the subtask pane already uses for an AI assignee, so
+        // "this one is the assistant" reads the same everywhere.
+        function avatarGlyph(u) {
+            return u && u.is_ai ? '\ud83e\udde0' : escapeHtml((u && u.initials) || '?');
+        }
+
+        // The \ud83e\udde0 is a pink emoji, so an AI avatar keeps a neutral sky
+        // tint instead of the person-color circle — brain-on-pink disappears.
+        function avatarBg(u) {
+            return u && u.is_ai ? '#e0f2fe' : ((u && u.color) || '#94a3b8');
         }
 
         // Assigned, and the recipient has neither accepted nor returned it.
@@ -4266,7 +4308,7 @@
             const tabs = shared.length
                 ? `<div class="team-person-tabs">${shared.map(u => `
                         <div class="team-person-tab ${u.slug === teamViewSlug ? 'active' : ''}" data-slug="${escapeHtml(u.slug)}">
-                            <span class="team-person-avatar" style="background: ${escapeHtml(u.color)}">${escapeHtml(u.initials)}</span>
+                            <span class="team-person-avatar" style="background: ${escapeHtml(avatarBg(u))}">${avatarGlyph(u)}</span>
                             <span>${escapeHtml(u.name)}</span>
                         </div>`).join('')}</div>`
                 : '';
@@ -4319,7 +4361,7 @@
             container.innerHTML = `
                 <div class="team-view-banner">
                     <span class="team-back" data-act="back">&larr; Back to your board</span>
-                    <span class="team-banner-avatar" style="background: ${escapeHtml(person.color)}">${escapeHtml(person.initials)}</span>
+                    <span class="team-banner-avatar" style="background: ${escapeHtml(avatarBg(person))}">${avatarGlyph(person)}</span>
                     <span class="team-banner-who">
                         <span class="team-banner-name">${escapeHtml(person.name)}</span>
                         <span class="team-banner-role">${escapeHtml(person.role || 'Team')}</span>
@@ -4949,6 +4991,15 @@
                 scissors.addEventListener('click', (e) => {
                     e.stopPropagation();
                     unlinkTask(parseInt(scissors.dataset.taskId));
+                });
+            });
+
+            // Send-to-teammate: opens the same team popup the subtask emoji
+            // uses, in whole-task mode.
+            boardEl.querySelectorAll('.task-send[data-task-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    showTeamPopup(e, parseInt(btn.dataset.taskId));
                 });
             });
 
@@ -5705,6 +5756,13 @@
                 ? ''
                 : `<div class="task-lock ${isLocked ? 'locked' : ''}" data-task-id="${task.id}" title="${isLocked ? 'Locked — click to manage' : 'Lock to a date'}">${isLocked ? '🔒' : '📅'}</div>`;
 
+            // Forward the whole task to a teammate or the AI assistant. This
+            // is the gesture showTeamPopup() sat waiting for — the popup and
+            // the server route always existed; only the click was missing.
+            const sendButton = (task.completed || isEvent)
+                ? ''
+                : `<div class="task-send" data-task-id="${task.id}" title="Send to a teammate or AI assistant">&#128100;</div>`;
+
             // Series: countdown number in the circle (steps left, first item =
             // series size); completed members show the check instead.
             const chain = chainInfo.get(task.id);
@@ -5743,6 +5801,7 @@
                     <div class="task-description" data-task-id="${task.id}" title="${descTitle}">${eventTime}${linkifyText(task.description)}${renderDayCounter(task)}${renderRepeatGlyph(task)}${assignedLabel}</div>
                     ${regenerateButton}
                     ${unlinkButton}
+                    ${sendButton}
                     ${lockButton}
                     ${returnButton}
                 </div>
@@ -6210,7 +6269,7 @@
 
             html += teamMembers.map(member => `
                 <div class="team-member" data-member-id="${member.id}">
-                    <div class="team-avatar" style="background: ${escapeHtml(member.color)}">${escapeHtml(member.initials)}</div>
+                    <div class="team-avatar" style="background: ${escapeHtml(avatarBg(member))}">${avatarGlyph(member)}</div>
                     <div class="team-name">${escapeHtml(member.name)}</div>
                 </div>
             `).join('');
@@ -6246,7 +6305,11 @@
                     }
 
                     hidePopups();
-                    if (member) showToast(`Assigned to ${member.name}`);
+                    // Two different sentences on purpose: a human still has to
+                    // answer; the AI has already taken it (auto-accepted).
+                    if (member) showToast(member.is_ai
+                        ? `${member.name} is on it`
+                        : `Sent to ${member.name} — awaiting their answer`);
                 });
             });
 

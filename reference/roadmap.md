@@ -8,6 +8,7 @@
 - [x] Task assignment between team members
 - [x] Accept / return on assigned tasks (awaiting-inbox state, 2026-08-20)
 - [x] Shared boards + team view (demo team: Margo, Jay, Yarwen)
+- [x] Whole-task forward gesture (👤 on the row) + Tessa the AI teammate (auto-accepts)
 - [x] Task return-to-sender flow
 - [x] User switcher for viewing other boards
 - [x] Keyboard navigation (arrow keys between days)

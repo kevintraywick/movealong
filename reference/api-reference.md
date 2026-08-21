@@ -68,7 +68,7 @@ Response: { id, name, subdomain, created_at }
 #### List all users in company
 ```
 GET /api/companies/:subdomain/users
-Response: [{ id, name, slug, initials, color, role, share_board, created_at }, ...]
+Response: [{ id, name, slug, initials, color, role, share_board, is_ai, created_at }, ...]
 ```
 `role` is display-only ("Accounting", "CTO", ...); nothing branches on it.
 `share_board` (0/1) is whether this person's board is open to the team.
@@ -76,7 +76,7 @@ Response: [{ id, name, slug, initials, color, role, share_board, created_at }, .
 #### Get user by slug
 ```
 GET /api/companies/:subdomain/users/:slug
-Response: { id, name, slug, initials, color, role, share_board, created_at }
+Response: { id, name, slug, initials, color, role, share_board, is_ai, created_at }
 ```
 
 #### Share / unshare your board
@@ -106,7 +106,8 @@ from). Open past-due rows come back folded onto today; `days` clamps to 1–30
 POST /api/companies/:subdomain/demo-team
 Response: { team: [all users] }  (201)
 ```
-Creates Margo (Accounting), Jay (Product Marketing) and Yarwen (CTO), each with
+Creates Margo (Accounting), Jay (Product Marketing), Yarwen (CTO) and Tessa
+(AI Assistant, `is_ai = 1`), each with
 `share_board = 1`, a board of their own and a plausible seeded week. Idempotent
 two ways: an existing teammate is reused (picking up role + sharing), and a
 week is only seeded onto an empty board.
@@ -293,7 +294,9 @@ Response: { updated task }
 ```
 Rewrites `owner_id` (the row moves boards), clears lock/repeat, splices the
 task out of any series, and **resets `accepted_at` to NULL** — it lands on the
-recipient's board as an inbox row, awaiting their answer.
+recipient's board as an inbox row, awaiting their answer. **Unless the
+recipient is an AI teammate (`users.is_ai`): their work auto-accepts** — an AI
+has no inbox to deliberate over. Refused (400) on `source = 'calendar'` rows.
 
 #### Accept an assigned task
 ```

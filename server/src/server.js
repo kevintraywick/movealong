@@ -328,7 +328,7 @@ app.post('/api/companies', (req, res) => {
     'SELECT id, name, subdomain FROM companies WHERE subdomain = ?', [subdomain]);
   if (existing) {
     const user = queryOne(
-      'SELECT id, name, slug, initials, color, role, share_board FROM users WHERE company_id = ? AND slug = ?',
+      'SELECT id, name, slug, initials, color, role, share_board, is_ai FROM users WHERE company_id = ? AND slug = ?',
       [existing.id, userSlug]);
 
     if (user) {
@@ -430,7 +430,7 @@ app.get('/api/companies/:subdomain/users', (req, res) => {
   // `role` and `share_board` ride along on the roster: the team popup shows
   // what each person does, and whether their board is open to you at all.
   const users = queryAll(
-    'SELECT id, name, slug, initials, color, role, share_board, created_at FROM users WHERE company_id = ?',
+    'SELECT id, name, slug, initials, color, role, share_board, is_ai, created_at FROM users WHERE company_id = ?',
     [company.id]
   );
 
@@ -447,7 +447,7 @@ app.get('/api/companies/:subdomain/users/:slug', (req, res) => {
   }
 
   const user = queryOne(
-    'SELECT id, name, slug, initials, color, role, share_board, created_at FROM users WHERE company_id = ? AND slug = ?',
+    'SELECT id, name, slug, initials, color, role, share_board, is_ai, created_at FROM users WHERE company_id = ? AND slug = ?',
     [company.id, slug]
   );
 
@@ -562,7 +562,7 @@ app.get('/api/companies/:subdomain/users/:slug/shared-board', (req, res) => {
   if (!company) return res.status(404).json({ error: 'Company not found' });
 
   const user = queryOne(
-    'SELECT id, name, slug, initials, color, role, share_board FROM users WHERE company_id = ? AND slug = ?',
+    'SELECT id, name, slug, initials, color, role, share_board, is_ai FROM users WHERE company_id = ? AND slug = ?',
     [company.id, slug]
   );
   if (!user) return res.status(404).json({ error: 'User not found' });
@@ -663,6 +663,23 @@ const DEMO_TEAM = [
       [3, 'Architecture review — assignment and acceptance'],
       [4, 'Cut the 0.9 release branch']
     ]
+  },
+  {
+    // The AI teammate. Same account shape as the humans — a board, a shared
+    // week, a role — but is_ai flips two behaviours: a 🧠 avatar wherever
+    // people render, and work assigned to her auto-accepts.
+    name: 'Tessa',
+    role: 'AI Assistant',
+    is_ai: 1,
+    project: 'Assistant',
+    tasks: [
+      [0, 'Compare 3 CRM options — pricing, Slack integration, import path'],
+      [0, "Summarize this week's support emails into themes"],
+      [1, 'Watch flight prices MSP → Austin for the offsite'],
+      [2, 'Draft social posts for the calendar-import launch'],
+      [3, 'Compile competitor pricing table — Todoist, Sunsama, Amie'],
+      [4, 'Weekly digest: what moved on every board']
+    ]
   }
 ];
 
@@ -682,9 +699,9 @@ app.post('/api/companies/:subdomain/demo-team', (req, res) => {
 
       if (!user) {
         const created = runSql(
-          'INSERT INTO users (company_id, name, slug, initials, color, role, share_board) VALUES (?, ?, ?, ?, ?, ?, 1)',
+          'INSERT INTO users (company_id, name, slug, initials, color, role, share_board, is_ai) VALUES (?, ?, ?, ?, ?, ?, 1, ?)',
           [company.id, person.name, generateSlug(person.name), generateInitials(person.name),
-           getRandomColor(), person.role]
+           getRandomColor(), person.role, person.is_ai ? 1 : 0]
         );
         user = queryOne('SELECT * FROM users WHERE id = ?', [created.lastInsertRowid]);
       } else {
@@ -695,8 +712,8 @@ app.post('/api/companies/:subdomain/demo-team', (req, res) => {
         // see a board that wasn't shared" is the feature's one product rule.
         const inUse = queryOne('SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ?', [user.id]);
         if (!inUse || inUse.cnt === 0) {
-          runSql('UPDATE users SET role = COALESCE(role, ?), share_board = 1 WHERE id = ?',
-            [person.role, user.id]);
+          runSql('UPDATE users SET role = COALESCE(role, ?), share_board = 1, is_ai = ? WHERE id = ?',
+            [person.role, person.is_ai ? 1 : 0, user.id]);
         }
       }
 
@@ -736,7 +753,7 @@ app.post('/api/companies/:subdomain/demo-team', (req, res) => {
     }
 
     const team = queryAll(
-      'SELECT id, name, slug, initials, color, role, share_board FROM users WHERE company_id = ?',
+      'SELECT id, name, slug, initials, color, role, share_board, is_ai FROM users WHERE company_id = ?',
       [company.id]
     );
     res.status(201).json({ team });
@@ -1537,7 +1554,7 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
     return res.status(404).json({ error: 'Task not found' });
   }
 
-  const toUser = queryOne('SELECT id FROM users WHERE id = ?', [to_user_id]);
+  const toUser = queryOne('SELECT id, is_ai FROM users WHERE id = ?', [to_user_id]);
   if (!toUser) {
     return res.status(404).json({ error: 'Target user not found' });
   }
@@ -1579,12 +1596,16 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
     // accepted_at back to NULL: however this row got here, it is now sitting
     // in someone else's inbox unanswered. Re-assigning an already-accepted
     // task has to reset that or the new owner inherits the old one's answer.
+    // The one exception is an AI teammate, whose work auto-accepts — an AI
+    // has no inbox to deliberate over, and a human clicking "accept" on the
+    // assistant's behalf would be an approval step this app exists to delete.
     const now = new Date().toISOString();
+    const acceptedAt = toUser.is_ai ? now : null;
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, accepted_at = NULL, project_id = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, accepted_at = ?, project_id = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
       WHERE id = ?
-    `, [to_user_id, task.owner_id, projectId, scheduled_date, now, taskId]);
+    `, [to_user_id, task.owner_id, acceptedAt, projectId, scheduled_date, now, taskId]);
 
     // If this task is itself a handed-over step, keep the sender's pane chip
     // pointed at whoever actually holds it now — Margo passing it on to Jay
@@ -2189,10 +2210,14 @@ app.post('/api/subtasks/:subtaskId/assign', (req, res) => {
     }
 
     // Create a task on the assignee's board. accepted_at is left NULL, so it
-    // arrives as an inbox item rather than as work they are already doing.
+    // arrives as an inbox item rather than as work they are already doing —
+    // unless the assignee is an AI teammate, whose work auto-accepts (an AI
+    // has no inbox to deliberate over).
+    const recipient = queryOne('SELECT is_ai FROM users WHERE id = ?', [to_user_id]);
+    const acceptedAt = recipient && recipient.is_ai ? new Date().toISOString() : null;
     const newTask = runSql(
-      'INSERT INTO tasks (company_id, owner_id, project_id, assigned_by, description, scheduled_date, origin_date) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [task.company_id, to_user_id, handoverProjectId, task.owner_id, subtask.description, scheduled_date, scheduled_date]
+      'INSERT INTO tasks (company_id, owner_id, project_id, assigned_by, description, scheduled_date, origin_date, accepted_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+      [task.company_id, to_user_id, handoverProjectId, task.owner_id, subtask.description, scheduled_date, scheduled_date, acceptedAt]
     );
     // Hold on to the id: it is what lets this step's row in the sender's pane
     // report "Margo has it, not yet accepted" without matching on description
