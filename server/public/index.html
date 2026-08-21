@@ -2377,6 +2377,7 @@
             background: #f0f9ff;
             box-shadow: inset 3px 0 0 #38bdf8;
             padding-left: 8px;
+            margin-left: -8px;
         }
 
         .task-item.review:hover {
@@ -4917,7 +4918,7 @@
                 if (reviewTasks.length > 0) {
                     tasksHtml += `
                         <div class="review-section">
-                            <div class="review-label">Done by teammates</div>
+                            <div class="review-label">From teammates</div>
                             ${reviewTasks.map(t => renderTask(t)).join('')}
                         </div>`;
                 }
@@ -5969,8 +5970,8 @@
                 return `
                     <div class="task-item review" data-id="${task.id}">
                         <div class="task-circle" data-task-id="${task.id}" title="Looks good — mark it completed"></div>
-                        <div class="task-description" data-review-id="${task.id}" title="Done by ${who} · click to review the results">${linkifyText(task.description)} <span class="assigned-from">done by ${who}</span></div>
                         <div class="task-reclaim" data-task-id="${task.id}" title="More to do — take it back onto your list">&uarr;</div>
+                        <div class="task-description" data-review-id="${task.id}" title="Done by ${who} · click to review the results">${linkifyText(task.description)} <span class="assigned-from">~${who}</span></div>
                         <div class="task-send" data-task-id="${task.id}" title="Send to a teammate or AI assistant">&#128100;</div>
                         <div class="task-sendback" data-task-id="${task.id}" data-to-id="${task.assigned_by || ''}" title="Send back to ${who}">&cularr;</div>
                     </div>
@@ -5981,7 +5982,7 @@
             // "(from: Margo)" — who did it is the news the row exists to carry.
             const doneElsewhere = !!(task.completed && task.completed_by_name);
             const assignedLabel = doneElsewhere
-                ? ` <span class="assigned-from">done by ${escapeHtml(task.completed_by_name)}</span>`
+                ? ` <span class="assigned-from">~${escapeHtml(task.completed_by_name)}</span>`
                 : (task.assigned_by_name ? ` <span class="assigned-from">(from: ${escapeHtml(task.assigned_by_name)})</span>` : '');
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
             const isExpanded = expandedTaskIds.has(task.id);
@@ -6345,7 +6346,7 @@
                                 return `
                                     <div class="project-task-item review" data-id="${t.id}">
                                         <div class="task-circle" data-task-id="${t.id}" title="Looks good — mark it completed"></div>
-                                        <div class="project-task-desc" data-review-id="${t.id}" title="Done by ${who} · click to review the results">${linkifyText(t.description)} <span class="assigned-from">done by ${who}</span></div>
+                                        <div class="project-task-desc" data-review-id="${t.id}" title="Done by ${who} · click to review the results">${linkifyText(t.description)} <span class="assigned-from">~${who}</span></div>
                                         <span class="project-task-date">${t.scheduled_date}</span>
                                     </div>
                                 `;
