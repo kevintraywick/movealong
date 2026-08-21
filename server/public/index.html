@@ -210,8 +210,11 @@
             opacity: 0.6;
         }
 
+        /* Full strength (2026-08-21): sent work is live, not faded history —
+           the amber ➔ circle and the "→ Margo" label say whose court it's
+           in. Grey stays reserved for finished (.completed-tasks above). */
         .assigned-tasks {
-            opacity: 0.5;
+            opacity: 1;
         }
 
         .task-item {
@@ -346,8 +349,11 @@
             font-size: 10px;
         }
 
+        /* Sent rows are NOT greyed (2026-08-21): work you handed over is
+           live, not faded history — the amber ➔ circle and the "→ Margo"
+           label already say whose court it's in. Grey is for finished. */
         .task-item.forwarded .task-description {
-            color: #94a3b8;
+            color: inherit;
         }
 
         .assigned-from {
@@ -1611,8 +1617,11 @@
             color: #64748b;
         }
 
+        /* Assigned steps stay full-strength too — the handoff chip carries
+           their state, and dimming it would fight the one thing the sender
+           opened the pane to read. */
         .subtask-item.assigned-subtask {
-            opacity: 0.5;
+            opacity: 1;
         }
 
         .subtask-check {
