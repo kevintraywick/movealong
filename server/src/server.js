@@ -61,6 +61,14 @@ app.get('/help', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'help.html'));
 });
 
+// A task's own page: background, notes, results. One static file (same
+// pattern as /help); the page reads its task id from the URL path and talks
+// to /api/tasks/:id/page. Like every board, reachable by anyone with the
+// link — the app has no auth, and the page inherits that honestly.
+app.get('/task/:taskId', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'task.html'));
+});
+
 // Static assets (wordmark font, any future images)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -1761,6 +1769,124 @@ app.post('/api/tasks/:taskId/accept', (req, res) => {
   } catch (err) {
     console.error('Error accepting task:', err);
     res.status(500).json({ error: 'Failed to accept task' });
+  }
+});
+
+// ============================================
+// TASK PAGE — background, notes, results
+// ============================================
+// Everything on the page lives on the task row (background, results) or
+// cascades with it (task_notes), so the come-home move on completion carries
+// the assignee's results back to the sender for free — the move IS the
+// delivery. Notes are an append-only feed with attribution, never a shared
+// blob: "who said this, when" is the half a shared textarea destroys.
+
+const PAGE_FIELD_MAX = 20000;
+
+app.get('/api/tasks/:taskId/page', (req, res) => {
+  const { taskId } = req.params;
+  const task = queryOne(`
+    SELECT
+      t.id, t.description, t.scheduled_date, t.created_at, t.completed,
+      t.completed_at, t.assigned_by, t.accepted_at, t.source,
+      t.background, t.results,
+      o.name as owner_name,
+      p.name as project_name,
+      u.name as assigned_by_name,
+      cb.name as completed_by_name
+    FROM tasks t
+    JOIN users o ON t.owner_id = o.id
+    LEFT JOIN projects p ON t.project_id = p.id
+    LEFT JOIN users u ON t.assigned_by = u.id
+    LEFT JOIN users cb ON t.completed_by = cb.id
+    WHERE t.id = ?
+  `, [taskId]);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const notes = queryAll(`
+    SELECT n.id, n.body, n.created_at,
+           a.name as author_name, a.initials as author_initials,
+           a.color as author_color, a.is_ai as author_is_ai
+    FROM task_notes n
+    LEFT JOIN users a ON n.author_id = a.id
+    WHERE n.task_id = ?
+    ORDER BY n.created_at, n.id
+  `, [taskId]);
+
+  res.json({ task, notes });
+});
+
+// Update the page's two editable panes. Sending a key updates it; omitting
+// it leaves it alone — so background and results can save independently.
+app.put('/api/tasks/:taskId/page', (req, res) => {
+  const { taskId } = req.params;
+  const { background, results } = req.body;
+
+  const task = queryOne('SELECT id FROM tasks WHERE id = ?', [taskId]);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const updates = [];
+  const values = [];
+  for (const [col, val] of [['background', background], ['results', results]]) {
+    if (val === undefined) continue;
+    if (val !== null && typeof val !== 'string') {
+      return res.status(400).json({ error: `${col} must be a string` });
+    }
+    updates.push(`${col} = ?`);
+    values.push(val ? String(val).slice(0, PAGE_FIELD_MAX) : null);
+  }
+  if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
+
+  try {
+    updates.push('updated_at = ?');
+    values.push(new Date().toISOString());
+    values.push(taskId);
+    runSql(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`, values);
+    const updated = queryOne('SELECT id, background, results FROM tasks WHERE id = ?', [taskId]);
+    res.json(updated);
+  } catch (err) {
+    console.error('Error updating task page:', err);
+    res.status(500).json({ error: 'Failed to update task page' });
+  }
+});
+
+// Add a note. author_slug is whoever the browser's session says — with no
+// auth that is trust, not proof, and storing the resolved user id (nullable)
+// says exactly that much.
+app.post('/api/tasks/:taskId/notes', (req, res) => {
+  const { taskId } = req.params;
+  const { body, author_slug } = req.body;
+
+  const task = queryOne('SELECT id, company_id FROM tasks WHERE id = ?', [taskId]);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+
+  const text = typeof body === 'string' ? body.trim().slice(0, PAGE_FIELD_MAX) : '';
+  if (!text) return res.status(400).json({ error: 'body is required' });
+
+  let authorId = null;
+  if (author_slug) {
+    const author = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?',
+      [task.company_id, String(author_slug)]);
+    if (author) authorId = author.id;
+  }
+
+  try {
+    const created = runSql(
+      'INSERT INTO task_notes (task_id, author_id, body) VALUES (?, ?, ?)',
+      [taskId, authorId, text]
+    );
+    const note = queryOne(`
+      SELECT n.id, n.body, n.created_at,
+             a.name as author_name, a.initials as author_initials,
+             a.color as author_color, a.is_ai as author_is_ai
+      FROM task_notes n
+      LEFT JOIN users a ON n.author_id = a.id
+      WHERE n.id = ?
+    `, [created.lastInsertRowid]);
+    res.status(201).json(note);
+  } catch (err) {
+    console.error('Error adding note:', err);
+    res.status(500).json({ error: 'Failed to add note' });
   }
 });
 

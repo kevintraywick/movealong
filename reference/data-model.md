@@ -32,6 +32,8 @@
 | accepted_at    | DATETIME | When the recipient accepted an assigned task. **NULL + assigned_by set = "awaiting"**: an inbox row, neither accepted nor returned — the server refuses `completed: true` on it, the frontend withholds every affordance but accept/return, and it shows on every board of the recipient (like calendar rows). Assign resets it to NULL; accept stamps it; **return also stamps it** (returning is an answer — the sender must not get an inbox item for their own task back). Backfilled to `updated_at` on the migrating boot so pre-feature assignments don't retroactively appear unanswered |
 | return_when_done | INTEGER | 0/1. Set by both assign routes, cleared by return: when the recipient completes this task it moves home to the sender's board as a finished row (the completion notification). The flag exists because `assigned_by` alone cannot tell "work someone gave me" from "my work that came back" — bouncing a returned task onto its returner would be the exact wrong move. Not backfilled |
 | completed_by   | INTEGER  | FK → users, SET NULL. Who actually finished it, stamped when finished work comes home; drives the "done by Margo" no-strikethrough row. Cleared on reopen |
+| background     | TEXT     | The task page's "Background & instructions" pane. On the row itself so it travels with the task |
+| results        | TEXT     | The task page's "Results" pane — written by whoever holds the task; rides home with the come-home move, which is how the sender gets the assignee's results |
 | description    | TEXT     |                  |
 | scheduled_date | DATE     | when locked, this IS the lock date |
 | origin_date    | DATE     | day the task was first requested for; never changes (spillover, → moves, assign/return all preserve it). Drives the days-pushed counter: inclusive days from origin to max(scheduled, today), hidden when 1 |
@@ -73,6 +75,20 @@ Steps under a task. Only the columns that carry non-obvious behaviour:
 All `cost_*` columns are written **only** by the research pass, and are an
 estimate about the world — deliberately never combined with `ai_usage`, which is
 metered actuals.
+
+## task_notes
+
+Append-only notes feed on a task's page (`/task/:id`). A feed with
+attribution, never one editable blob — who-said-when is the half of a note a
+shared textarea destroys.
+
+| Column     | Type     | Notes |
+|------------|----------|-------|
+| id         | INTEGER  | PK |
+| task_id    | INTEGER  | FK → tasks, ON DELETE CASCADE |
+| author_id  | INTEGER  | FK → users, ON DELETE SET NULL. Resolved from the browser session's slug — trust, not proof (no auth), hence nullable |
+| body       | TEXT     | Rendered escaped; URLs become links, image URLs render inline |
+| created_at | DATETIME | auto |
 
 ## ai_usage
 
@@ -132,4 +148,5 @@ One subscribed iCal feed per user (`user_id` is UNIQUE).
 - `idx_tasks_external` on tasks(owner_id, external_uid)
 - `idx_calendar_feeds_user` on calendar_feeds(user_id)
 - `idx_tasks_assigned_by` on tasks(assigned_by)
+- `idx_task_notes_task` on task_notes(task_id)
 - `idx_companies_subdomain` on companies(subdomain)

@@ -1,0 +1,494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Task · MoveAlong</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="mask-icon" href="/favicon-mask.svg" color="#0ea5e9">
+    <style>
+        @font-face {
+            font-family: 'Bricolage Grotesque';
+            src: url('/fonts/bricolage-grotesque-800.woff2') format('woff2');
+            font-weight: 800;
+            font-display: swap;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+            background: #f8fafc;
+            color: #0f172a;
+            padding: 20px;
+        }
+
+        .page {
+            max-width: 640px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        /* Header — same whisper as the board's chrome. */
+        .page-header {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .wordmark {
+            font-family: 'Bricolage Grotesque', -apple-system, sans-serif;
+            font-weight: 800;
+            font-size: 15px;
+            color: #0f172a;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+
+        .wordmark span { color: #0ea5e9; }
+
+        .page-meta {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        .page-meta b { color: #475569; font-weight: 600; }
+
+        .task-title {
+            font-size: 17px;
+            font-weight: 600;
+            line-height: 1.35;
+            overflow-wrap: anywhere;
+        }
+
+        .task-state {
+            display: inline-block;
+            font-size: 11px;
+            border-radius: 9px;
+            padding: 1px 8px;
+            margin-left: 6px;
+            vertical-align: 2px;
+            white-space: nowrap;
+        }
+
+        .task-state.open { background: #f0f9ff; color: #0284c7; border: 1px solid #bae6fd; }
+        .task-state.done { background: #f1f5f9; color: #64748b; border: 1px solid #e2e8f0; }
+
+        /* Panes — the day-card vocabulary. */
+        .pane {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+
+        .pane-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+        }
+
+        .pane-hint {
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+            color: #cbd5e1;
+        }
+
+        .save-state {
+            margin-left: auto;
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+            color: #cbd5e1;
+            transition: color 0.2s;
+        }
+
+        .save-state.saved { color: #0ea5e9; }
+
+        textarea {
+            width: 100%;
+            border: none;
+            outline: none;
+            resize: vertical;
+            font: inherit;
+            color: inherit;
+            background: transparent;
+            line-height: 1.5;
+        }
+
+        textarea::placeholder { color: #cbd5e1; }
+
+        /* Background stays short by design — a brief, not a novel. */
+        #backgroundInput { min-height: 58px; }
+        #resultsInput { min-height: 58px; }
+
+        /* Notes feed */
+        .note {
+            display: flex;
+            gap: 8px;
+            padding: 8px 0;
+            border-top: 1px solid #f1f5f9;
+        }
+
+        .note:first-child { border-top: none; padding-top: 0; }
+
+        .note-avatar {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #ffffff;
+            font-size: 9px;
+            font-weight: 600;
+            margin-top: 1px;
+        }
+
+        .note-content { flex: 1; min-width: 0; }
+
+        .note-head {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 2px;
+        }
+
+        .note-head b { color: #475569; font-weight: 600; }
+
+        .note-body {
+            line-height: 1.5;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+        }
+
+        .note-body a { color: #0284c7; }
+
+        .note-img {
+            display: block;
+            max-width: 100%;
+            max-height: 320px;
+            border-radius: 8px;
+            border: 1px solid #e2e8f0;
+            margin: 6px 0 2px;
+        }
+
+        .notes-empty {
+            font-size: 12px;
+            color: #cbd5e1;
+            padding: 2px 0 8px;
+        }
+
+        /* Composer */
+        .composer {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            border-top: 1px dashed #e2e8f0;
+            padding-top: 10px;
+            margin-top: 4px;
+        }
+
+        #noteInput { min-height: 40px; }
+
+        .composer-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .composer-hint { font-size: 11px; color: #cbd5e1; }
+
+        .add-note-btn {
+            margin-left: auto;
+            font: inherit;
+            font-size: 12px;
+            padding: 5px 14px;
+            border-radius: 6px;
+            border: 1px solid #bae6fd;
+            background: #f0f9ff;
+            color: #0284c7;
+            cursor: pointer;
+        }
+
+        .add-note-btn:hover { background: #0ea5e9; border-color: #0ea5e9; color: #ffffff; }
+        .add-note-btn:disabled { opacity: 0.4; cursor: default; }
+
+        /* Results pane states */
+        .results-done-by {
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+            color: #64748b;
+        }
+
+        .results-blank {
+            font-size: 12px;
+            color: #cbd5e1;
+        }
+
+        .page-error {
+            text-align: center;
+            color: #64748b;
+            padding: 48px 0;
+        }
+
+        /* Dark mode — same key the board reads. */
+        body.dark { background: #0f172a; color: #e2e8f0; }
+        body.dark .wordmark { color: #f1f5f9; }
+        body.dark .page-meta { color: #94a3b8; }
+        body.dark .page-meta b { color: #cbd5e1; }
+        body.dark .pane { background: #1e293b; border-color: #334155; }
+        body.dark .task-state.open { background: rgba(14, 165, 233, 0.12); border-color: #0369a1; color: #38bdf8; }
+        body.dark .task-state.done { background: #1e293b; border-color: #334155; color: #94a3b8; }
+        body.dark .note { border-top-color: #334155; }
+        body.dark .note-head b { color: #cbd5e1; }
+        body.dark .note-body a { color: #38bdf8; }
+        body.dark .note-img { border-color: #334155; }
+        body.dark .composer { border-top-color: #334155; }
+        body.dark .add-note-btn { background: rgba(14, 165, 233, 0.12); border-color: #0369a1; color: #38bdf8; }
+        body.dark .add-note-btn:hover { background: #0ea5e9; border-color: #0ea5e9; color: #0f172a; }
+        body.dark textarea::placeholder,
+        body.dark .pane-hint,
+        body.dark .composer-hint,
+        body.dark .notes-empty,
+        body.dark .results-blank,
+        body.dark .save-state { color: #475569; }
+        body.dark .save-state.saved { color: #38bdf8; }
+    </style>
+</head>
+<body>
+    <div class="page" id="page">
+        <div class="page-error">Opening&hellip;</div>
+    </div>
+
+    <script>
+        // Theme: same per-browser key as the board, applied before paint.
+        if (localStorage.getItem('movealong.theme') === 'dark') {
+            document.body.classList.add('dark');
+        }
+
+        const taskId = parseInt(location.pathname.split('/').pop(), 10);
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        // Escape first, then wrap URLs; an image URL becomes an inline <img>.
+        // The href is always rebuilt from the match, so a javascript: string
+        // can never become one (same rule as the board's linkifier).
+        const URL_RE = /\bhttps?:\/\/[^\s<>"')\]]+|\bwww\.[^\s<>"')\]]+/g;
+        const IMG_RE = /\.(png|jpe?g|gif|webp)(\?[^\s]*)?$/i;
+
+        function renderRich(text) {
+            const escaped = escapeHtml(text);
+            return escaped.replace(URL_RE, (match) => {
+                let url = match;
+                let trailing = '';
+                while (/[.,)\]'"!?]$/.test(url)) { trailing = url.slice(-1) + trailing; url = url.slice(0, -1); }
+                const href = url.startsWith('www.') ? 'https://' + url : url;
+                if (IMG_RE.test(url)) {
+                    return `<a href="${href}" target="_blank" rel="noopener noreferrer"><img class="note-img" src="${href}" alt=""></a>${trailing}`;
+                }
+                return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>${trailing}`;
+            });
+        }
+
+        function sessionSlug() {
+            try {
+                const s = JSON.parse(localStorage.getItem('movealong.session') || 'null');
+                return s && s.slug ? s.slug : null;
+            } catch (e) { return null; }
+        }
+
+        async function api(path, options = {}) {
+            const res = await fetch('/api' + path, {
+                method: options.method || 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                body: options.body ? JSON.stringify(options.body) : undefined
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+            return data;
+        }
+
+        function dayLabel(iso) {
+            if (!iso) return '';
+            // SQLite's CURRENT_TIMESTAMP is "YYYY-MM-DD HH:MM:SS" in UTC —
+            // a format Safari's Date refuses. Normalize to ISO-with-Z before
+            // parsing; rows written by the app itself are already ISO.
+            let s = String(iso);
+            if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
+            if (s.includes('T') && !/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s += 'Z';
+            const d = new Date(s);
+            if (isNaN(d)) return String(iso).split('T')[0].split(' ')[0];
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        function noteAvatar(n) {
+            if (n.author_is_ai) return `<span class="note-avatar" style="background: #e0f2fe">\u{1F9E0}</span>`;
+            const bg = escapeHtml(n.author_color || '#94a3b8');
+            const initials = escapeHtml(n.author_initials || '?');
+            return `<span class="note-avatar" style="background: ${bg}">${initials}</span>`;
+        }
+
+        function noteRow(n) {
+            return `
+                <div class="note">
+                    ${noteAvatar(n)}
+                    <div class="note-content">
+                        <div class="note-head"><b>${escapeHtml(n.author_name || 'Someone')}</b> &middot; ${escapeHtml(dayLabel(n.created_at))}</div>
+                        <div class="note-body">${renderRich(n.body)}</div>
+                    </div>
+                </div>`;
+        }
+
+        let saveTimers = {};
+
+        // Debounced autosave for the two editable panes; the tiny state word
+        // beside the pane title is the only feedback — a page this quiet does
+        // not need a Save button.
+        function wireAutosave(textarea, field, stateEl) {
+            const save = async () => {
+                try {
+                    await api(`/tasks/${taskId}/page`, { method: 'PUT', body: { [field]: textarea.value } });
+                    stateEl.textContent = 'saved';
+                    stateEl.classList.add('saved');
+                } catch (err) {
+                    stateEl.textContent = 'not saved — ' + err.message;
+                    stateEl.classList.remove('saved');
+                }
+            };
+            textarea.addEventListener('input', () => {
+                stateEl.textContent = 'typing…';
+                stateEl.classList.remove('saved');
+                clearTimeout(saveTimers[field]);
+                saveTimers[field] = setTimeout(save, 800);
+            });
+            textarea.addEventListener('blur', () => {
+                clearTimeout(saveTimers[field]);
+                save();
+            });
+        }
+
+        async function addNote() {
+            const input = document.getElementById('noteInput');
+            const btn = document.getElementById('addNoteBtn');
+            const body = input.value.trim();
+            if (!body) return;
+            btn.disabled = true;
+            try {
+                const note = await api(`/tasks/${taskId}/notes`, {
+                    method: 'POST',
+                    body: { body, author_slug: sessionSlug() }
+                });
+                const feed = document.getElementById('notesFeed');
+                const empty = feed.querySelector('.notes-empty');
+                if (empty) empty.remove();
+                feed.insertAdjacentHTML('beforeend', noteRow(note));
+                input.value = '';
+                input.focus();
+            } catch (err) {
+                alert('Could not add the note: ' + err.message);
+            }
+            btn.disabled = false;
+        }
+
+        function render(data) {
+            const t = data.task;
+            document.title = `${t.description} · MoveAlong`;
+
+            const state = t.completed
+                ? `<span class="task-state done">✓ completed${t.completed_by_name ? ' · done by ' + escapeHtml(t.completed_by_name) : ''}</span>`
+                : `<span class="task-state open">open</span>`;
+
+            const resultsTitleExtra = t.completed_by_name
+                ? `<span class="results-done-by">posted by ${escapeHtml(t.completed_by_name)}</span>`
+                : '';
+
+            document.getElementById('page').innerHTML = `
+                <div class="page-header">
+                    <a class="wordmark" href="/">Move<span>Along</span></a>
+                    <span class="page-meta">
+                        <b>${escapeHtml(t.owner_name)}</b>${t.project_name ? ` &middot; ${escapeHtml(t.project_name)}` : ''}
+                        &middot; created ${escapeHtml(dayLabel(t.created_at))}
+                    </span>
+                </div>
+                <div class="task-title">${escapeHtml(t.description)}${state}</div>
+
+                <div class="pane">
+                    <div class="pane-title">Background &amp; instructions
+                        <span class="pane-hint">a few lines of what and why</span>
+                        <span class="save-state" id="backgroundState"></span>
+                    </div>
+                    <textarea id="backgroundInput" placeholder="What this is about, and anything whoever picks it up should know."></textarea>
+                </div>
+
+                <div class="pane">
+                    <div class="pane-title">Notes</div>
+                    <div id="notesFeed">
+                        ${data.notes.length ? data.notes.map(noteRow).join('') : '<div class="notes-empty">Nothing yet. Links and image URLs render inline.</div>'}
+                    </div>
+                    <div class="composer">
+                        <textarea id="noteInput" placeholder="Add a note…"></textarea>
+                        <div class="composer-row">
+                            <span class="composer-hint">⌘⏎ to post</span>
+                            <button class="add-note-btn" id="addNoteBtn">Add note</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="pane">
+                    <div class="pane-title">Results ${resultsTitleExtra}
+                        <span class="save-state" id="resultsState"></span>
+                    </div>
+                    <textarea id="resultsInput" placeholder="${t.completed
+                        ? 'Completed on the board — no results were posted.'
+                        : 'What came of it — filled in by whoever completes this, and it travels back with the task.'}"></textarea>
+                </div>`;
+
+            const bg = document.getElementById('backgroundInput');
+            bg.value = t.background || '';
+            wireAutosave(bg, 'background', document.getElementById('backgroundState'));
+
+            const results = document.getElementById('resultsInput');
+            results.value = t.results || '';
+            wireAutosave(results, 'results', document.getElementById('resultsState'));
+
+            document.getElementById('addNoteBtn').addEventListener('click', addNote);
+            document.getElementById('noteInput').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); addNote(); }
+            });
+        }
+
+        (async () => {
+            if (!Number.isFinite(taskId)) {
+                document.getElementById('page').innerHTML = '<div class="page-error">That is not a task link.</div>';
+                return;
+            }
+            try {
+                render(await api(`/tasks/${taskId}/page`));
+            } catch (err) {
+                document.getElementById('page').innerHTML =
+                    `<div class="page-error">${escapeHtml(err.message === 'Task not found'
+                        ? 'This task does not exist (it may have been deleted).'
+                        : 'Could not open this task: ' + err.message)}</div>`;
+            }
+        })();
+    </script>
+</body>
+</html>

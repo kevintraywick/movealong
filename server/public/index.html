@@ -4973,6 +4973,18 @@
                 arrow.addEventListener('click', handleArrowClick);
             });
 
+            // Awaiting rows withhold the pane (no data-task-id on the
+            // description), but the task PAGE is the one thing they should
+            // open — the background is what you read before accepting.
+            boardEl.querySelectorAll('.task-item.awaiting .task-description').forEach(desc => {
+                desc.addEventListener('click', (e) => {
+                    if (!e.altKey || e.shiftKey) return;
+                    e.stopPropagation();
+                    const row = desc.closest('.task-item');
+                    if (row) window.open(`/task/${row.dataset.id}`, '_blank', 'noopener');
+                });
+            });
+
             // Accept buttons (handed-over rows only)
             boardEl.querySelectorAll('.task-accept[data-task-id]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
@@ -5031,6 +5043,14 @@
                     // Click on a URL → let the browser open it in a new tab;
                     // don't toggle the subtask pane.
                     if (e.target.closest('a.task-link')) return;
+
+                    // Option+Click → open the task's own page (background,
+                    // notes, results) in a new tab. Alt WITHOUT shift — the
+                    // shift+alt combination below is the quick-lock.
+                    if (e.altKey && !e.shiftKey) {
+                        window.open(`/task/${taskId}`, '_blank', 'noopener');
+                        return;
+                    }
 
                     // Shift+Option+Click → quick-lock to this day (with confirm)
                     if (e.shiftKey && e.altKey) {
@@ -5755,7 +5775,7 @@
                 return `
                     <div class="task-item awaiting" data-id="${task.id}">
                         <div class="task-circle" title="Accept this first — you can't tick off work you haven't taken on"></div>
-                        <div class="task-description" title="${escapeHtml(task.assigned_by_name || 'A teammate')} sent you this">${linkifyText(task.description)} <span class="assigned-from">from ${escapeHtml(task.assigned_by_name || 'a teammate')}</span></div>
+                        <div class="task-description" title="${escapeHtml(task.assigned_by_name || 'A teammate')} sent you this · Option+Click opens its page">${linkifyText(task.description)} <span class="assigned-from">from ${escapeHtml(task.assigned_by_name || 'a teammate')}</span></div>
                         <div class="task-accept" data-task-id="${task.id}" title="Accept — put this on your board">&check;</div>
                         <div class="task-return" data-task-id="${task.id}" title="Return to ${escapeHtml(task.assigned_by_name || 'sender')}">&cularr;</div>
                     </div>
@@ -5809,8 +5829,8 @@
                 : '';
             const arrow = isEvent ? '' : `<div class="task-arrow" data-task-id="${task.id}" title="Move to next day &middot; Shift+Click for +1 week &middot; hover and press 1-9 to jump that many days">&rarr;</div>`;
             const descTitle = isEvent
-                ? 'From your calendar'
-                : 'Shift+Option+Click to lock to this day · drag to reorder · hover and press 1-9 to reorder';
+                ? 'From your calendar · Option+Click opens its page'
+                : 'Option+Click opens its page · Shift+Option+Click to lock to this day · drag to reorder · hover and press 1-9 to reorder';
 
             // Promoted out of another task's steps: dotted circle, and the
             // source row tints while this one is hovered.
@@ -6114,7 +6134,7 @@
                                 return `
                                     <div class="project-task-item awaiting" data-id="${t.id}">
                                         <div class="task-circle" title="Accept this first — you can't tick off work you haven't taken on"></div>
-                                        <div class="project-task-desc" title="${escapeHtml(t.assigned_by_name || 'A teammate')} sent you this">${linkifyText(t.description)} <span class="assigned-from">from ${escapeHtml(t.assigned_by_name || 'a teammate')}</span></div>
+                                        <div class="project-task-desc" title="${escapeHtml(t.assigned_by_name || 'A teammate')} sent you this · Option+Click opens its page">${linkifyText(t.description)} <span class="assigned-from">from ${escapeHtml(t.assigned_by_name || 'a teammate')}</span></div>
                                         <span class="project-task-date">${t.scheduled_date}</span>
                                         <div class="task-accept" data-task-id="${t.id}" title="Accept — put this on your board">&check;</div>
                                         <div class="task-return" data-task-id="${t.id}" title="Return to ${escapeHtml(t.assigned_by_name || 'sender')}">&cularr;</div>
@@ -6134,7 +6154,7 @@
                             return `
                                 <div class="project-task-item" data-id="${t.id}">
                                     <div class="task-circle" data-task-id="${t.id}"></div>
-                                    <div class="project-task-desc" data-task-id="${t.id}" title="Hover and press r to repeat">${linkifyText(t.description)}${renderRepeatGlyph(t)}</div>
+                                    <div class="project-task-desc" data-task-id="${t.id}" title="Option+Click opens its page · hover and press r to repeat">${linkifyText(t.description)}${renderRepeatGlyph(t)}</div>
                                     <span class="project-task-date${t.locked ? ' locked-date' : ''}">${t.scheduled_date}</span>
                                     ${progress}
                                 </div>
@@ -6171,6 +6191,15 @@
                     });
                 });
 
+                container.querySelectorAll('.project-task-item.awaiting .project-task-desc').forEach(desc => {
+                    desc.addEventListener('click', (e) => {
+                        if (!e.altKey || e.shiftKey) return;
+                        e.stopPropagation();
+                        const row = desc.closest('.project-task-item');
+                        if (row) window.open(`/task/${row.dataset.id}`, '_blank', 'noopener');
+                    });
+                });
+
                 // Handed-over rows: the two answers.
                 container.querySelectorAll('.task-accept[data-task-id]').forEach(btn => {
                     btn.addEventListener('click', (e) => {
@@ -6190,6 +6219,11 @@
                         // Link clicks open in a new tab, they don't toggle the pane.
                         if (e.target.closest('a.task-link')) return;
                         const taskId = parseInt(desc.dataset.taskId);
+                        // Option+Click → the task's own page, same as the board.
+                        if (e.altKey && !e.shiftKey) {
+                            window.open(`/task/${taskId}`, '_blank', 'noopener');
+                            return;
+                        }
                         if (expandedTaskIds.has(taskId)) {
                             expandedTaskIds.delete(taskId);
                         } else {

@@ -337,6 +337,20 @@ DELETE /api/tasks/:taskId
 Response: { success: true }
 ```
 
+#### Task page (background · notes · results)
+```
+GET  /task/:id                      the page itself (static task.html)
+GET  /api/tasks/:id/page            { task, notes } — task carries owner_name,
+                                    project_name, background, results,
+                                    completed_by_name; notes are the feed
+PUT  /api/tasks/:id/page            { background?, results? } — independent saves
+POST /api/tasks/:id/notes           { body, author_slug? } → 201 note
+```
+`background`/`results` live on the task row, so the come-home move on
+completion delivers the assignee's results to the sender automatically.
+Notes cascade with task deletion. Fields cap at 20k chars. `author_slug`
+resolves within the task's company; unknown or absent → authorless note.
+
 #### Master ("List" view) page
 ```
 GET /api/companies/:subdomain/users/:slug/master

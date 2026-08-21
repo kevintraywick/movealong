@@ -87,6 +87,8 @@ async function initDb() {
       accepted_at DATETIME,
       return_when_done INTEGER DEFAULT 0,
       completed_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
+      background TEXT,
+      results TEXT,
       description TEXT NOT NULL,
       scheduled_date DATE NOT NULL,
       origin_date DATE,
@@ -140,6 +142,24 @@ async function initDb() {
       FOREIGN KEY (parent_subtask_id) REFERENCES subtasks(id) ON DELETE CASCADE,
       FOREIGN KEY (assigned_to) REFERENCES users(id) ON DELETE SET NULL,
       FOREIGN KEY (assigned_by) REFERENCES users(id) ON DELETE SET NULL
+    )
+  `);
+
+  // Notes on a task's page (/task/:id): an append-only feed with attribution,
+  // not one editable blob — several people (and later, agents) add to a task,
+  // and "who said this, when" is the half of a note that a shared text area
+  // silently destroys. author_id is nullable and SET NULL: a note outlives
+  // its author, and with no auth the author is whoever the browser's session
+  // says anyway.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS task_notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      task_id INTEGER NOT NULL,
+      author_id INTEGER,
+      body TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE CASCADE,
+      FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE SET NULL
     )
   `);
 
@@ -282,6 +302,11 @@ async function initDb() {
   // Who actually did the work, once it came home. What lets the sender's row
   // read "done by Margo" and skip the strikethrough their own ticks get.
   ensureColumn('tasks', 'completed_by', 'INTEGER REFERENCES users(id) ON DELETE SET NULL');
+  // The task page's two editable panes. Both live on the task row itself, so
+  // when finished handed-over work moves home, the assignee's results ride
+  // back to the sender with it — no copying step, the move IS the delivery.
+  ensureColumn('tasks', 'background', 'TEXT');
+  ensureColumn('tasks', 'results', 'TEXT');
   // The task created on the assignee's board when this step was handed over.
   // It is what lets the sender's pane say "Margo has it, not yet accepted"
   // without hunting for a task by matching description text.
@@ -309,6 +334,7 @@ async function initDb() {
   db.run('CREATE INDEX IF NOT EXISTS idx_calendar_feeds_user ON calendar_feeds(user_id)');
   db.run('CREATE INDEX IF NOT EXISTS idx_ai_usage_month ON ai_usage(project_id, month)');
   db.run('CREATE INDEX IF NOT EXISTS idx_tasks_assigned_by ON tasks(assigned_by)');
+  db.run('CREATE INDEX IF NOT EXISTS idx_task_notes_task ON task_notes(task_id)');
 
   saveDb();
   return db;
