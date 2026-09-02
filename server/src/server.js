@@ -1824,10 +1824,10 @@ function briefContext(req, res) {
   const { subdomain, slug, projectId } = req.params;
   const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
   if (!company) { res.status(404).json({ error: 'Company not found' }); return null; }
-  const user = queryOne('SELECT id, name, brief, brief_contact, brief_travel, brief_medical FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  const user = queryOne('SELECT id, name, brief, brief_learned, brief_learned_at, brief_contact, brief_travel, brief_medical FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
   if (!user) { res.status(404).json({ error: 'User not found' }); return null; }
   const project = queryOne(`
-    SELECT p.id, p.name, p.brief FROM projects p
+    SELECT p.id, p.name, p.brief, p.brief_learned, p.brief_learned_at FROM projects p
     JOIN project_members pm ON pm.project_id = p.id
     WHERE p.id = ? AND pm.user_id = ?`, [projectId, user.id]);
   if (!project) { res.status(404).json({ error: 'Board not found' }); return null; }
@@ -1850,11 +1850,16 @@ app.get('/api/companies/:subdomain/users/:slug/projects/:projectId/brief', (req,
     user: { id: user.id, name: user.name },
     project: { id: project.id, name: project.name },
     board: project.brief || '',
+    learned: {
+      personal: briefLines(user.brief_learned, 'personal', user.id).map(l => l.line),
+      board: briefLines(project.brief_learned, 'board', project.id).map(l => l.line)
+    },
+    fields: { contact: CONTACT_FIELDS, medical: MEDICAL_FIELDS },
     questions,
     usage
   };
-  for (const [scope, col] of PERSONAL_SECTIONS) {
-    body[scope] = user[col] || '';
+  for (const [scope, col, kind, fields] of PERSONAL_SECTIONS) {
+    body[scope] = kind === 'fields' ? parseFields(user[col], fields) : (user[col] || '');
     usage[scope] = queryAll('SELECT line, uses, last_used_at FROM brief_usage WHERE scope = ? AND owner_id = ?', [scope, user.id]);
   }
   res.json(body);
@@ -1867,12 +1872,21 @@ app.put('/api/companies/:subdomain/users/:slug/projects/:projectId/brief', (req,
   if (!ctx) return;
   const body = req.body || {};
   let touched = 0;
-  const writes = PERSONAL_SECTIONS.map(([scope, col]) => [body[scope], `UPDATE users SET ${col} = ? WHERE id = ?`, ctx.user.id]);
-  writes.push([body.board, 'UPDATE projects SET brief = ? WHERE id = ?', ctx.project.id]);
-  for (const [val, sql, id] of writes) {
+  const writes = PERSONAL_SECTIONS.map(([scope, col, kind, fields]) => [body[scope], `UPDATE users SET ${col} = ? WHERE id = ?`, ctx.user.id, kind, fields]);
+  writes.push([body.board, 'UPDATE projects SET brief = ? WHERE id = ?', ctx.project.id, 'text']);
+  for (const [val, sql, id, kind, fields] of writes) {
     if (val === undefined) continue;
-    if (val !== null && typeof val !== 'string') return res.status(400).json({ error: 'brief must be a string' });
-    runSql(sql, [val ? String(val).slice(0, BRIEF_MAX) : null, id]);
+    let stored;
+    if (kind === 'fields') {
+      if (val !== null && (typeof val !== 'object' || Array.isArray(val))) return res.status(400).json({ error: 'fields must be an object' });
+      const clean = {};
+      for (const [k] of fields) if (typeof (val || {})[k] === 'string' && val[k].trim()) clean[k] = val[k].trim().slice(0, 500);
+      stored = Object.keys(clean).length ? JSON.stringify(clean) : null;
+    } else {
+      if (val !== null && typeof val !== 'string') return res.status(400).json({ error: 'brief must be a string' });
+      stored = val ? String(val).slice(0, BRIEF_MAX) : null;
+    }
+    runSql(sql, [stored, id]);
     touched++;
   }
   if (!touched) return res.status(400).json({ error: 'Nothing to update' });
@@ -1888,31 +1902,93 @@ app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/questi
   res.json({ ok: true });
 });
 
-// A first draft read off the person's recent tasks — the blank-page cure.
-// Billed to this board like any other call; the page appends the result to
-// the pane rather than replacing it, so nothing typed is ever lost.
-app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/draft', async (req, res) => {
+// The task monitor. About you / About this board maintain themselves: when
+// enough new tasks have arrived since it last looked, the model rewrites the
+// LEARNED list from the evidence — keeping what still holds, revising, dropping,
+// adding — while never restating a pinned line and never re-proposing a
+// rejected one. Runs when the page opens (cheap: no tools, ~1k tokens), and
+// only when there is new material, so an idle board costs nothing.
+const LEARN_MIN_NEW_TASKS = 3;
+
+function learnedRow(scope, ctx) {
+  const table = LEARNED_SCOPES[scope];
+  const id = scope === 'board' ? ctx.project.id : ctx.user.id;
+  const row = queryOne(`SELECT brief, brief_learned, brief_rejected, brief_learned_at FROM ${table} WHERE id = ?`, [id]);
+  return { table, id, row };
+}
+
+app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/learn', async (req, res) => {
   const ctx = briefContext(req, res);
   if (!ctx) return;
   const scope = req.body && req.body.scope === 'board' ? 'board' : 'personal';
-  if (!aiKeyAllows(req) || !aiBudgetAllows(req.ip)) {
-    return res.status(403).json({ error: 'AI is not available on this board' });
-  }
-  const rows = scope === 'board'
-    ? queryAll(`SELECT description FROM tasks WHERE owner_id = ? AND project_id = ? AND source != 'calendar'
+  const { table, id, row } = learnedRow(scope, ctx);
+  const current = briefLines(row.brief_learned, scope, id).map(l => l.line);
+  const reply = (ran, reason) => res.json({ learned: briefLines(
+    queryOne(`SELECT brief_learned FROM ${table} WHERE id = ?`, [id]).brief_learned, scope, id).map(l => l.line), ran, reason });
+
+  if (!aiKeyAllows(req) || !aiBudgetAllows(req.ip)) return reply(false, 'ai unavailable');
+
+  const since = row.brief_learned_at || '1970-01-01';
+  const tasks = scope === 'board'
+    ? queryAll(`SELECT description, created_at FROM tasks WHERE owner_id = ? AND project_id = ? AND source != 'calendar'
                 ORDER BY created_at DESC LIMIT 40`, [ctx.user.id, ctx.project.id])
-    : queryAll(`SELECT description FROM tasks WHERE owner_id = ? AND source != 'calendar'
+    : queryAll(`SELECT description, created_at FROM tasks WHERE owner_id = ? AND source != 'calendar'
                 ORDER BY created_at DESC LIMIT 60`, [ctx.user.id]);
-  if (rows.length < 3) return res.status(200).json({ draft: '', reason: 'not enough tasks yet' });
+  const fresh = tasks.filter(t => String(t.created_at) > since).length;
+  if (tasks.length < LEARN_MIN_NEW_TASKS) return reply(false, 'not enough tasks yet');
+  if (fresh < LEARN_MIN_NEW_TASKS && current.length) return reply(false, 'nothing new');
+
   try {
     const ai = require('./ai');
-    const draft = await ai.draftBrief(scope, scope === 'board' ? ctx.project.name : ctx.user.name, rows.map(r => r.description));
-    recordUsage(ctx.project.id, null, 'brief_draft', ai.takeUsage());
-    res.json({ draft });
+    const pinned = briefLines(row.brief, scope, id).map(l => l.line);
+    const rejected = briefLines(row.brief_rejected, scope, id).map(l => l.line);
+    const off = new Set([...pinned, ...rejected].map(l => l.toLowerCase()));
+    // ai.js filters these too; filtered here as well because a kept or
+    // rejected line coming back would silently undo the user's decision.
+    const learned = (await ai.learnBrief({
+      scope,
+      name: scope === 'board' ? ctx.project.name : ctx.user.name,
+      pinned,
+      learned: current,
+      rejected,
+      tasks: tasks.map(t => t.description)
+    })).filter(l => !off.has(l.toLowerCase()));
+    recordUsage(ctx.project.id, null, 'brief_learn', ai.takeUsage());
+    runSql(`UPDATE ${table} SET brief_learned = ?, brief_learned_at = ? WHERE id = ?`,
+      [learned.length ? learned.map(l => '- ' + l).join('\n') : null, new Date().toISOString(), id]);
+    reply(true, null);
   } catch (err) {
-    console.error('Brief draft failed:', err.message);
-    res.status(502).json({ error: 'Could not draft a brief right now' });
+    console.error('Brief learn failed:', err.message);
+    reply(false, 'failed');
   }
+});
+
+// Keep or drop one learned line. KEEP moves it into the user's own text —
+// pinned, outranks anything inferred, and the monitor never touches it
+// again. DROP records it so the monitor won't re-propose it, reworded or not.
+app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/learned', (req, res) => {
+  const ctx = briefContext(req, res);
+  if (!ctx) return;
+  const { scope: rawScope, line, action } = req.body || {};
+  const scope = rawScope === 'board' ? 'board' : 'personal';
+  if (typeof line !== 'string' || !line.trim()) return res.status(400).json({ error: 'line is required' });
+  if (action !== 'keep' && action !== 'drop') return res.status(400).json({ error: 'action must be keep or drop' });
+  const { table, id, row } = learnedRow(scope, ctx);
+  const target = line.trim();
+  const remaining = briefLines(row.brief_learned, scope, id).map(l => l.line).filter(l => l !== target);
+  const updates = { brief_learned: remaining.length ? remaining.map(l => '- ' + l).join('\n') : null };
+  if (action === 'keep') {
+    const cur = (row.brief || '').replace(/\s+$/, '');
+    updates.brief = (cur ? cur + '\n' : '') + '- ' + target;
+  } else {
+    const rej = briefLines(row.brief_rejected, scope, id).map(l => l.line);
+    if (!rej.includes(target)) rej.push(target);
+    updates.brief_rejected = rej.map(l => '- ' + l).join('\n');
+  }
+  const cols = Object.keys(updates);
+  runSql(`UPDATE ${table} SET ${cols.map(c => c + ' = ?').join(', ')} WHERE id = ?`, [...cols.map(c => updates[c]), id]);
+  const after = queryOne(`SELECT brief, brief_learned FROM ${table} WHERE id = ?`, [id]);
+  res.json({ text: after.brief || '', learned: briefLines(after.brief_learned, scope, id).map(l => l.line) });
 });
 
 app.get('/api/tasks/:taskId/page', (req, res) => {
@@ -2694,26 +2770,72 @@ function briefLines(text, scope, ownerId) {
 
 // Sections, in the order the model reads them. Scope names double as the
 // brief_usage key and the PUT field names on the brief routes.
-const PERSONAL_SECTIONS = [
-  ['personal', 'brief', 'about them'],
-  ['contact', 'brief_contact', 'their contact details — private; never copy into a step'],
-  ['travel', 'brief_travel', 'how they travel'],
-  ['medical', 'brief_medical', 'medical — private; use only when a step genuinely needs it, never copy into a step']
+//   text     — freeform user lines (About you, Travel, About this board)
+//   fields   — a small form stored as JSON (Contact, Health); each filled
+//              field becomes one "Label: value" line
+// About you and About this board also carry a LEARNED list the task monitor
+// maintains (see learnBrief); the user's own lines are pinned and outrank it.
+const CONTACT_FIELDS = [
+  ['full_name', 'Full name'], ['nickname', 'Goes by'], ['phone', 'Phone'], ['email', 'Email'],
+  ['address', 'Address'], ['discord', 'Discord'], ['notes', 'Notes']
 ];
+const MEDICAL_FIELDS = [
+  ['allergies', 'Allergies'], ['medications', 'Medications'], ['conditions', 'Conditions'],
+  ['doctor', 'Doctor'], ['pharmacy', 'Pharmacy'], ['emergency_name', 'Emergency contact'],
+  ['emergency_phone', 'Emergency contact phone'], ['notes', 'Notes']
+];
+const PERSONAL_SECTIONS = [
+  ['contact', 'brief_contact', 'fields', CONTACT_FIELDS],
+  ['medical', 'brief_medical', 'fields', MEDICAL_FIELDS],
+  ['personal', 'brief', 'text'],
+  ['travel', 'brief_travel', 'text']
+];
+const LEARNED_SCOPES = { personal: 'users', board: 'projects' };
+const LEARNED_MAX = 8;
+
+function parseFields(raw, fields) {
+  let obj = {};
+  if (raw) {
+    try { obj = JSON.parse(raw); } catch (e) { obj = { notes: String(raw) }; }
+  }
+  const out = {};
+  for (const [k] of fields) out[k] = typeof obj[k] === 'string' ? obj[k].trim() : '';
+  return out;
+}
+
+function fieldLines(raw, fields, scope, ownerId) {
+  const obj = parseFields(raw, fields);
+  const out = [];
+  for (const [k, label] of fields) {
+    if (!obj[k]) continue;
+    if (k === 'notes') out.push(...briefLines(obj[k], scope, ownerId));
+    else out.push({ scope, ownerId, line: `${label}: ${obj[k]}` });
+  }
+  return out;
+}
 
 function briefFor(ownerId, projectId) {
-  const u = queryOne('SELECT brief, brief_contact, brief_travel, brief_medical FROM users WHERE id = ?', [ownerId]);
-  const p = projectId ? queryOne('SELECT brief FROM projects WHERE id = ?', [projectId]) : null;
+  const u = queryOne('SELECT brief, brief_learned, brief_contact, brief_travel, brief_medical FROM users WHERE id = ?', [ownerId]);
+  const p = projectId ? queryOne('SELECT brief, brief_learned FROM projects WHERE id = ?', [projectId]) : null;
   const out = [];
-  for (const [scope, col] of PERSONAL_SECTIONS) out.push(...briefLines(u && u[col], scope, ownerId));
-  out.push(...briefLines(p && p.brief, 'board', projectId));
+  for (const [scope, col, kind, fields] of PERSONAL_SECTIONS) {
+    if (!u) break;
+    if (kind === 'fields') out.push(...fieldLines(u[col], fields, scope, ownerId));
+    else out.push(...briefLines(u[col], scope, ownerId));
+    if (scope === 'personal') out.push(...briefLines(u.brief_learned, scope, ownerId).map(l => ({ ...l, inferred: true })));
+  }
+  if (p) {
+    out.push(...briefLines(p.brief, 'board', projectId));
+    out.push(...briefLines(p.brief_learned, 'board', projectId).map(l => ({ ...l, inferred: true })));
+  }
   return out;
 }
 
 // What the model sees: each line tagged with its section, so "(medical)"
-// and "(contact)" carry their own handling rule from the prompt.
+// and "(contact)" carry their own handling rule from the prompt, and an
+// inferred line says so — a stated note outranks a guessed one.
 function briefText(lines) {
-  return lines.map(l => `(${l.scope}) ${l.line}`);
+  return lines.map(l => `(${l.scope}${l.inferred ? ', inferred' : ''}) ${l.line}`);
 }
 
 // What the model reported back: which notes it applied (upserted into

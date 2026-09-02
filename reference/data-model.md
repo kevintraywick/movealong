@@ -20,14 +20,17 @@
 | role       | TEXT     | Display only ("Accounting", "CTO"); nothing branches on it. Shown in the team roster and the shared-board banner |
 | is_ai      | INTEGER  | 0 or 1, default 0. An AI teammate (Tessa). Renders with a 🧠 avatar on a neutral tint, and work assigned to her **auto-accepts** in both assign routes — an AI has no inbox. Real agent dispatch will hang off this flag |
 | brief      | TEXT     | The person's standing notes for the assistant ("About you") — freeform, one per line, follows them to every board. Merged ahead of the board's own `brief` on every AI call |
-| brief_contact | TEXT  | Their own contact details (nickname, phone, address, Discord). Voluntary. Sent tagged `(contact)` with a never-copy-into-steps rule |
-| brief_travel  | TEXT  | Airports, airlines, hotel chains, seat/time preferences. Tagged `(travel)` |
-| brief_medical | TEXT  | Allergies, pharmacy, doctor. Voluntary, tagged `(medical)`, same never-copy rule |
+| brief_contact | TEXT  | JSON `{full_name, nickname, phone, email, address, discord, notes}` — the "You" form. Each filled field → one `Label: value` line tagged `(contact)`, with a never-copy-into-steps rule |
+| brief_travel  | TEXT  | Freeform: airports, airlines, hotel chains, seat/time preferences. Tagged `(travel)` |
+| brief_medical | TEXT  | JSON `{allergies, medications, conditions, doctor, pharmacy, emergency_name, emergency_phone, notes}` — the "Health" form. Tagged `(medical)`, same never-copy rule |
+| brief_learned | TEXT  | Newline list the task monitor maintains for About you (max 8). Reaches the model tagged `(personal, inferred)`; a stated line outranks it. Same three columns exist on `projects` for About this board |
+| brief_rejected | TEXT | Learned lines the user dropped with ✕; the monitor is told never to re-propose them and the route filters them out regardless |
+| brief_learned_at | DATETIME | When the monitor last ran; it only runs again after ≥ 3 newer tasks |
 | share_board| INTEGER  | 0 or 1, default 0. Whether this board is open to the team; the shared-board route 403s without it. A product rule, not a security boundary (no auth) — the seam real permissions go in |
 | created_at | DATETIME | auto             |
 
 ## projects (brief)
-`projects.brief` (TEXT) — this board's standing notes for the assistant; merged after the owner's `users.brief` on every AI call made from this board. (Other project columns are described where they're used: `ai_budget_usd`, `research_enabled` under ai_usage.)
+`projects.brief` (TEXT) — this board's standing notes for the assistant; merged after the owner's `users.brief` on every AI call made from this board. `projects.brief_learned` / `brief_rejected` / `brief_learned_at` — the board's own task-monitor list, same semantics as the user columns. (Other project columns are described where they're used: `ai_budget_usd`, `research_enabled` under ai_usage.)
 
 ## tasks
 | Column         | Type     | Notes            |

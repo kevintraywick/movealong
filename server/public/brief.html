@@ -233,6 +233,81 @@
 
         .usage-text { overflow-wrap: anywhere; }
 
+        /* Two columns: the quick forms on the left, the open-ended panes on
+           the right. The inbox spans both. */
+        .columns {
+            display: grid;
+            grid-template-columns: 280px minmax(0, 1fr);
+            gap: 14px;
+            align-items: start;
+        }
+
+        .col { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+
+        @media (max-width: 760px) {
+            .columns { grid-template-columns: minmax(0, 1fr); }
+        }
+
+        /* Form cards — label above a plain field, quick to rattle through. */
+        .fields { display: flex; flex-direction: column; gap: 7px; }
+
+        .field { display: flex; flex-direction: column; gap: 2px; }
+
+        .field label {
+            font-size: 11px;
+            color: #94a3b8;
+        }
+
+        .field input, .field textarea {
+            font: inherit;
+            padding: 4px 7px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #ffffff;
+            color: inherit;
+            outline: none;
+            min-height: 0;
+            line-height: 1.4;
+        }
+
+        .field textarea { min-height: 40px; resize: vertical; }
+        .field input:focus, .field textarea:focus { border-color: #0ea5e9; }
+
+        /* Learned lines — the monitor's notes. Full colour, not grey: they
+           are live instructions, only ones you haven't vouched for yet. */
+        .learned {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        .learned-title {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 4px;
+            display: flex;
+            gap: 8px;
+            align-items: baseline;
+            white-space: nowrap;
+        }
+
+        .learned-title .pane-hint { white-space: normal; }
+
+        .learned-state { margin-left: auto; color: #cbd5e1; }
+
+        .learned-line {
+            display: flex;
+            gap: 8px;
+            align-items: baseline;
+            padding: 2px 0;
+        }
+
+        .learned-text { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
+
+        .learned-line .btn { padding: 1px 8px; font-size: 11px; }
+
+        .learned-empty { font-size: 12px; color: #cbd5e1; }
+
         .page-error {
             text-align: center;
             color: #64748b;
@@ -260,6 +335,12 @@
         body.dark .usage-count { color: #38bdf8; }
         body.dark .usage-line.unused { color: #64748b; }
         body.dark .usage-line.unused .usage-count { color: #475569; }
+        body.dark .field label { color: #64748b; }
+        body.dark .field input, body.dark .field textarea { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+        body.dark .field input:focus, body.dark .field textarea:focus { border-color: #0ea5e9; }
+        body.dark .learned { border-top-color: #334155; }
+        body.dark .learned-title { color: #64748b; }
+        body.dark .learned-state, body.dark .learned-empty { color: #475569; }
         body.dark textarea::placeholder,
         body.dark .pane-hint,
         body.dark .usage-title,
@@ -440,31 +521,116 @@
             });
         }
 
-        async function draftInto(field) {
-            const btn = document.getElementById(field + 'Draft');
-            const state = document.getElementById(field + 'DraftState');
-            const textarea = document.getElementById(field + 'Input');
-            btn.disabled = true;
-            state.textContent = 'reading your tasks…';
-            try {
-                const r = await api(`${base}/brief/draft`, { method: 'POST', body: { scope: field } });
-                if (!r.draft) {
-                    state.textContent = r.reason === 'not enough tasks yet'
-                        ? 'not enough tasks on record yet'
-                        : 'nothing worth noting in your tasks yet';
-                } else {
-                    const cur = textarea.value.replace(/\s+$/, '');
-                    textarea.value = (cur ? cur + '\n\n' : '') + r.draft;
-                    textarea.dispatchEvent(new Event('input'));
-                    state.textContent = 'added below — edit freely';
-                }
-            } catch (err) {
-                state.textContent = err.message;
+        let briefData = null;
+
+        function learnedList(scope) {
+            const el = document.getElementById(scope + 'Learned');
+            const items = briefData.learned[scope] || [];
+            const stateEl = `<span class="learned-state" id="${scope}LearnState"></span>`;
+            if (!items.length) {
+                el.innerHTML = `<div class="learned-title">Learned from your tasks ${stateEl}</div><div class="learned-empty">Nothing yet — it looks again whenever a few new tasks have come in.</div>`;
+                return;
             }
-            btn.disabled = false;
+            el.innerHTML = `<div class="learned-title">Learned from your tasks <span class="pane-hint">keep = make it yours · ✕ = never again</span>${stateEl}</div>` +
+                items.map(line => `
+                    <div class="learned-line" data-line="${escapeHtml(line)}">
+                        <span class="learned-text">${escapeHtml(line)}</span>
+                        <button class="btn" data-act="keep" title="Move into your own notes — pinned, and outranks anything inferred">keep</button>
+                        <button class="btn quiet" data-act="drop" title="Drop it, and don't propose it again">✕</button>
+                    </div>`).join('');
+        }
+
+        async function learnedAction(scope, line, action) {
+            try {
+                const r = await api(`${base}/brief/learned`, { method: 'POST', body: { scope, line, action } });
+                briefData.learned[scope] = r.learned;
+                if (action === 'keep') {
+                    const ta = document.getElementById(scope + 'Input');
+                    ta.value = r.text;
+                    document.getElementById(scope + 'State').textContent = 'saved';
+                    renderUsage(scope, ta.value, briefData.usage[scope] || []);
+                }
+                learnedList(scope);
+            } catch (err) {
+                alert('Could not update: ' + err.message);
+            }
+        }
+
+        function wireLearned(scope) {
+            document.getElementById(scope + 'Learned').addEventListener('click', (e) => {
+                const btn = e.target.closest('[data-act]');
+                if (!btn) return;
+                learnedAction(scope, btn.closest('.learned-line').dataset.line, btn.dataset.act);
+            });
+        }
+
+        // Ask the monitor to look at recent tasks. It only spends a call when
+        // there is new material, so this is safe to do on every open.
+        async function learn(scope) {
+            const state = () => document.getElementById(scope + 'LearnState');
+            if (state()) state().textContent = 'checking recent tasks…';
+            try {
+                const r = await api(`${base}/brief/learn`, { method: 'POST', body: { scope } });
+                briefData.learned[scope] = r.learned;
+                learnedList(scope);
+                if (state()) state().textContent = r.ran ? 'updated just now' : (r.reason === 'nothing new' ? 'up to date' : '');
+            } catch (err) {
+                if (state()) state().textContent = '';
+            }
+        }
+
+        function fieldRows(scope, values, fields) {
+            return fields.map(([key, label]) => {
+                const v = escapeHtml(values[key] || '');
+                const long = key === 'address' || key === 'notes' || key === 'medications' || key === 'conditions' || key === 'allergies';
+                return `<div class="field"><label for="${scope}_${key}">${escapeHtml(label)}</label>${long
+                    ? `<textarea id="${scope}_${key}" data-key="${key}" rows="2">${v}</textarea>`
+                    : `<input id="${scope}_${key}" data-key="${key}" type="text" value="${v}">`}</div>`;
+            }).join('');
+        }
+
+        function wireFields(scope, fields) {
+            const pane = document.getElementById(scope + 'Fields');
+            const stateEl = document.getElementById(scope + 'State');
+            const collect = () => {
+                const out = {};
+                for (const [key] of fields) out[key] = pane.querySelector(`[data-key="${key}"]`).value;
+                return out;
+            };
+            const save = async () => {
+                try {
+                    await api(`${base}/brief`, { method: 'PUT', body: { [scope]: collect() } });
+                    stateEl.textContent = 'saved';
+                    stateEl.classList.add('saved');
+                } catch (err) {
+                    stateEl.textContent = 'not saved — ' + err.message;
+                    stateEl.classList.remove('saved');
+                }
+            };
+            pane.addEventListener('input', () => {
+                stateEl.textContent = 'typing…';
+                stateEl.classList.remove('saved');
+                clearTimeout(saveTimers[scope]);
+                saveTimers[scope] = setTimeout(save, 800);
+            });
+            pane.addEventListener('focusout', () => { clearTimeout(saveTimers[scope]); save(); });
+        }
+
+        function textPane(scope, title, hint, placeholder, withLearned) {
+            return `
+                <div class="pane">
+                    <div class="pane-title">${title}
+                        <span class="pane-hint">${hint}</span>
+                        <span class="save-state" id="${scope}State"></span>
+                    </div>
+                    <textarea id="${scope}Input" placeholder="${escapeHtml(placeholder)}"></textarea>
+                    ${withLearned ? `<div class="learned" id="${scope}Learned"></div>` : ''}
+                    <div class="usage" id="${scope}Usage"></div>
+                </div>`;
         }
 
         function render(data) {
+            briefData = data;
             document.title = `Brief · ${data.project.name} · MoveAlong`;
             document.getElementById('page').innerHTML = `
                 <div class="page-header">
@@ -472,102 +638,57 @@
                     <span class="page-meta"><b>${escapeHtml(data.user.name)}</b> &middot; ${escapeHtml(data.project.name)}</span>
                 </div>
                 <div class="page-title">Brief</div>
-                <div class="page-lede">What the assistant knows before it starts a task on this board. One note per line — where you are, what you use, who's involved, how you like things done. It applies the notes that fit a task and ignores the rest, so you don't have to be tidy. Everything here is voluntary, and this page is reachable by anyone who has your board's link — there is no sign-in yet — so leave out anything you wouldn't put on the board itself.</div>
+                <div class="page-lede">What the assistant knows before it starts a task on this board. The forms on the left are the basics; the notes on the right are how you like things done, and the assistant keeps them current from your tasks — anything you write yourself is pinned and outranks what it learned. Everything here is voluntary, and this page is reachable by anyone who has your board's link — there is no sign-in yet — so leave out anything you wouldn't put on the board itself.</div>
 
                 ${data.questions.length ? `
                 <div class="pane inbox" id="inbox">
                     <div class="pane-title">The assistant wishes it knew
-                        <span class="pane-hint">one line each — it goes straight into the brief</span>
+                        <span class="pane-hint">one line each — it goes straight into your notes</span>
                     </div>
                     ${data.questions.map(questionRow).join('')}
                 </div>` : ''}
 
-                <div class="pane">
-                    <div class="pane-title">About you
-                        <span class="pane-hint">follows you to every board</span>
-                        <span class="save-state" id="personalState"></span>
+                <div class="columns">
+                    <div class="col">
+                        <div class="pane">
+                            <div class="pane-title">You
+                                <span class="pane-hint">used to shape steps, never copied into one</span>
+                                <span class="save-state" id="contactState"></span>
+                            </div>
+                            <div class="fields" id="contactFields">${fieldRows('contact', data.contact, data.fields.contact)}</div>
+                        </div>
+                        <div class="pane">
+                            <div class="pane-title">Health
+                                <span class="pane-hint">optional; only when a step needs it</span>
+                                <span class="save-state" id="medicalState"></span>
+                            </div>
+                            <div class="fields" id="medicalFields">${fieldRows('medical', data.medical, data.fields.medical)}</div>
+                        </div>
                     </div>
-                    <textarea id="personalInput" placeholder="- I'm in Tennessee and fly out of Nashville — Alaska Air when I can, otherwise American or BA
-- I've used Booking.com and Google Flights for travel
-- I edit video in OpenShot; images come from Nano Banana Pro"></textarea>
-                    <div class="pane-actions">
-                        <button class="btn" id="personalDraft">Draft from my tasks</button>
-                        <span class="draft-state" id="personalDraftState"></span>
+                    <div class="col">
+                        ${textPane('personal', 'About you', 'follows you to every board',
+                            "- I'm in Tennessee; Alaska Air when I can, otherwise American or BA\n- I've used Booking.com and Google Flights for travel\n- I edit video in OpenShot; images come from Nano Banana Pro", true)}
+                        ${textPane('travel', 'Travel', 'airports, airlines, hotels, how you like to go',
+                            "- Home airport BNA; Huntsville (HSV) in a pinch\n- Marriott when there's a choice; aisle seat; no red-eyes", false)}
+                        ${textPane('board', 'About this board', escapeHtml(data.project.name) + ' only',
+                            "- This board is the New York trip: drive to Nashville, fly BNA→NYC, two nights, same way back\n- Margo handles the bookings; ask her before paying for anything", true)}
                     </div>
-                    <div class="usage" id="personalUsage"></div>
-                </div>
-
-                <div class="pane">
-                    <div class="pane-title">Contact
-                        <span class="pane-hint">yours — voluntary; used to shape steps, never copied into one</span>
-                        <span class="save-state" id="contactState"></span>
-                    </div>
-                    <textarea id="contactInput" placeholder="- Goes by Kev
-- Cell 615-555-0100, text first
-- 123 Main St, Franklin TN 37064
-- Discord: kevtray"></textarea>
-                    <div class="usage" id="contactUsage"></div>
-                </div>
-
-                <div class="pane">
-                    <div class="pane-title">Travel
-                        <span class="pane-hint">airports, airlines, hotels, how you like to go</span>
-                        <span class="save-state" id="travelState"></span>
-                    </div>
-                    <textarea id="travelInput" placeholder="- Home airport BNA; Huntsville (HSV) in a pinch
-- Alaska Air first, then American or British Airways
-- Marriott when there's a choice; aisle seat; no red-eyes"></textarea>
-                    <div class="usage" id="travelUsage"></div>
-                </div>
-
-                <div class="pane">
-                    <div class="pane-title">Medical
-                        <span class="pane-hint">voluntary; private — used only when a step needs it</span>
-                        <span class="save-state" id="medicalState"></span>
-                    </div>
-                    <textarea id="medicalInput" placeholder="- Allergic to penicillin
-- Pharmacy: Walgreens on Columbia Ave
-- Doctor: Dr. Patel, Williamson Medical"></textarea>
-                    <div class="usage" id="medicalUsage"></div>
-                </div>
-
-                <div class="pane">
-                    <div class="pane-title">About this board
-                        <span class="pane-hint">${escapeHtml(data.project.name)} only</span>
-                        <span class="save-state" id="boardState"></span>
-                    </div>
-                    <textarea id="boardInput" placeholder="- This board is the New York trip: drive to Nashville, fly BNA→NYC, two nights, same way back
-- Margo handles the bookings; ask her before paying for anything"></textarea>
-                    <div class="pane-actions">
-                        <button class="btn" id="boardDraft">Draft from this board's tasks</button>
-                        <span class="draft-state" id="boardDraftState"></span>
-                    </div>
-                    <div class="usage" id="boardUsage"></div>
                 </div>`;
 
-            const personal = document.getElementById('personalInput');
-            personal.value = data.personal;
-            wireAutosave(personal, 'personal', document.getElementById('personalState'),
-                () => renderUsage('personal', personal.value, data.usage.personal));
-            renderUsage('personal', data.personal, data.usage.personal);
+            wireFields('contact', data.fields.contact);
+            wireFields('medical', data.fields.medical);
 
-            for (const field of ['contact', 'travel', 'medical']) {
-                const ta = document.getElementById(field + 'Input');
-                ta.value = data[field] || '';
-                wireAutosave(ta, field, document.getElementById(field + 'State'),
-                    () => renderUsage(field, ta.value, data.usage[field] || []));
-                renderUsage(field, data[field] || '', data.usage[field] || []);
+            for (const scope of ['personal', 'travel', 'board']) {
+                const ta = document.getElementById(scope + 'Input');
+                ta.value = data[scope] || '';
+                wireAutosave(ta, scope, document.getElementById(scope + 'State'),
+                    () => renderUsage(scope, ta.value, data.usage[scope] || []));
+                renderUsage(scope, ta.value, data.usage[scope] || []);
             }
-
-            const board = document.getElementById('boardInput');
-            board.value = data.board;
-            wireAutosave(board, 'board', document.getElementById('boardState'),
-                () => renderUsage('board', board.value, data.usage.board));
-            renderUsage('board', data.board, data.usage.board);
-
-            document.getElementById('personalDraft').addEventListener('click', () => draftInto('personal'));
-            document.getElementById('boardDraft').addEventListener('click', () => draftInto('board'));
+            for (const scope of ['personal', 'board']) { learnedList(scope); wireLearned(scope); }
             wireInbox();
+            learn('personal');
+            learn('board');
         }
 
         (async () => {

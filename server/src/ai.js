@@ -86,7 +86,7 @@ function briefClause(brief) {
   if (!brief || !brief.length) return '';
   return `
 
-STANDING NOTES about this person and this board, each tagged with its section — apply the ones that matter to this task and ignore the rest. Never repeat a note back as a step; use it to make the steps fit them (their airports, their tools, the sites they already use, the people involved). Notes tagged (contact) and (medical) are private: use them to shape a step ("call your usual pharmacy", "book from your home airport") but NEVER copy a phone number, address, condition or medication into step text — steps can be seen by teammates:
+STANDING NOTES about this person and this board, each tagged with its section — apply the ones that matter to this task and ignore the rest. Never repeat a note back as a step; use it to make the steps fit them (their airports, their tools, the sites they already use, the people involved). Notes tagged (contact) and (medical) are private: use them to shape a step ("call your usual pharmacy", "book from your home airport") but NEVER copy a phone number, address, condition or medication into step text — steps can be seen by teammates. Notes marked "inferred" were guessed from past tasks; where a stated note and an inferred one disagree, the stated one wins:
 ${brief.map((l, i) => `${i}. ${l}`).join('\n')}`;
 }
 
@@ -477,23 +477,31 @@ async function researchSubtasks(taskDescription, steps, opts = {}) {
 }
 
 // ============================================================
-// DRAFT A BRIEF FROM THE WORK
+// THE TASK MONITOR — learn a brief from the work
 // ============================================================
-// A blank page is the worst place to ask someone what an assistant should know
-// about them. This reads their recent tasks back to them as a handful of
-// standing notes they can react to — evidenced only, never invented.
-async function draftBrief(scope, name, taskDescriptions) {
-  const who = scope === 'board'
-    ? `the board "${name}"`
-    : `${name} across all their boards`;
-  const prompt = `Below are recent tasks from ${who} in a task app. An AI assistant drafts the steps for each new task, and before it does it reads a short BRIEF of standing notes.
+// About you / About this board maintain themselves. Given the user's own
+// pinned lines (never restate), the current inferred list, the lines the user
+// threw out (never re-propose), and recent tasks, return the NEW inferred list.
+// Evidenced only, never invented, short. The blank-page cure and the
+// "board learns you over time" loop are the same call.
+async function learnBrief({ scope, name, pinned, learned, rejected, tasks, max = 8 }) {
+  const who = scope === 'board' ? `the board "${name}"` : `${name} across all their boards`;
+  const list = (arr) => arr.length ? arr.map(l => `- ${l}`).join('\n') : '(none)';
+  const prompt = `You maintain a short list of INFERRED standing notes about ${who} for an AI assistant that drafts task steps. The notes are read before every task, so each must be a durable fact or preference the tasks actually show — places they go, tools and sites they use, people who recur, kinds of work they do — phrased as the person would ("I fly out of Nashville", "I edit video in Resolve").
 
-Write that brief from the evidence: 4-10 lines, each starting with "- ", each a single fact or preference the assistant should carry into future tasks — places they go, tools and sites they use, people who recur, constraints, recurring kinds of work. Phrase each as the person would ("I fly out of Nashville", "I edit video in Resolve"). Only what the tasks actually show or strongly imply; never guess at anything personal. If the tasks show nothing worth noting, return an empty string.
+PINNED notes the person wrote themselves (already known — never restate or contradict these):
+${list(pinned)}
 
-Tasks:
-${taskDescriptions.map(d => `- ${d}`).join('\n')}
+CURRENT inferred notes (yours from last time — keep what the tasks still support, revise what has shifted, drop what looks stale or one-off):
+${list(learned)}
 
-Return ONLY the lines, no heading, no commentary.`;
+REJECTED notes the person threw out (never propose these again, even reworded):
+${list(rejected)}
+
+RECENT TASKS, newest first:
+${tasks.map(d => `- ${d}`).join('\n')}
+
+Return ONLY a JSON array of at most ${max} strings: the complete new inferred list. Each under 15 words. Never guess at anything personal or medical. An empty array is a fine answer.`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -513,9 +521,16 @@ Return ONLY the lines, no heading, no commentary.`;
   const data = await response.json();
   lastUsage = meterUsage(data);
   const textBlock = data.content.find(block => block.type === 'text');
-  const text = textBlock ? textBlock.text.trim() : '';
-  // Keep only bullet lines — a chatty model's preamble must not land in the brief.
-  return text.split('\n').map(l => l.trim()).filter(l => /^[-*•]\s+\S/.test(l)).join('\n');
+  const jsonMatch = textBlock && textBlock.text.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) return [];
+  const parsed = JSON.parse(jsonMatch[0]);
+  if (!Array.isArray(parsed)) return [];
+  const seen = new Set([...pinned, ...rejected].map(l => l.toLowerCase()));
+  return parsed
+    .filter(l => typeof l === 'string' && l.trim())
+    .map(l => l.trim().replace(/^[-*•]\s*/, '').slice(0, 200))
+    .filter(l => !seen.has(l.toLowerCase()))
+    .slice(0, max);
 }
 
-module.exports = { generateSubtasks, researchSubtasks, triageCosts, draftBrief, takeUsage, takeBriefReport, COST_MIN_CONFIDENCE };
+module.exports = { generateSubtasks, researchSubtasks, triageCosts, learnBrief, takeUsage, takeBriefReport, COST_MIN_CONFIDENCE };

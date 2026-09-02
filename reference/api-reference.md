@@ -463,7 +463,7 @@ merged server-side into phase 1, cost triage, and both research paths.
 ```
 GET  /api/companies/:subdomain/users/:slug/projects/:projectId/brief
 ```
-→ `{ user: {id, name}, project: {id, name}, personal, contact, travel, medical, board, questions: [{id, question, created_at, task_description}], usage: { personal: [{line, uses, last_used_at}], board: [...] } }`.
+→ `{ user: {id, name}, project: {id, name}, personal, travel, board (strings), contact, medical (objects — see `fields`), fields: { contact: [[key, label]…], medical: […] }, learned: { personal: [lines], board: [lines] }, questions: [{id, question, created_at, task_description}], usage: { personal: [{line, uses, last_used_at}], board: [...] } }`.
 `questions` are the open ones for this user on this board (newest first).
 `usage` has one array per section (`personal`, `contact`, `travel`, `medical`,
 `board`), keyed by line text; the page matches it against the current lines
@@ -472,22 +472,30 @@ itself. Lines reach the model tagged `(section) text`. 404 if the user is not a 
 ```
 PUT  /api/companies/:subdomain/users/:slug/projects/:projectId/brief
 ```
-Body `{ personal?, contact?, travel?, medical?, board? }` — send a key to update that layer, omit to leave
-it alone. Strings up to 20,000 chars; empty/null clears. 400 with neither.
+Body `{ personal?, travel?, board?, contact?, medical? }` — send a key to update that layer, omit to leave
+it alone. Text layers: strings up to 20,000 chars. `contact` / `medical`: objects whose keys come from
+`fields` (unknown keys dropped, values ≤ 500 chars); `{}` clears. Empty/null clears any layer. 400 with none.
+
+```
+POST /api/companies/:subdomain/users/:slug/projects/:projectId/brief/learn
+```
+Body `{ scope: 'personal' | 'board' }`. The task monitor: rewrites that scope's LEARNED list from
+recent tasks (60 across boards / 40 on this board) when ≥ 3 tasks were created since it last ran.
+→ `{ learned: [lines], ran: bool, reason?: 'not enough tasks yet' | 'nothing new' | 'ai unavailable' | 'failed' }`.
+Never restates pinned lines or re-proposes rejected ones. Billed as `kind = 'brief_learn'`.
+
+```
+POST /api/companies/:subdomain/users/:slug/projects/:projectId/brief/learned
+```
+Body `{ scope, line, action: 'keep' | 'drop' }`. **keep** moves the line out of the learned list and
+appends it to the user's own text (pinned). **drop** removes it and records it in the rejected list.
+→ `{ text, learned }` for that scope.
 
 ```
 POST /api/companies/:subdomain/users/:slug/projects/:projectId/brief/questions/:qid/resolve
 ```
 Marks a question answered or skipped (the answer itself is written into a
 brief layer by the page via PUT above).
-
-```
-POST /api/companies/:subdomain/users/:slug/projects/:projectId/brief/draft
-```
-Body `{ scope: 'personal' | 'board' }`. Reads the person's recent tasks (60 across
-boards / 40 on this board) and returns `{ draft }` — bullet lines the model can
-evidence, or `{ draft: '', reason: 'not enough tasks yet' }` under 3 tasks.
-Gated like every AI call (`x-ai-key`, rate caps); billed as `kind = 'brief_draft'`.
 
 Every AI call that received a brief may report back `brief_used` (line
 indexes → `brief_usage` upsert) and one `question` (→ `brief_questions`,

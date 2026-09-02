@@ -352,9 +352,20 @@ async function initDb() {
   // sent to the model as labelled sections with an instruction never to copy
   // them into step text — a phone number in a subtask row would leak onto a
   // shared board.
-  ensureColumn('users', 'brief_contact', 'TEXT');
+  ensureColumn('users', 'brief_contact', 'TEXT');   // JSON since the same day: {full_name, nickname, phone, email, address, discord, notes}
   ensureColumn('users', 'brief_travel', 'TEXT');
-  ensureColumn('users', 'brief_medical', 'TEXT');
+  ensureColumn('users', 'brief_medical', 'TEXT');   // JSON: {allergies, medications, conditions, doctor, pharmacy, emergency_name, emergency_phone, notes}
+  // The self-maintaining half of "About you" / "About this board": lines the
+  // task monitor inferred from recent tasks (brief_learned, newline list),
+  // lines the user threw out that it must not re-propose (brief_rejected),
+  // and when it last looked, so it only runs when there is new material.
+  // A line the user keeps moves OUT of learned and INTO the typed text, which
+  // is what gives it more weight and takes it away from the monitor.
+  for (const t of ['users', 'projects']) {
+    ensureColumn(t, 'brief_learned', 'TEXT');
+    ensureColumn(t, 'brief_rejected', 'TEXT');
+    ensureColumn(t, 'brief_learned_at', 'DATETIME');
+  }
   // The task created on the assignee's board when this step was handed over.
   // It is what lets the sender's pane say "Margo has it, not yet accepted"
   // without hunting for a task by matching description text.
