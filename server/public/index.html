@@ -5743,6 +5743,12 @@
                 const bEvent = b.source === 'calendar' ? 1 : 0;
                 if (aEvent !== bEvent) return bEvent - aEvent;
                 if (aEvent) return (a.event_start || '').localeCompare(b.event_start || '');
+                // A task locked to this day is the day's deadline, so it
+                // heads the list regardless of manual order. Display only:
+                // positions are still written for it, they just never win.
+                const aLock = a.locked ? 1 : 0;
+                const bLock = b.locked ? 1 : 0;
+                if (aLock !== bLock) return bLock - aLock;
                 const ap = a.position == null ? Infinity : a.position;
                 const bp = b.position == null ? Infinity : b.position;
                 return ap - bp;
