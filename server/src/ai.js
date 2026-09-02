@@ -65,6 +65,67 @@ function takeUsage() {
   return u;
 }
 
+// ============================================================
+// THE BRIEF
+// ============================================================
+// Standing notes about the person and the board, one line each, merged by the
+// server before the call. Every prompt that gets one is asked to do two extra
+// things: say which lines it actually applied (`brief_used`, so the page can
+// show what has earned its place) and name ONE thing it wished it had known
+// (`question`, which lands in the brief page's inbox). Both ride on calls that
+// are being made anyway, so the brief curates itself for free.
+let lastBriefReport = null;
+
+function takeBriefReport() {
+  const r = lastBriefReport;
+  lastBriefReport = null;
+  return r;
+}
+
+function briefClause(brief) {
+  if (!brief || !brief.length) return '';
+  return `
+
+STANDING NOTES about this person and this board — apply the ones that matter to this task and ignore the rest. Never repeat a note back as a step; use it to make the steps fit them (their airports, their tools, the sites they already use, the people involved):
+${brief.map((l, i) => `${i}. ${l}`).join('\n')}`;
+}
+
+// When a brief is present the answer is wrapped in an envelope object instead
+// of the bare array, carrying the two extra fields. `key` names the array.
+function envelopeClause(brief, key) {
+  if (!brief || !brief.length) return '';
+  return `
+
+Because standing notes were given, return ONLY a JSON object of this shape instead of a bare array:
+{"${key}": <the array described above>, "brief_used": [<indexes of the notes you actually applied, or []>], "question": <one short question (under 15 words) whose answer would have made these ${key} better — a fact about the person or board you lacked — or null if nothing comes to mind>}
+Ask a question only when a real gap cost you; most of the time null is the right answer.`;
+}
+
+// Accepts either the envelope or the bare array, so a model that ignores the
+// envelope instruction still yields steps. Records the report as a side effect.
+function unwrap(text, key) {
+  const objStart = text.indexOf('{');
+  const arrStart = text.indexOf('[');
+  if (objStart !== -1 && (arrStart === -1 || objStart < arrStart)) {
+    const objMatch = text.slice(objStart).match(/\{[\s\S]*\}/);
+    if (objMatch) {
+      try {
+        const obj = JSON.parse(objMatch[0]);
+        if (obj && Array.isArray(obj[key])) {
+          lastBriefReport = {
+            used: Array.isArray(obj.brief_used) ? obj.brief_used.filter(n => Number.isInteger(n) && n >= 0) : [],
+            question: typeof obj.question === 'string' && obj.question.trim() ? obj.question.trim().slice(0, 200) : null
+          };
+          return obj[key];
+        }
+      } catch (e) { /* fall through to the array form */ }
+    }
+  }
+  const jsonMatch = text.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) throw new Error('No JSON array in response');
+  return JSON.parse(jsonMatch[0]);
+}
+
 function buildPrompt(taskDescription) {
   if (LIST_TASK_RE.test(taskDescription)) {
     return `You are the AI assistant in a task app. The user created a list task: "${taskDescription}".
@@ -122,8 +183,9 @@ Return exactly ${count} NEW step(s) that fit alongside those, not a fresh list.`
 }
 
 async function generateSubtasks(taskDescription, opts = {}) {
-  const { count, existing } = opts;
-  const prompt = buildPrompt(taskDescription) + topUpClause(count, existing);
+  const { count, existing, brief } = opts;
+  const prompt = buildPrompt(taskDescription) + topUpClause(count, existing)
+    + briefClause(brief) + envelopeClause(brief, 'steps');
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -151,11 +213,8 @@ async function generateSubtasks(taskDescription, opts = {}) {
   if (!textBlock) throw new Error('No text block in response');
   const text = textBlock.text;
 
-  // Extract JSON from response
-  const jsonMatch = text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) throw new Error('No JSON array in response');
-
-  const parsed = JSON.parse(jsonMatch[0]);
+  const parsed = unwrap(text, 'steps');
+  if (!Array.isArray(parsed)) throw new Error('Steps were not an array');
 
   // List tasks return bare suggestion strings; they all render as AI rows.
   if (LIST_TASK_RE.test(taskDescription)) {
@@ -186,7 +245,16 @@ async function generateSubtasks(taskDescription, opts = {}) {
 // pass decides for itself, which is the behaviour before this existed.
 const COST_KINDS = new Set(['material', 'labor', 'service', 'none']);
 
-async function triageCosts(taskDescription, steps) {
+async function triageCosts(taskDescription, steps, brief = null) {
+  const hasBrief = brief && brief.length;
+  const briefPart = hasBrief ? `
+
+Also: these are the user's STANDING NOTES. Pick out the ones that bear on this task at all — the research pass will only be shown those, so err toward including a note if it could plausibly change a step:
+${brief.map((l, i) => `${i}. ${l}`).join('\n')}` : '';
+  const shape = hasBrief
+    ? `Return ONLY a JSON object: {"costs": [exactly ${steps.length} strings, in order], "brief": [indexes of the relevant notes, or []]}. Example: {"costs":["none","material","none","service"],"brief":[0,2]}`
+    : `Return ONLY a JSON array of exactly ${steps.length} strings, in order. Example: ["none","material","none","service"]`;
+
   const prompt = `For the task "${taskDescription}", classify what each step COSTS to carry out.
 
 Steps:
@@ -198,9 +266,9 @@ For each step return exactly one of:
 - "service" — the step pays for a booking, ticket, subscription, permit or fee
 - "none" — the step spends no money: deciding, choosing, planning, measuring, asking, looking something up, or doing it yourself with what you already have
 
-Most steps are "none". Only classify a step as costing money when carrying it out plainly requires spending some.
+Most steps are "none". Only classify a step as costing money when carrying it out plainly requires spending some.${briefPart}
 
-Return ONLY a JSON array of exactly ${steps.length} strings, in order. Example: ["none","material","none","service"]`;
+${shape}`;
 
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
@@ -212,7 +280,7 @@ Return ONLY a JSON array of exactly ${steps.length} strings, in order. Example: 
     },
     body: JSON.stringify({
       model: TRIAGE_MODEL,
-      max_tokens: 256,
+      max_tokens: 400,
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -222,9 +290,23 @@ Return ONLY a JSON array of exactly ${steps.length} strings, in order. Example: 
   lastUsage = meterUsage(data, TRIAGE_MODEL);
 
   const textBlock = data.content.find(block => block.type === 'text');
-  const jsonMatch = textBlock && textBlock.text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) throw new Error('No JSON array in triage response');
-  const parsed = JSON.parse(jsonMatch[0]);
+  if (!textBlock) throw new Error('No text block in triage response');
+  let parsed;
+  if (hasBrief) {
+    const objMatch = textBlock.text.match(/\{[\s\S]*\}/);
+    const obj = objMatch ? JSON.parse(objMatch[0]) : null;
+    if (!obj || !Array.isArray(obj.costs)) throw new Error('No costs in triage response');
+    parsed = obj.costs;
+    // The selection, not a usage report: which notes the research pass gets.
+    lastBriefReport = {
+      used: Array.isArray(obj.brief) ? obj.brief.filter(n => Number.isInteger(n) && n >= 0 && n < brief.length) : [],
+      question: null
+    };
+  } else {
+    const jsonMatch = textBlock.text.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) throw new Error('No JSON array in triage response');
+    parsed = JSON.parse(jsonMatch[0]);
+  }
   if (!Array.isArray(parsed)) throw new Error('Triage response was not an array');
 
   // Index-matched like the research pass: a short answer must not shift every
@@ -250,7 +332,7 @@ const COST_MIN_CONFIDENCE = 0.5;
 // in place. It never adds, removes or reorders steps: it returns exactly one
 // verdict per input row, matched by index, so a row the user completed or
 // promoted while it was running is simply skipped by the caller.
-function buildResearchPrompt(taskDescription, steps, location, kind = 'step', costKinds = null) {
+function buildResearchPrompt(taskDescription, steps, location, kind = 'step', costKinds = null, brief = null) {
   const where = location && (location.city || location.region || location.country)
     ? `\n\nThe user is near ${[location.city, location.region, location.country].filter(Boolean).join(', ')} — prefer local options, stores and services where it matters.`
     : '';
@@ -286,7 +368,7 @@ Rules for pricing:
 Be conservative with "illogical". Most drafted ${kind}s are merely vague, and the user has already read them; replacing one they are looking at is disruptive, so only flag a ${kind} you would defend.${where}
 
 Return ONLY a JSON array of exactly ${steps.length} objects, in the same order as the drafted ${kind}s. Example shape:
-[{"refined": "Order 6ft cedar pickets, $4.28 each (homedepot.com/s/cedar%20picket)", "illogical": false, "confidence": 0, "replacement": null, "cost_kind": "material", "cost_low": 90, "cost_high": 130, "cost_unit": "total", "cost_basis": "24x 6ft cedar picket at $4.28", "cost_source_url": "https://homedepot.com/s/cedar%20picket", "cost_as_of": "2026-08-16", "cost_confidence": 0.8}]`;
+[{"refined": "Order 6ft cedar pickets, $4.28 each (homedepot.com/s/cedar%20picket)", "illogical": false, "confidence": 0, "replacement": null, "cost_kind": "material", "cost_low": 90, "cost_high": 130, "cost_unit": "total", "cost_basis": "24x 6ft cedar picket at $4.28", "cost_source_url": "https://homedepot.com/s/cedar%20picket", "cost_as_of": "2026-08-16", "cost_confidence": 0.8}]${briefClause(brief)}${envelopeClause(brief, 'steps')}`;
 }
 
 // Normalise the cost half of a research verdict. Returns null for anything that
@@ -323,9 +405,9 @@ function parseCost(r) {
 }
 
 async function researchSubtasks(taskDescription, steps, opts = {}) {
-  const { location, maxSearches = 5, kind = 'step', costKinds = null } = opts;
+  const { location, maxSearches = 5, kind = 'step', costKinds = null, brief = null } = opts;
 
-  const messages = [{ role: 'user', content: buildResearchPrompt(taskDescription, steps, location, kind, costKinds) }];
+  const messages = [{ role: 'user', content: buildResearchPrompt(taskDescription, steps, location, kind, costKinds, brief) }];
   const totals = { model: MODEL, input_tokens: 0, output_tokens: 0, web_searches: 0, cost_usd: 0 };
   let data = null;
 
@@ -373,10 +455,7 @@ async function researchSubtasks(taskDescription, steps, opts = {}) {
 
   const textBlock = [...data.content].reverse().find(block => block.type === 'text');
   if (!textBlock) throw new Error('No text block in research response');
-  const jsonMatch = textBlock.text.match(/\[[\s\S]*\]/);
-  if (!jsonMatch) throw new Error('No JSON array in research response');
-
-  const parsed = JSON.parse(jsonMatch[0]);
+  const parsed = unwrap(textBlock.text, 'steps');
   if (!Array.isArray(parsed)) throw new Error('Research response was not an array');
 
   // Pad/truncate to the input length so index matching is total — a short
@@ -397,4 +476,46 @@ async function researchSubtasks(taskDescription, steps, opts = {}) {
   });
 }
 
-module.exports = { generateSubtasks, researchSubtasks, triageCosts, takeUsage, COST_MIN_CONFIDENCE };
+// ============================================================
+// DRAFT A BRIEF FROM THE WORK
+// ============================================================
+// A blank page is the worst place to ask someone what an assistant should know
+// about them. This reads their recent tasks back to them as a handful of
+// standing notes they can react to — evidenced only, never invented.
+async function draftBrief(scope, name, taskDescriptions) {
+  const who = scope === 'board'
+    ? `the board "${name}"`
+    : `${name} across all their boards`;
+  const prompt = `Below are recent tasks from ${who} in a task app. An AI assistant drafts the steps for each new task, and before it does it reads a short BRIEF of standing notes.
+
+Write that brief from the evidence: 4-10 lines, each starting with "- ", each a single fact or preference the assistant should carry into future tasks — places they go, tools and sites they use, people who recur, constraints, recurring kinds of work. Phrase each as the person would ("I fly out of Nashville", "I edit video in Resolve"). Only what the tasks actually show or strongly imply; never guess at anything personal. If the tasks show nothing worth noting, return an empty string.
+
+Tasks:
+${taskDescriptions.map(d => `- ${d}`).join('\n')}
+
+Return ONLY the lines, no heading, no commentary.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    signal: AbortSignal.timeout(30000),
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!response.ok) throw new Error(`Claude API error: ${response.status}`);
+  const data = await response.json();
+  lastUsage = meterUsage(data);
+  const textBlock = data.content.find(block => block.type === 'text');
+  const text = textBlock ? textBlock.text.trim() : '';
+  // Keep only bullet lines — a chatty model's preamble must not land in the brief.
+  return text.split('\n').map(l => l.trim()).filter(l => /^[-*•]\s+\S/.test(l)).join('\n');
+}
+
+module.exports = { generateSubtasks, researchSubtasks, triageCosts, draftBrief, takeUsage, takeBriefReport, COST_MIN_CONFIDENCE };

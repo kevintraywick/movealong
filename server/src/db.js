@@ -203,6 +203,43 @@ async function initDb() {
     )
   `);
 
+  // The brief: standing notes the assistant reads before every AI call. Two
+  // layers — a personal one that follows the user to every board, and one per
+  // board — merged at call time. Freeform, one bullet per line; the model is
+  // told to apply what matters to the task and ignore the rest.
+  //
+  // brief_questions is the assistant's inbox in reverse: a gap the model hit
+  // while working ("Which airport do you fly from?"), waiting for a one-line
+  // answer. brief_usage records which lines the model actually applied, keyed
+  // by line text, so the page can show what has earned its place and what has
+  // never been read. Both are what let the brief curate itself from the work
+  // side instead of asking the user to sit down and write an essay.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS brief_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      project_id INTEGER,
+      task_id INTEGER,
+      question TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      resolved_at DATETIME,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+      FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+      FOREIGN KEY (task_id) REFERENCES tasks(id) ON DELETE SET NULL
+    )
+  `);
+  db.run(`
+    CREATE TABLE IF NOT EXISTS brief_usage (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      scope TEXT NOT NULL,
+      owner_id INTEGER NOT NULL,
+      line TEXT NOT NULL,
+      uses INTEGER DEFAULT 0,
+      last_used_at DATETIME,
+      UNIQUE(scope, owner_id, line)
+    )
+  `);
+
   // Migrations for existing databases (ALTER TABLE is idempotent-guarded via table_info)
   ensureColumn('tasks', 'locked', 'INTEGER DEFAULT 0');
   ensureColumn('tasks', 'origin_date', 'DATE');
@@ -307,6 +344,9 @@ async function initDb() {
   // back to the sender with it — no copying step, the move IS the delivery.
   ensureColumn('tasks', 'background', 'TEXT');
   ensureColumn('tasks', 'results', 'TEXT');
+  // The two brief layers (see brief_questions above).
+  ensureColumn('users', 'brief', 'TEXT');
+  ensureColumn('projects', 'brief', 'TEXT');
   // The task created on the assignee's board when this step was handed over.
   // It is what lets the sender's pane say "Margo has it, not yet accepted"
   // without hunting for a task by matching description text.

@@ -19,8 +19,12 @@
 | color      | TEXT     | hex color        |
 | role       | TEXT     | Display only ("Accounting", "CTO"); nothing branches on it. Shown in the team roster and the shared-board banner |
 | is_ai      | INTEGER  | 0 or 1, default 0. An AI teammate (Tessa). Renders with a 🧠 avatar on a neutral tint, and work assigned to her **auto-accepts** in both assign routes — an AI has no inbox. Real agent dispatch will hang off this flag |
+| brief      | TEXT     | The person's standing notes for the assistant — freeform, one per line, follows them to every board. Merged ahead of the board's own `brief` on every AI call |
 | share_board| INTEGER  | 0 or 1, default 0. Whether this board is open to the team; the shared-board route 403s without it. A product rule, not a security boundary (no auth) — the seam real permissions go in |
 | created_at | DATETIME | auto             |
+
+## projects (brief)
+`projects.brief` (TEXT) — this board's standing notes for the assistant; merged after the owner's `users.brief` on every AI call made from this board. (Other project columns are described where they're used: `ai_budget_usd`, `research_enabled` under ai_usage.)
 
 ## tasks
 | Column         | Type     | Notes            |
@@ -138,6 +142,32 @@ One subscribed iCal feed per user (`user_id` is UNIQUE).
    not "repair" these rows to a project.
 3. **`origin_date` = `scheduled_date`**, so the days-pushed counter reads 1 and
    stays hidden. An event should not grow an age badge.
+
+## brief_questions
+The assistant's inbox in reverse: one thing the model wished it had known while working on a task, waiting for a one-line answer on the brief page.
+
+| Column      | Type     | Notes |
+|-------------|----------|-------|
+| id          | INTEGER  | PK |
+| user_id     | INTEGER  | FK → users, CASCADE |
+| project_id  | INTEGER  | FK → projects, CASCADE, nullable |
+| task_id     | INTEGER  | FK → tasks, SET NULL — shown as "while working on …" |
+| question    | TEXT     | ≤ 200 chars |
+| created_at  | DATETIME | |
+| resolved_at | DATETIME | NULL = open. Answered or skipped both resolve. Deduped case-insensitively while open; max 7 open per (user, board) |
+
+## brief_usage
+Which brief lines the model actually applied. Keyed by line text, so an edited line starts fresh and a deleted one simply stops being shown — the page matches rows against the current text and lists what earned its keep first, never-read lines greyed last.
+
+| Column       | Type     | Notes |
+|--------------|----------|-------|
+| id           | INTEGER  | PK |
+| scope        | TEXT     | `'personal'` (owner_id = user) or `'board'` (owner_id = project) |
+| owner_id     | INTEGER  | see scope |
+| line         | TEXT     | the note, leading bullet stripped |
+| uses         | INTEGER  | incremented per reporting call |
+| last_used_at | DATETIME | |
+| | | UNIQUE(scope, owner_id, line) |
 
 ## Indexes
 - `idx_users_company` on users(company_id)

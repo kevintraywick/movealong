@@ -4670,6 +4670,7 @@
                 <div class="lock-popup-menu">
                     <div class="lock-popup-title">Board</div>
                     <div class="account-who" data-role="board-name">${escapeHtml(currentProject.name)}</div>
+                    <div class="lock-opt" data-act="brief-project">Brief the assistant</div>
                     <div class="lock-opt" data-act="rename-project">Rename this board</div>
                     <div class="lock-opt danger" data-act="delete-project">Delete this board</div>
                 </div>`;
@@ -4679,6 +4680,14 @@
             popup.style.left = rect.left + 'px';
             popup.style.top = (rect.bottom + 6) + 'px';
             popup.classList.add('visible');
+
+            // The brief is a page, like a task's — a board's standing notes
+            // are reference material, not a popup's worth of text.
+            popup.querySelector('[data-act="brief-project"]').addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                hidePopups();
+                window.open(`/brief/${currentProject.id}`, '_blank', 'noopener');
+            });
 
             // Rename swaps the name line for a field in place rather than
             // opening a modal — one deliberate step, no second surface.

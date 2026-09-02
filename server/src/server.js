@@ -69,6 +69,13 @@ app.get('/task/:taskId', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'task.html'));
 });
 
+// A board's brief: what the assistant knows before it starts a task. Same
+// one-static-file pattern; the page reads the board id from the URL and the
+// person from the browser's session.
+app.get('/brief/:projectId', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'brief.html'));
+});
+
 // Static assets (wordmark font, any future images)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -1812,6 +1819,100 @@ app.post('/api/tasks/:taskId/accept', (req, res) => {
 
 const PAGE_FIELD_MAX = 20000;
 
+// ---- Brief routes ----
+function briefContext(req, res) {
+  const { subdomain, slug, projectId } = req.params;
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) { res.status(404).json({ error: 'Company not found' }); return null; }
+  const user = queryOne('SELECT id, name, brief FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  if (!user) { res.status(404).json({ error: 'User not found' }); return null; }
+  const project = queryOne(`
+    SELECT p.id, p.name, p.brief FROM projects p
+    JOIN project_members pm ON pm.project_id = p.id
+    WHERE p.id = ? AND pm.user_id = ?`, [projectId, user.id]);
+  if (!project) { res.status(404).json({ error: 'Board not found' }); return null; }
+  return { company, user, project };
+}
+
+app.get('/api/companies/:subdomain/users/:slug/projects/:projectId/brief', (req, res) => {
+  const ctx = briefContext(req, res);
+  if (!ctx) return;
+  const { user, project } = ctx;
+  const questions = queryAll(`
+    SELECT q.id, q.question, q.created_at, t.description AS task_description
+    FROM brief_questions q LEFT JOIN tasks t ON t.id = q.task_id
+    WHERE q.user_id = ? AND (q.project_id = ? OR q.project_id IS NULL) AND q.resolved_at IS NULL
+    ORDER BY q.created_at DESC, q.id DESC`, [user.id, project.id]);
+  const usage = {
+    personal: queryAll('SELECT line, uses, last_used_at FROM brief_usage WHERE scope = ? AND owner_id = ?', ['personal', user.id]),
+    board: queryAll('SELECT line, uses, last_used_at FROM brief_usage WHERE scope = ? AND owner_id = ?', ['board', project.id])
+  };
+  res.json({
+    user: { id: user.id, name: user.name },
+    project: { id: project.id, name: project.name },
+    personal: user.brief || '',
+    board: project.brief || '',
+    questions,
+    usage
+  });
+});
+
+// Sending a key updates that layer; omitting it leaves it alone — the two
+// panes autosave independently, same as the task page.
+app.put('/api/companies/:subdomain/users/:slug/projects/:projectId/brief', (req, res) => {
+  const ctx = briefContext(req, res);
+  if (!ctx) return;
+  const { personal, board } = req.body || {};
+  let touched = 0;
+  for (const [val, sql, id] of [
+    [personal, 'UPDATE users SET brief = ? WHERE id = ?', ctx.user.id],
+    [board, 'UPDATE projects SET brief = ? WHERE id = ?', ctx.project.id]
+  ]) {
+    if (val === undefined) continue;
+    if (val !== null && typeof val !== 'string') return res.status(400).json({ error: 'brief must be a string' });
+    runSql(sql, [val ? String(val).slice(0, BRIEF_MAX) : null, id]);
+    touched++;
+  }
+  if (!touched) return res.status(400).json({ error: 'Nothing to update' });
+  res.json({ ok: true });
+});
+
+app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/questions/:qid/resolve', (req, res) => {
+  const ctx = briefContext(req, res);
+  if (!ctx) return;
+  const q = queryOne('SELECT id FROM brief_questions WHERE id = ? AND user_id = ?', [req.params.qid, ctx.user.id]);
+  if (!q) return res.status(404).json({ error: 'Question not found' });
+  runSql('UPDATE brief_questions SET resolved_at = ? WHERE id = ?', [new Date().toISOString(), q.id]);
+  res.json({ ok: true });
+});
+
+// A first draft read off the person's recent tasks — the blank-page cure.
+// Billed to this board like any other call; the page appends the result to
+// the pane rather than replacing it, so nothing typed is ever lost.
+app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/draft', async (req, res) => {
+  const ctx = briefContext(req, res);
+  if (!ctx) return;
+  const scope = req.body && req.body.scope === 'board' ? 'board' : 'personal';
+  if (!aiKeyAllows(req) || !aiBudgetAllows(req.ip)) {
+    return res.status(403).json({ error: 'AI is not available on this board' });
+  }
+  const rows = scope === 'board'
+    ? queryAll(`SELECT description FROM tasks WHERE owner_id = ? AND project_id = ? AND source != 'calendar'
+                ORDER BY created_at DESC LIMIT 40`, [ctx.user.id, ctx.project.id])
+    : queryAll(`SELECT description FROM tasks WHERE owner_id = ? AND source != 'calendar'
+                ORDER BY created_at DESC LIMIT 60`, [ctx.user.id]);
+  if (rows.length < 3) return res.status(200).json({ draft: '', reason: 'not enough tasks yet' });
+  try {
+    const ai = require('./ai');
+    const draft = await ai.draftBrief(scope, scope === 'board' ? ctx.project.name : ctx.user.name, rows.map(r => r.description));
+    recordUsage(ctx.project.id, null, 'brief_draft', ai.takeUsage());
+    res.json({ draft });
+  } catch (err) {
+    console.error('Brief draft failed:', err.message);
+    res.status(502).json({ error: 'Could not draft a brief right now' });
+  }
+});
+
 app.get('/api/tasks/:taskId/page', (req, res) => {
   const { taskId } = req.params;
   const task = queryOne(`
@@ -2364,7 +2465,9 @@ app.post('/api/subtasks/:subtaskId/research', async (req, res) => {
 
   try {
     const ai = require('./ai');
+    const brief = briefFor(task.owner_id, task.project_id);
     const results = await ai.researchSubtasks(task.description, [subtask.description], {
+      brief: brief.map(l => l.line),
       location: locationForUser(task.owner_id),
       kind: LIST_TASK_RE.test(task.description || '') ? 'item' : 'step',
       // `max_uses` is per CALL, not per row, so a single row at the whole-task
@@ -2376,6 +2479,7 @@ app.post('/api/subtasks/:subtaskId/research', async (req, res) => {
       // seven rows. With one row there is nothing to aim.
     });
     recordUsage(task.project_id, subtask.task_id, 'research', ai.takeUsage());
+    applyBriefReport(brief, ai.takeBriefReport(), task.owner_id, task.project_id, subtask.task_id);
 
     const r = results[0];
     const live = queryOne('SELECT id FROM subtasks WHERE id = ?', [subtaskId]);
@@ -2567,6 +2671,63 @@ function researchAllowed(projectId) {
 // web_search takes an approximate user_location. The only location this app
 // knows is the IANA zone captured when a calendar feed was connected, which is
 // enough to localize "stores near me" without asking for an address.
+// ============================================================
+// THE BRIEF
+// ============================================================
+// Standing notes the assistant reads before it drafts or researches. Two
+// layers merged at call time: the person's own (users.brief, follows them to
+// every board) then the board's (projects.brief). Freeform text, one note per
+// line; leading bullets are stripped so "- I fly from BNA" and "I fly from BNA"
+// are the same note for usage tracking.
+const BRIEF_MAX = 20000;
+const BRIEF_QUESTION_CAP = 7;
+
+function briefLines(text, scope, ownerId) {
+  if (!text) return [];
+  return String(text).split('\n')
+    .map(l => l.replace(/^\s*[-*•]\s*/, '').trim())
+    .filter(Boolean)
+    .map(line => ({ scope, ownerId, line }));
+}
+
+function briefFor(ownerId, projectId) {
+  const u = queryOne('SELECT brief FROM users WHERE id = ?', [ownerId]);
+  const p = projectId ? queryOne('SELECT brief FROM projects WHERE id = ?', [projectId]) : null;
+  return [
+    ...briefLines(u && u.brief, 'personal', ownerId),
+    ...briefLines(p && p.brief, 'board', projectId)
+  ];
+}
+
+// What the model reported back: which notes it applied (upserted into
+// brief_usage, keyed by line text, so the page can show which notes have
+// earned their keep) and the one thing it wished it had known (into the
+// inbox — deduped, and capped, because a stale inbox is noise).
+function applyBriefReport(lines, report, ownerId, projectId, taskId) {
+  if (!report) return;
+  const now = new Date().toISOString();
+  for (const idx of report.used || []) {
+    const l = lines[idx];
+    if (!l) continue;
+    runSql(`INSERT INTO brief_usage (scope, owner_id, line, uses, last_used_at) VALUES (?, ?, ?, 1, ?)
+            ON CONFLICT(scope, owner_id, line) DO UPDATE SET uses = uses + 1, last_used_at = excluded.last_used_at`,
+      [l.scope, l.ownerId, l.line, now]);
+  }
+  const q = report.question;
+  if (q) {
+    const dup = queryOne(
+      'SELECT id FROM brief_questions WHERE user_id = ? AND project_id IS ? AND resolved_at IS NULL AND lower(question) = lower(?)',
+      [ownerId, projectId || null, q]);
+    const open = queryOne(
+      'SELECT COUNT(*) AS n FROM brief_questions WHERE user_id = ? AND project_id IS ? AND resolved_at IS NULL',
+      [ownerId, projectId || null]);
+    if (!dup && open.n < BRIEF_QUESTION_CAP) {
+      runSql('INSERT INTO brief_questions (user_id, project_id, task_id, question) VALUES (?, ?, ?, ?)',
+        [ownerId, projectId || null, taskId || null, q]);
+    }
+  }
+}
+
 function locationForUser(userId) {
   const feed = queryOne('SELECT timezone FROM calendar_feeds WHERE user_id = ?', [userId]);
   return feed && feed.timezone ? { timezone: feed.timezone } : null;
@@ -2597,10 +2758,17 @@ async function runResearch(taskId) {
     // budget below lands on those rows. Non-fatal: without it the research pass
     // just decides for itself, exactly as it did before this existed. Its own
     // audit row, because a budget's first question is where the money went.
+    // The brief rides along too. Triage picks the notes that bear on this
+    // task, and only those reach the research prompt — a forty-line brief
+    // must not dilute a seven-step pass. If triage fails, research sees it all.
+    const fullBrief = briefFor(task.owner_id, task.project_id);
+    let brief = fullBrief;
     let costKinds = null;
     try {
-      costKinds = await ai.triageCosts(task.description, descriptions);
+      costKinds = await ai.triageCosts(task.description, descriptions, fullBrief.map(l => l.line));
       recordUsage(task.project_id, taskId, 'cost_triage', ai.takeUsage());
+      const pick = ai.takeBriefReport();
+      if (pick && fullBrief.length) brief = pick.used.map(i => fullBrief[i]).filter(Boolean);
     } catch (err) {
       console.error(`Cost triage failed for task ${taskId}:`, err.message);
     }
@@ -2611,10 +2779,12 @@ async function runResearch(taskId) {
       {
         location: locationForUser(task.owner_id),
         kind: LIST_TASK_RE.test(task.description || '') ? 'item' : 'step',
-        costKinds
+        costKinds,
+        brief: brief.map(l => l.line)
       }
     );
     recordUsage(task.project_id, taskId, 'research', ai.takeUsage());
+    applyBriefReport(brief, ai.takeBriefReport(), task.owner_id, task.project_id, taskId);
 
     const now = new Date().toISOString();
     results.forEach((r, i) => {
@@ -2744,12 +2914,15 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
         subtaskList = generateMockSubtasks(task.description);
       } else {
         const ai = require('./ai');
+        const brief = briefFor(task.owner_id, task.project_id);
         subtaskList = await ai.generateSubtasks(task.description, {
           count: need,
-          existing: kept.map(k => k.description)
+          existing: kept.map(k => k.description),
+          brief: brief.map(l => l.line)
         });
         usedRealAi = true;
         recordUsage(task.project_id, taskId, 'draft', ai.takeUsage());
+        applyBriefReport(brief, ai.takeBriefReport(), task.owner_id, task.project_id, taskId);
       }
     } catch (e) {
       // Fall back to mock

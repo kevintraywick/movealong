@@ -454,6 +454,45 @@ because that is when the user plans to do this — and goes through
 lifted to the promoted row's own parent first, since `ON DELETE CASCADE` would
 otherwise destroy them. Its departure is what frees a slot in the pane's 7.
 
+### The brief
+
+Standing notes the assistant reads before every AI call. Two layers — the
+person's (`users.brief`, every board) and the board's (`projects.brief`) —
+merged server-side into phase 1, cost triage, and both research paths.
+
+```
+GET  /api/companies/:subdomain/users/:slug/projects/:projectId/brief
+```
+→ `{ user: {id, name}, project: {id, name}, personal, board, questions: [{id, question, created_at, task_description}], usage: { personal: [{line, uses, last_used_at}], board: [...] } }`.
+`questions` are the open ones for this user on this board (newest first).
+`usage` is keyed by line text; the page matches it against the current lines
+itself. 404 if the user is not a member of the board.
+
+```
+PUT  /api/companies/:subdomain/users/:slug/projects/:projectId/brief
+```
+Body `{ personal?, board? }` — send a key to update that layer, omit to leave
+it alone. Strings up to 20,000 chars; empty/null clears. 400 with neither.
+
+```
+POST /api/companies/:subdomain/users/:slug/projects/:projectId/brief/questions/:qid/resolve
+```
+Marks a question answered or skipped (the answer itself is written into a
+brief layer by the page via PUT above).
+
+```
+POST /api/companies/:subdomain/users/:slug/projects/:projectId/brief/draft
+```
+Body `{ scope: 'personal' | 'board' }`. Reads the person's recent tasks (60 across
+boards / 40 on this board) and returns `{ draft }` — bullet lines the model can
+evidence, or `{ draft: '', reason: 'not enough tasks yet' }` under 3 tasks.
+Gated like every AI call (`x-ai-key`, rate caps); billed as `kind = 'brief_draft'`.
+
+Every AI call that received a brief may report back `brief_used` (line
+indexes → `brief_usage` upsert) and one `question` (→ `brief_questions`,
+deduped, max 7 open per board). Triage additionally returns the subset of
+lines the research pass is shown.
+
 ### Research one subtask
 ```
 POST /api/subtasks/:subtaskId/research

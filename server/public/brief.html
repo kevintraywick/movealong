@@ -1,0 +1,553 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Brief · MoveAlong</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="mask-icon" href="/favicon-mask.svg" color="#0ea5e9">
+    <style>
+        @font-face {
+            font-family: 'Bricolage Grotesque';
+            src: url('/fonts/bricolage-grotesque-800.woff2') format('woff2');
+            font-weight: 800;
+            font-display: swap;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+            background: #f8fafc;
+            color: #0f172a;
+            padding: 20px;
+        }
+
+        .page {
+            max-width: 640px;
+            margin: 0 auto;
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+
+        .page-header {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+
+        .wordmark {
+            font-family: 'Bricolage Grotesque', -apple-system, sans-serif;
+            font-weight: 800;
+            font-size: 15px;
+            color: #0f172a;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+
+        .wordmark span { color: #0ea5e9; }
+
+        .page-meta { font-size: 12px; color: #64748b; }
+        .page-meta b { color: #475569; font-weight: 600; }
+
+        .page-title {
+            font-size: 17px;
+            font-weight: 600;
+            line-height: 1.35;
+        }
+
+        .page-lede {
+            font-size: 12px;
+            color: #64748b;
+            line-height: 1.5;
+            margin-top: -6px;
+        }
+
+        .pane {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 12px 14px;
+        }
+
+        .pane-title {
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .pane-hint {
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+            color: #cbd5e1;
+        }
+
+        .save-state {
+            margin-left: auto;
+            font-weight: 400;
+            text-transform: none;
+            letter-spacing: 0;
+            color: #cbd5e1;
+            transition: color 0.2s;
+        }
+
+        .save-state.saved { color: #0ea5e9; }
+
+        textarea {
+            width: 100%;
+            border: none;
+            outline: none;
+            resize: vertical;
+            font: inherit;
+            color: inherit;
+            background: transparent;
+            line-height: 1.6;
+            min-height: 96px;
+        }
+
+        textarea::placeholder { color: #cbd5e1; }
+
+        /* Inbox — the assistant's questions. Blue, like anything that is your move. */
+        .pane.inbox { border-color: #bae6fd; background: #f0f9ff; }
+        .pane.inbox .pane-title { color: #0284c7; }
+
+        .question {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+            padding: 8px 0;
+            border-top: 1px solid #e0f2fe;
+        }
+
+        .question:first-of-type { border-top: none; padding-top: 0; }
+
+        .question-text { font-weight: 500; }
+
+        .question-from {
+            font-size: 11px;
+            color: #64748b;
+        }
+
+        .question-row {
+            display: flex;
+            gap: 6px;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .question-row input {
+            flex: 1;
+            min-width: 180px;
+            font: inherit;
+            padding: 5px 8px;
+            border: 1px solid #bae6fd;
+            border-radius: 6px;
+            background: #ffffff;
+            color: inherit;
+            outline: none;
+        }
+
+        .question-row input:focus { border-color: #0ea5e9; }
+
+        .btn {
+            font: inherit;
+            font-size: 12px;
+            padding: 5px 12px;
+            border-radius: 6px;
+            border: 1px solid #bae6fd;
+            background: #ffffff;
+            color: #0284c7;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .btn:hover { background: #0ea5e9; border-color: #0ea5e9; color: #ffffff; }
+        .btn:disabled { opacity: 0.4; cursor: default; }
+
+        .btn.quiet {
+            border-color: transparent;
+            background: transparent;
+            color: #94a3b8;
+        }
+
+        .btn.quiet:hover { background: transparent; color: #64748b; border-color: transparent; }
+
+        .pane-actions {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #e2e8f0;
+        }
+
+        .pane-actions .btn { background: #f0f9ff; }
+        .pane-actions .btn:hover { background: #0ea5e9; }
+
+        .draft-state { font-size: 11px; color: #94a3b8; }
+
+        /* Usage — what the assistant has actually read. */
+        .usage {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            gap: 3px;
+        }
+
+        .usage-title {
+            font-size: 11px;
+            color: #94a3b8;
+            margin-bottom: 2px;
+        }
+
+        .usage-line {
+            display: flex;
+            gap: 8px;
+            align-items: baseline;
+            font-size: 12px;
+            color: #475569;
+        }
+
+        .usage-count {
+            flex-shrink: 0;
+            min-width: 64px;
+            font-size: 11px;
+            color: #0284c7;
+            font-variant-numeric: tabular-nums;
+        }
+
+        .usage-line.unused { color: #94a3b8; }
+        .usage-line.unused .usage-count { color: #cbd5e1; }
+
+        .usage-text { overflow-wrap: anywhere; }
+
+        .page-error {
+            text-align: center;
+            color: #64748b;
+            padding: 48px 0;
+        }
+
+        /* Dark mode — same key the board reads. */
+        body.dark { background: #0f172a; color: #e2e8f0; }
+        body.dark .wordmark { color: #f1f5f9; }
+        body.dark .page-meta, body.dark .page-lede { color: #94a3b8; }
+        body.dark .page-meta b { color: #cbd5e1; }
+        body.dark .pane { background: #1e293b; border-color: #334155; }
+        body.dark .pane.inbox { background: rgba(14, 165, 233, 0.08); border-color: #0369a1; }
+        body.dark .pane.inbox .pane-title { color: #38bdf8; }
+        body.dark .question { border-top-color: #1e3a5f; }
+        body.dark .question-from { color: #94a3b8; }
+        body.dark .question-row input { background: #0f172a; border-color: #0369a1; color: #e2e8f0; }
+        body.dark .btn { background: rgba(14, 165, 233, 0.12); border-color: #0369a1; color: #38bdf8; }
+        body.dark .btn:hover { background: #0ea5e9; border-color: #0ea5e9; color: #0f172a; }
+        body.dark .btn.quiet { background: transparent; border-color: transparent; color: #64748b; }
+        body.dark .btn.quiet:hover { color: #94a3b8; }
+        body.dark .pane-actions { border-top-color: #334155; }
+        body.dark .pane-actions .btn { background: rgba(14, 165, 233, 0.12); }
+        body.dark .usage-line { color: #cbd5e1; }
+        body.dark .usage-count { color: #38bdf8; }
+        body.dark .usage-line.unused { color: #64748b; }
+        body.dark .usage-line.unused .usage-count { color: #475569; }
+        body.dark textarea::placeholder,
+        body.dark .pane-hint,
+        body.dark .usage-title,
+        body.dark .draft-state,
+        body.dark .save-state { color: #475569; }
+        body.dark .save-state.saved { color: #38bdf8; }
+    </style>
+</head>
+<body>
+    <div class="page" id="page">
+        <div class="page-error">Opening&hellip;</div>
+    </div>
+
+    <script>
+        if (localStorage.getItem('movealong.theme') === 'dark') {
+            document.body.classList.add('dark');
+        }
+
+        const projectId = parseInt(location.pathname.split('/').pop(), 10);
+
+        function session() {
+            try { return JSON.parse(localStorage.getItem('movealong.session') || 'null'); }
+            catch (e) { return null; }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        async function api(path, options = {}) {
+            const headers = { 'Content-Type': 'application/json' };
+            const key = localStorage.getItem('movealong.aikey');
+            if (key) headers['x-ai-key'] = key;
+            const res = await fetch('/api' + path, {
+                method: options.method || 'GET',
+                headers,
+                body: options.body ? JSON.stringify(options.body) : undefined
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+            return data;
+        }
+
+        function dayLabel(iso) {
+            if (!iso) return '';
+            let s = String(iso);
+            if (s.includes(' ') && !s.includes('T')) s = s.replace(' ', 'T');
+            if (s.includes('T') && !/[zZ]|[+-]\d\d:?\d\d$/.test(s)) s += 'Z';
+            const d = new Date(s);
+            if (isNaN(d)) return String(iso).split('T')[0].split(' ')[0];
+            return d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+        }
+
+        let base = '';
+        let saveTimers = {};
+
+        // Same line normalisation as the server: a leading bullet is not part
+        // of the note, so "- I fly from BNA" and "I fly from BNA" match.
+        function lines(text) {
+            return String(text || '').split('\n')
+                .map(l => l.replace(/^\s*[-*•]\s*/, '').trim())
+                .filter(Boolean);
+        }
+
+        function wireAutosave(textarea, field, stateEl, onSaved) {
+            const save = async () => {
+                try {
+                    await api(`${base}/brief`, { method: 'PUT', body: { [field]: textarea.value } });
+                    stateEl.textContent = 'saved';
+                    stateEl.classList.add('saved');
+                    if (onSaved) onSaved();
+                } catch (err) {
+                    stateEl.textContent = 'not saved — ' + err.message;
+                    stateEl.classList.remove('saved');
+                }
+            };
+            textarea.addEventListener('input', () => {
+                stateEl.textContent = 'typing…';
+                stateEl.classList.remove('saved');
+                clearTimeout(saveTimers[field]);
+                saveTimers[field] = setTimeout(save, 800);
+            });
+            textarea.addEventListener('blur', () => {
+                clearTimeout(saveTimers[field]);
+                save();
+            });
+            return save;
+        }
+
+        // Which notes the assistant has actually applied, most-used first, with
+        // the ones it has never read greyed at the bottom. Notes no longer in
+        // the text are simply not shown — the usage table remembers them, the
+        // page does not. This is the self-curation: what earns its keep rises,
+        // what nothing reads is visibly dead weight.
+        function renderUsage(field, text, usage) {
+            const el = document.getElementById(field + 'Usage');
+            const current = lines(text);
+            if (!current.length) { el.innerHTML = ''; return; }
+            const byLine = new Map(usage.map(u => [u.line, u]));
+            const used = [];
+            const unused = [];
+            for (const l of current) {
+                const u = byLine.get(l);
+                if (u && u.uses > 0) used.push({ line: l, u }); else unused.push(l);
+            }
+            if (!used.length) {
+                el.innerHTML = `<div class="usage-title">The assistant marks the notes it uses; none read yet.</div>`;
+                return;
+            }
+            used.sort((a, b) => b.u.uses - a.u.uses || String(b.u.last_used_at).localeCompare(String(a.u.last_used_at)));
+            el.innerHTML = `<div class="usage-title">What the assistant has used</div>` +
+                used.map(({ line, u }) => `
+                    <div class="usage-line">
+                        <span class="usage-count">${u.uses}× · ${escapeHtml(dayLabel(u.last_used_at))}</span>
+                        <span class="usage-text">${escapeHtml(line)}</span>
+                    </div>`).join('') +
+                unused.map(line => `
+                    <div class="usage-line unused">
+                        <span class="usage-count">never</span>
+                        <span class="usage-text">${escapeHtml(line)}</span>
+                    </div>`).join('');
+        }
+
+        function appendLine(textarea, line) {
+            const cur = textarea.value.replace(/\s+$/, '');
+            textarea.value = (cur ? cur + '\n' : '') + '- ' + line;
+            textarea.dispatchEvent(new Event('input'));
+        }
+
+        function questionRow(q) {
+            return `
+                <div class="question" data-qid="${q.id}">
+                    <div class="question-text">${escapeHtml(q.question)}</div>
+                    ${q.task_description ? `<div class="question-from">while working on “${escapeHtml(q.task_description)}”</div>` : ''}
+                    <div class="question-row">
+                        <input type="text" placeholder="Answer in a line…" data-role="answer">
+                        <button class="btn" data-act="to-personal" title="Add the answer to About you">About me</button>
+                        <button class="btn" data-act="to-board" title="Add the answer to About this board">This board</button>
+                        <button class="btn quiet" data-act="skip" title="Dismiss without answering">skip</button>
+                    </div>
+                </div>`;
+        }
+
+        async function resolveQuestion(row) {
+            const qid = row.dataset.qid;
+            try {
+                await api(`${base}/brief/questions/${qid}/resolve`, { method: 'POST' });
+            } catch (err) { /* the row is already gone from view; a retry on reload is fine */ }
+            row.remove();
+            const inbox = document.getElementById('inbox');
+            if (inbox && !inbox.querySelector('.question')) inbox.remove();
+        }
+
+        function wireInbox() {
+            const inbox = document.getElementById('inbox');
+            if (!inbox) return;
+            inbox.addEventListener('click', async (e) => {
+                const btn = e.target.closest('[data-act]');
+                if (!btn) return;
+                const row = btn.closest('.question');
+                const input = row.querySelector('[data-role="answer"]');
+                const act = btn.dataset.act;
+                if (act === 'skip') { resolveQuestion(row); return; }
+                const answer = input.value.trim();
+                if (!answer) { input.focus(); return; }
+                appendLine(document.getElementById(act === 'to-board' ? 'boardInput' : 'personalInput'), answer);
+                resolveQuestion(row);
+            });
+            inbox.addEventListener('keydown', (e) => {
+                if (e.key !== 'Enter' || !e.target.matches('[data-role="answer"]')) return;
+                e.preventDefault();
+                const row = e.target.closest('.question');
+                // Enter goes to About you; ⌘⏎ to this board — most answers are
+                // about the person, and the board button is right there.
+                row.querySelector(e.metaKey || e.ctrlKey ? '[data-act="to-board"]' : '[data-act="to-personal"]').click();
+            });
+        }
+
+        async function draftInto(field) {
+            const btn = document.getElementById(field + 'Draft');
+            const state = document.getElementById(field + 'DraftState');
+            const textarea = document.getElementById(field + 'Input');
+            btn.disabled = true;
+            state.textContent = 'reading your tasks…';
+            try {
+                const r = await api(`${base}/brief/draft`, { method: 'POST', body: { scope: field } });
+                if (!r.draft) {
+                    state.textContent = r.reason === 'not enough tasks yet'
+                        ? 'not enough tasks on record yet'
+                        : 'nothing worth noting in your tasks yet';
+                } else {
+                    const cur = textarea.value.replace(/\s+$/, '');
+                    textarea.value = (cur ? cur + '\n\n' : '') + r.draft;
+                    textarea.dispatchEvent(new Event('input'));
+                    state.textContent = 'added below — edit freely';
+                }
+            } catch (err) {
+                state.textContent = err.message;
+            }
+            btn.disabled = false;
+        }
+
+        function render(data) {
+            document.title = `Brief · ${data.project.name} · MoveAlong`;
+            document.getElementById('page').innerHTML = `
+                <div class="page-header">
+                    <a class="wordmark" href="/">Move<span>Along</span></a>
+                    <span class="page-meta"><b>${escapeHtml(data.user.name)}</b> &middot; ${escapeHtml(data.project.name)}</span>
+                </div>
+                <div class="page-title">Brief</div>
+                <div class="page-lede">What the assistant knows before it starts a task on this board. One note per line — where you are, what you use, who's involved, how you like things done. It applies the notes that fit a task and ignores the rest, so you don't have to be tidy.</div>
+
+                ${data.questions.length ? `
+                <div class="pane inbox" id="inbox">
+                    <div class="pane-title">The assistant wishes it knew
+                        <span class="pane-hint">one line each — it goes straight into the brief</span>
+                    </div>
+                    ${data.questions.map(questionRow).join('')}
+                </div>` : ''}
+
+                <div class="pane">
+                    <div class="pane-title">About you
+                        <span class="pane-hint">follows you to every board</span>
+                        <span class="save-state" id="personalState"></span>
+                    </div>
+                    <textarea id="personalInput" placeholder="- I'm in Tennessee and fly out of Nashville — Alaska Air when I can, otherwise American or BA
+- I've used Booking.com and Google Flights for travel
+- I edit video in OpenShot; images come from Nano Banana Pro"></textarea>
+                    <div class="pane-actions">
+                        <button class="btn" id="personalDraft">Draft from my tasks</button>
+                        <span class="draft-state" id="personalDraftState"></span>
+                    </div>
+                    <div class="usage" id="personalUsage"></div>
+                </div>
+
+                <div class="pane">
+                    <div class="pane-title">About this board
+                        <span class="pane-hint">${escapeHtml(data.project.name)} only</span>
+                        <span class="save-state" id="boardState"></span>
+                    </div>
+                    <textarea id="boardInput" placeholder="- This board is the New York trip: drive to Nashville, fly BNA→NYC, two nights, same way back
+- Margo handles the bookings; ask her before paying for anything"></textarea>
+                    <div class="pane-actions">
+                        <button class="btn" id="boardDraft">Draft from this board's tasks</button>
+                        <span class="draft-state" id="boardDraftState"></span>
+                    </div>
+                    <div class="usage" id="boardUsage"></div>
+                </div>`;
+
+            const personal = document.getElementById('personalInput');
+            personal.value = data.personal;
+            wireAutosave(personal, 'personal', document.getElementById('personalState'),
+                () => renderUsage('personal', personal.value, data.usage.personal));
+            renderUsage('personal', data.personal, data.usage.personal);
+
+            const board = document.getElementById('boardInput');
+            board.value = data.board;
+            wireAutosave(board, 'board', document.getElementById('boardState'),
+                () => renderUsage('board', board.value, data.usage.board));
+            renderUsage('board', data.board, data.usage.board);
+
+            document.getElementById('personalDraft').addEventListener('click', () => draftInto('personal'));
+            document.getElementById('boardDraft').addEventListener('click', () => draftInto('board'));
+            wireInbox();
+        }
+
+        (async () => {
+            const s = session();
+            if (!Number.isFinite(projectId)) {
+                document.getElementById('page').innerHTML = '<div class="page-error">That is not a board link.</div>';
+                return;
+            }
+            if (!s || !s.subdomain || !s.slug) {
+                document.getElementById('page').innerHTML = '<div class="page-error">Open your board first — the brief belongs to whoever is signed in here.</div>';
+                return;
+            }
+            base = `/companies/${encodeURIComponent(s.subdomain)}/users/${encodeURIComponent(s.slug)}/projects/${projectId}`;
+            try {
+                render(await api(`${base}/brief`));
+            } catch (err) {
+                document.getElementById('page').innerHTML =
+                    `<div class="page-error">${escapeHtml(err.message === 'Board not found'
+                        ? 'This board is not one of yours.'
+                        : 'Could not open the brief: ' + err.message)}</div>`;
+            }
+        })();
+    </script>
+</body>
+</html>

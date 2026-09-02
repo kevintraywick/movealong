@@ -41,7 +41,16 @@
 - [x] Promoted steps land under the task they came from, with a dotted circle and a hover tint on the source row
 - [x] Step costs — material/labour/service ranges per subtask from the research pass, Haiku cost-triage to focus the search budget, task total with `≥` when anything is unpriced
 
+- [x] Day capacity 7 (was 10); locking onto a full day still allowed (2026-09-02)
+- [x] The brief — per-person + per-board standing notes for the assistant, triage-filtered per task, usage-sorted, agent "wish I knew" inbox, draft-from-tasks (2026-09-02)
+
 ## Next
+- [ ] **Feedback loop on any task** (very soon, Kevin 2026-09-02) — a way to say how a task or its steps went, feeding the brief
+- [ ] History: a page per day — a dashboard of what got done, visually interesting enough to gamify completion; most days simple, with links out to richer task outputs
+- [ ] Task outputs beyond text — a recipe page (with a later rating), a trip map (drive to BNA, fly to NYC, back), images, video, reports, dashboards; decide how completion is recorded and where outputs live
+- [ ] The board as "Alfred": an ongoing loop whose goal is to get better at helping this person — a frequent flyer's board starts hunting fares and points; a cook's offers to keep the recipe book. The brief is the memory this writes to
+- [ ] Brief: contacts — people in the user's life with email/phone/Discord, included in steps when it helps (back-burnered until real-world use; privacy story needs auth first)
+- [ ] Brief: tool/agent dispatch — OpenShot/Resolve/HyperVideo/Nano Banana keys become usable once the agent can drive tools, not just research
 - [ ] Authentication (currently URL-based access only)
 - [ ] Subdomain routing (DNS wildcard + proxy for *.movealong.com)
 - [ ] Rate limiting for public deployment
