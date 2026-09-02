@@ -49,6 +49,7 @@
 - [ ] History: a page per day — a dashboard of what got done, visually interesting enough to gamify completion; most days simple, with links out to richer task outputs
 - [ ] Task outputs beyond text — a recipe page (with a later rating), a trip map (drive to BNA, fly to NYC, back), images, video, reports, dashboards; decide how completion is recorded and where outputs live
 - [ ] The board as "Alfred": an ongoing loop whose goal is to get better at helping this person — a frequent flyer's board starts hunting fares and points; a cook's offers to keep the recipe book. The brief is the memory this writes to
+- [ ] Brief: spending — policy lines in the brief + money held elsewhere (per-task Stripe Issuing virtual card with a cap, or an approve-to-pay review row). Nothing to store until an agent can spend
 - [ ] Brief: contacts — people in the user's life with email/phone/Discord, included in steps when it helps (back-burnered until real-world use; privacy story needs auth first)
 - [ ] Brief: tool/agent dispatch — OpenShot/Resolve/HyperVideo/Nano Banana keys become usable once the agent can drive tools, not just research
 - [ ] Authentication (currently URL-based access only)

@@ -347,6 +347,14 @@ async function initDb() {
   // The two brief layers (see brief_questions above).
   ensureColumn('users', 'brief', 'TEXT');
   ensureColumn('projects', 'brief', 'TEXT');
+  // Three more personal sections (2026-09-02): the person's own contact
+  // details, travel habits, and medical notes. Voluntary, freeform, and
+  // sent to the model as labelled sections with an instruction never to copy
+  // them into step text — a phone number in a subtask row would leak onto a
+  // shared board.
+  ensureColumn('users', 'brief_contact', 'TEXT');
+  ensureColumn('users', 'brief_travel', 'TEXT');
+  ensureColumn('users', 'brief_medical', 'TEXT');
   // The task created on the assignee's board when this step was handed over.
   // It is what lets the sender's pane say "Margo has it, not yet accepted"
   // without hunting for a task by matching description text.

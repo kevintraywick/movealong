@@ -1824,7 +1824,7 @@ function briefContext(req, res) {
   const { subdomain, slug, projectId } = req.params;
   const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
   if (!company) { res.status(404).json({ error: 'Company not found' }); return null; }
-  const user = queryOne('SELECT id, name, brief FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  const user = queryOne('SELECT id, name, brief, brief_contact, brief_travel, brief_medical FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
   if (!user) { res.status(404).json({ error: 'User not found' }); return null; }
   const project = queryOne(`
     SELECT p.id, p.name, p.brief FROM projects p
@@ -1844,17 +1844,20 @@ app.get('/api/companies/:subdomain/users/:slug/projects/:projectId/brief', (req,
     WHERE q.user_id = ? AND (q.project_id = ? OR q.project_id IS NULL) AND q.resolved_at IS NULL
     ORDER BY q.created_at DESC, q.id DESC`, [user.id, project.id]);
   const usage = {
-    personal: queryAll('SELECT line, uses, last_used_at FROM brief_usage WHERE scope = ? AND owner_id = ?', ['personal', user.id]),
     board: queryAll('SELECT line, uses, last_used_at FROM brief_usage WHERE scope = ? AND owner_id = ?', ['board', project.id])
   };
-  res.json({
+  const body = {
     user: { id: user.id, name: user.name },
     project: { id: project.id, name: project.name },
-    personal: user.brief || '',
     board: project.brief || '',
     questions,
     usage
-  });
+  };
+  for (const [scope, col] of PERSONAL_SECTIONS) {
+    body[scope] = user[col] || '';
+    usage[scope] = queryAll('SELECT line, uses, last_used_at FROM brief_usage WHERE scope = ? AND owner_id = ?', [scope, user.id]);
+  }
+  res.json(body);
 });
 
 // Sending a key updates that layer; omitting it leaves it alone — the two
@@ -1862,12 +1865,11 @@ app.get('/api/companies/:subdomain/users/:slug/projects/:projectId/brief', (req,
 app.put('/api/companies/:subdomain/users/:slug/projects/:projectId/brief', (req, res) => {
   const ctx = briefContext(req, res);
   if (!ctx) return;
-  const { personal, board } = req.body || {};
+  const body = req.body || {};
   let touched = 0;
-  for (const [val, sql, id] of [
-    [personal, 'UPDATE users SET brief = ? WHERE id = ?', ctx.user.id],
-    [board, 'UPDATE projects SET brief = ? WHERE id = ?', ctx.project.id]
-  ]) {
+  const writes = PERSONAL_SECTIONS.map(([scope, col]) => [body[scope], `UPDATE users SET ${col} = ? WHERE id = ?`, ctx.user.id]);
+  writes.push([body.board, 'UPDATE projects SET brief = ? WHERE id = ?', ctx.project.id]);
+  for (const [val, sql, id] of writes) {
     if (val === undefined) continue;
     if (val !== null && typeof val !== 'string') return res.status(400).json({ error: 'brief must be a string' });
     runSql(sql, [val ? String(val).slice(0, BRIEF_MAX) : null, id]);
@@ -2467,7 +2469,7 @@ app.post('/api/subtasks/:subtaskId/research', async (req, res) => {
     const ai = require('./ai');
     const brief = briefFor(task.owner_id, task.project_id);
     const results = await ai.researchSubtasks(task.description, [subtask.description], {
-      brief: brief.map(l => l.line),
+      brief: briefText(brief),
       location: locationForUser(task.owner_id),
       kind: LIST_TASK_RE.test(task.description || '') ? 'item' : 'step',
       // `max_uses` is per CALL, not per row, so a single row at the whole-task
@@ -2690,13 +2692,28 @@ function briefLines(text, scope, ownerId) {
     .map(line => ({ scope, ownerId, line }));
 }
 
+// Sections, in the order the model reads them. Scope names double as the
+// brief_usage key and the PUT field names on the brief routes.
+const PERSONAL_SECTIONS = [
+  ['personal', 'brief', 'about them'],
+  ['contact', 'brief_contact', 'their contact details — private; never copy into a step'],
+  ['travel', 'brief_travel', 'how they travel'],
+  ['medical', 'brief_medical', 'medical — private; use only when a step genuinely needs it, never copy into a step']
+];
+
 function briefFor(ownerId, projectId) {
-  const u = queryOne('SELECT brief FROM users WHERE id = ?', [ownerId]);
+  const u = queryOne('SELECT brief, brief_contact, brief_travel, brief_medical FROM users WHERE id = ?', [ownerId]);
   const p = projectId ? queryOne('SELECT brief FROM projects WHERE id = ?', [projectId]) : null;
-  return [
-    ...briefLines(u && u.brief, 'personal', ownerId),
-    ...briefLines(p && p.brief, 'board', projectId)
-  ];
+  const out = [];
+  for (const [scope, col] of PERSONAL_SECTIONS) out.push(...briefLines(u && u[col], scope, ownerId));
+  out.push(...briefLines(p && p.brief, 'board', projectId));
+  return out;
+}
+
+// What the model sees: each line tagged with its section, so "(medical)"
+// and "(contact)" carry their own handling rule from the prompt.
+function briefText(lines) {
+  return lines.map(l => `(${l.scope}) ${l.line}`);
 }
 
 // What the model reported back: which notes it applied (upserted into
@@ -2765,7 +2782,7 @@ async function runResearch(taskId) {
     let brief = fullBrief;
     let costKinds = null;
     try {
-      costKinds = await ai.triageCosts(task.description, descriptions, fullBrief.map(l => l.line));
+      costKinds = await ai.triageCosts(task.description, descriptions, briefText(fullBrief));
       recordUsage(task.project_id, taskId, 'cost_triage', ai.takeUsage());
       const pick = ai.takeBriefReport();
       if (pick && fullBrief.length) brief = pick.used.map(i => fullBrief[i]).filter(Boolean);
@@ -2780,7 +2797,7 @@ async function runResearch(taskId) {
         location: locationForUser(task.owner_id),
         kind: LIST_TASK_RE.test(task.description || '') ? 'item' : 'step',
         costKinds,
-        brief: brief.map(l => l.line)
+        brief: briefText(brief)
       }
     );
     recordUsage(task.project_id, taskId, 'research', ai.takeUsage());
@@ -2918,7 +2935,7 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
         subtaskList = await ai.generateSubtasks(task.description, {
           count: need,
           existing: kept.map(k => k.description),
-          brief: brief.map(l => l.line)
+          brief: briefText(brief)
         });
         usedRealAi = true;
         recordUsage(task.project_id, taskId, 'draft', ai.takeUsage());

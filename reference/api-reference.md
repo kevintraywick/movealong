@@ -463,15 +463,16 @@ merged server-side into phase 1, cost triage, and both research paths.
 ```
 GET  /api/companies/:subdomain/users/:slug/projects/:projectId/brief
 ```
-→ `{ user: {id, name}, project: {id, name}, personal, board, questions: [{id, question, created_at, task_description}], usage: { personal: [{line, uses, last_used_at}], board: [...] } }`.
+→ `{ user: {id, name}, project: {id, name}, personal, contact, travel, medical, board, questions: [{id, question, created_at, task_description}], usage: { personal: [{line, uses, last_used_at}], board: [...] } }`.
 `questions` are the open ones for this user on this board (newest first).
-`usage` is keyed by line text; the page matches it against the current lines
-itself. 404 if the user is not a member of the board.
+`usage` has one array per section (`personal`, `contact`, `travel`, `medical`,
+`board`), keyed by line text; the page matches it against the current lines
+itself. Lines reach the model tagged `(section) text`. 404 if the user is not a member of the board.
 
 ```
 PUT  /api/companies/:subdomain/users/:slug/projects/:projectId/brief
 ```
-Body `{ personal?, board? }` — send a key to update that layer, omit to leave
+Body `{ personal?, contact?, travel?, medical?, board? }` — send a key to update that layer, omit to leave
 it alone. Strings up to 20,000 chars; empty/null clears. 400 with neither.
 
 ```

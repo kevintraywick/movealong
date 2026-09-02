@@ -86,7 +86,7 @@ function briefClause(brief) {
   if (!brief || !brief.length) return '';
   return `
 
-STANDING NOTES about this person and this board — apply the ones that matter to this task and ignore the rest. Never repeat a note back as a step; use it to make the steps fit them (their airports, their tools, the sites they already use, the people involved):
+STANDING NOTES about this person and this board, each tagged with its section — apply the ones that matter to this task and ignore the rest. Never repeat a note back as a step; use it to make the steps fit them (their airports, their tools, the sites they already use, the people involved). Notes tagged (contact) and (medical) are private: use them to shape a step ("call your usual pharmacy", "book from your home airport") but NEVER copy a phone number, address, condition or medication into step text — steps can be seen by teammates:
 ${brief.map((l, i) => `${i}. ${l}`).join('\n')}`;
 }
 

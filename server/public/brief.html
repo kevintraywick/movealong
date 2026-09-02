@@ -472,7 +472,7 @@
                     <span class="page-meta"><b>${escapeHtml(data.user.name)}</b> &middot; ${escapeHtml(data.project.name)}</span>
                 </div>
                 <div class="page-title">Brief</div>
-                <div class="page-lede">What the assistant knows before it starts a task on this board. One note per line — where you are, what you use, who's involved, how you like things done. It applies the notes that fit a task and ignores the rest, so you don't have to be tidy.</div>
+                <div class="page-lede">What the assistant knows before it starts a task on this board. One note per line — where you are, what you use, who's involved, how you like things done. It applies the notes that fit a task and ignores the rest, so you don't have to be tidy. Everything here is voluntary, and this page is reachable by anyone who has your board's link — there is no sign-in yet — so leave out anything you wouldn't put on the board itself.</div>
 
                 ${data.questions.length ? `
                 <div class="pane inbox" id="inbox">
@@ -498,6 +498,40 @@
                 </div>
 
                 <div class="pane">
+                    <div class="pane-title">Contact
+                        <span class="pane-hint">yours — voluntary; used to shape steps, never copied into one</span>
+                        <span class="save-state" id="contactState"></span>
+                    </div>
+                    <textarea id="contactInput" placeholder="- Goes by Kev
+- Cell 615-555-0100, text first
+- 123 Main St, Franklin TN 37064
+- Discord: kevtray"></textarea>
+                    <div class="usage" id="contactUsage"></div>
+                </div>
+
+                <div class="pane">
+                    <div class="pane-title">Travel
+                        <span class="pane-hint">airports, airlines, hotels, how you like to go</span>
+                        <span class="save-state" id="travelState"></span>
+                    </div>
+                    <textarea id="travelInput" placeholder="- Home airport BNA; Huntsville (HSV) in a pinch
+- Alaska Air first, then American or British Airways
+- Marriott when there's a choice; aisle seat; no red-eyes"></textarea>
+                    <div class="usage" id="travelUsage"></div>
+                </div>
+
+                <div class="pane">
+                    <div class="pane-title">Medical
+                        <span class="pane-hint">voluntary; private — used only when a step needs it</span>
+                        <span class="save-state" id="medicalState"></span>
+                    </div>
+                    <textarea id="medicalInput" placeholder="- Allergic to penicillin
+- Pharmacy: Walgreens on Columbia Ave
+- Doctor: Dr. Patel, Williamson Medical"></textarea>
+                    <div class="usage" id="medicalUsage"></div>
+                </div>
+
+                <div class="pane">
                     <div class="pane-title">About this board
                         <span class="pane-hint">${escapeHtml(data.project.name)} only</span>
                         <span class="save-state" id="boardState"></span>
@@ -516,6 +550,14 @@
             wireAutosave(personal, 'personal', document.getElementById('personalState'),
                 () => renderUsage('personal', personal.value, data.usage.personal));
             renderUsage('personal', data.personal, data.usage.personal);
+
+            for (const field of ['contact', 'travel', 'medical']) {
+                const ta = document.getElementById(field + 'Input');
+                ta.value = data[field] || '';
+                wireAutosave(ta, field, document.getElementById(field + 'State'),
+                    () => renderUsage(field, ta.value, data.usage[field] || []));
+                renderUsage(field, data[field] || '', data.usage[field] || []);
+            }
 
             const board = document.getElementById('boardInput');
             board.value = data.board;

@@ -19,7 +19,10 @@
 | color      | TEXT     | hex color        |
 | role       | TEXT     | Display only ("Accounting", "CTO"); nothing branches on it. Shown in the team roster and the shared-board banner |
 | is_ai      | INTEGER  | 0 or 1, default 0. An AI teammate (Tessa). Renders with a 🧠 avatar on a neutral tint, and work assigned to her **auto-accepts** in both assign routes — an AI has no inbox. Real agent dispatch will hang off this flag |
-| brief      | TEXT     | The person's standing notes for the assistant — freeform, one per line, follows them to every board. Merged ahead of the board's own `brief` on every AI call |
+| brief      | TEXT     | The person's standing notes for the assistant ("About you") — freeform, one per line, follows them to every board. Merged ahead of the board's own `brief` on every AI call |
+| brief_contact | TEXT  | Their own contact details (nickname, phone, address, Discord). Voluntary. Sent tagged `(contact)` with a never-copy-into-steps rule |
+| brief_travel  | TEXT  | Airports, airlines, hotel chains, seat/time preferences. Tagged `(travel)` |
+| brief_medical | TEXT  | Allergies, pharmacy, doctor. Voluntary, tagged `(medical)`, same never-copy rule |
 | share_board| INTEGER  | 0 or 1, default 0. Whether this board is open to the team; the shared-board route 403s without it. A product rule, not a security boundary (no auth) — the seam real permissions go in |
 | created_at | DATETIME | auto             |
 
@@ -162,7 +165,7 @@ Which brief lines the model actually applied. Keyed by line text, so an edited l
 | Column       | Type     | Notes |
 |--------------|----------|-------|
 | id           | INTEGER  | PK |
-| scope        | TEXT     | `'personal'` (owner_id = user) or `'board'` (owner_id = project) |
+| scope        | TEXT     | `'personal'` / `'contact'` / `'travel'` / `'medical'` (owner_id = user) or `'board'` (owner_id = project) |
 | owner_id     | INTEGER  | see scope |
 | line         | TEXT     | the note, leading bullet stripped |
 | uses         | INTEGER  | incremented per reporting call |
