@@ -242,7 +242,7 @@ completed instance's own `scheduled_date` (so a rhythm doesn't drift when you
 tick something late; month arithmetic clamps, so Jan 31 → Feb 28). The new row
 inherits `description`, `project_id`, `locked`, `priority` and the rule, gets
 its own `origin_date`, and carries **no** `parent_task_id` — it is a
-free-standing task, not a series member. It also respects the 10/day capacity
+free-standing task, not a series member. It also respects the 7/day capacity
 cap and overflows forward like a hand-created task. Assigning or returning a
 task clears its repeat, exactly as it clears the lock.
 
@@ -392,7 +392,7 @@ never be read.
 **MUST stay declared before any `.../tasks/:param` sibling** — Express matches in
 declaration order, and a `:taskId` above would swallow the literal `order`.
 
-A day holds at most 10 pending tasks, so the whole day is rewritten on every
+A day holds at most 7 pending tasks at creation, so the whole day is rewritten on every
 change rather than maintaining sparse or fractional indices; at that size it is
 cheaper and it cannot drift.
 
@@ -450,7 +450,7 @@ Response: { task: {...}, scheduled_date }
 Creates a real task from the subtask and deletes the subtask row. It lands on the
 **parent task's day**, not today — the pane may be open under next Tuesday
 because that is when the user plans to do this — and goes through
-`findDayWithCapacity()` so it can't blow the 10/day cap. Dependent subtasks are
+`findDayWithCapacity()` so it can't blow the 7/day cap. Dependent subtasks are
 lifted to the promoted row's own parent first, since `ON DELETE CASCADE` would
 otherwise destroy them. Its departure is what frees a slot in the pane's 7.
 

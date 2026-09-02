@@ -113,7 +113,7 @@ const LIST_TASK_RE = /^list\b/i;
 const MAX_SUBTASKS = 7;
 
 // Day capacity: max pending tasks per (owner, project) per day.
-const MAX_TASKS_PER_DAY = 10;
+const MAX_TASKS_PER_DAY = 7;
 
 // ============================================
 // "TODAY" IS A LOCAL QUESTION
@@ -190,7 +190,7 @@ function spawnNextRepeat(task) {
   const requested = nextRepeatDate(task.scheduled_date, task.repeat_rule);
   if (!requested) return;
 
-  // A repeat must not be able to blow the 10/day cap, so it overflows forward
+  // A repeat must not be able to blow the 7/day cap, so it overflows forward
   // exactly like a hand-typed task would.
   let effectiveDate;
   try {
