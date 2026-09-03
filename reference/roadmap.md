@@ -14,7 +14,7 @@
 - [x] Task return-to-sender flow
 - [x] User switcher for viewing other boards
 - [x] Keyboard navigation (arrow keys between days)
-- [x] Help bar with keyboard shortcuts (compact single-row redesign)
+- [x] Help bar with keyboard shortcuts (compact single-row redesign) — replaced 2026-09-03 by the tip bar: hovered element's tooltip shows in the footer
 - [x] Past task spillover to today (backend-side)
 - [x] Lock tasks to a date (deadlines) — anchor pulls the calendar back to a past-due lock date
 - [x] Red border on overdue day panes (days before today when a locked task pulls the row back)

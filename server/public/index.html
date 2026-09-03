@@ -1051,44 +1051,9 @@
             box-shadow: 0 1px 4px rgba(14, 165, 233, 0.4);
         }
 
-        .instructions ul {
-            list-style: none;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            flex-wrap: nowrap;
-            overflow-x: auto;
-            scrollbar-width: none;
-            max-width: 100%;
-        }
+        .instructions:empty::before { content: '\00a0'; }
+        .instructions { text-align: center; min-height: 26px; line-height: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-        .instructions ul::-webkit-scrollbar { display: none; }
-
-        .instructions li {
-            white-space: nowrap;
-            display: inline-flex;
-            align-items: center;
-            gap: 5px;
-            padding: 2px 8px;
-            border-radius: 6px;
-            transition: background 0.15s;
-        }
-
-        .instructions li:hover {
-            background: #f1f5f9;
-        }
-
-        .instructions code {
-            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-            padding: 1px 5px;
-            border-radius: 4px;
-            background: #eef2f7;
-            border: 1px solid #e2e8f0;
-            color: #475569;
-            font-size: 10px;
-            line-height: 1.5;
-        }
 
         /* Form elements (used in modal) */
         .form-group {
@@ -3065,20 +3030,10 @@
 
         <div class="toast" id="toast"></div>
 
-        <div class="instructions">
-            <ul>
-                <li><code>&larr; &rarr;</code> Navigate</li>
-                <li><code>&cir;</code> Complete</li>
-                <li><code>&rarr;</code> Next day</li>
-                <li><code>&#8679;&rarr;</code> +1 week</li>
-                <li><code>&rarr; 1-9</code> +N days</li>
-                <li><code>Task</code> Subtasks</li>
-                <li><code>📅</code> Lock</li>
-                <li><code>&#8679;&#8997; Task</code> Lock here</li>
-                <li><code>Emoji</code> Assign</li>
-                <li><code>&cularr;</code> Return</li>
-            </ul>
-        </div>
+        <!-- The tip bar. Every tooltip in the app lands here on hover instead
+             of in the browser's own bubble: one place to look, no half-second
+             delay, and room for a full sentence. Empty when nothing is hovered. -->
+        <div class="instructions" id="tipBar" aria-live="polite"></div>
     </div>
 
     <!-- Add New User Modal -->
@@ -7191,6 +7146,35 @@
             const input = document.querySelector(`.task-input[data-date="${selectedKey}"]`);
             if (input) input.focus();
         });
+
+        // ---- Tip bar ----
+        // Tooltips show in the footer, not in the browser's bubble. On hover
+        // the element's `title` is moved into `data-tip` — removing `title`
+        // is what suppresses the native tooltip — and the text is painted
+        // into #tipBar. `aria-label` is the fallback for icon-only controls
+        // that never had a title. Later code that sets `.title` again is
+        // fine: title is read first on every hover, so the fresh text wins.
+        (function wireTipBar() {
+            const bar = document.getElementById('tipBar');
+            if (!bar) return;
+            let current = null;
+            document.addEventListener('mouseover', (e) => {
+                // A title anywhere up the tree beats an aria-label on the
+                // target: the switches carry their real sentence on the
+                // group, and the button's label is just "Toggle AI assistant".
+                const el = e.target.closest('[title], [data-tip]') || e.target.closest('[aria-label]');
+                if (el === current) return;
+                current = el;
+                if (!el) { bar.textContent = ''; return; }
+                if (el.hasAttribute('title')) {
+                    const t = el.getAttribute('title');
+                    el.removeAttribute('title');
+                    if (t) el.dataset.tip = t;
+                }
+                bar.textContent = el.dataset.tip || el.getAttribute('aria-label') || '';
+            });
+            document.addEventListener('mouseleave', () => { current = null; bar.textContent = ''; });
+        })();
     </script>
 </body>
 </html>
