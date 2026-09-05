@@ -51,6 +51,7 @@
 - [ ] Task outputs beyond text — a recipe page (with a later rating), a trip map (drive to BNA, fly to NYC, back), images, video, reports, dashboards; decide how completion is recorded and where outputs live
 - [ ] The board as "Alfred": an ongoing loop whose goal is to get better at helping this person — a frequent flyer's board starts hunting fares and points; a cook's offers to keep the recipe book. The brief is the memory this writes to
 - [ ] Brief: spending — policy lines in the brief + money held elsewhere (per-task Stripe Issuing virtual card with a cap, or an approve-to-pay review row). Nothing to store until an agent can spend
+- [ ] **Daily text reminder** (back-burnered 2026-09-05) — at a set time, message the day's remaining tasks; act from the message. Needs the server's first real clock (one-minute tick, tz stored on the user). Channel order: Discord DM (bot exists, buttons, free) → Twilio SMS (A2P 10DLC registration wait) → typed replies via Haiku. One-tap action links would be the app's first credential; use a per-day token. Not OpenClaw: a notification with a five-word grammar, Tessa grows into freeform later
 - [ ] Brief: contacts — people in the user's life with email/phone/Discord, included in steps when it helps (back-burnered until real-world use; privacy story needs auth first)
 - [ ] Brief: tool/agent dispatch — OpenShot/Resolve/HyperVideo/Nano Banana keys become usable once the agent can drive tools, not just research
 - [ ] Authentication (currently URL-based access only)
