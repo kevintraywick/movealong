@@ -1418,10 +1418,11 @@
             cursor: pointer;
         }
 
-        /* The three read as one cluster: 8px apart from each other, against the
-           header's 14px between everything else. */
+        /* The three read as one cluster: a little tighter than the header's
+           14px between everything else, but not scrunched (was -8px until
+           2026-09-05 — Kevin: "too close"). */
         .assistant-switch + .assistant-switch {
-            margin-left: -8px;
+            margin-left: -2px;
         }
 
         /* This is what splits the header into left (board identity) and right
@@ -1434,17 +1435,18 @@
            greyscaled and faded when off, its own colour when on.
            This works here and NOT for the focus ghost: 👻 is a white emoji, so
            desaturating it leaves nothing on a white bar. These three each have
-           real colour to lose. 16px to match the stroked icons beside them. */
+           real colour to lose. 18px — a touch above the stroked icons beside them,
+           at Kevin's request (2026-09-05). */
         .assistant-toggle {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            width: 22px;
-            height: 22px;
+            width: 24px;
+            height: 24px;
             padding: 0;
             border: none;
             background: none;
-            font-size: 16px;
+            font-size: 18px;
             line-height: 1;
             cursor: pointer;
             flex: 0 0 auto;
@@ -2981,7 +2983,7 @@
                 <button class="assistant-toggle" id="researchToggleBtn" role="switch" aria-checked="false" aria-label="Toggle AI research">&#128269;</button>
             </div>
 
-            <div class="assistant-switch" id="calendarSwitch" title="Calendar — import the next two weeks of events onto the board">
+            <div class="assistant-switch" id="calendarSwitch" title="Calendar — import the next two weeks of events from your calendar onto the board">
                 <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import">&#128197;</button>
             </div>
 
