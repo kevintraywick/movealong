@@ -42,6 +42,7 @@
 - [x] Step costs — material/labour/service ranges per subtask from the research pass, Haiku cost-triage to focus the search budget, task total with `≥` when anything is unpriced
 
 - [x] Day capacity 7 (was 10); locking onto a full day still allowed (2026-09-02)
+- [x] Board preferences page — lock lagging tasks to today after N days (2026-09-05)
 - [x] The brief — per-person + per-board standing notes for the assistant, triage-filtered per task, usage-sorted, agent "wish I knew" inbox, draft-from-tasks (2026-09-02)
 
 ## Next

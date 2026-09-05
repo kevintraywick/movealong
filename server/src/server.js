@@ -76,6 +76,10 @@ app.get('/brief/:projectId', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'brief.html'));
 });
 
+app.get('/preferences/:projectId', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'preferences.html'));
+});
+
 // Static assets (wordmark font, any future images)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -1197,6 +1201,29 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     if (!changed) break;
   }
 
+  // Board preference: lock lagging tasks to today. A task whose day count
+  // (inclusive days since origin_date — the same number the grey counter
+  // shows) has reached the board's threshold is locked to TODAY. Only rows
+  // already on today or earlier qualify: a task the user deliberately moved
+  // to next week is a plan, not a lag, and must not be yanked back. Runs
+  // after spillover so an overdue row is on today by the time it locks.
+  if (req.query.project_id) {
+    const pref = queryOne('SELECT autolock_days FROM projects WHERE id = ?', [parseInt(req.query.project_id)]);
+    if (pref && pref.autolock_days > 0) {
+      runSql(`
+        UPDATE tasks SET locked = 1, scheduled_date = ?, updated_at = ?
+        WHERE owner_id = ? AND project_id = ?
+          AND completed = 0 AND locked = 0
+          AND COALESCE(source, 'user') != 'calendar'
+          AND NOT (assigned_by IS NOT NULL AND accepted_at IS NULL)
+          AND completed_by IS NULL
+          AND scheduled_date <= ?
+          AND origin_date IS NOT NULL
+          AND julianday(?) - julianday(origin_date) + 1 >= ?
+      `, [today, new Date().toISOString(), user.id, parseInt(req.query.project_id), today, today, pref.autolock_days]);
+    }
+  }
+
   let taskSql = `
     SELECT
       t.id,
@@ -2202,6 +2229,36 @@ app.delete('/api/tasks/:taskId', (req, res) => {
 // ============================================
 
 // A board's AI budget and what it has spent this month.
+// ---- Board preferences ----
+// One so far: autolock_days. The page (/preferences/:id) is where the rest
+// will go, so this stays an object, not a single value.
+const AUTOLOCK_MAX = 365;
+
+app.get('/api/projects/:projectId/preferences', (req, res) => {
+  const p = queryOne('SELECT id, name, autolock_days FROM projects WHERE id = ?', [req.params.projectId]);
+  if (!p) return res.status(404).json({ error: 'Project not found' });
+  res.json({ project: { id: p.id, name: p.name }, autolock_days: p.autolock_days || null });
+});
+
+app.put('/api/projects/:projectId/preferences', (req, res) => {
+  const p = queryOne('SELECT id FROM projects WHERE id = ?', [req.params.projectId]);
+  if (!p) return res.status(404).json({ error: 'Project not found' });
+  const body = req.body || {};
+  if (body.autolock_days !== undefined) {
+    const raw = body.autolock_days;
+    let days = null;
+    if (raw !== null && raw !== '') {
+      days = parseInt(raw, 10);
+      if (!Number.isInteger(days) || days < 1 || days > AUTOLOCK_MAX) {
+        return res.status(400).json({ error: `autolock_days must be 1-${AUTOLOCK_MAX}, or empty to turn it off` });
+      }
+    }
+    runSql('UPDATE projects SET autolock_days = ? WHERE id = ?', [days, p.id]);
+  }
+  const after = queryOne('SELECT id, name, autolock_days FROM projects WHERE id = ?', [p.id]);
+  res.json({ project: { id: after.id, name: after.name }, autolock_days: after.autolock_days || null });
+});
+
 app.get('/api/projects/:projectId/budget', (req, res) => {
   const { projectId } = req.params;
   const project = queryOne('SELECT id FROM projects WHERE id = ?', [projectId]);

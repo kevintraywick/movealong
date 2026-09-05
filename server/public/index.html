@@ -4626,6 +4626,7 @@
                     <div class="lock-popup-title">Board</div>
                     <div class="account-who" data-role="board-name">${escapeHtml(currentProject.name)}</div>
                     <div class="lock-opt" data-act="brief-project">Brief the assistant</div>
+                    <div class="lock-opt" data-act="prefs-project">Preferences</div>
                     <div class="lock-opt" data-act="rename-project">Rename this board</div>
                     <div class="lock-opt danger" data-act="delete-project">Delete this board</div>
                 </div>`;
@@ -4642,6 +4643,11 @@
                 ev.stopPropagation();
                 hidePopups();
                 window.open(`/brief/${currentProject.id}`, '_blank', 'noopener');
+            });
+            popup.querySelector('[data-act="prefs-project"]').addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                hidePopups();
+                window.open(`/preferences/${currentProject.id}`, '_blank', 'noopener');
             });
 
             // Rename swaps the name line for a field in place rather than

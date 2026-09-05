@@ -344,6 +344,10 @@ async function initDb() {
   // back to the sender with it — no copying step, the move IS the delivery.
   ensureColumn('tasks', 'background', 'TEXT');
   ensureColumn('tasks', 'results', 'TEXT');
+  // Board preference: a task that has been on the board this many days
+  // (inclusive, same count as the day counter) gets locked to today. NULL/0
+  // = off. Applied in the tasks route right after spillover.
+  ensureColumn('projects', 'autolock_days', 'INTEGER');
   // The two brief layers (see brief_questions above).
   ensureColumn('users', 'brief', 'TEXT');
   ensureColumn('projects', 'brief', 'TEXT');

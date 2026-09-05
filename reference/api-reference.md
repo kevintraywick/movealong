@@ -454,6 +454,14 @@ because that is when the user plans to do this — and goes through
 lifted to the promoted row's own parent first, since `ON DELETE CASCADE` would
 otherwise destroy them. Its departure is what frees a slot in the pane's 7.
 
+### Board preferences
+
+```
+GET  /api/projects/:projectId/preferences
+PUT  /api/projects/:projectId/preferences
+```
+→ `{ project: {id, name}, autolock_days: number | null }`. PUT body `{ autolock_days }`: 1-365, or `null`/`''` to turn off; 0 and non-integers 400. When set, `GET .../tasks?project_id=` locks any pending task on today-or-earlier whose inclusive day count has reached the threshold (see CLAUDE.md, Board preferences).
+
 ### The brief
 
 Standing notes the assistant reads before every AI call. Two layers — the

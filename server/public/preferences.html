@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Preferences · MoveAlong</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="mask-icon" href="/favicon-mask.svg" color="#0ea5e9">
+    <style>
+        @font-face {
+            font-family: 'Bricolage Grotesque';
+            src: url('/fonts/bricolage-grotesque-800.woff2') format('woff2');
+            font-weight: 800;
+            font-display: swap;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+            background: #f8fafc;
+            color: #0f172a;
+            padding: 20px;
+        }
+        .page { max-width: 640px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+        .page-header { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+        .wordmark {
+            font-family: 'Bricolage Grotesque', -apple-system, sans-serif;
+            font-weight: 800; font-size: 15px; color: #0f172a; text-decoration: none; letter-spacing: -0.02em;
+        }
+        .wordmark span { color: #0ea5e9; }
+        .page-meta { font-size: 12px; color: #64748b; }
+        .page-meta b { color: #475569; font-weight: 600; }
+        .page-title { font-size: 17px; font-weight: 600; line-height: 1.35; }
+        .page-lede { font-size: 12px; color: #64748b; line-height: 1.5; margin-top: -6px; }
+        .pane { background: #ffffff; border: 1px solid #e2e8f0; border-radius: 10px; padding: 12px 14px; }
+        .pane-title {
+            font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;
+            color: #94a3b8; margin-bottom: 8px; display: flex; align-items: baseline; gap: 8px;
+        }
+        .save-state { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; color: #cbd5e1; transition: color 0.2s; }
+        .save-state.saved { color: #0ea5e9; }
+        .save-state.error { color: #ef4444; }
+        .pref { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; line-height: 1.6; }
+        .pref input {
+            font: inherit; width: 58px; padding: 3px 7px; text-align: center;
+            border: 1px solid #e2e8f0; border-radius: 6px; background: #ffffff; color: inherit; outline: none;
+        }
+        .pref input:focus { border-color: #0ea5e9; }
+        .pref-note { font-size: 12px; color: #64748b; line-height: 1.5; margin-top: 8px; }
+        .pref-note b { color: #f59e0b; font-weight: 600; }
+        .page-error { text-align: center; color: #64748b; padding: 48px 0; }
+
+        body.dark { background: #0f172a; color: #e2e8f0; }
+        body.dark .wordmark { color: #f1f5f9; }
+        body.dark .page-meta, body.dark .page-lede, body.dark .pref-note { color: #94a3b8; }
+        body.dark .page-meta b { color: #cbd5e1; }
+        body.dark .pane { background: #1e293b; border-color: #334155; }
+        body.dark .pref input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+        body.dark .pref input:focus { border-color: #0ea5e9; }
+        body.dark .save-state { color: #475569; }
+        body.dark .save-state.saved { color: #38bdf8; }
+    </style>
+</head>
+<body>
+    <div class="page" id="page"><div class="page-error">Opening&hellip;</div></div>
+    <script>
+        if (localStorage.getItem('movealong.theme') === 'dark') document.body.classList.add('dark');
+        const projectId = parseInt(location.pathname.split('/').pop(), 10);
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        async function api(path, options = {}) {
+            const res = await fetch('/api' + path, {
+                method: options.method || 'GET',
+                headers: { 'Content-Type': 'application/json' },
+                body: options.body ? JSON.stringify(options.body) : undefined
+            });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+            return data;
+        }
+
+        function render(data) {
+            document.title = `Preferences · ${data.project.name} · MoveAlong`;
+            document.getElementById('page').innerHTML = `
+                <div class="page-header">
+                    <a class="wordmark" href="/">Move<span>Along</span></a>
+                    <span class="page-meta"><b>${escapeHtml(data.project.name)}</b></span>
+                </div>
+                <div class="page-title">Preferences</div>
+                <div class="page-lede">How this board behaves. Each board has its own.</div>
+
+                <div class="pane">
+                    <div class="pane-title">Lagging tasks
+                        <span class="save-state" id="autolockState"></span>
+                    </div>
+                    <div class="pref">
+                        <span>Lock a task to today once it has been on the board for</span>
+                        <input type="number" id="autolockInput" min="1" max="365" inputmode="numeric" placeholder="off">
+                        <span>days</span>
+                    </div>
+                    <div class="pref-note">Counts the same way as the little grey number after a task, so on the day that number reaches your threshold the task gets a <b>🔒</b> and stops moving forward — you deal with it today, or unlock it on purpose. Leave the field empty to turn this off. Tasks you have deliberately moved to a future day are left alone.</div>
+                </div>`;
+
+            const input = document.getElementById('autolockInput');
+            const state = document.getElementById('autolockState');
+            input.value = data.autolock_days || '';
+            let timer;
+            const save = async () => {
+                const v = input.value.trim();
+                try {
+                    const r = await api(`/projects/${projectId}/preferences`, { method: 'PUT', body: { autolock_days: v === '' ? null : v } });
+                    input.value = r.autolock_days || '';
+                    state.textContent = r.autolock_days ? 'saved' : 'off';
+                    state.className = 'save-state saved';
+                } catch (err) {
+                    state.textContent = err.message;
+                    state.className = 'save-state error';
+                }
+            };
+            input.addEventListener('input', () => {
+                state.textContent = 'typing…';
+                state.className = 'save-state';
+                clearTimeout(timer);
+                timer = setTimeout(save, 800);
+            });
+            input.addEventListener('blur', () => { clearTimeout(timer); save(); });
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(timer); save(); } });
+        }
+
+        (async () => {
+            if (!Number.isFinite(projectId)) {
+                document.getElementById('page').innerHTML = '<div class="page-error">That is not a board link.</div>';
+                return;
+            }
+            try {
+                render(await api(`/projects/${projectId}/preferences`));
+            } catch (err) {
+                document.getElementById('page').innerHTML = `<div class="page-error">${escapeHtml('Could not open preferences: ' + err.message)}</div>`;
+            }
+        })();
+    </script>
+</body>
+</html>
