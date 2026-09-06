@@ -1164,6 +1164,15 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
   // not carried forward — a meeting happened whether or not you ticked it off.
   // This check and the `fresh.source` one below are the ONLY thing keeping
   // yesterday's standup off today, so both must stay in step.
+  // Pending deadlines whose day has come become locks. Runs BEFORE spillover
+  // so the newly locked row is exempt from it. If the board wasn't opened on
+  // the day itself, the row lands on the (now past) due date and anchors the
+  // board back, exactly as a lock set that day would have.
+  runSql(`
+    UPDATE tasks SET locked = 1, scheduled_date = due_date, due_date = NULL, updated_at = ?
+    WHERE owner_id = ? AND completed = 0 AND due_date IS NOT NULL AND due_date <= ?
+  `, [new Date().toISOString(), user.id, today]);
+
   let overdueSql = `
     SELECT * FROM tasks
     WHERE owner_id = ?
@@ -1210,10 +1219,13 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
   if (req.query.project_id) {
     const pref = queryOne('SELECT autolock_days FROM projects WHERE id = ?', [parseInt(req.query.project_id)]);
     if (pref && pref.autolock_days > 0) {
+      // Fires ONCE per task (`autolocked`): a task the user has since
+      // unlocked on purpose must stay unlocked, or unlock is a no-op on
+      // every lagging row.
       runSql(`
-        UPDATE tasks SET locked = 1, scheduled_date = ?, updated_at = ?
+        UPDATE tasks SET locked = 1, autolocked = 1, scheduled_date = ?, updated_at = ?
         WHERE owner_id = ? AND project_id = ?
-          AND completed = 0 AND locked = 0
+          AND completed = 0 AND locked = 0 AND COALESCE(autolocked, 0) = 0
           AND COALESCE(source, 'user') != 'calendar'
           AND NOT (assigned_by IS NOT NULL AND accepted_at IS NULL)
           AND completed_by IS NULL
@@ -1233,6 +1245,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.parent_task_id,
       t.promoted_from,
       t.locked,
+      t.due_date,
       t.priority,
       t.position,
       t.repeat_rule,
@@ -1346,7 +1359,7 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
 // Update a task (complete, move date, etc.)
 app.put('/api/tasks/:taskId', (req, res) => {
   const { taskId } = req.params;
-  const { scheduled_date, completed, locked, priority, repeat_rule } = req.body;
+  const { scheduled_date, completed, locked, priority, repeat_rule, due_date } = req.body;
 
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
   if (!task) {
@@ -1376,6 +1389,29 @@ app.put('/api/tasks/:taskId', (req, res) => {
   if (locked !== undefined && task.source !== 'calendar') {
     updates.push('locked = ?');
     values.push(locked ? 1 : 0);
+    // A real lock, either way, settles any pending deadline: locking here
+    // replaces it, unlocking cancels it.
+    updates.push('due_date = NULL');
+  }
+
+  // A deadline on a day that hasn't come: the task stays put and keeps
+  // spilling forward; the tasks route locks it there when the day arrives.
+  // A due date on or before today is just a lock, applied immediately.
+  if (due_date !== undefined && task.source !== 'calendar') {
+    if (due_date === null || due_date === '') {
+      updates.push('due_date = NULL');
+    } else {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(String(due_date))) {
+        return res.status(400).json({ error: 'due_date must be YYYY-MM-DD' });
+      }
+      if (String(due_date) <= todayKeyFor(req)) {
+        updates.push('locked = 1', 'due_date = NULL', 'scheduled_date = ?');
+        values.push(String(due_date));
+      } else {
+        updates.push('due_date = ?', 'locked = 0');
+        values.push(String(due_date));
+      }
+    }
   }
 
   // Priority: 0 = none, 1-3 exclamation marks. Clamped so a bad client can't
@@ -1747,7 +1783,7 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
     // finished work yet.
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, accepted_at = ?, return_when_done = 1, completed_by = NULL, project_id = ?, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, accepted_at = ?, return_when_done = 1, completed_by = NULL, project_id = ?, scheduled_date = ?, locked = 0, due_date = NULL, repeat_rule = NULL, updated_at = ?
       WHERE id = ?
     `, [to_user_id, task.owner_id, acceptedAt, projectId, scheduled_date, now, taskId]);
 
@@ -2151,7 +2187,7 @@ app.post('/api/tasks/:taskId/return', (req, res) => {
     const now = new Date().toISOString();
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, accepted_at = ?, return_when_done = 0, scheduled_date = ?, locked = 0, repeat_rule = NULL, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, accepted_at = ?, return_when_done = 0, scheduled_date = ?, locked = 0, due_date = NULL, repeat_rule = NULL, updated_at = ?
       WHERE id = ?
     `, [originalAssignerId, currentOwnerId, now, scheduled_date || task.scheduled_date, now, taskId]);
 
@@ -3321,7 +3357,7 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
 
   const result = projects.map(project => {
     const tasks = queryAll(`
-      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.accepted_at, t.completed_by, t.priority, t.position, t.locked, t.repeat_rule,
+      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.accepted_at, t.completed_by, t.priority, t.position, t.locked, t.due_date, t.repeat_rule,
         u.name as assigned_by_name,
         cb.name as completed_by_name,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id) as subtask_count,

@@ -242,6 +242,12 @@ async function initDb() {
 
   // Migrations for existing databases (ALTER TABLE is idempotent-guarded via table_info)
   ensureColumn('tasks', 'locked', 'INTEGER DEFAULT 0');
+  // A deadline that has not arrived yet (2026-09-05). Locking a task to a
+  // FUTURE day used to move it there; now the task stays where it is, keeps
+  // spilling forward like any other, and on that day the tasks route turns
+  // the pending due date into a real lock (locked = 1, scheduled_date =
+  // due_date, due_date = NULL). NULL = no pending deadline.
+  ensureColumn('tasks', 'due_date', 'DATE');
   ensureColumn('tasks', 'origin_date', 'DATE');
   // Series: a task points at its predecessor; NULL = not in a series.
   ensureColumn('tasks', 'parent_task_id', 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
@@ -348,6 +354,10 @@ async function initDb() {
   // (inclusive, same count as the day counter) gets locked to today. NULL/0
   // = off. Applied in the tasks route right after spillover.
   ensureColumn('projects', 'autolock_days', 'INTEGER');
+  // Set on the task when the preference locks it, and never cleared: the
+  // preference fires once per task. Without this, unlocking a lagging task
+  // was impossible — the next board load re-locked it (found 2026-09-06).
+  ensureColumn('tasks', 'autolocked', 'INTEGER DEFAULT 0');
   // The two brief layers (see brief_questions above).
   ensureColumn('users', 'brief', 'TEXT');
   ensureColumn('projects', 'brief', 'TEXT');

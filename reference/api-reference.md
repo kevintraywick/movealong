@@ -454,6 +454,10 @@ because that is when the user plans to do this — and goes through
 lifted to the promoted row's own parent first, since `ON DELETE CASCADE` would
 otherwise destroy them. Its departure is what frees a slot in the pane's 7.
 
+### Pending deadlines (`due_date` on `PUT /api/tasks/:id`)
+
+`{ due_date: 'YYYY-MM-DD' }` — a day after today: stored as a pending deadline, task stays where it is, `locked` reset to 0; the tasks route locks it there when the day arrives. On or before today: locks immediately (`locked = 1, scheduled_date = due_date`). `null` or `''` cancels. Sending `locked` (either way) also clears `due_date`. Refused on calendar rows; malformed dates 400. Returned as `due_date` on `GET .../tasks` and the master list.
+
 ### Board preferences
 
 ```

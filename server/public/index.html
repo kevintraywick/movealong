@@ -705,6 +705,18 @@
             opacity: 1;
         }
 
+        /* A deadline that hasn't arrived: the lock is visible but not yet
+           closed. Permanent like .locked — the state has to be seen. */
+        .task-lock.due {
+            opacity: 0.45;
+        }
+
+        .task-item.due {
+            border-left: 2px dashed #f59e0b;
+            padding-left: 4px;
+            margin-left: -6px;
+        }
+
         .task-unlink {
             flex-shrink: 0;
             width: 16px;
@@ -3674,14 +3686,16 @@
             }
         }
 
-        // Lock or unlock a task. When newDateKey is given, the task also moves
-        // to that day and is pinned there (that date becomes the lock date).
+        // Lock or unlock a task. When newDateKey is given it becomes a pending
+        // deadline: the task stays where it is and locks to that day when the
+        // day arrives (a date on or before today locks immediately). It used
+        // to move the task to the future day at once — Kevin, 2026-09-05:
+        // "it should simply lock when it arrives on that day".
         async function setTaskLock(taskId, locked, newDateKey) {
             const task = tasks.find(t => t.id === taskId);
             if (!task) return;
             try {
-                const body = { locked };
-                if (newDateKey) body.scheduled_date = newDateKey;
+                const body = newDateKey ? { due_date: newDateKey } : { locked };
                 await api(`/tasks/${taskId}`, { method: 'PUT', body });
                 // Reload: a date change on a series member cascades.
                 await loadTasks();
@@ -3698,22 +3712,24 @@
             if (!task) return;
             const popup = document.getElementById('lockPopup');
             const isLocked = !!task.locked;
+            const isDue = !isLocked && !!task.due_date;
             const minDate = getTodayKey();
-            const dateVal = task.scheduled_date >= minDate ? task.scheduled_date : minDate;
+            const dateVal = task.due_date || (task.scheduled_date >= minDate ? task.scheduled_date : minDate);
 
             let html = '<div class="lock-popup-menu">';
             if (isLocked) {
                 html += `<div class="lock-popup-title">Locked to ${task.scheduled_date}</div>`;
             } else {
+                if (isDue) html += `<div class="lock-popup-title">Locks to ${task.due_date} when that day comes</div>`;
                 html += `<div class="lock-opt" data-act="lock-here">🔒 Lock to this day (${task.scheduled_date})</div>`;
             }
-            html += `<div class="lock-popup-title">Lock to a future date</div>
+            html += `<div class="lock-popup-title">Lock when a day arrives</div>
                 <div class="lock-popup-row">
                     <input type="date" id="lockDateInput" min="${minDate}" value="${dateVal}">
-                    <button data-act="lock-date">Lock</button>
+                    <button data-act="lock-date">Set</button>
                 </div>`;
-            if (isLocked) {
-                html += '<div class="lock-opt danger" data-act="unlock">🔓 Unlock</div>';
+            if (isLocked || isDue) {
+                html += `<div class="lock-opt danger" data-act="unlock">🔓 ${isLocked ? 'Unlock' : 'Cancel the deadline'}</div>`;
             }
             html += '</div>';
             popup.innerHTML = html;
@@ -3736,7 +3752,7 @@
                         if (!val) { showToast('Pick a date'); return; }
                         hidePopups();
                         await setTaskLock(taskId, true, val);
-                        showToast('Locked to ' + val);
+                        showToast(val <= getTodayKey() ? 'Locked to ' + val : 'Stays on your list — locks to ' + val + ' when that day comes');
                     } else if (act === 'unlock') {
                         hidePopups();
                         await setTaskLock(taskId, false);
@@ -5974,6 +5990,7 @@
             const returnButton = task.assigned_by ? `<div class="task-return" data-task-id="${task.id}" title="Return to sender">&cularr;</div>` : '';
             const isExpanded = expandedTaskIds.has(task.id);
             const isLocked = !!task.locked;
+            const isDue = !isLocked && !!task.due_date;
             const isLockedToday = isLocked && !task.completed && task.scheduled_date === getTodayKey();
             const regenerateButton = isExpanded
                 ? `<button class="task-regenerate" data-task-id="${task.id}" title="Regenerate steps">&orarr;</button>`
@@ -5981,7 +5998,7 @@
             // Lock control: only on pending (non-completed) tasks.
             const lockButton = (task.completed || isEvent)
                 ? ''
-                : `<div class="task-lock ${isLocked ? 'locked' : ''}" data-task-id="${task.id}" title="${isLocked ? 'Locked — click to manage' : 'Lock to a date'}">${isLocked ? '🔒' : '📅'}</div>`;
+                : `<div class="task-lock ${isLocked ? 'locked' : (isDue ? 'due' : '')}" data-task-id="${task.id}" title="${isLocked ? 'Locked — click to manage' : (isDue ? `Locks to ${task.due_date} when that day comes — click to manage` : 'Lock to a date')}">${isLocked || isDue ? '🔒' : '📅'}</div>`;
 
             // Forward the whole task to a teammate or the AI assistant. This
             // is the gesture showTeamPopup() sat waiting for — the popup and
@@ -6022,7 +6039,7 @@
             const circleTitle = source ? ` title="A step of: ${escapeHtml(source.description)}"` : '';
 
             return `
-                <div class="task-item ${task.completed ? 'completed' : ''} ${doneElsewhere ? 'done-elsewhere' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isLockedToday ? 'locked-today' : ''} ${isEvent ? 'calendar' : ''} ${source ? 'promoted' : ''}" data-id="${task.id}"${chainAttrs}${promotedAttrs}${draggable}>
+                <div class="task-item ${task.completed ? 'completed' : ''} ${doneElsewhere ? 'done-elsewhere' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isDue ? 'due' : ''} ${isLockedToday ? 'locked-today' : ''} ${isEvent ? 'calendar' : ''} ${source ? 'promoted' : ''}" data-id="${task.id}"${chainAttrs}${promotedAttrs}${draggable}>
                     <div class="task-circle" data-task-id="${task.id}"${circleTitle}>${circleContent}</div>
                     ${arrow}${eventMarker}
                     <div class="task-description" data-task-id="${task.id}" title="${descTitle}">${eventTime}${linkifyText(task.description)}${renderDayCounter(task)}${renderRepeatGlyph(task)}${assignedLabel}</div>
