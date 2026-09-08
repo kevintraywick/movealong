@@ -7,7 +7,16 @@ if (!ANTHROPIC_API_KEY) {
 // "list ..." tasks get concrete candidate items for the list instead of action steps.
 const LIST_TASK_RE = /^list\b/i;
 
+// Research and single-step research run here: that pass is search-bound, not
+// reasoning-bound, so Sonnet + the server-side web_search tool is the cheap config.
 const MODEL = 'claude-sonnet-5';
+// The phase-1 draft runs on Opus (2026-09-06). The pane is judged on whether the
+// first step is the right first step and whether it spots the one fork that
+// matters — judgment, not recall — and at ~2-3c a draft that is a quarter of a
+// research pass. Effort is capped at medium: default 'high' thinks longer than a
+// "seconds, not right yet" draft can afford.
+const DRAFT_MODEL = 'claude-opus-5';
+const DRAFT_EFFORT = 'medium';
 // Which steps cost money is a classification, not research — it needs no search
 // and no reasoning depth, so it runs on the cheapest model there is. The point
 // is not the token saving (it is fractions of a cent): it is that the research
@@ -21,6 +30,7 @@ const TRIAGE_MODEL = 'claude-haiku-4-5';
 // model, because rates are per-model and NOT stable across a family — Sonnet 5
 // is $2/$10 (introductory) where Sonnet 4.6 and earlier were $3/$15.
 const RATES = {
+  'claude-opus-5': { input: 5 / 1_000_000, output: 25 / 1_000_000 },
   'claude-sonnet-5': { input: 2 / 1_000_000, output: 10 / 1_000_000 },
   'claude-haiku-4-5': { input: 1 / 1_000_000, output: 5 / 1_000_000 }
 };
@@ -190,15 +200,17 @@ async function generateSubtasks(taskDescription, opts = {}) {
   const response = await fetch('https://api.anthropic.com/v1/messages', {
     method: 'POST',
     // A hung API call would otherwise hold the HTTP request open forever.
-    signal: AbortSignal.timeout(20000),
+    // 30s (was 20s): Opus thinks before it answers, even at medium effort.
+    signal: AbortSignal.timeout(30000),
     headers: {
       'Content-Type': 'application/json',
       'x-api-key': ANTHROPIC_API_KEY,
       'anthropic-version': '2023-06-01'
     },
     body: JSON.stringify({
-      model: MODEL,
-      max_tokens: 2048,
+      model: DRAFT_MODEL,
+      max_tokens: 4096,
+      output_config: { effort: DRAFT_EFFORT },
       messages: [{ role: 'user', content: prompt }]
     })
   });
@@ -208,7 +220,7 @@ async function generateSubtasks(taskDescription, opts = {}) {
   }
 
   const data = await response.json();
-  lastUsage = meterUsage(data);
+  lastUsage = meterUsage(data, DRAFT_MODEL);
   const textBlock = data.content.find(block => block.type === 'text');
   if (!textBlock) throw new Error('No text block in response');
   const text = textBlock.text;
