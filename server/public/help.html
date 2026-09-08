@@ -1007,6 +1007,68 @@
             60%, 100%{ transform: translate(125px, 112px); opacity: 0; }
         }
 
+        /* --- scene 3b2: goal for the day (9s) ---
+           Same bones as the order scene: cursor hovers the last task, a "g"
+           keycap pops, and the row turns orange and rises to the top of the
+           day while the others shift down. No insertion line — a goal is
+           not a slot you chose, it's the one thing today is for. */
+        .goal-frame {
+            position: relative;
+            width: 150px;
+            height: 128px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .goal-frame .mini-card { width: 150px; }
+        .goal-row {
+            position: absolute;
+            left: 8px;
+            width: 134px;
+            background: #ffffff;
+        }
+        .goal-r1 { top: 26px; animation: prioShift1 9s ease-in-out infinite; }
+        .goal-r2 { top: 40px; animation: prioShift2 9s ease-in-out infinite; }
+        .goal-target { top: 54px; z-index: 2; animation: goalRise 9s ease-in-out infinite; }
+        @keyframes goalRise {
+            0%, 14%   { background: #ffffff; color: #0f172a; font-weight: 400; transform: translateY(0); }
+            20%, 34%  { background: #f0f9ff; color: #0f172a; font-weight: 400; transform: translateY(0); }
+            38%       { background: #f0f9ff; color: #ea580c; font-weight: 600; transform: translateY(0); }
+            44%, 100% { background: #ffffff; color: #ea580c; font-weight: 600; transform: translateY(-28px); }
+        }
+        .goal-key {
+            position: absolute;
+            top: 86px;
+            left: 14px;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: #334155;
+            background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12);
+            opacity: 0;
+            z-index: 3;
+            animation: keyPop 9s ease-out infinite;
+        }
+        .goal-cursor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: prioCursor 9s ease-in-out infinite;
+        }
+
         /* --- scene 3c: repeat (10s) ---
            Cursor hovers a task, an "r" keycap pops, the grey cycle glyph
            appears — then the task is ticked and the SAME task reappears a
@@ -1723,6 +1785,9 @@
             .prio-r1, .prio-r2 { transform: translateY(14px); }
             .prio-target { transform: translateY(-28px); }
             .prio-line, .prio-key, .prio-cursor { opacity: 0; }
+            .goal-r1, .goal-r2 { transform: translateY(14px); }
+            .goal-target { transform: translateY(-28px); color: #ea580c; font-weight: 600; }
+            .goal-key, .goal-cursor { opacity: 0; }
             .repeat-glyph { opacity: 1; transform: scale(1); }
             .repeat-card-b { opacity: 1; transform: translateY(0); }
             .repeat-key, .repeat-cursor { opacity: 0; }
@@ -2206,6 +2271,35 @@
                 <path d="M 12 9 L 5 13 L 11 18"/>
             </svg>
             <span>Miss one? It just slides forward like anything else. No pile of guilt.</span>
+        </div>
+        <div class="card">
+            <h3>Goal for the day</h3>
+            <p>One thing today is really for. Hover a task and press <kbd>g</kbd>
+               &mdash; it turns <strong style="color:#ea580c">orange</strong> and
+               jumps to the top of its day, right under any deadline you've locked.
+               Press <kbd>g</kbd> again to let it go.</p>
+            <p>Miss it and it carries to tomorrow still orange. That's the nudge.</p>
+        </div>
+        <div class="card demo" aria-hidden="true">
+            <div class="scene">
+                <div class="goal-frame">
+                    <div class="mini-card">
+                        <div class="mini-day" data-day-offset="0"></div>
+                    </div>
+                    <div class="mini-task goal-row goal-r1"><span class="mini-circle"></span>touch-up stain</div>
+                    <div class="mini-task goal-row goal-r2"><span class="mini-circle"></span>return the ladder</div>
+                    <div class="mini-task goal-row goal-target"><span class="mini-circle"></span>hang the gate</div>
+                    <div class="goal-key">g</div>
+                    <div class="goal-cursor"></div>
+                </div>
+            </div>
+        </div>
+        <div class="margin-note" aria-hidden="true">
+            <svg class="note-arrow" viewBox="0 0 44 22">
+                <path d="M 42 6 C 30 16, 18 17, 5 13"/>
+                <path d="M 12 9 L 5 13 L 11 18"/>
+            </svg>
+            <span>I pick one every morning. Some days it's the only thing that gets done, and that's fine.</span>
         </div>
         <div class="card">
             <h3>Create lists</h3>

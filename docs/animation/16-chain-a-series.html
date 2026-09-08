@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>🧠 The assistant — MoveAlong animation</title>
+<title>Chain a series — MoveAlong animation</title>
 <style>
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -998,6 +998,68 @@
             60%, 100%{ transform: translate(125px, 112px); opacity: 0; }
         }
 
+        /* --- scene 3b2: goal for the day (9s) ---
+           Same bones as the order scene: cursor hovers the last task, a "g"
+           keycap pops, and the row turns orange and rises to the top of the
+           day while the others shift down. No insertion line — a goal is
+           not a slot you chose, it's the one thing today is for. */
+        .goal-frame {
+            position: relative;
+            width: 150px;
+            height: 128px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .goal-frame .mini-card { width: 150px; }
+        .goal-row {
+            position: absolute;
+            left: 8px;
+            width: 134px;
+            background: #ffffff;
+        }
+        .goal-r1 { top: 26px; animation: prioShift1 9s ease-in-out infinite; }
+        .goal-r2 { top: 40px; animation: prioShift2 9s ease-in-out infinite; }
+        .goal-target { top: 54px; z-index: 2; animation: goalRise 9s ease-in-out infinite; }
+        @keyframes goalRise {
+            0%, 14%   { background: #ffffff; color: #0f172a; font-weight: 400; transform: translateY(0); }
+            20%, 34%  { background: #f0f9ff; color: #0f172a; font-weight: 400; transform: translateY(0); }
+            38%       { background: #f0f9ff; color: #ea580c; font-weight: 600; transform: translateY(0); }
+            44%, 100% { background: #ffffff; color: #ea580c; font-weight: 600; transform: translateY(-28px); }
+        }
+        .goal-key {
+            position: absolute;
+            top: 86px;
+            left: 14px;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: #334155;
+            background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12);
+            opacity: 0;
+            z-index: 3;
+            animation: keyPop 9s ease-out infinite;
+        }
+        .goal-cursor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: prioCursor 9s ease-in-out infinite;
+        }
+
         /* --- scene 3c: repeat (10s) ---
            Cursor hovers a task, an "r" keycap pops, the grey cycle glyph
            appears — then the task is ticked and the SAME task reappears a
@@ -1714,6 +1776,9 @@
             .prio-r1, .prio-r2 { transform: translateY(14px); }
             .prio-target { transform: translateY(-28px); }
             .prio-line, .prio-key, .prio-cursor { opacity: 0; }
+            .goal-r1, .goal-r2 { transform: translateY(14px); }
+            .goal-target { transform: translateY(-28px); color: #ea580c; font-weight: 600; }
+            .goal-key, .goal-cursor { opacity: 0; }
             .repeat-glyph { opacity: 1; transform: scale(1); }
             .repeat-card-b { opacity: 1; transform: translateY(0); }
             .repeat-key, .repeat-cursor { opacity: 0; }
@@ -1921,37 +1986,40 @@
       <a href="08-links-in-tasks.html" data-file="08-links-in-tasks.html">Links in tasks</a>
       <a href="09-put-them-in-order.html" data-file="09-put-them-in-order.html">Put them in order</a>
       <a href="10-repeat.html" data-file="10-repeat.html">Repeat</a>
-      <a href="11-create-lists.html" data-file="11-create-lists.html">Create lists</a>
-      <a href="12-dark-mode.html" data-file="12-dark-mode.html">Dark mode 🌙</a>
-      <a href="13-dark-mode-2.html" data-file="13-dark-mode-2.html">Dark mode 🌙</a>
-      <a href="14-focus-on-one-day.html" data-file="14-focus-on-one-day.html">Focus on one day 👻</a>
-      <a href="15-chain-a-series.html" data-file="15-chain-a-series.html">Chain a series</a>
-      <a href="16-unlink-a-step.html" data-file="16-unlink-a-step.html">Unlink a step ✂️</a>
-      <a href="17-locked-tasks-don-t-advance-past-their-du.html" data-file="17-locked-tasks-don-t-advance-past-their-du.html">Locked tasks don't advance past their due date</a>
-      <a href="18-the-assistant.html" data-file="18-the-assistant.html">🧠 The assistant</a>
-      <a href="19-bring-in-your-calendar.html" data-file="19-bring-in-your-calendar.html">Bring in your calendar 📅</a>
+      <a href="11-goal-for-the-day.html" data-file="11-goal-for-the-day.html">Goal for the day</a>
+      <a href="12-create-lists.html" data-file="12-create-lists.html">Create lists</a>
+      <a href="13-dark-mode.html" data-file="13-dark-mode.html">Dark mode 🌙</a>
+      <a href="14-dark-mode-2.html" data-file="14-dark-mode-2.html">Dark mode 🌙</a>
+      <a href="15-focus-on-one-day.html" data-file="15-focus-on-one-day.html">Focus on one day 👻</a>
+      <a href="16-chain-a-series.html" data-file="16-chain-a-series.html">Chain a series</a>
+      <a href="17-unlink-a-step.html" data-file="17-unlink-a-step.html">Unlink a step ✂️</a>
+      <a href="18-locked-tasks-don-t-advance-past-their-du.html" data-file="18-locked-tasks-don-t-advance-past-their-du.html">Locked tasks don't advance past their due date</a>
+      <a href="19-the-assistant.html" data-file="19-the-assistant.html">🧠 The assistant</a>
+      <a href="20-bring-in-your-calendar.html" data-file="20-bring-in-your-calendar.html">Bring in your calendar 📅</a>
   </nav>
   <div class="xwrap">
-    <div class="xhead">🧠 The assistant</div>
-    <div class="xbody">With the header's brain switch on, adding a task instantly opens a pane of
-               up to 7 specific steps — real decisions, real links, real prices, not
-               "make a plan".</div>
+    <div class="xhead">Chain a series</div>
+    <div class="xbody"><strong>Drag a task onto another task</strong> to make it the next
+               step in that series. Moving an earlier step moves every later step
+               by the same amount. Chained tasks show a numbered circle
+               <span style="display:inline-flex;width:12px;height:12px;border:2px solid #cbd5e1;border-radius:50%;align-items:center;justify-content:center;font-size:7.5px;font-weight:700;color:#475569;vertical-align:-2px;">2</span>
+               showing the total number of steps in that chain.</div>
     <div class="xstage">
       <div class="card demo" aria-hidden="true">
       <div class="scene">
-      <div class="ai-frame">
+      <svg class="chain-thread" viewBox="0 0 246 128" preserveAspectRatio="none">
+      <path d="M 116 31 C 138 31, 138 46, 146 46"/>
+      </svg>
       <div class="mini-card">
-      <div class="mini-day" data-day-offset="0"></div>
-      <div class="mini-task"><span class="mini-circle"></span>build a backyard fence</div>
+      <div class="mini-day">Wed</div>
+      <div class="mini-task chain-countdown-2"><span class="mini-circle"></span>choose stain color</div>
+      <div class="mini-task spill-ghost" style="opacity:0.35;"><span class="mini-circle"></span>hang the gate</div>
       </div>
-      <div class="ai-pane">
-      <div class="ai-dots"><span></span><span></span><span></span></div>
-      <div class="ai-step ai-s1"><span class="as-strip"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="as-up">&uarr;</span></span><span class="as-text">compare cedar vs vinyl <span class="as-link"></span><span class="as-cost">$18&ndash;$32/ft</span></span></div>
-      <div class="ai-step ai-s2"><span class="as-strip"><span class="as-check"></span><span class="as-emoji">👩</span><span class="as-up">&uarr;</span></span><span class="as-text">measure the property line</span></div>
-      <div class="ai-step ai-s3"><span class="as-strip"><span class="as-check"></span><span class="as-emoji">🧠</span><span class="as-up">&uarr;</span></span><span class="as-text">check fence-height rules <span class="as-link"></span></span></div>
-      <div class="ai-step ai-s4"><span class="as-strip"><span class="as-check"></span><span class="as-emoji">👩</span><span class="as-up">&uarr;</span></span><span class="as-text">call 811 to mark utilities</span></div>
+      <div class="mini-card">
+      <div class="mini-day">Thu</div>
+      <div class="mini-task"><span class="mini-circle"></span>trim hedges</div>
       </div>
-      </div>
+      <div class="mini-task drag-task"><span class="mini-circle"></span>stain the fence</div>
       </div>
       </div>
     </div>

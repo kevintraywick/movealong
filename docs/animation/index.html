@@ -995,6 +995,68 @@
             60%, 100%{ transform: translate(125px, 112px); opacity: 0; }
         }
 
+        /* --- scene 3b2: goal for the day (9s) ---
+           Same bones as the order scene: cursor hovers the last task, a "g"
+           keycap pops, and the row turns orange and rises to the top of the
+           day while the others shift down. No insertion line — a goal is
+           not a slot you chose, it's the one thing today is for. */
+        .goal-frame {
+            position: relative;
+            width: 150px;
+            height: 128px;
+            animation: sceneFade 9s linear infinite;
+        }
+        .goal-frame .mini-card { width: 150px; }
+        .goal-row {
+            position: absolute;
+            left: 8px;
+            width: 134px;
+            background: #ffffff;
+        }
+        .goal-r1 { top: 26px; animation: prioShift1 9s ease-in-out infinite; }
+        .goal-r2 { top: 40px; animation: prioShift2 9s ease-in-out infinite; }
+        .goal-target { top: 54px; z-index: 2; animation: goalRise 9s ease-in-out infinite; }
+        @keyframes goalRise {
+            0%, 14%   { background: #ffffff; color: #0f172a; font-weight: 400; transform: translateY(0); }
+            20%, 34%  { background: #f0f9ff; color: #0f172a; font-weight: 400; transform: translateY(0); }
+            38%       { background: #f0f9ff; color: #ea580c; font-weight: 600; transform: translateY(0); }
+            44%, 100% { background: #ffffff; color: #ea580c; font-weight: 600; transform: translateY(-28px); }
+        }
+        .goal-key {
+            position: absolute;
+            top: 86px;
+            left: 14px;
+            width: 22px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+            font-size: 12px;
+            font-weight: 600;
+            color: #334155;
+            background: linear-gradient(180deg, #ffffff 0%, #f1f5f9 100%);
+            border: 1px solid #cbd5e1;
+            border-radius: 4px;
+            box-shadow: 0 2.5px 0 #cbd5e1, 0 3.5px 4px rgba(15, 23, 42, 0.12);
+            opacity: 0;
+            z-index: 3;
+            animation: keyPop 9s ease-out infinite;
+        }
+        .goal-cursor {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: rgba(14, 165, 233, 0.35);
+            border: 1.5px solid #0ea5e9;
+            pointer-events: none;
+            z-index: 3;
+            animation: prioCursor 9s ease-in-out infinite;
+        }
+
         /* --- scene 3c: repeat (10s) ---
            Cursor hovers a task, an "r" keycap pops, the grey cycle glyph
            appears — then the task is ticked and the SAME task reappears a
@@ -1711,6 +1773,9 @@
             .prio-r1, .prio-r2 { transform: translateY(14px); }
             .prio-target { transform: translateY(-28px); }
             .prio-line, .prio-key, .prio-cursor { opacity: 0; }
+            .goal-r1, .goal-r2 { transform: translateY(14px); }
+            .goal-target { transform: translateY(-28px); color: #ea580c; font-weight: 600; }
+            .goal-key, .goal-cursor { opacity: 0; }
             .repeat-glyph { opacity: 1; transform: scale(1); }
             .repeat-card-b { opacity: 1; transform: translateY(0); }
             .repeat-key, .repeat-cursor { opacity: 0; }
@@ -1927,23 +1992,26 @@
     <a class="tile" href="10-repeat.html"><b>Repeat</b><span>Some things just come back. Hover a task and press r to
                cycle daily → weekly → monthly → off.
            </span></a>
-    <a class="tile" href="11-create-lists.html"><b>Create lists</b><span>Start a task with the word list — "list movies to
+    <a class="tile" href="11-goal-for-the-day.html"><b>Goal for the day</b><span>One thing today is really for. Hover a task and press g
+               — it turns orange and
+               jumps to the</span></a>
+    <a class="tile" href="12-create-lists.html"><b>Create lists</b><span>Start a task with the word list — "list movies to
                go see" — to create your own list with AI suggestions. </span></a>
-    <a class="tile" href="12-dark-mode.html"><b>Dark mode 🌙</b><span>The ☀️/🌙 button in the header flips the whole app
+    <a class="tile" href="13-dark-mode.html"><b>Dark mode 🌙</b><span>The ☀️/🌙 button in the header flips the whole app
                between light and dark — this help page follows along.</span></a>
-    <a class="tile" href="13-dark-mode-2.html"><b>Dark mode 🌙</b><span>The ☀️/🌙 button in the header flips the whole app
+    <a class="tile" href="14-dark-mode-2.html"><b>Dark mode 🌙</b><span>The ☀️/🌙 button in the header flips the whole app
                between light and dark — this help page follows along.</span></a>
-    <a class="tile" href="14-focus-on-one-day.html"><b>Focus on one day 👻</b><span>The ghost in the header dims every day but the one you're on, so
+    <a class="tile" href="15-focus-on-one-day.html"><b>Focus on one day 👻</b><span>The ghost in the header dims every day but the one you're on, so
                a thirty-day board stops shouting at you</span></a>
-    <a class="tile" href="15-chain-a-series.html"><b>Chain a series</b><span>Drag a task onto another task to make it the next
+    <a class="tile" href="16-chain-a-series.html"><b>Chain a series</b><span>Drag a task onto another task to make it the next
                step in that series. Moving an earlier step moves every</span></a>
-    <a class="tile" href="16-unlink-a-step.html"><b>Unlink a step ✂️</b><span>Hovering a chained task reveals scissors — click to cut its link to the
+    <a class="tile" href="17-unlink-a-step.html"><b>Unlink a step ✂️</b><span>Hovering a chained task reveals scissors — click to cut its link to the
                previous step. It becomes the sta</span></a>
-    <a class="tile" href="17-locked-tasks-don-t-advance-past-their-du.html"><b>Locked tasks don't advance past their due date</b><span>Instead, the day remains on your board and stays there until you
+    <a class="tile" href="18-locked-tasks-don-t-advance-past-their-du.html"><b>Locked tasks don't advance past their due date</b><span>Instead, the day remains on your board and stays there until you
                either complete the task or advance it t</span></a>
-    <a class="tile" href="18-the-assistant.html"><b>🧠 The assistant</b><span>With the header's brain switch on, adding a task instantly opens a pane of
+    <a class="tile" href="19-the-assistant.html"><b>🧠 The assistant</b><span>With the header's brain switch on, adding a task instantly opens a pane of
                up to 7 specific steps — real </span></a>
-    <a class="tile" href="19-bring-in-your-calendar.html"><b>Bring in your calendar 📅</b><span>Click the calendar icon in the header and paste your
+    <a class="tile" href="20-bring-in-your-calendar.html"><b>Bring in your calendar 📅</b><span>Click the calendar icon in the header and paste your
                calendar's private iCal address — Google, Proton, iC</span></a>
   </div>
 </div>
