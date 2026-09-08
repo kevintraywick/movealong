@@ -662,3 +662,9 @@ tasks
 2. **Frontend integration** - Update frontend to make API calls instead of local state
 3. **Authentication** - Currently none; user slug in URL is the "key"
 4. **Rate limiting** - Add if needed for public deployment
+
+## Completions (dashboard)
+
+`GET /api/companies/:subdomain/users/:slug/completions?month=YYYY-MM` — completed tasks per local day (`x-tz`) for the month (default: the caller's current month). Returns `{ month, today, days_in_month, projects: [{id, name}] (tab order; id 0 = Calendar), counts: { 'YYYY-MM-DD': { project_id: n } } }`.
+
+`PUT /api/tasks/:id` also accepts `goal` (0/1) — today's goal; refused on calendar rows.

@@ -98,6 +98,7 @@ async function initDb() {
       priority INTEGER DEFAULT 0,
       position INTEGER,
       repeat_rule TEXT,
+      goal INTEGER DEFAULT 0,
       research_status TEXT,
       source TEXT DEFAULT 'user',
       external_uid TEXT,
@@ -358,6 +359,8 @@ async function initDb() {
   // preference fires once per task. Without this, unlocking a lagging task
   // was impossible — the next board load re-locked it (found 2026-09-06).
   ensureColumn('tasks', 'autolocked', 'INTEGER DEFAULT 0');
+  // Goal for the day (hover + g): orange text, sorts under the day's locks.
+  ensureColumn('tasks', 'goal', 'INTEGER DEFAULT 0');
   // The two brief layers (see brief_questions above).
   ensureColumn('users', 'brief', 'TEXT');
   ensureColumn('projects', 'brief', 'TEXT');

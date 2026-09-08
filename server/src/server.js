@@ -80,6 +80,12 @@ app.get('/preferences/:projectId', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'preferences.html'));
 });
 
+// The productivity dashboard. Same one-static-file pattern; the page reads
+// the person from the browser's session.
+app.get('/dashboard', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
+});
+
 // Static assets (wordmark font, any future images)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -623,7 +629,7 @@ app.get('/api/companies/:subdomain/users/:slug/shared-board', (req, res) => {
     SELECT
       t.id, t.description, t.scheduled_date, t.origin_date, t.completed,
       t.completed_at, t.assigned_by, t.accepted_at, t.project_id, t.locked,
-      t.repeat_rule, t.source, t.event_start, t.position, t.created_at,
+      t.repeat_rule, t.goal, t.source, t.event_start, t.position, t.created_at,
       t.completed_by,
       u.name as assigned_by_name,
       cb.name as completed_by_name,
@@ -852,6 +858,70 @@ app.post('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
 });
 
 // List projects for a user
+// What got done, by day and by board, for the dashboard. Days are the
+// caller's local days (x-tz, same as todayKeyFor); completed_at is stored as
+// UTC ISO (or SQLite's "YYYY-MM-DD HH:MM:SS" on the oldest rows), so bucketing
+// happens here rather than in SQL. Counts only — the page draws the chart.
+app.get('/api/companies/:subdomain/users/:slug/completions', (req, res) => {
+  const { subdomain, slug } = req.params;
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+  const user = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+
+  const tzHeader = req.get('x-tz');
+  const timeZone = typeof tzHeader === 'string' && tzHeader.length <= 64 ? tzHeader : null;
+  const today = todayKeyFor(req);
+  const month = /^\d{4}-\d{2}$/.test(String(req.query.month || '')) ? String(req.query.month) : today.slice(0, 7);
+
+  const dayOf = (stamp) => {
+    let str = String(stamp);
+    if (str.includes(' ') && !str.includes('T')) str = str.replace(' ', 'T');
+    if (str.includes('T') && !/[zZ]|[+-]\d\d:?\d\d$/.test(str)) str += 'Z';
+    const d = new Date(str);
+    if (isNaN(d)) return null;
+    if (timeZone) {
+      try { return d.toLocaleDateString('en-CA', { timeZone }); } catch (e) { /* UTC below */ }
+    }
+    return d.toISOString().split('T')[0];
+  };
+
+  const rows = queryAll(`
+    SELECT t.completed_at, t.project_id, p.name AS project_name
+    FROM tasks t
+    LEFT JOIN projects p ON p.id = t.project_id
+    WHERE t.owner_id = ? AND t.completed = 1 AND t.completed_at IS NOT NULL
+      AND t.completed_at >= ? AND t.completed_at < ?
+  `, [user.id, addDays(month + '-01', -1), addDays(addMonths(month + '-01', 1), 1)]);
+
+  const projects = new Map();
+  const counts = {};
+  for (const row of rows) {
+    const day = dayOf(row.completed_at);
+    if (!day || !day.startsWith(month)) continue;
+    const pid = row.project_id == null ? 0 : row.project_id;
+    if (!projects.has(pid)) projects.set(pid, row.project_id == null ? 'Calendar' : row.project_name);
+    counts[day] = counts[day] || {};
+    counts[day][pid] = (counts[day][pid] || 0) + 1;
+  }
+
+  // Boards in the user's own tab order, so colours follow the bar the user
+  // knows; boards that had no completions this month are still listed.
+  const ordered = queryAll(`
+    SELECT p.id, p.name FROM projects p
+    JOIN project_members pm ON pm.project_id = p.id
+    WHERE pm.user_id = ?
+    ORDER BY CASE WHEN pm.position IS NULL THEN 1 ELSE 0 END, pm.position, p.created_at
+  `, [user.id]);
+  const projectList = ordered.map(p => ({ id: p.id, name: p.name }));
+  for (const [pid, name] of projects) {
+    if (!projectList.some(p => p.id === pid)) projectList.push({ id: pid, name });
+  }
+
+  const daysInMonth = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate();
+  res.json({ month, today, days_in_month: daysInMonth, projects: projectList, counts });
+});
+
 app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
   const { subdomain, slug } = req.params;
 
@@ -1248,7 +1318,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.due_date,
       t.priority,
       t.position,
-      t.repeat_rule,
+      t.repeat_rule, t.goal,
       t.source,
       t.event_start,
       t.external_uid,
@@ -1359,7 +1429,7 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
 // Update a task (complete, move date, etc.)
 app.put('/api/tasks/:taskId', (req, res) => {
   const { taskId } = req.params;
-  const { scheduled_date, completed, locked, priority, repeat_rule, due_date } = req.body;
+  const { scheduled_date, completed, locked, priority, repeat_rule, due_date, goal } = req.body;
 
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
   if (!task) {
@@ -1432,6 +1502,13 @@ app.put('/api/tasks/:taskId', (req, res) => {
     const rule = REPEAT_RULES.includes(repeat_rule) ? repeat_rule : null;
     updates.push('repeat_rule = ?');
     values.push(rule);
+  }
+
+  // Goal for the day: a flag, not a move. Calendar rows refuse it like the
+  // rest of the per-task marks — the next sync would not know to keep it.
+  if (goal !== undefined && task.source !== 'calendar') {
+    updates.push('goal = ?');
+    values.push(goal ? 1 : 0);
   }
 
   if (completed !== undefined) {
@@ -1550,7 +1627,7 @@ app.put('/api/tasks/:taskId', (req, res) => {
         t.locked,
         t.priority,
       t.position,
-        t.repeat_rule,
+        t.repeat_rule, t.goal,
         t.completed,
         t.completed_at,
         t.assigned_by,
@@ -1646,7 +1723,7 @@ app.post('/api/tasks/:taskId/link', (req, res) => {
         t.locked,
         t.priority,
       t.position,
-        t.repeat_rule,
+        t.repeat_rule, t.goal,
         t.completed,
         t.completed_at,
         t.assigned_by,
@@ -1698,7 +1775,7 @@ app.post('/api/tasks/:taskId/unlink', (req, res) => {
         t.locked,
         t.priority,
       t.position,
-        t.repeat_rule,
+        t.repeat_rule, t.goal,
         t.completed,
         t.completed_at,
         t.assigned_by,
@@ -1783,7 +1860,7 @@ app.post('/api/tasks/:taskId/assign', (req, res) => {
     // finished work yet.
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, accepted_at = ?, return_when_done = 1, completed_by = NULL, project_id = ?, scheduled_date = ?, locked = 0, due_date = NULL, repeat_rule = NULL, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, accepted_at = ?, return_when_done = 1, completed_by = NULL, project_id = ?, scheduled_date = ?, locked = 0, due_date = NULL, repeat_rule = NULL, goal = 0, updated_at = ?
       WHERE id = ?
     `, [to_user_id, task.owner_id, acceptedAt, projectId, scheduled_date, now, taskId]);
 
@@ -2187,7 +2264,7 @@ app.post('/api/tasks/:taskId/return', (req, res) => {
     const now = new Date().toISOString();
     runSql(`
       UPDATE tasks
-      SET owner_id = ?, assigned_by = ?, accepted_at = ?, return_when_done = 0, scheduled_date = ?, locked = 0, due_date = NULL, repeat_rule = NULL, updated_at = ?
+      SET owner_id = ?, assigned_by = ?, accepted_at = ?, return_when_done = 0, scheduled_date = ?, locked = 0, due_date = NULL, repeat_rule = NULL, goal = 0, updated_at = ?
       WHERE id = ?
     `, [originalAssignerId, currentOwnerId, now, scheduled_date || task.scheduled_date, now, taskId]);
 
@@ -3357,7 +3434,7 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
 
   const result = projects.map(project => {
     const tasks = queryAll(`
-      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.accepted_at, t.completed_by, t.priority, t.position, t.locked, t.due_date, t.repeat_rule,
+      SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.accepted_at, t.completed_by, t.priority, t.position, t.locked, t.due_date, t.repeat_rule, t.goal,
         u.name as assigned_by_name,
         cb.name as completed_by_name,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id) as subtask_count,

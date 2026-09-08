@@ -1,0 +1,367 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard · MoveAlong</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="mask-icon" href="/favicon-mask.svg" color="#0ea5e9">
+    <style>
+        @font-face {
+            font-family: 'Bricolage Grotesque';
+            src: url('/fonts/bricolage-grotesque-800.woff2') format('woff2');
+            font-weight: 800;
+            font-display: swap;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+            background: #f8fafc;
+            color: #0f172a;
+            padding: 20px;
+        }
+
+        .page { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+        .page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+        .wordmark {
+            font-family: 'Bricolage Grotesque', -apple-system, sans-serif;
+            font-weight: 800;
+            font-size: 17px;
+            color: #0f172a;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+        .wordmark span { color: #0ea5e9; }
+
+        .back-link { font-size: 12px; color: #0284c7; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+        .page-meta { font-size: 12px; color: #64748b; margin-left: auto; }
+        .page-meta b { color: #475569; font-weight: 600; }
+
+        .theme-toggle {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 1px solid #e2e8f0; background: #fff; color: #0284c7;
+            font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .theme-toggle:hover { border-color: #bae6fd; }
+
+        .pane {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 14px 16px 12px;
+        }
+
+        .pane-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+        .pane-title { font-size: 15px; font-weight: 600; }
+        .pane-total { font-size: 12px; color: #64748b; }
+        .pane-total b { color: #0f172a; font-weight: 600; font-size: 13px; }
+
+        .month-nav { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; }
+        .month-nav button {
+            width: 22px; height: 22px; border-radius: 50%; border: 1px solid #e2e8f0; background: #fff;
+            color: #0284c7; cursor: pointer; font-size: 12px; line-height: 1;
+        }
+        .month-nav button:hover { border-color: #bae6fd; }
+        .month-nav button:disabled { color: #cbd5e1; cursor: default; }
+        .month-name { min-width: 110px; text-align: center; font-weight: 600; color: #0f172a; }
+
+        .chart-wrap { position: relative; }
+        .chart { display: block; width: 100%; height: auto; overflow: visible; }
+        .chart .grid { stroke: #f1f5f9; stroke-width: 1; }
+        .chart .axis-label { font-size: 10px; fill: #94a3b8; }
+        .chart .axis-label.today { fill: #0ea5e9; font-weight: 600; }
+        .chart .seg { stroke: #fff; stroke-width: 2; cursor: default; }
+        .chart .seg:hover { filter: brightness(0.9); }
+        .chart .hit { fill: transparent; }
+        .chart .hit:hover { fill: rgba(14, 165, 233, 0.06); }
+        .chart .value { font-size: 10px; fill: #475569; text-anchor: middle; pointer-events: none; }
+
+        .tip {
+            position: absolute;
+            pointer-events: none;
+            background: #0f172a;
+            color: #f8fafc;
+            font-size: 11px;
+            padding: 5px 8px;
+            border-radius: 6px;
+            white-space: nowrap;
+            transform: translate(-50%, calc(-100% - 8px));
+            opacity: 0;
+            transition: opacity .12s;
+            z-index: 2;
+        }
+        .tip.on { opacity: 1; }
+        .tip .row { display: flex; align-items: center; gap: 6px; }
+        .tip .sw { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+        .tip .day { color: #cbd5e1; margin-bottom: 2px; }
+
+        .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #334155; }
+        .legend .item { display: flex; align-items: center; gap: 6px; }
+        .legend .sw { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+        .legend .n { color: #64748b; font-variant-numeric: tabular-nums; }
+        .legend .item.quiet { color: #94a3b8; }
+
+        .empty { color: #94a3b8; font-size: 12px; padding: 30px 0; text-align: center; }
+
+        details { margin-top: 8px; font-size: 11px; color: #64748b; }
+        summary { cursor: pointer; }
+        table { border-collapse: collapse; margin-top: 6px; font-size: 11px; }
+        th, td { text-align: right; padding: 2px 8px; border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; }
+        th:first-child, td:first-child { text-align: left; }
+        th { color: #64748b; font-weight: 600; }
+
+        .page-error { color: #94a3b8; font-size: 12px; }
+        .page-error a { color: #0284c7; }
+
+        /* Dark mode — same key as the board. */
+        body.dark { background: #0f172a; color: #e2e8f0; }
+        body.dark .wordmark { color: #f1f5f9; }
+        body.dark .pane { background: #1e293b; border-color: #334155; }
+        body.dark .pane-total b, body.dark .month-name, body.dark .pane-title { color: #f1f5f9; }
+        body.dark .theme-toggle, body.dark .month-nav button { background: #1e293b; border-color: #334155; color: #38bdf8; }
+        body.dark .month-nav button:disabled { color: #475569; }
+        body.dark .chart .grid { stroke: #334155; }
+        body.dark .chart .seg { stroke: #1e293b; }
+        body.dark .chart .axis-label { fill: #64748b; }
+        body.dark .chart .value { fill: #cbd5e1; }
+        body.dark .legend { color: #cbd5e1; border-color: #334155; }
+        body.dark .legend .n { color: #94a3b8; }
+        body.dark .tip { background: #f8fafc; color: #0f172a; }
+        body.dark .tip .day { color: #475569; }
+        body.dark th, body.dark td { border-color: #334155; }
+        body.dark .page-meta b { color: #cbd5e1; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="page-header">
+            <a class="wordmark" href="/">Move<span>Along</span></a>
+            <a class="back-link" href="/">&larr; Back to your board</a>
+            <span class="page-meta" id="meta"></span>
+            <button class="theme-toggle" id="themeToggle" title="Switch theme">🌙</button>
+        </div>
+
+        <div class="pane" id="pane">
+            <div class="pane-head">
+                <span class="pane-title">Completed this month</span>
+                <span class="pane-total" id="total"></span>
+                <div class="month-nav">
+                    <button id="prevMonth" title="Previous month">&lsaquo;</button>
+                    <span class="month-name" id="monthName"></span>
+                    <button id="nextMonth" title="Next month">&rsaquo;</button>
+                </div>
+            </div>
+            <div class="chart-wrap" id="chartWrap"><div class="empty">Loading&hellip;</div><div class="tip" id="tip"></div></div>
+            <div class="legend" id="legend"></div>
+            <details id="tableWrap" hidden><summary>As a table</summary><div id="table"></div></details>
+        </div>
+    </div>
+
+    <script>
+        // ---- theme, synced with the board ----
+        const THEME_KEY = 'movealong.theme';
+        function applyTheme() {
+            const dark = localStorage.getItem(THEME_KEY) === 'dark';
+            document.body.classList.toggle('dark', dark);
+            document.getElementById('themeToggle').textContent = dark ? '☀️' : '🌙';
+        }
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'light' : 'dark');
+            applyTheme();
+            if (data) render();
+        });
+        applyTheme();
+
+        // ---- board colours: one fixed order, never cycled; a 6th board folds into "Other".
+        // Validated for CVD separation and contrast against each surface
+        // (dataviz validator, 2026-09-08). The light yellow and pink fall
+        // under 3:1 on white, which is why every segment also has a hover
+        // tooltip and the legend carries the counts.
+        const PALETTE_LIGHT = ['#0284c7', '#eb6834', '#4a3aa7', '#eda100', '#e87ba4'];
+        const PALETTE_DARK = ['#0284c7', '#ea580c', '#9085e9', '#b45309', '#db2777'];
+        const OTHER_LIGHT = '#94a3b8', OTHER_DARK = '#64748b';
+        const MAX_SERIES = 5;
+
+        function session() {
+            try { return JSON.parse(localStorage.getItem('movealong.session') || 'null'); }
+            catch (e) { return null; }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        async function api(path) {
+            const headers = { 'Content-Type': 'application/json' };
+            try { headers['x-tz'] = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { /* UTC */ }
+            const res = await fetch('/api' + path, { headers });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || ('HTTP ' + res.status));
+            return body;
+        }
+
+        const sess = session();
+        let month = new URLSearchParams(location.search).get('month');
+        let data = null;
+
+        function monthLabel(m) {
+            const d = new Date(m + '-01T00:00:00Z');
+            return d.toLocaleDateString(undefined, { month: 'long', year: 'numeric', timeZone: 'UTC' });
+        }
+        function shiftMonth(m, n) {
+            const d = new Date(m + '-01T00:00:00Z');
+            d.setUTCMonth(d.getUTCMonth() + n);
+            return d.toISOString().slice(0, 7);
+        }
+
+        // Series: boards in tab order; beyond MAX_SERIES, fold into Other.
+        function seriesFor(d) {
+            const dark = document.body.classList.contains('dark');
+            const pal = dark ? PALETTE_DARK : PALETTE_LIGHT;
+            const head = d.projects.slice(0, MAX_SERIES).map((p, i) => ({ ids: [p.id], name: p.name, color: pal[i] }));
+            const rest = d.projects.slice(MAX_SERIES);
+            if (rest.length) head.push({ ids: rest.map(p => p.id), name: 'Other', color: dark ? OTHER_DARK : OTHER_LIGHT });
+            return head;
+        }
+
+        function render() {
+            const d = data;
+            const series = seriesFor(d);
+            const days = d.days_in_month;
+            const perDay = [];
+            let grand = 0;
+            const seriesTotals = series.map(() => 0);
+            for (let i = 1; i <= days; i++) {
+                const key = d.month + '-' + String(i).padStart(2, '0');
+                const c = d.counts[key] || {};
+                const stack = series.map((s, si) => {
+                    const n = s.ids.reduce((sum, id) => sum + (c[id] || 0), 0);
+                    seriesTotals[si] += n;
+                    return n;
+                });
+                const total = stack.reduce((a, b) => a + b, 0);
+                grand += total;
+                perDay.push({ key, day: i, stack, total });
+            }
+
+            document.getElementById('monthName').textContent = monthLabel(d.month);
+            document.getElementById('nextMonth').disabled = d.month >= d.today.slice(0, 7);
+            document.getElementById('total').innerHTML = grand
+                ? `<b>${grand}</b> ${grand === 1 ? 'task' : 'tasks'}`
+                : '';
+
+            const wrap = document.getElementById('chartWrap');
+            const tip = document.getElementById('tip');
+            if (!grand) {
+                wrap.innerHTML = `<div class="empty">Nothing completed in ${escapeHtml(monthLabel(d.month))} yet.</div>`;
+                wrap.appendChild(tip);
+                document.getElementById('legend').innerHTML = '';
+                document.getElementById('tableWrap').hidden = true;
+                return;
+            }
+
+            // ---- geometry ----
+            const W = 720, H = 220, padL = 24, padR = 6, padT = 14, padB = 22;
+            const plotW = W - padL - padR, plotH = H - padT - padB;
+            const maxTotal = Math.max(...perDay.map(p => p.total));
+            const yMax = Math.max(4, Math.ceil(maxTotal / 2) * 2);
+            const slot = plotW / days;
+            const barW = Math.max(6, Math.min(18, slot - 4));
+            const y = v => padT + plotH - (v / yMax) * plotH;
+
+            let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Completed tasks per day, ${escapeHtml(monthLabel(d.month))}">`;
+            // grid + y labels (every 2, or 4 when tall)
+            const step = yMax > 12 ? 4 : 2;
+            for (let v = 0; v <= yMax; v += step) {
+                svg += `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}"/>`;
+                svg += `<text class="axis-label" x="${padL - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`;
+            }
+            // bars
+            perDay.forEach((p, i) => {
+                const cx = padL + slot * i + slot / 2;
+                const x = cx - barW / 2;
+                svg += `<rect class="hit" x="${padL + slot * i}" y="${padT}" width="${slot}" height="${plotH}" data-i="${i}"/>`;
+                let acc = 0;
+                p.stack.forEach((n, si) => {
+                    if (!n) return;
+                    const top = y(acc + n), bottom = y(acc);
+                    const isTop = acc + n === p.total;
+                    const r = isTop ? 3 : 0;
+                    // rounded top on the topmost segment only, flat baseline
+                    svg += `<path class="seg" data-i="${i}" data-si="${si}" fill="${series[si].color}" d="M${x} ${bottom} V${top + r} a${r} ${r} 0 0 1 ${r} -${r} h${barW - 2 * r} a${r} ${r} 0 0 1 ${r} ${r} V${bottom} Z"/>`;
+                    acc += n;
+                });
+                if (p.total) svg += `<text class="value" x="${cx}" y="${y(p.total) - 4}">${p.total}</text>`;
+                const isToday = p.key === d.today;
+                const showLabel = isToday || p.day === 1 || p.day % 5 === 0 || days <= 12;
+                if (showLabel) svg += `<text class="axis-label${isToday ? ' today' : ''}" x="${cx}" y="${H - 6}" text-anchor="middle">${p.day}</text>`;
+            });
+            svg += '</svg>';
+            wrap.innerHTML = svg;
+            wrap.appendChild(tip);
+
+            // hover
+            const showTip = (i, evt) => {
+                const p = perDay[i];
+                const dayName = new Date(p.key + 'T00:00:00Z').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
+                const rows = series.map((s, si) => p.stack[si]
+                    ? `<div class="row"><span class="sw" style="background:${s.color}"></span>${escapeHtml(s.name)} <b>${p.stack[si]}</b></div>` : '').join('');
+                tip.innerHTML = `<div class="day">${escapeHtml(dayName)}${p.total ? '' : ' · nothing completed'}</div>${rows}`;
+                const rect = wrap.getBoundingClientRect();
+                const svgEl = wrap.querySelector('svg');
+                const scale = rect.width / W;
+                const cx = (padL + slot * i + slot / 2) * scale;
+                const topY = y(p.total) * scale;
+                tip.style.left = cx + 'px';
+                tip.style.top = topY + 'px';
+                tip.classList.add('on');
+            };
+            wrap.querySelectorAll('[data-i]').forEach(el => {
+                el.addEventListener('mouseenter', e => showTip(+el.dataset.i, e));
+            });
+            wrap.querySelector('svg').addEventListener('mouseleave', () => tip.classList.remove('on'));
+
+            // legend: swatch · board · count
+            document.getElementById('legend').innerHTML = series.map((s, si) =>
+                `<span class="item${seriesTotals[si] ? '' : ' quiet'}"><span class="sw" style="background:${s.color}"></span>${escapeHtml(s.name)} <span class="n">${seriesTotals[si]}</span></span>`
+            ).join('');
+
+            // table view
+            const tw = document.getElementById('tableWrap');
+            tw.hidden = false;
+            document.getElementById('table').innerHTML = `<table><tr><th>Day</th>${series.map(s => `<th>${escapeHtml(s.name)}</th>`).join('')}<th>Total</th></tr>`
+                + perDay.filter(p => p.total).map(p => `<tr><td>${p.day}</td>${p.stack.map(n => `<td>${n || ''}</td>`).join('')}<td>${p.total}</td></tr>`).join('')
+                + `<tr><th>Total</th>${seriesTotals.map(n => `<th>${n}</th>`).join('')}<th>${grand}</th></tr></table>`;
+        }
+
+        async function load() {
+            if (!sess || !sess.subdomain || !sess.slug) {
+                document.getElementById('pane').innerHTML = '<div class="page-error">No board is signed in on this browser. <a href="/">Open your board first.</a></div>';
+                return;
+            }
+            document.getElementById('meta').innerHTML = `<b>${escapeHtml(sess.slug)}</b> · ${escapeHtml(sess.subdomain)}`;
+            try {
+                data = await api(`/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}/completions${month ? '?month=' + month : ''}`);
+                month = data.month;
+                history.replaceState(null, '', month === data.today.slice(0, 7) ? '/dashboard' : '/dashboard?month=' + month);
+                render();
+            } catch (err) {
+                document.getElementById('chartWrap').innerHTML = `<div class="page-error">${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        document.getElementById('prevMonth').addEventListener('click', () => { month = shiftMonth(month || data.month, -1); load(); });
+        document.getElementById('nextMonth').addEventListener('click', () => { month = shiftMonth(month || data.month, 1); load(); });
+        load();
+    </script>
+</body>
+</html>

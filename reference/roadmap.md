@@ -45,6 +45,9 @@
 - [x] Board preferences page — lock lagging tasks to today after N days (2026-09-05)
 - [x] The brief — per-person + per-board standing notes for the assistant, triage-filtered per task, usage-sorted, agent "wish I knew" inbox, draft-from-tasks (2026-09-02)
 
+- [x] Goal for the day — hover + g, orange, heads the day under locks (2026-09-08)
+- [x] Dashboard page — completed tasks per day for the month, stacked by board, legend beneath; bar-chart icon in the header (2026-09-08)
+
 ## Next
 - [ ] **Feedback loop on any task** (very soon, Kevin 2026-09-02) — a way to say how a task or its steps went, feeding the brief
 - [ ] History: a page per day — a dashboard of what got done, visually interesting enough to gamify completion; most days simple, with links out to richer task outputs

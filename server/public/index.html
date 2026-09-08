@@ -778,6 +778,15 @@
             margin-left: -6px;
         }
 
+        /* Goal for the day (hover + g). Orange — not the lock's amber and not
+           the overdue red — and declared before .locked-today so a goal that
+           is also today's deadline still reads red. */
+        .task-item.goal .task-description,
+        .project-task-item.goal .project-task-desc {
+            color: #ea580c;
+            font-weight: 600;
+        }
+
         /* Locked task whose deadline is today: the day has arrived. */
         .task-item.locked-today .task-description {
             color: #ef4444;
@@ -2197,6 +2206,8 @@
             line-height: 1;
         }
 
+        .dashboard-link { text-decoration: none; }
+
         .theme-toggle:hover,
         .icon-toggle:hover {
             background: #f0f9ff;
@@ -2962,6 +2973,10 @@
         body.dark .team-task-flag { color: #fbbf24; background: rgba(245, 158, 11, 0.16); }
         body.dark .team-empty-day { color: #475569; }
         body.dark .empty-project { color: #64748b; }
+        body.dark .task-item.goal .task-description,
+        body.dark .project-task-item.goal .project-task-desc { color: #fb923c; }
+        /* Declared after the dark goal rule so a goal that is also today's deadline stays red. */
+        body.dark .task-item.locked-today .task-description { color: #ef4444; }
     </style>
 </head>
 <body>
@@ -3010,6 +3025,11 @@
                  until it's on, like a light switch that shows its own state. -->
             <button class="theme-toggle focus-toggle" id="focusToggleBtn" role="switch" aria-checked="false"
                     title="Focus — dim every day but the one you're on" aria-label="Toggle focus mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 20.5V11a7 7 0 0 1 14 0v9.5l-2.3-2-2.3 2-2.4-2-2.3 2z"/><circle cx="9.6" cy="10.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="14.4" cy="10.6" r="1.15" fill="currentColor" stroke="none"/></svg></button>
+
+            <!-- Dashboard: what you've completed this month, one page. Same
+                 stroked-icon vocabulary as the view toggle beside it. -->
+            <a class="icon-toggle dashboard-link" id="dashboardLink" href="/dashboard"
+               title="Dashboard — what you've completed this month" aria-label="Dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></a>
 
             <!-- Display (after Go): quiet user · project chip. Click it for the
                  account popup (sign out) — same click-to-popup idiom as the lock. -->
@@ -5737,6 +5757,10 @@
                 const aLock = a.locked ? 1 : 0;
                 const bLock = b.locked ? 1 : 0;
                 if (aLock !== bLock) return bLock - aLock;
+                // Today's goal heads the pending list, under any deadline.
+                const aGoal = a.goal ? 1 : 0;
+                const bGoal = b.goal ? 1 : 0;
+                if (aGoal !== bGoal) return bGoal - aGoal;
                 const ap = a.position == null ? Infinity : a.position;
                 const bp = b.position == null ? Infinity : b.position;
                 return ap - bp;
@@ -5935,6 +5959,29 @@
             if (taskWrites.get(taskId) === write) taskWrites.delete(taskId);
         }
 
+        // Goal for the day: a toggle, orange text, sorted to the top under any
+        // lock. The list re-sorts at once (moving the row is the point), and
+        // stickyTaskId holds it under the keyboard like a digit press does.
+        async function setGoal(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            if (!task) return;
+            const next = task.goal ? 0 : 1;
+            task.goal = next;
+            stickyTaskId = taskId;
+            renderView();
+
+            const write = (taskWrites.get(taskId) || Promise.resolve())
+                .then(() => api(`/tasks/${taskId}`, { method: 'PUT', body: { goal: next } }))
+                .then(updated => {
+                    if (taskWrites.get(taskId) === write) Object.assign(task, updated);
+                })
+                .catch(err => showToast('Error: ' + err.message));
+
+            taskWrites.set(taskId, write);
+            await write;
+            if (taskWrites.get(taskId) === write) taskWrites.delete(taskId);
+        }
+
         function renderTask(task) {
             // Calendar events are mirrored from the user's iCal feed. They are
             // not locked (locking would misfire every deadline behavior in the
@@ -6030,7 +6077,7 @@
             const arrow = isEvent ? '' : `<div class="task-arrow" data-task-id="${task.id}" title="Move to next day &middot; Shift+Click for +1 week &middot; hover and press 1-9 to jump that many days">&rarr;</div>`;
             const descTitle = isEvent
                 ? 'From your calendar · Option+Click opens its page'
-                : 'Option+Click opens its page · Shift+Option+Click to lock to this day · drag to reorder · hover and press 1-9 to reorder';
+                : 'Option+Click opens its page · Shift+Option+Click to lock to this day · drag to reorder · hover and press 1-9 to reorder, g for today\'s goal';
 
             // Promoted out of another task's steps: dotted circle, and the
             // source row tints while this one is hovered.
@@ -6039,7 +6086,7 @@
             const circleTitle = source ? ` title="A step of: ${escapeHtml(source.description)}"` : '';
 
             return `
-                <div class="task-item ${task.completed ? 'completed' : ''} ${doneElsewhere ? 'done-elsewhere' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isDue ? 'due' : ''} ${isLockedToday ? 'locked-today' : ''} ${isEvent ? 'calendar' : ''} ${source ? 'promoted' : ''}" data-id="${task.id}"${chainAttrs}${promotedAttrs}${draggable}>
+                <div class="task-item ${task.completed ? 'completed' : ''} ${doneElsewhere ? 'done-elsewhere' : ''} ${isExpanded ? 'expanded' : ''} ${isLocked ? 'locked' : ''} ${isDue ? 'due' : ''} ${isLockedToday ? 'locked-today' : ''} ${task.goal && !task.completed ? 'goal' : ''} ${isEvent ? 'calendar' : ''} ${source ? 'promoted' : ''}" data-id="${task.id}"${chainAttrs}${promotedAttrs}${draggable}>
                     <div class="task-circle" data-task-id="${task.id}"${circleTitle}>${circleContent}</div>
                     ${arrow}${eventMarker}
                     <div class="task-description" data-task-id="${task.id}" title="${descTitle}">${eventTime}${linkifyText(task.description)}${renderDayCounter(task)}${renderRepeatGlyph(task)}${assignedLabel}</div>
@@ -6366,9 +6413,9 @@
                             }
 
                             return `
-                                <div class="project-task-item" data-id="${t.id}">
+                                <div class="project-task-item${t.goal ? ' goal' : ''}" data-id="${t.id}">
                                     <div class="task-circle" data-task-id="${t.id}"></div>
-                                    <div class="project-task-desc" data-task-id="${t.id}" title="Option+Click opens its page · hover and press r to repeat">${linkifyText(t.description)}${renderRepeatGlyph(t)}</div>
+                                    <div class="project-task-desc" data-task-id="${t.id}" title="Option+Click opens its page · hover and press r to repeat, g for today's goal">${linkifyText(t.description)}${renderRepeatGlyph(t)}</div>
                                     <span class="project-task-date${t.locked ? ' locked-date' : ''}">${t.scheduled_date}</span>
                                     ${progress}
                                 </div>
@@ -7142,6 +7189,22 @@
                     if (hovered) {
                         e.preventDefault();
                         setRepeat(hovered.id, hovered.row);
+                        return;
+                    }
+                }
+            }
+
+            // Goal: hover a pending task and press g to make it today's goal
+            // (again to clear). Same guards and placement as r above.
+            if ((e.key === 'g' || e.key === 'G') && !e.ctrlKey && !e.metaKey && !e.altKey) {
+                const activeTag = (document.activeElement && document.activeElement.tagName) || '';
+                const isEditing = activeTag === 'INPUT' || activeTag === 'TEXTAREA' || activeTag === 'SELECT'
+                    || (document.activeElement && document.activeElement.isContentEditable);
+                if (!isEditing) {
+                    const hovered = hoveredTaskRow();
+                    if (hovered) {
+                        e.preventDefault();
+                        setGoal(hovered.id);
                         return;
                     }
                 }
