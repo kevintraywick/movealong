@@ -157,6 +157,16 @@
             box-shadow: 0 4px 16px rgba(14, 165, 233, 0.18);
         }
 
+        /* Today: a white border in the overdue rule's shape (2px), kept through
+           selection and hover so the day reads as today whatever else it is.
+           Quiet on the light page, lit against the slate in dark mode — the
+           same idea as the white active project tab. */
+        .day-card.today,
+        .day-card.today.selected,
+        .day-card.today:hover {
+            border: 2px solid #ffffff;
+        }
+
         .day-card:not(.selected) {
             cursor: pointer;
         }
@@ -2771,6 +2781,9 @@
             border-color: #334155;
         }
         body.dark .day-card:not(.selected):hover { border-color: #475569; }
+        body.dark .day-card.today,
+        body.dark .day-card.today.selected,
+        body.dark .day-card.today:hover { border-color: #ffffff; }
         body.dark .day-header { color: #f1f5f9; }
         body.dark .day-card.today .day-header,
         body.dark .day-card.today .day-date { color: #38bdf8; }
