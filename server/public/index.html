@@ -1083,6 +1083,11 @@
         }
 
         .instructions:empty::before { content: '\00a0'; }
+        /* Idle tip — shown when nothing is hovered. The whole line is a
+           click target: clicking it deals a different tip. */
+        .instructions.tip { cursor: pointer; }
+        .instructions.tip .tip-label { color: #0ea5e9; font-weight: 600; }
+        body.dark .instructions.tip .tip-label { color: #38bdf8; }
         .instructions { text-align: center; min-height: 30px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 
@@ -7255,10 +7260,72 @@
         // into #tipBar. `aria-label` is the fallback for icon-only controls
         // that never had a title. Later code that sets `.title` again is
         // fine: title is read first on every hover, so the fresh text wins.
+        //
+        // When nothing is hovered the bar shows a random tip instead of
+        // sitting empty. The tips are deliberately the things a tooltip
+        // can never teach — gestures with no control to hover (drag, keys,
+        // Shift/Option modifiers, the word "list") and the rules the board
+        // follows on its own. Anything a `title` already says is left out.
+        // A new tip is dealt on every page load and whenever the tip is
+        // clicked; the same tip stays put while you hover in and out.
+        const IDLE_TIPS = [
+            'Start a task with the word "list" — "list movies to see" — and the assistant suggests items. Click a suggestion\u2019s \u2191 to keep it.',
+            'Drag a task onto the middle of another task to make it the next step in a series. It moves to the day after.',
+            'Drag a task to the top or bottom edge of another row to reorder it within its day — a blue line shows where it lands.',
+            'Hover a task and press 1\u20139 to send it straight to that slot in its day. 0 sends it to the bottom.',
+            'Hover the \u2192 arrow and press 1\u20139 to push a task that many days out. Keep pressing and it keeps going.',
+            'Shift+Option+Click a task to lock it to the day it\u2019s on. Locked tasks never spill forward.',
+            'Anything unfinished spills onto today by itself. You can\u2019t lose a task by ignoring it.',
+            'The grey number after a task counts the days it\u2019s been pushed. It turns red after ten.',
+            'A day holds seven pending tasks per board. Add an eighth and it overflows to the next free day.',
+            'Hover a chained task to light up the whole series and draw the threads between its steps.',
+            'Hover a task and press r to make it repeat — daily, weekly, monthly. Tick it off and the next one appears.',
+            'Hover a task and press g to make it today\u2019s goal. It turns orange and rises to the top of its day.',
+            'Option+Click a task\u2019s name to open its page — background, notes and results live there.',
+            'Click the board tab you\u2019re already on to rename it, brief the assistant, or set its preferences.',
+            'Brief the assistant (from the board tab) with a few lines about yourself and it reads them before every step it drafts.',
+            'Preferences (from the board tab) can lock any task that has lagged N days to today, so it stops drifting.',
+            'Drag the board tabs in the header to put them in whatever order you like. Only you see your order.',
+            'Click your name in the header to see teammates\u2019 boards, share yours, or add the demo team.',
+            'Shift+Click the \ud83e\udde0 to set the AI access key. Shift+Click the \ud83d\udd0e to change this board\u2019s research budget.',
+            'Research is on request: click the \ud83d\udd0e on a single step to send an agent after real prices and links for just that one.',
+            'Tick a step off to free a slot in its pane. \u21ba then tops the pane back up to seven without touching what you kept.',
+            'Just start typing anywhere and the words land in the selected day\u2019s box. Enter adds the task.',
+            'Use the \u2190 and \u2192 arrow keys to move between days.',
+            'With focus on, click any day card to move the focus there. Completed tasks drop out of sight.',
+            'A locked task that goes past due pulls the board back to its date. The red-bordered day is the one you owe.',
+            'Finishing a task you were sent moves it home to the sender for review, with anything you wrote on its page.',
+            'Press Escape to close any open popup.',
+        ];
+
         (function wireTipBar() {
             const bar = document.getElementById('tipBar');
             if (!bar) return;
             let current = null;
+            let tipIndex = Math.floor(Math.random() * IDLE_TIPS.length);
+            function showIdleTip() {
+                bar.classList.add('tip');
+                bar.textContent = '';
+                const label = document.createElement('span');
+                label.className = 'tip-label';
+                label.textContent = 'Tip:';
+                bar.appendChild(label);
+                bar.appendChild(document.createTextNode('\u00a0\u00a0' + IDLE_TIPS[tipIndex]));
+            }
+            function nextTip() {
+                if (IDLE_TIPS.length < 2) return showIdleTip();
+                let next;
+                do { next = Math.floor(Math.random() * IDLE_TIPS.length); } while (next === tipIndex);
+                tipIndex = next;
+                showIdleTip();
+            }
+            function showHoverTip(text) {
+                bar.classList.remove('tip');
+                bar.textContent = text;
+            }
+            bar.addEventListener('click', (e) => {
+                if (bar.classList.contains('tip')) { e.preventDefault(); nextTip(); }
+            });
             document.addEventListener('mouseover', (e) => {
                 // A title anywhere up the tree beats an aria-label on the
                 // target: the switches carry their real sentence on the
@@ -7266,15 +7333,17 @@
                 const el = e.target.closest('[title], [data-tip]') || e.target.closest('[aria-label]');
                 if (el === current) return;
                 current = el;
-                if (!el) { bar.textContent = ''; return; }
+                if (!el || el === bar || bar.contains(el)) { showIdleTip(); return; }
                 if (el.hasAttribute('title')) {
                     const t = el.getAttribute('title');
                     el.removeAttribute('title');
                     if (t) el.dataset.tip = t;
                 }
-                bar.textContent = el.dataset.tip || el.getAttribute('aria-label') || '';
+                const text = el.dataset.tip || el.getAttribute('aria-label') || '';
+                if (text) showHoverTip(text); else showIdleTip();
             });
-            document.addEventListener('mouseleave', () => { current = null; bar.textContent = ''; });
+            document.addEventListener('mouseleave', () => { current = null; showIdleTip(); });
+            showIdleTip();
         })();
     </script>
 </body>
