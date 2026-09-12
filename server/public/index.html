@@ -2676,6 +2676,62 @@
             padding: 6px 2px;
         }
 
+        /* ---- Completed tasks board ---- */
+        .completed-chart {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 10px 14px 6px;
+        }
+        .completed-chart-title {
+            display: flex;
+            align-items: baseline;
+            gap: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: #94a3b8;
+            margin-bottom: 4px;
+        }
+        .completed-chart-total { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; color: #64748b; }
+        .completed-chart svg { display: block; width: 100%; height: 150px; overflow: visible; }
+        .completed-chart .grid { stroke: #f1f5f9; stroke-width: 1; }
+        .completed-chart .grid.base { stroke: #e2e8f0; }
+        .completed-chart .axis-label { fill: #94a3b8; font-size: 10px; }
+        .completed-chart .axis-label.today { fill: #0284c7; font-weight: 600; }
+        .completed-chart .line { fill: none; stroke: #0ea5e9; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+        .completed-chart .area { fill: rgba(14, 165, 233, 0.08); }
+        .completed-chart .dot { fill: #ffffff; stroke: #0ea5e9; stroke-width: 2; }
+        .completed-chart .dot.zero { fill: #e2e8f0; stroke: #e2e8f0; stroke-width: 1; }
+        .completed-chart .dot.today { fill: #0ea5e9; }
+        .completed-chart .dot:hover { stroke: #0284c7; }
+
+        .completed-days .day-card { min-height: 120px; }
+        .completed-days .day-card.past { border-color: #e2e8f0; }
+        .done-row {
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+            padding: 5px 4px;
+            font-size: 12px;
+            line-height: 1.35;
+            border-radius: 6px;
+        }
+        .done-row:hover { background: #f0f9ff; }
+        .done-row .task-circle {
+            margin-top: 2px;
+            background: #38bdf8;
+            border-color: #38bdf8;
+        }
+        .done-row .task-circle::after { content: '\2713'; color: white; font-size: 11px; }
+        .done-row .task-circle:hover { background: #ffffff; }
+        .done-row .task-circle:hover::after { content: '\21a9'; color: #0284c7; font-size: 10px; }
+        .done-row .done-text { text-decoration: line-through; color: #94a3b8; cursor: pointer; overflow-wrap: anywhere; }
+        .done-row .done-text .task-link { color: #7dd3fc; }
+        .done-row .done-by { color: #cbd5e1; font-size: 11px; white-space: nowrap; margin-left: 4px; }
+        .completed-count { color: #94a3b8; font-size: 11px; margin-left: 6px; font-weight: 400; }
+
         .team-empty {
             font-size: 13px;
             color: #64748b;
@@ -2990,6 +3046,17 @@
         }
         body.dark .team-task-flag { color: #fbbf24; background: rgba(245, 158, 11, 0.16); }
         body.dark .team-empty-day { color: #475569; }
+        body.dark .completed-chart { background: #1e293b; border-color: #334155; }
+        body.dark .completed-chart .grid { stroke: #273449; }
+        body.dark .completed-chart .grid.base { stroke: #334155; }
+        body.dark .completed-chart .dot { fill: #1e293b; }
+        body.dark .completed-chart .dot.zero { fill: #334155; stroke: #334155; }
+        body.dark .completed-chart .dot.today { fill: #38bdf8; }
+        body.dark .completed-chart .axis-label.today { fill: #38bdf8; }
+        body.dark .done-row:hover { background: rgba(14, 165, 233, 0.08); }
+        body.dark .done-row .done-text { color: #64748b; }
+        body.dark .done-row .task-circle:hover { background: #1e293b; }
+        body.dark .done-row .done-by { color: #475569; }
         body.dark .empty-project { color: #64748b; }
         body.dark .task-item.goal .task-description,
         body.dark .project-task-item.goal .project-task-desc { color: #fb923c; }
@@ -3070,6 +3137,14 @@
         <!-- A teammate's shared week. Its own container rather than a mode of
              the board, because every affordance the board has is wrong here. -->
         <div class="team-container" id="teamContainer" style="display: none;">
+        </div>
+
+        <!-- The Completed tasks board: what this board has finished, day by
+             day, under a line chart of the last thirty days. Its own
+             container, like the team view — a finished row has exactly two
+             answers (reopen, read its page), so the board's other
+             affordances would only be things that don't work here. -->
+        <div class="team-container completed-container" id="completedContainer" style="display: none;">
         </div>
 
         <div class="team-popup" id="teamPopup">
@@ -3524,8 +3599,18 @@
             try {
                 const fresh = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/projects`);
                 const counts = new Map(fresh.map(p => [p.id, p.due_today || 0]));
-                projects.forEach(p => { p.due_today = counts.get(p.id) || 0; });
+                const prefs = new Map(fresh.map(p => [p.id, !!p.show_completed]));
+                let prefChanged = false;
+                projects.forEach(p => {
+                    p.due_today = counts.get(p.id) || 0;
+                    // The preferences page saves from another tab, so the
+                    // flag can change under us; this is the one read that
+                    // runs on every board action, so it carries it back.
+                    const next = prefs.has(p.id) ? prefs.get(p.id) : !!p.show_completed;
+                    if (next !== !!p.show_completed) { p.show_completed = next; if (p === currentProject) prefChanged = true; }
+                });
                 renderProjectBar();
+                if (prefChanged && viewMode === 'calendar') renderBoard();
             } catch (err) {
                 console.error('Failed to refresh project deadlines:', err);
             }
@@ -3699,9 +3784,14 @@
                     await loadTasks();
                 }
                 renderView();
+                // With completed rows off the board the row just vanished, so
+                // say where it went — otherwise a tick reads like a delete.
+                const hidden = !(currentProject && currentProject.show_completed) && viewMode === 'calendar';
                 showToast(wentHome
                     ? `Done — sent back to ${senderName || 'the sender'}`
-                    : (task.completed ? 'Task completed!' : 'Task reopened'));
+                    : (task.completed
+                        ? (hidden ? 'Completed — it\u2019s on the Completed tasks board now' : 'Task completed!')
+                        : 'Task reopened'));
             } catch (err) {
                 showToast('Error: ' + err.message);
             }
@@ -4392,9 +4482,11 @@
             const board = document.getElementById('board');
             const master = document.getElementById('masterContainer');
             const team = document.getElementById('teamContainer');
+            const completed = document.getElementById('completedContainer');
             board.style.display = 'none';
             master.style.display = 'none';
             team.style.display = 'none';
+            completed.style.display = 'none';
 
             if (viewMode === 'master') {
                 master.style.display = 'flex';
@@ -4404,11 +4496,190 @@
                 // switches YOUR boards — has nothing to say while it is open.
                 team.style.display = 'flex';
                 renderTeamView();
+            } else if (viewMode === 'completed') {
+                // The project bar stays: this is YOUR board's finished work,
+                // and switching tabs switches whose finished work you see.
+                completed.style.display = 'flex';
+                renderCompletedView();
             } else {
                 board.style.display = 'flex';
                 renderBoard();
             }
             document.getElementById('projectTabs').style.visibility = viewMode === 'team' ? 'hidden' : 'visible';
+        }
+
+        // ============================================
+        // COMPLETED TASKS BOARD — what this board has finished
+        // ============================================
+        // Opened from the board popup. Reads from the same `tasks` array the
+        // day board uses (the tasks route returns every row, completed ones
+        // included), so it needs no fetch of its own and follows the project
+        // tabs for free. Rows are bucketed by scheduled_date, exactly as the
+        // day board buckets them — a task ticked off today sat on today's
+        // card, so that is the card it is found under here.
+        //
+        // Window: the thirty days ending today, plus any later day that
+        // holds a task completed ahead of time (rare, but a row that shows
+        // on neither board would be lost). The strip scrolls to today.
+        const COMPLETED_DAYS = 30;
+        const COMPLETED_AXIS_MAX = 7; // the day capacity — a full day is a full line
+
+        function openCompletedView() {
+            viewMode = 'completed';
+            renderViewToggle();
+            renderView();
+        }
+
+        function closeCompletedView() {
+            viewMode = 'calendar';
+            renderViewToggle();
+            renderView();
+        }
+
+        function completedViewDays() {
+            const todayKey = getTodayKey();
+            const done = tasks.filter(t => t.completed && t.project_id === (currentProject && currentProject.id));
+            let lastKey = todayKey;
+            done.forEach(t => { if (t.scheduled_date > lastKey) lastKey = t.scheduled_date; });
+            const start = new Date(todayKey + 'T00:00:00.000Z');
+            start.setUTCDate(start.getUTCDate() - (COMPLETED_DAYS - 1));
+            const out = [];
+            for (let d = new Date(start); ; d.setUTCDate(d.getUTCDate() + 1)) {
+                const key = d.toISOString().split('T')[0];
+                out.push({
+                    key,
+                    dayName: dayNames[d.getUTCDay()],
+                    dateStr: `${monthNames[d.getUTCMonth()]} ${d.getUTCDate()}`,
+                    isToday: key === todayKey,
+                    tasks: done.filter(t => t.scheduled_date === key)
+                });
+                if (key >= lastKey) break;
+            }
+            return out;
+        }
+
+        // A line chart, 0 to 7, of tasks completed per day. Hand-drawn SVG —
+        // the dashboard's chart is too, and nothing in the app draws with a
+        // library. The y-axis is pinned to the day capacity so a full day
+        // reads as a full line; it only stretches when a day beats it.
+        function renderCompletedChart(days, width) {
+            const W = Math.max(320, Math.round(width || 600)), H = 150, padL = 22, padR = 10, padT = 10, padB = 20;
+            const max = Math.max(COMPLETED_AXIS_MAX, ...days.map(d => d.tasks.length));
+            const innerW = W - padL - padR, innerH = H - padT - padB;
+            const x = (i) => padL + (days.length === 1 ? innerW / 2 : (i / (days.length - 1)) * innerW);
+            const y = (v) => padT + innerH - (v / max) * innerH;
+
+            let grid = '';
+            for (let v = 0; v <= max; v++) {
+                grid += `<line class="grid ${v === 0 ? 'base' : ''}" x1="${padL}" x2="${W - padR}" y1="${y(v).toFixed(1)}" y2="${y(v).toFixed(1)}"></line>`;
+                if (v === 0 || v === max || v % (max > 7 ? 2 : 1) === 0) {
+                    grid += `<text class="axis-label" x="${padL - 6}" y="${(y(v) + 3).toFixed(1)}" text-anchor="end">${v}</text>`;
+                }
+            }
+
+            const pts = days.map((d, i) => `${x(i).toFixed(1)},${y(d.tasks.length).toFixed(1)}`);
+            const line = `<polyline class="line" points="${pts.join(' ')}"></polyline>`;
+            const area = `<polygon class="area" points="${x(0).toFixed(1)},${y(0).toFixed(1)} ${pts.join(' ')} ${x(days.length - 1).toFixed(1)},${y(0).toFixed(1)}"></polygon>`;
+
+            let dots = '', labels = '';
+            days.forEach((d, i) => {
+                const n = d.tasks.length;
+                dots += `<circle class="dot ${n === 0 ? 'zero' : ''} ${d.isToday ? 'today' : ''}" cx="${x(i).toFixed(1)}" cy="${y(n).toFixed(1)}" r="${n === 0 ? 2 : 3.5}"><title>${escapeHtml(d.dayName)} ${escapeHtml(d.dateStr)} — ${n} completed</title></circle>`;
+                const every = days.length > 40 ? 7 : 5;
+                if (d.isToday || i === 0 || i % every === 0) {
+                    labels += `<text class="axis-label ${d.isToday ? 'today' : ''}" x="${x(i).toFixed(1)}" y="${H - 4}" text-anchor="middle">${d.isToday ? 'today' : escapeHtml(d.dateStr)}</text>`;
+                }
+            });
+
+            return `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Tasks completed per day">${grid}${area}${line}${dots}${labels}</svg>`;
+        }
+
+        function renderCompletedView() {
+            const container = document.getElementById('completedContainer');
+            if (!currentProject) { container.innerHTML = ''; return; }
+            const days = completedViewDays();
+            const total = days.reduce((n, d) => n + d.tasks.length, 0);
+            const allTime = tasks.filter(t => t.completed && t.project_id === currentProject.id).length;
+
+            const dayCards = days.map(day => {
+                const rows = day.tasks.length
+                    ? day.tasks.map(t => renderDoneRow(t)).join('')
+                    : '<div class="team-empty-day">&mdash;</div>';
+                return `
+                    <div class="day-card ${day.isToday ? 'today' : 'past'}" data-day="${day.key}">
+                        <div class="day-header-row">
+                            <div class="day-header">${day.dayName}</div>
+                            <div class="day-date">${day.dateStr}</div>
+                        </div>
+                        <div class="tasks-container">${rows}</div>
+                    </div>`;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="team-view-banner">
+                    <span class="team-back" data-act="back">&larr; Back to your board</span>
+                    <span class="team-banner-who">
+                        <span class="team-banner-name">Completed tasks</span>
+                        <span class="team-banner-role">${escapeHtml(currentProject.name)}</span>
+                    </span>
+                    <span class="team-banner-note">${allTime === 0
+                        ? 'Nothing finished on this board yet. Tick a task and it lands here.'
+                        : `${total} in the last ${COMPLETED_DAYS} days &middot; ${allTime} all time. Click a circle to put a task back on the board; Option+Click a name to open its page.`}</span>
+                </div>
+                <div class="completed-chart">
+                    <div class="completed-chart-title">Completed per day<span class="completed-chart-total">${total} in ${days.length} days</span></div>
+                    <div class="completed-chart-body"></div>
+                </div>
+                <div class="team-days completed-days">${dayCards}</div>`;
+
+            // Drawn at the box's real width so the labels keep their shape —
+            // a stretched viewBox would squash the text with the line.
+            const chartBox = container.querySelector('.completed-chart-body');
+            chartBox.innerHTML = renderCompletedChart(days, chartBox.clientWidth);
+
+            container.querySelector('[data-act="back"]').addEventListener('click', closeCompletedView);
+            container.querySelectorAll('.done-row .task-circle').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    toggleComplete(parseInt(el.dataset.id));
+                });
+            });
+            container.querySelectorAll('.done-row .done-text').forEach(el => {
+                el.addEventListener('click', (e) => {
+                    if (e.target.closest('a.task-link')) return;
+                    if (e.altKey && !e.shiftKey) window.open(`/task/${el.dataset.id}`, '_blank', 'noopener');
+                });
+            });
+
+            // Today is the right-hand end of a strip that reads left to
+            // right, so land there; the past is a scroll away.
+            const strip = container.querySelector('.completed-days');
+            const todayCard = strip && strip.querySelector('.day-card.today');
+            if (strip && todayCard) strip.scrollLeft = Math.max(0, todayCard.offsetLeft + todayCard.offsetWidth - strip.clientWidth);
+        }
+
+        // The chart is sized to its box, so a resize redraws it.
+        let completedResizeTimer = null;
+        window.addEventListener('resize', () => {
+            if (viewMode !== 'completed') return;
+            clearTimeout(completedResizeTimer);
+            completedResizeTimer = setTimeout(renderCompletedView, 150);
+        });
+
+        // The preferences page saves from its own tab. Coming back to this
+        // one re-reads the board flags, so a flipped switch shows at once.
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible' && currentUser) refreshProjectDueFlags();
+        });
+
+        function renderDoneRow(task) {
+            const by = task.completed_by_name && task.completed_by !== currentUser.id
+                ? `<span class="done-by">~${escapeHtml(task.completed_by_name)}</span>` : '';
+            return `
+                <div class="done-row" data-id="${task.id}">
+                    <div class="task-circle" data-id="${task.id}" title="Reopen — put it back on the board"></div>
+                    <div class="done-text" data-id="${task.id}" title="Option+Click opens its page">${linkifyText(task.description)}${by}</div>
+                </div>`;
         }
 
         // ============================================
@@ -4681,6 +4952,7 @@
                 <div class="lock-popup-menu">
                     <div class="lock-popup-title">Board</div>
                     <div class="account-who" data-role="board-name">${escapeHtml(currentProject.name)}</div>
+                    <div class="lock-opt" data-act="completed-board">Completed tasks<span class="completed-count">${tasks.filter(t => t.completed && t.project_id === currentProject.id).length}</span></div>
                     <div class="lock-opt" data-act="brief-project">Brief the assistant</div>
                     <div class="lock-opt" data-act="prefs-project">Preferences</div>
                     <div class="lock-opt" data-act="rename-project">Rename this board</div>
@@ -4692,6 +4964,12 @@
             popup.style.left = rect.left + 'px';
             popup.style.top = (rect.bottom + 6) + 'px';
             popup.classList.add('visible');
+
+            popup.querySelector('[data-act="completed-board"]').addEventListener('click', (ev) => {
+                ev.stopPropagation();
+                hidePopups();
+                openCompletedView();
+            });
 
             // The brief is a page, like a task's — a board's standing notes
             // are reference material, not a popup's worth of text.
@@ -4958,11 +5236,16 @@
                         </div>`;
                 }
 
-                // Divider + completed. Focus mode hides completed rows outright
-                // — dimming quiets the days you are not on, and a finished task
-                // is noise on the day you *are* on. Assigned-away rows stay:
-                // they are still owed to someone.
-                const hasCompleted = !focusMode && completedTasks.length > 0;
+                // Divider + completed. Completed rows are OFF the board by
+                // default (2026-09-12): a finished task leaves its day card
+                // and lives on the Completed tasks board. The per-board
+                // preference `show_completed` brings the old behaviour back.
+                // Focus mode hides them regardless — dimming quiets the days
+                // you are not on, and a finished task is noise on the day you
+                // *are* on. Assigned-away rows stay: they are still owed to
+                // someone.
+                const showCompleted = !!(currentProject && currentProject.show_completed);
+                const hasCompleted = showCompleted && !focusMode && completedTasks.length > 0;
                 const hasAssigned = assignedTasks.length > 0;
                 if (hasCompleted || hasAssigned) {
                     tasksHtml += '<hr class="task-divider">';
@@ -6794,7 +7077,7 @@
             const btn = document.getElementById('viewToggleBtn');
             if (!btn) return;
             const target = viewMode === 'calendar' ? 'list' : 'calendar';
-            if (viewMode === 'team') {
+            if (viewMode === 'team' || viewMode === 'completed') {
                 btn.innerHTML = VIEW_ICONS.calendar;
                 btn.title = 'Back to your board';
                 btn.setAttribute('aria-label', 'Back to your board');
@@ -6810,6 +7093,7 @@
             // From a teammate's board the toggle means "back to mine" — there
             // is no List view of somebody else's week.
             if (viewMode === 'team') { closeTeamView(); return; }
+            if (viewMode === 'completed') { closeCompletedView(); return; }
             viewMode = viewMode === 'calendar' ? 'master' : 'calendar';
             renderViewToggle();
             renderView();
@@ -7296,6 +7580,8 @@
             'A locked task that goes past due pulls the board back to its date. The red-bordered day is the one you owe.',
             'Finishing a task you were sent moves it home to the sender for review, with anything you wrote on its page.',
             'Press Escape to close any open popup.',
+            'A ticked task leaves the board. Click the tab you\u2019re on and open Completed tasks to see everything you\u2019ve finished, with a chart.',
+            'Prefer finished tasks to stay on their day? Preferences (from the board tab) has a switch for that.',
         ];
 
         (function wireTipBar() {

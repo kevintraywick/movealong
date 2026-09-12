@@ -936,7 +936,7 @@ app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
   // project tabs, so a deadline on another board can't go unnoticed.
   const today = todayKeyFor(req);
   const projects = queryAll(`
-    SELECT p.id, p.name, p.slug, p.created_by, p.created_at,
+    SELECT p.id, p.name, p.slug, p.created_by, p.created_at, p.show_completed,
            (SELECT COUNT(*) FROM tasks t
              WHERE t.project_id = p.id
                AND t.owner_id = ?
@@ -2343,14 +2343,20 @@ app.delete('/api/tasks/:taskId', (req, res) => {
 
 // A board's AI budget and what it has spent this month.
 // ---- Board preferences ----
-// One so far: autolock_days. The page (/preferences/:id) is where the rest
-// will go, so this stays an object, not a single value.
+// Two so far: autolock_days and show_completed. The page (/preferences/:id)
+// is where the rest will go, so this stays an object, not a single value.
 const AUTOLOCK_MAX = 365;
 
+function preferencesOf(id) {
+  const p = queryOne('SELECT id, name, autolock_days, show_completed FROM projects WHERE id = ?', [id]);
+  if (!p) return null;
+  return { project: { id: p.id, name: p.name }, autolock_days: p.autolock_days || null, show_completed: !!p.show_completed };
+}
+
 app.get('/api/projects/:projectId/preferences', (req, res) => {
-  const p = queryOne('SELECT id, name, autolock_days FROM projects WHERE id = ?', [req.params.projectId]);
-  if (!p) return res.status(404).json({ error: 'Project not found' });
-  res.json({ project: { id: p.id, name: p.name }, autolock_days: p.autolock_days || null });
+  const prefs = preferencesOf(req.params.projectId);
+  if (!prefs) return res.status(404).json({ error: 'Project not found' });
+  res.json(prefs);
 });
 
 app.put('/api/projects/:projectId/preferences', (req, res) => {
@@ -2368,8 +2374,16 @@ app.put('/api/projects/:projectId/preferences', (req, res) => {
     }
     runSql('UPDATE projects SET autolock_days = ? WHERE id = ?', [days, p.id]);
   }
-  const after = queryOne('SELECT id, name, autolock_days FROM projects WHERE id = ?', [p.id]);
-  res.json({ project: { id: after.id, name: after.name }, autolock_days: after.autolock_days || null });
+  // Show completed rows on the day cards. Off by default: a finished task
+  // leaves the board and lives on the Completed tasks board instead.
+  if (body.show_completed !== undefined) {
+    const v = body.show_completed;
+    if (typeof v !== 'boolean' && v !== 0 && v !== 1) {
+      return res.status(400).json({ error: 'show_completed must be true or false' });
+    }
+    runSql('UPDATE projects SET show_completed = ? WHERE id = ?', [v ? 1 : 0, p.id]);
+  }
+  res.json(preferencesOf(p.id));
 });
 
 app.get('/api/projects/:projectId/budget', (req, res) => {

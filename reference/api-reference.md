@@ -464,7 +464,7 @@ otherwise destroy them. Its departure is what frees a slot in the pane's 7.
 GET  /api/projects/:projectId/preferences
 PUT  /api/projects/:projectId/preferences
 ```
-→ `{ project: {id, name}, autolock_days: number | null }`. PUT body `{ autolock_days }`: 1-365, or `null`/`''` to turn off; 0 and non-integers 400. When set, `GET .../tasks?project_id=` locks any pending task on today-or-earlier whose inclusive day count has reached the threshold (see CLAUDE.md, Board preferences).
+→ `{ project: {id, name}, autolock_days: number | null, show_completed: boolean }`. PUT body `{ show_completed: boolean }` (also returned by `GET .../projects` per board) and/or `{ autolock_days }`: 1-365, or `null`/`''` to turn off; 0 and non-integers 400. When set, `GET .../tasks?project_id=` locks any pending task on today-or-earlier whose inclusive day count has reached the threshold (see CLAUDE.md, Board preferences).
 
 ### The brief
 

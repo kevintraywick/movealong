@@ -30,6 +30,7 @@
 | created_at | DATETIME | auto             |
 
 ## projects (brief)
+`projects.show_completed` (INTEGER DEFAULT 0) — show completed rows on the day cards. Off: a ticked task leaves the board and is only on the Completed tasks board (2026-09-12).
 `projects.autolock_days` (INTEGER, NULL = off) — lock a task to today once its inclusive day count reaches this. Applied after spillover in the tasks route; future-dated tasks exempt.
 
 `projects.brief` (TEXT) — this board's standing notes for the assistant; merged after the owner's `users.brief` on every AI call made from this board. `projects.brief_learned` / `brief_rejected` / `brief_learned_at` — the board's own task-monitor list, same semantics as the user columns. (Other project columns are described where they're used: `ai_budget_usd`, `research_enabled` under ai_usage.)

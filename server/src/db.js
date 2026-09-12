@@ -57,6 +57,7 @@ async function initDb() {
       created_by INTEGER NOT NULL,
       ai_budget_usd INTEGER DEFAULT 5,
       research_enabled INTEGER DEFAULT 0,
+      show_completed INTEGER DEFAULT 0,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE,
       FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE CASCADE,
@@ -355,6 +356,9 @@ async function initDb() {
   // (inclusive, same count as the day counter) gets locked to today. NULL/0
   // = off. Applied in the tasks route right after spillover.
   ensureColumn('projects', 'autolock_days', 'INTEGER');
+  // Board preference: show completed rows on the day cards (default off —
+  // finished work lives on the Completed tasks board, 2026-09-12).
+  ensureColumn('projects', 'show_completed', 'INTEGER DEFAULT 0');
   // Set on the task when the preference locks it, and never cleared: the
   // preference fires once per task. Without this, unlocking a lagging task
   // was impossible — the next board load re-locked it (found 2026-09-06).

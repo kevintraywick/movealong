@@ -60,7 +60,14 @@
         body.dark .pref input:focus { border-color: #0ea5e9; }
         body.dark .save-state { color: #475569; }
         body.dark .save-state.saved { color: #38bdf8; }
+
+        /* The completed-tasks switch is a Jelly UI web component (vendored,
+           /vendor/jelly.js). The provider is display: contents, so it costs
+           no layout; its mode is set from the app's own theme key below. */
+        .pref.pref-switch { gap: 12px; }
+        jelly-switch { flex-shrink: 0; }
     </style>
+    <script type="module" src="/vendor/jelly.js"></script>
 </head>
 <body>
     <div class="page" id="page"><div class="page-error">Opening&hellip;</div></div>
@@ -86,6 +93,7 @@
         }
 
         function render(data) {
+            const dark = document.body.classList.contains('dark');
             document.title = `Preferences · ${data.project.name} · MoveAlong`;
             document.getElementById('page').innerHTML = `
                 <div class="page-header">
@@ -105,6 +113,20 @@
                         <span>days</span>
                     </div>
                     <div class="pref-note">Counts the same way as the little grey number after a task, so on the day that number reaches your threshold the task gets a <b>🔒</b> and stops moving forward — you deal with it today, or unlock it on purpose. Leave the field empty to turn this off. Tasks you have deliberately moved to a future day are left alone.</div>
+                </div>
+
+                <div class="pane">
+                    <div class="pane-title">Completed tasks
+                        <span class="save-state" id="showCompletedState"></span>
+                    </div>
+                    <jelly-theme mode="${dark ? 'dark' : 'light'}" accent="#0ea5e9">
+                        <div class="pref pref-switch">
+                            <jelly-switch id="showCompletedSwitch" size="small" label="Show completed tasks on the board"${data.show_completed ? ' checked' : ''}></jelly-switch>
+                            <input type="checkbox" id="showCompletedFallback" hidden${data.show_completed ? ' checked' : ''}>
+                            <span>Show completed tasks on the board</span>
+                        </div>
+                    </jelly-theme>
+                    <div class="pref-note">Off, a task leaves the day card the moment you tick it, and the board only ever shows what is still to do. Everything you have finished is on the <b>Completed tasks</b> board — open it from this board's tab — with a chart of the last thirty days. On, finished tasks stay struck through under a divider on their day, the way they used to.</div>
                 </div>`;
 
             const input = document.getElementById('autolockInput');
@@ -131,6 +153,52 @@
             });
             input.addEventListener('blur', () => { clearTimeout(timer); save(); });
             input.addEventListener('keydown', (e) => { if (e.key === 'Enter') { clearTimeout(timer); save(); } });
+
+            // The switch reflects `checked` on tap, drag and keyboard; one
+            // PUT per change, and the server's answer is what the switch
+            // shows afterwards, so a rejected write can't leave it lying.
+            const sw = document.getElementById('showCompletedSwitch');
+            const swState = document.getElementById('showCompletedState');
+            let lastSaved = !!data.show_completed;
+            const saveSwitch = async () => {
+                try {
+                    const r = await api(`/projects/${projectId}/preferences`, { method: 'PUT', body: { show_completed: !!sw.checked } });
+                    sw.checked = !!r.show_completed;
+                    lastSaved = !!r.show_completed;
+                    swState.textContent = r.show_completed ? 'shown on the board' : 'saved';
+                    swState.className = 'save-state saved';
+                } catch (err) {
+                    swState.textContent = err.message;
+                    swState.className = 'save-state error';
+                }
+            };
+            // The native checkbox lives in the component's shadow root, and
+            // a native `change` does not cross that boundary in every
+            // browser — so listen wide and dedupe on the reflected state.
+            const onFlip = () => setTimeout(() => {
+                if (!!sw.checked === lastSaved) return;
+                lastSaved = !!sw.checked;
+                saveSwitch();
+            }, 0);
+            ['change', 'input', 'click', 'keyup'].forEach(ev => sw.addEventListener(ev, onFlip));
+
+            // If the vendored module never registers the element (blocked,
+            // failed to load, an old browser), a bare <jelly-switch> renders
+            // as nothing — so a native checkbox stands in after two seconds.
+            const fallback = document.getElementById('showCompletedFallback');
+            Promise.race([
+                customElements.whenDefined('jelly-switch').then(() => true),
+                new Promise(r => setTimeout(() => r(false), 2000))
+            ]).then(defined => {
+                if (defined) return;
+                sw.hidden = true;
+                fallback.hidden = false;
+                fallback.addEventListener('change', () => {
+                    sw.checked = fallback.checked;
+                    lastSaved = fallback.checked;
+                    saveSwitch();
+                });
+            });
         }
 
         (async () => {
