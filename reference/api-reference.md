@@ -676,6 +676,18 @@ tasks
 
 `server/mcp/index.js` wraps this API as fourteen MCP tools for any agent (Claude Code, Claude Desktop, Agent SDK). See `server/mcp/README.md` for registration; the tool list is in CLAUDE.md.
 
+## Where you are (2026-09-13)
+
+`GET|PUT /api/companies/:subdomain/users/:slug/settings` — `{ zip, timezone, place }`. User-level. PUT takes either; `zip` is five digits and is geocoded (zippopotam.us) before it is written — 400 with the old value kept if it can't be placed; `timezone` must be a valid IANA zone; `null`/`''` clears.
+
+## Morning briefing (2026-09-13)
+
+`GET /api/companies/:subdomain/users/:slug/briefing?day=` — `{ day, today, items: [{id, kind, text, detail, link, position, done, done_at, created_at}], weather: {place, high, low, words, code, rain_pct, wind_mph} | null, weather_error, generated_at }`. Day defaults to the caller's today (`x-tz`, else the user's `timezone` setting, else UTC). Weather is fetched by the server from the user's ZIP (Open-Meteo, cached per day).
+
+`PUT /api/companies/:subdomain/users/:slug/briefing` — `{ day?, items: [{kind, text, detail?, link?}] }` replaces the day's items. Kinds `calendar | mail | text | board | health | note` (others become `note`); max 12; text ≤ 200, detail ≤ 600; links must be `https:`, `mailto:`, `sms:` or `tel:` (anything else is dropped). 201 with the same payload as GET.
+
+`PUT /api/briefing-items/:id` — `{ done: boolean }`.
+
 ## Health (dashboard, 2026-09-13)
 
 `GET /api/companies/:subdomain/users/:slug/health?weeks=N` — the last N weeks (default 8, max 26) of hand-entered health data, ending on the caller's today (`x-tz`). Returns `{ today, from, to, weeks, measures: [{key, label, kind, unit}], entries: { 'YYYY-MM-DD': { steps, weight, gym, yoga } } }` — only measures that were logged appear for a day. Measures are the `HEALTH_MEASURES` registry in `server.js`: `steps` (count), `weight` (lb, one decimal), `gym` and `yoga` (0/1).

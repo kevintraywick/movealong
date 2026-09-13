@@ -266,6 +266,26 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_health_user_day ON health_entries(user_id, day);
 
+    -- Morning briefing (2026-09-13). Items are posted by the user's own
+    -- Claude through the MoveIt server (post_briefing) — mail, calendar,
+    -- texts, board, health — one day at a time, replaced wholesale. Weather
+    -- is NOT stored here: the server fetches it itself from the ZIP code.
+    -- Unticked items are cleared by the next day's briefing, never spilled.
+    CREATE TABLE IF NOT EXISTS briefing_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      day DATE NOT NULL,
+      kind TEXT NOT NULL,
+      text TEXT NOT NULL,
+      detail TEXT,
+      link TEXT,
+      position INTEGER DEFAULT 0,
+      done INTEGER DEFAULT 0,
+      done_at DATETIME,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_briefing_user_day ON briefing_items(user_id, day);
+
     CREATE TABLE IF NOT EXISTS brief_usage (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       scope TEXT NOT NULL,
@@ -419,6 +439,14 @@ async function initDb() {
   // How-you-work lines the monitor infers from step_events (2026-09-12):
   // what this person does with drafted steps, not facts about them. Own
   // columns so they can move to their own pane without a migration.
+  // Where you are (2026-09-13): the ZIP drives the briefing's weather, the
+  // zone is "today" for anything that arrives without an x-tz header (the
+  // Claude phone app through the MoveIt server). Geocode cached beside it.
+  ensureColumn('users', 'zip', 'TEXT');
+  ensureColumn('users', 'timezone', 'TEXT');
+  ensureColumn('users', 'zip_lat', 'REAL');
+  ensureColumn('users', 'zip_lon', 'REAL');
+  ensureColumn('users', 'zip_place', 'TEXT');
   ensureColumn('users', 'brief_style', 'TEXT');
   ensureColumn('users', 'brief_style_rejected', 'TEXT');
   ensureColumn('users', 'brief_style_at', 'DATETIME');

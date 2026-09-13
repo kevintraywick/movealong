@@ -74,6 +74,7 @@
     <script>
         if (localStorage.getItem('movealong.theme') === 'dark') document.body.classList.add('dark');
         const projectId = parseInt(location.pathname.split('/').pop(), 10);
+        const sess = (() => { try { return JSON.parse(localStorage.getItem('movealong.session') || 'null'); } catch (e) { return null; } })();
 
         function escapeHtml(text) {
             const div = document.createElement('div');
@@ -127,7 +128,42 @@
                         </div>
                     </jelly-theme>
                     <div class="pref-note">Off, a task leaves the day card the moment you tick it, and the board only ever shows what is still to do. Everything you have finished is on the <b>Completed tasks</b> board — open it from this board's tab — with a chart of the last thirty days. On, finished tasks stay struck through under a divider on their day, the way they used to.</div>
+                </div>
+
+                <div class="pane" id="wherePane"${sess && sess.slug ? '' : ' hidden'}>
+                    <div class="pane-title">Where you are
+                        <span class="save-state" id="whereState"></span>
+                    </div>
+                    <div class="pref">
+                        <span>ZIP code</span>
+                        <input type="text" id="zipInput" inputmode="numeric" maxlength="5" placeholder="38237" style="width:70px">
+                        <span id="zipPlace" style="color:#64748b;font-size:12px"></span>
+                    </div>
+                    <div class="pref" style="margin-top:6px">
+                        <span>Time zone</span>
+                        <input type="text" id="tzInput" placeholder="America/Chicago" style="width:190px" list="tzList">
+                        <datalist id="tzList"><option value="America/New_York"><option value="America/Chicago"><option value="America/Denver"><option value="America/Phoenix"><option value="America/Los_Angeles"><option value="America/Anchorage"><option value="Pacific/Honolulu"><option value="Europe/London"><option value="UTC"></datalist>
+                        <button type="button" id="tzHere" style="font-size:11px;color:#0284c7;background:none;border:1px solid #e2e8f0;border-radius:6px;padding:3px 8px;cursor:pointer">use this device's</button>
+                    </div>
+                    <div class="pref-note">These are about <b>you</b>, not this board — they follow you to every board. The ZIP is what the morning briefing's weather is for. The time zone is what "today" means when something reaches the board without a browser — your phone talking to the MoveIt server, for one; the browser always sends its own zone, so the board itself never needs this.</div>
                 </div>`;
+
+            // ---- Where you are (user-level, autosave) ----
+            if (sess && sess.slug) {
+                const zipEl = document.getElementById('zipInput'), tzEl = document.getElementById('tzInput');
+                const wState = document.getElementById('whereState'), placeEl = document.getElementById('zipPlace');
+                const base = `/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}/settings`;
+                const paint = (s) => { zipEl.value = s.zip || ''; tzEl.value = s.timezone || ''; placeEl.textContent = s.place || ''; };
+                api(base).then(paint).catch(() => {});
+                const saveWhere = async (body) => {
+                    wState.className = 'save-state'; wState.textContent = 'saving…';
+                    try { paint(await api(base, { method: 'PUT', body })); wState.className = 'save-state saved'; wState.textContent = 'saved'; }
+                    catch (err) { wState.className = 'save-state error'; wState.textContent = err.message; }
+                };
+                zipEl.addEventListener('change', () => saveWhere({ zip: zipEl.value.trim() }));
+                tzEl.addEventListener('change', () => saveWhere({ timezone: tzEl.value.trim() }));
+                document.getElementById('tzHere').addEventListener('click', () => { tzEl.value = Intl.DateTimeFormat().resolvedOptions().timeZone; saveWhere({ timezone: tzEl.value }); });
+            }
 
             const input = document.getElementById('autolockInput');
             const state = document.getElementById('autolockState');

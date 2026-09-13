@@ -246,5 +246,56 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
   });
 
 
+  // ---- Morning briefing ----
+  server.registerTool('get_briefing', {
+    title: 'Read the morning briefing',
+    description: 'The briefing items posted for a day (default today) with their ticked state, plus the day\'s weather for the user\'s ZIP (fetched by the board itself — never post a weather item).',
+    inputSchema: { day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }
+  }, async ({ day }) => text(await api(`${me}/briefing${day ? `?day=${day}` : ''}`)));
+
+  server.registerTool('post_briefing', {
+    title: 'Post the morning briefing',
+    description: 'Replace the day\'s briefing (default today) with these items, in order. The board opens them as tickable rows in a pane under today\'s card. Kinds: calendar, mail, text, board, health, note. Keep it to a glance: at most 12 items, text under ~90 characters, detail for the sentence behind it, link for a mailto: reply draft (mail), an sms: (text) or an https: page. Call briefing_recipe first if you haven\'t read the recipe this session.',
+    inputSchema: {
+      day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      items: z.array(z.object({
+        kind: z.enum(['calendar', 'mail', 'text', 'board', 'health', 'note']),
+        text: z.string().min(1).max(200),
+        detail: z.string().max(600).optional(),
+        link: z.string().max(4000).optional()
+      })).max(12)
+    }
+  }, async ({ day, items }) => text(await api(`${me}/briefing`, { method: 'PUT', body: { day, items } })));
+
+  server.registerTool('tick_briefing_item', {
+    title: 'Tick a briefing item',
+    description: 'Mark a briefing item handled (or not).',
+    inputSchema: { item_id: z.number().int(), done: z.boolean().optional() }
+  }, async ({ item_id, done = true }) => text(await api(`/api/briefing-items/${item_id}`, { method: 'PUT', body: { done } })));
+
+  server.registerTool('briefing_recipe', {
+    title: 'How to build the morning briefing',
+    description: 'The steps for assembling the user\'s morning briefing from mail, calendar, texts, the board and the health log. Read it, do it, then post_briefing.',
+    inputSchema: {}
+  }, async () => text(BRIEFING_RECIPE));
+
+  server.registerPrompt('morning-brief', {
+    title: 'Morning brief',
+    description: 'Assemble and post today\'s morning briefing to the MoveIt board.'
+  }, () => ({ messages: [{ role: 'user', content: { type: 'text', text: BRIEFING_RECIPE } }] }));
+
   return server;
 }
+
+export const BRIEFING_RECIPE = `Build my morning briefing and post it to the MoveIt board with post_briefing. Today is the board's today (list_tasks tells you). Work in this order and keep every item to one line a person can act on:
+
+1. Context: get_brief (who I am, how I like things), list_tasks for today (my goal, anything locked or overdue, how many spilled forward), get_health with weeks=2.
+2. Calendar (kind "calendar"): today's events with start times, earliest first, e.g. "2:30 Dentist — leave by 2". Include a location if there is one. If nothing is on, one item: "Nothing on the calendar".
+3. Mail (kind "mail"): count what arrived since yesterday morning as ONE item first ("14 new emails, 3 want a reply"). Then at most 4 items for the ones that actually need me — a reply owed, money, a deadline, a person I know. Each: who and what in under 90 characters, the gist in detail, and a link that is a mailto: reply draft — mailto:<sender>?subject=Re:%20<subject>&body=<a short reply in my voice, URL-encoded>. Skip newsletters and receipts.
+4. Texts (kind "text"): only if you can read Messages on this Mac (the unread-texts script in the repo). One item per unread thread: who said what, and an sms: link to them. If you can't read texts, post nothing for this kind.
+5. Board (kind "board"): the goal for the day if set; deadlines locked to today; "N tasks slipped forward from earlier days" if any.
+6. Health (kind "health"): one nudge, not a lecture — yoga this week versus last, or a gap in the step log ("no steps logged for yesterday — say the number and I'll log it").
+7. Do NOT post weather; the board fetches it from my ZIP itself.
+
+At most 12 items total, calendar first, then mail, texts, board, health. Then call post_briefing once with the whole list. Tell me in one line what you posted.`;
+

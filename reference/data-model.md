@@ -172,6 +172,10 @@ The assistant's inbox in reverse: one thing the model wished it had known while 
 | created_at  | DATETIME | |
 | resolved_at | DATETIME | NULL = open. Answered or skipped both resolve. Deduped case-insensitively while open; max 7 open per (user, board) |
 
+## briefing_items
+
+`briefing_items` (id, user_id → users CASCADE, day DATE, kind, text, detail, link, position, done, done_at, created_at; index user_id+day) — the morning briefing (2026-09-13), posted by the user's own Claude through the MoveIt server and replaced wholesale per day. Weather is not stored (fetched per day from the ZIP). `users.zip`, `users.timezone`, and the cached geocode `users.zip_lat / zip_lon / zip_place` live on the user.
+
 ## health_entries
 
 `health_entries` (id, user_id → users CASCADE, day DATE, measure TEXT, value REAL, created_at, updated_at; UNIQUE(user_id, day, measure); index user_id+day) — the health dashboard's hand-entered rows (2026-09-13). **Long form on purpose**: one row per day per measure, so adding a measure is a new entry in `HEALTH_MEASURES` in `server.js`, not a column. Measures today: `steps`, `weight` (lb), `gym`, `yoga` (checks stored 1/0). A day with no row for a measure is *unlogged*, which is different from 0 — the PUT deletes the row on `null` rather than writing a zero. A Health Auto Export webhook later writes the same rows.

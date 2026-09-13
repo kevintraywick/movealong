@@ -56,6 +56,10 @@ const MCP_SECRET = process.env.MCP_SECRET || '';
 const MCP_TEAM = process.env.MCP_TEAM || '';
 const MCP_USER = process.env.MCP_USER || '';
 let mcpModules = null;
+function userTimezone(team, slug) {
+  const row = queryOne('SELECT u.timezone FROM users u JOIN companies c ON c.id = u.company_id WHERE c.subdomain = ? AND u.slug = ?', [team, slug]);
+  return row && row.timezone ? row.timezone : null;
+}
 async function loadMcp() {
   if (!mcpModules) {
     mcpModules = Promise.all([
@@ -77,7 +81,7 @@ app.all('/mcp/:secret', async (req, res) => {
       urlBase: `http://127.0.0.1:${PORT}`,
       team: MCP_TEAM, user: MCP_USER,
       aiKey: process.env.AI_ACCESS_KEY || '',
-      tz: req.get('x-tz') || process.env.MCP_TZ || 'UTC'
+      tz: req.get('x-tz') || userTimezone(MCP_TEAM, MCP_USER) || process.env.MCP_TZ || 'UTC'
     });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     res.on('close', () => { transport.close().catch(() => {}); server.close().catch(() => {}); });
@@ -988,6 +992,175 @@ app.get('/api/companies/:subdomain/users/:slug/completions', (req, res) => {
 
   const daysInMonth = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate();
   res.json({ month, today, days_in_month: daysInMonth, projects: projectList, counts });
+});
+
+// ---- Where you are: ZIP + time zone (2026-09-13) ----
+// Facts about the person, not the board — they follow you to every board —
+// but edited from the preferences page because that is where settings live.
+const ZIP_RE = /^\d{5}$/;
+function validZone(tz) {
+  if (typeof tz !== 'string' || !tz || tz.length > 64) return false;
+  try { new Intl.DateTimeFormat('en-US', { timeZone: tz }); return true; } catch (e) { return false; }
+}
+function settingsOf(user) {
+  const u = queryOne('SELECT zip, timezone, zip_place FROM users WHERE id = ?', [user.id]);
+  return { zip: u.zip || null, timezone: u.timezone || null, place: u.zip_place || null };
+}
+app.get('/api/companies/:subdomain/users/:slug/settings', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  res.json(settingsOf(user));
+});
+app.put('/api/companies/:subdomain/users/:slug/settings', async (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const body = req.body || {};
+  if (body.timezone !== undefined) {
+    const tz = body.timezone === null || body.timezone === '' ? null : String(body.timezone).trim();
+    if (tz !== null && !validZone(tz)) return res.status(400).json({ error: 'timezone must be an IANA zone like America/Chicago' });
+    runSql('UPDATE users SET timezone = ? WHERE id = ?', [tz, user.id]);
+  }
+  if (body.zip !== undefined) {
+    const zip = body.zip === null || body.zip === '' ? null : String(body.zip).trim();
+    if (zip !== null && !ZIP_RE.test(zip)) return res.status(400).json({ error: 'zip must be five digits' });
+    const prev = queryOne('SELECT zip FROM users WHERE id = ?', [user.id]);
+    if (zip !== (prev.zip || null)) {
+      // Geocode BEFORE writing, so a ZIP that can't be placed leaves the old one intact.
+      let geo = null;
+      if (zip) {
+        try { geo = await lookupZip(zip); }
+        catch (err) { return res.status(400).json({ error: `Couldn't place ZIP ${zip}: ${err.message === 'HTTP 404' ? 'no such ZIP' : err.message}` }); }
+      }
+      runSql('UPDATE users SET zip = ?, zip_lat = ?, zip_lon = ?, zip_place = ? WHERE id = ?',
+        [zip, geo ? geo.lat : null, geo ? geo.lon : null, geo ? geo.name : null, user.id]);
+      weatherCache.delete(user.id);
+    }
+  }
+  res.json(settingsOf(user));
+});
+
+// The user's "today" for a request that may carry no x-tz (the phone app
+// through the MoveIt server sets one from users.timezone; a bare curl won't).
+function todayKeyForUser(req, user) {
+  const tz = req.get('x-tz');
+  if (typeof tz === 'string' && tz.length <= 64 && validZone(tz)) return todayInZone(tz);
+  const u = queryOne('SELECT timezone FROM users WHERE id = ?', [user.id]);
+  return todayInZone(u && u.timezone ? u.timezone : null);
+}
+
+// ---- Weather for the briefing ----
+// Two keyless public APIs, both fixed hosts (no user-controlled URL):
+// zippopotam.us turns a ZIP into lat/lon + place (cached on the user row),
+// Open-Meteo gives the day's forecast (cached in memory per user per day).
+const weatherCache = new Map();   // user_id -> { day, weather }
+const WMO = [
+  [0, 'clear'], [1, 'mostly clear'], [2, 'partly cloudy'], [3, 'overcast'],
+  [45, 'fog'], [48, 'freezing fog'], [51, 'light drizzle'], [53, 'drizzle'], [55, 'heavy drizzle'],
+  [56, 'freezing drizzle'], [57, 'freezing drizzle'], [61, 'light rain'], [63, 'rain'], [65, 'heavy rain'],
+  [66, 'freezing rain'], [67, 'freezing rain'], [71, 'light snow'], [73, 'snow'], [75, 'heavy snow'], [77, 'snow grains'],
+  [80, 'rain showers'], [81, 'rain showers'], [82, 'violent showers'], [85, 'snow showers'], [86, 'heavy snow showers'],
+  [95, 'thunderstorms'], [96, 'thunderstorms with hail'], [99, 'thunderstorms with hail']
+];
+const wmoWords = (code) => { let w = 'unknown'; for (const [c, s] of WMO) if (code >= c) w = s; return w; };
+
+async function fetchJson(url, timeoutMs = 6000) {
+  const ctl = new AbortController();
+  const t = setTimeout(() => ctl.abort(), timeoutMs);
+  try {
+    const r = await fetch(url, { signal: ctl.signal, headers: { 'user-agent': 'MoveIt board (moveit.kevintraywick.com)' } });
+    if (!r.ok) throw new Error(`HTTP ${r.status}`);
+    return await r.json();
+  } finally { clearTimeout(t); }
+}
+async function lookupZip(zip) {
+  const data = await fetchJson(`https://api.zippopotam.us/us/${zip}`);
+  const place = data.places && data.places[0];
+  if (!place) throw new Error('no such ZIP');
+  return { lat: Number(place.latitude), lon: Number(place.longitude), name: `${place['place name']}, ${place['state abbreviation']}` };
+}
+async function geocodeZip(userId, zip) {
+  const geo = await lookupZip(zip);
+  runSql('UPDATE users SET zip_lat = ?, zip_lon = ?, zip_place = ? WHERE id = ?', [geo.lat, geo.lon, geo.name, userId]);
+  flushDb();
+  return geo;
+}
+async function weatherFor(userId, day) {
+  const cached = weatherCache.get(userId);
+  if (cached && cached.day === day) return cached.weather;
+  const u = queryOne('SELECT zip, zip_lat, zip_lon, zip_place, timezone FROM users WHERE id = ?', [userId]);
+  if (!u || !u.zip) return null;
+  let { zip_lat: lat, zip_lon: lon, zip_place: name } = u;
+  if (lat == null || lon == null) ({ lat, lon, name } = await geocodeZip(userId, u.zip));
+  const tz = u.timezone && validZone(u.timezone) ? u.timezone : 'auto';
+  const q = `latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max`
+    + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=${encodeURIComponent(tz)}&start_date=${day}&end_date=${day}`;
+  const d = await fetchJson(`https://api.open-meteo.com/v1/forecast?${q}`);
+  const daily = d.daily || {};
+  const weather = {
+    place: name, day,
+    high: Math.round(daily.temperature_2m_max[0]), low: Math.round(daily.temperature_2m_min[0]),
+    words: wmoWords(daily.weather_code[0]), code: daily.weather_code[0],
+    rain_pct: daily.precipitation_probability_max[0] ?? null, wind_mph: Math.round(daily.wind_speed_10m_max[0])
+  };
+  weatherCache.set(userId, { day, weather });
+  return weather;
+}
+
+// ---- Morning briefing (2026-09-13) ----
+// Posted by the user's own Claude via the MoveIt server; read by the board,
+// which opens it as a pane under today's card on the first board. One day's
+// items are replaced wholesale by each post; yesterday's unticked items are
+// not carried — tomorrow's briefing re-decides them.
+const BRIEFING_KINDS = ['calendar', 'mail', 'text', 'board', 'health', 'note'];
+const BRIEFING_MAX_ITEMS = 12;
+function briefingItems(userId, day) {
+  return queryAll('SELECT id, kind, text, detail, link, position, done, done_at, created_at FROM briefing_items WHERE user_id = ? AND day = ? ORDER BY position, id', [userId, day])
+    .map(r => ({ ...r, done: !!r.done }));
+}
+async function briefingPayload(req, user, day) {
+  const items = briefingItems(user.id, day);
+  let weather = null, weather_error = null;
+  try { weather = await weatherFor(user.id, day); }
+  catch (err) { weather_error = err.message; }
+  const generated_at = items.length ? items.reduce((m, i) => (i.created_at > m ? i.created_at : m), items[0].created_at) : null;
+  return { day, today: todayKeyForUser(req, user), items, weather, weather_error, generated_at };
+}
+app.get('/api/companies/:subdomain/users/:slug/briefing', async (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.day || '')) ? String(req.query.day) : todayKeyForUser(req, user);
+  res.json(await briefingPayload(req, user, day));
+});
+app.put('/api/companies/:subdomain/users/:slug/briefing', async (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const body = req.body || {};
+  const day = /^\d{4}-\d{2}-\d{2}$/.test(String(body.day || '')) ? String(body.day) : todayKeyForUser(req, user);
+  if (!Array.isArray(body.items)) return res.status(400).json({ error: 'items must be an array' });
+  if (body.items.length > BRIEFING_MAX_ITEMS) return res.status(400).json({ error: `At most ${BRIEFING_MAX_ITEMS} items — a briefing is a glance, not an inbox` });
+  const clean = [];
+  for (const it of body.items) {
+    if (!it || typeof it !== 'object') return res.status(400).json({ error: 'each item is an object' });
+    const kind = BRIEFING_KINDS.includes(it.kind) ? it.kind : 'note';
+    const text = String(it.text || '').trim().slice(0, 200);
+    if (!text) return res.status(400).json({ error: 'each item needs text' });
+    const detail = it.detail == null ? null : String(it.detail).trim().slice(0, 600) || null;
+    let link = it.link == null ? null : String(it.link).trim().slice(0, 4000) || null;
+    if (link && !/^(https?:|mailto:|sms:|tel:)/i.test(link)) link = null;   // no javascript: through here
+    clean.push({ kind, text, detail, link });
+  }
+  runSql('DELETE FROM briefing_items WHERE user_id = ? AND day = ?', [user.id, day]);
+  clean.forEach((it, i) => runSql('INSERT INTO briefing_items (user_id, day, kind, text, detail, link, position) VALUES (?, ?, ?, ?, ?, ?, ?)', [user.id, day, it.kind, it.text, it.detail, it.link, i]));
+  res.status(201).json(await briefingPayload(req, user, day));
+});
+app.put('/api/briefing-items/:id', (req, res) => {
+  const row = queryOne('SELECT * FROM briefing_items WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Briefing item not found' });
+  const v = (req.body || {}).done;
+  if (typeof v !== 'boolean') return res.status(400).json({ error: 'done must be true or false' });
+  runSql('UPDATE briefing_items SET done = ?, done_at = ? WHERE id = ?', [v ? 1 : 0, v ? new Date().toISOString() : null, row.id]);
+  const out = queryOne('SELECT id, kind, text, detail, link, position, done, done_at, created_at FROM briefing_items WHERE id = ?', [row.id]);
+  res.json({ ...out, done: !!out.done });
 });
 
 // ---- Health dashboard (2026-09-13) ----

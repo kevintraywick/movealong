@@ -1531,6 +1531,31 @@
             right: auto;
         }
 
+        /* ---- Morning briefing pane (2026-09-13): the subtask pane's box, under today ---- */
+        .briefing-pane { padding: 10px 10px 8px; }
+        .briefing-head { display: flex; align-items: baseline; gap: 6px; margin-bottom: 6px; }
+        .briefing-title { font-size: 13px; font-weight: 600; color: #0ea5e9; white-space: nowrap; }
+        .briefing-when { font-size: 10px; color: #94a3b8; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+        .briefing-close { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 0 0 4px; }
+        .briefing-close:hover { color: #0284c7; }
+        .briefing-weather { font-size: 11px; color: #334155; padding: 2px 0 6px; border-bottom: 1px dashed #e2e8f0; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .briefing-weather .temps { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
+        .briefing-item { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; font-size: 11.5px; line-height: 1.35; color: #0f172a; }
+        .briefing-item + .briefing-item { border-top: 1px solid #f1f5f9; }
+        .briefing-tick { width: 13px; height: 13px; border: 1.5px solid #cbd5e1; border-radius: 50%; flex-shrink: 0; margin-top: 2px; cursor: pointer; background: #fff; }
+        .briefing-tick:hover { border-color: #0ea5e9; }
+        .briefing-item.done .briefing-tick { background: #0ea5e9; border-color: #0ea5e9; }
+        .briefing-item.done .briefing-text { color: #94a3b8; text-decoration: line-through; }
+        .briefing-body { min-width: 0; flex: 1; }
+        .briefing-text { word-wrap: break-word; }
+        .briefing-kind { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #94a3b8; margin-right: 4px; }
+        .briefing-detail { font-size: 10.5px; color: #64748b; margin-top: 1px; display: none; }
+        .briefing-item.open .briefing-detail { display: block; }
+        .briefing-link { font-size: 10.5px; color: #0284c7; text-decoration: none; white-space: nowrap; margin-left: 4px; }
+        .briefing-link:hover { text-decoration: underline; }
+        .briefing-empty { font-size: 11px; color: #94a3b8; padding: 6px 0; }
+        .briefing-all { font-size: 11px; color: #0284c7; padding: 6px 0 2px; }
+
         .subtask-pane-header {
             display: flex;
             align-items: center;
@@ -2870,6 +2895,12 @@
         body.dark .task-link { color: #38bdf8; }
 
         /* Subtask pane */
+        body.dark .briefing-weather { color: #cbd5e1; border-color: #334155; }
+        body.dark .briefing-weather .temps, body.dark .briefing-item { color: #e2e8f0; }
+        body.dark .briefing-item + .briefing-item { border-color: #334155; }
+        body.dark .briefing-tick { background: #1e293b; border-color: #475569; }
+        body.dark .briefing-item.done .briefing-tick { background: #0ea5e9; border-color: #0ea5e9; }
+        body.dark .briefing-detail { color: #94a3b8; }
         body.dark .subtask-pane {
             background: #1e293b;
             border-color: #334155;
@@ -3234,6 +3265,10 @@
         let allUsers = [];
         let currentUser = null;
         let tasks = [];
+        // Morning briefing for today (null until loaded / none posted). Shown
+        // as a pane under today's card on the first board only — "personal
+        // only for now" (Kevin, 2026-09-13).
+        let briefing = null;
         let selectedDayIndex = 0;
         // Focus mode dims every day but the one in focus. Per browser, like the
         // theme and the assistant switch — it's a way of looking at the board,
@@ -3589,6 +3624,50 @@
             // Every lock/complete/move/delete path already awaits loadTasks(), so
             // hanging the budget read here keeps the bar live with no new call sites.
             refreshBudget();
+            loadBriefing();
+        }
+
+        // ---- Morning briefing ----
+        function briefingBoard() { return projects.length ? projects[0] : null; }
+        async function loadBriefing() {
+            if (!currentUser || !currentProject || !briefingBoard() || currentProject.id !== briefingBoard().id) { briefing = null; return; }
+            try {
+                const fresh = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/briefing`);
+                const changed = JSON.stringify(fresh) !== JSON.stringify(briefing);
+                briefing = fresh;
+                if (changed && viewMode === 'calendar') renderView();
+            } catch (err) { briefing = null; }
+        }
+        function briefingHidden() {
+            try { return briefing && localStorage.getItem('movealong.briefing.hidden') === briefing.day; } catch (e) { return false; }
+        }
+        function renderBriefingPane() {
+            const b = briefing;
+            const w = b.weather;
+            const kindWord = { calendar: 'cal', mail: 'mail', text: 'text', board: 'board', health: 'health', note: '' };
+            const items = b.items.map(it => {
+                const link = it.link ? `<a class="briefing-link" href="${escapeHtml(it.link)}" ${/^https?:/i.test(it.link) ? 'target="_blank" rel="noopener noreferrer"' : ''} title="${escapeHtml(it.kind === 'mail' && /^mailto:/i.test(it.link) ? 'Open a reply draft in Mail' : it.kind === 'text' ? 'Open Messages' : 'Open the link')}">${it.kind === 'mail' && /^mailto:/i.test(it.link) ? 'draft ↗' : it.kind === 'text' ? 'reply ↗' : 'open ↗'}</a>` : '';
+                return `<div class="briefing-item${it.done ? ' done' : ''}" data-briefing-id="${it.id}">
+                    <div class="briefing-tick" title="${it.done ? 'Handled — click to put it back' : 'Tick this off'}"></div>
+                    <div class="briefing-body" title="${it.detail ? 'Click to read more' : ''}"><span class="briefing-text">${kindWord[it.kind] ? `<span class="briefing-kind">${kindWord[it.kind]}</span>` : ''}${linkifyText(it.text)}</span>${link}${it.detail ? `<div class="briefing-detail">${linkifyText(it.detail)}</div>` : ''}</div>
+                </div>`;
+            }).join('');
+            const when = b.generated_at ? new Date(b.generated_at.includes('T') ? b.generated_at : b.generated_at.replace(' ', 'T') + 'Z').toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
+            const allDone = b.items.length && b.items.every(i => i.done);
+            return `<div class="subtask-pane briefing-pane">
+                <div class="briefing-head"><span class="briefing-title">Good morning</span><span class="briefing-when" title="When your assistant posted this briefing">${escapeHtml(when)}</span><button class="briefing-close" data-act="hidebriefing" title="Put the briefing away for today">×</button></div>
+                ${w ? `<div class="briefing-weather" title="Today's forecast for ${escapeHtml(w.place || 'your ZIP code')} — change the ZIP on the preferences page"><span class="temps">${w.high}°/${w.low}°</span> ${escapeHtml(w.words)}${w.rain_pct != null && w.rain_pct >= 20 ? ` · ${w.rain_pct}% rain` : ''}${w.wind_mph >= 20 ? ` · wind ${w.wind_mph}` : ''}</div>` : (b.weather_error ? `<div class="briefing-empty">Weather: ${escapeHtml(b.weather_error)}</div>` : '')}
+                ${items || `<div class="briefing-empty">${w ? 'No briefing posted yet — ask your assistant to brief you.' : 'Nothing here yet. Set your ZIP on the preferences page for the weather, and ask your assistant to brief you.'}</div>`}
+                ${allDone ? '<div class="briefing-all">All handled.</div>' : ''}
+            </div>`;
+        }
+        async function tickBriefingItem(id, done) {
+            const it = briefing && briefing.items.find(i => i.id === id);
+            if (!it) return;
+            it.done = done;
+            renderView();
+            try { await api(`/briefing-items/${id}`, { method: 'PUT', body: { done } }); }
+            catch (err) { it.done = !done; renderView(); }
         }
 
         // Re-read due_today for every project and repaint the tabs. Merges
@@ -5286,6 +5365,18 @@
                 column.appendChild(card);
 
                 const expandedDayTasks = dayTasks.filter(t => expandedTaskIds.has(t.id));
+                // The briefing takes today's pane slot when no task pane has it
+                // (single-pane rule: a task you open replaces it, closing brings it back).
+                if (day.isToday && briefing && !briefingHidden() && !expandedDayTasks.length && isSignedUp
+                    && (briefing.items.length || briefing.weather)) {
+                    const wrap = document.createElement('div');
+                    wrap.innerHTML = renderBriefingPane();
+                    const pane = wrap.firstElementChild;
+                    pane.classList.add('board-pane');
+                    if (index >= days.length - 2) pane.classList.add('anchor-right');
+                    column.appendChild(pane);
+                    board.classList.add('has-expanded');
+                }
                 expandedDayTasks.forEach((expandedTask, paneIdx) => {
                     const paneWrapper = document.createElement('div');
                     paneWrapper.innerHTML = renderSubtaskPane(expandedTask.id, expandedTask.description, day.dayName);
@@ -5345,6 +5436,18 @@
         }
 
         function attachBoardListeners() {
+            document.querySelectorAll('.briefing-pane').forEach(pane => {
+                pane.addEventListener('click', e => {
+                    if (e.target.closest('a')) return;
+                    const close = e.target.closest('[data-act="hidebriefing"]');
+                    if (close) { try { localStorage.setItem('movealong.briefing.hidden', briefing.day); } catch (err) {} renderView(); return; }
+                    const row = e.target.closest('.briefing-item');
+                    if (!row) return;
+                    const id = parseInt(row.dataset.briefingId, 10);
+                    if (e.target.closest('.briefing-tick')) { const it = briefing.items.find(i => i.id === id); tickBriefingItem(id, !(it && it.done)); return; }
+                    row.classList.toggle('open');
+                });
+            });
             // Task input
             document.querySelectorAll('.task-input').forEach(input => {
                 input.addEventListener('keypress', (e) => {

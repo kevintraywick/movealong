@@ -42,6 +42,18 @@ variable. Without `MCP_SECRET` the endpoint is a 404.
 Claude Code on the Mac can point at the same URL instead of the local stdio copy:
 `claude mcp add moveit -s user --transport http https://moveit.kevintraywick.com/mcp/<secret>`.
 
+## The morning briefing
+
+Say **"brief me"** (or, in Claude Code, `/mcp__moveit__morning-brief`). The assistant
+reads `briefing_recipe`, gathers Gmail, Calendar, the board and the health log, and
+calls `post_briefing`. The board opens the result as a pane of tickable rows under
+today's card on your first board; the weather line comes from the ZIP on the
+preferences page. Unticked rows are replaced by the next morning's briefing.
+
+Texts are Mac-only: `scripts/mac/unread-texts.js` (needs Full Disk Access) feeds the
+briefing's text section, and `scripts/mac/text.js "Bob" "Meet me at 7 at Ralph's"`
+sends one — Claude Code on the Mac runs both; the MoveIt server can't reach Messages.
+
 ## Tools
 
 | tool | does |
@@ -57,6 +69,8 @@ Claude Code on the Mac can point at the same URL instead of the local stdio copy
 | `get_brief` / `append_brief` / `set_contact_field` | the standing notes the assistant reads |
 | `completions` | completed per day per board for a month |
 | `get_health` | the health log (steps, weight, gym, yoga) for the last N weeks |
+| `get_briefing` / `post_briefing` / `tick_briefing_item` | today's briefing rows: read, replace, tick |
+| `briefing_recipe` | the steps for assembling the briefing (also the `morning-brief` prompt) |
 | `log_health` | record steps / weight / gym / yoga for a day — defaults to yesterday |
 
 ## Try it
