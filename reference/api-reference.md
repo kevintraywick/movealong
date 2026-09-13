@@ -665,6 +665,10 @@ tasks
 3. **Authentication** - Currently none; user slug in URL is the "key"
 4. **Rate limiting** - Add if needed for public deployment
 
+## MCP server
+
+`server/mcp/index.js` wraps this API as fourteen MCP tools for any agent (Claude Code, Claude Desktop, Agent SDK). See `server/mcp/README.md` for registration; the tool list is in CLAUDE.md.
+
 ## Completions (dashboard)
 
 `GET /api/companies/:subdomain/users/:slug/completions?month=YYYY-MM` — completed tasks per local day (`x-tz`) for the month (default: the caller's current month). Returns `{ month, today, days_in_month, projects: [{id, name}] (tab order; id 0 = Calendar), counts: { 'YYYY-MM-DD': { project_id: n } } }`.
