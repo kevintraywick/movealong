@@ -44,6 +44,51 @@ app.set('trust proxy', 1);
 app.use(cors());
 app.use(express.json());
 
+// ---- The MoveIt server over the web (2026-09-13) ----
+// The same tool set mcp/index.js serves over stdio, mounted at
+// /mcp/<MCP_SECRET> as stateless Streamable HTTP, so the Claude phone app
+// (Settings › Connectors › Add custom connector) and any remote MCP client
+// can reach the board. The tools call this server's own REST routes over
+// loopback with AI_ACCESS_KEY, so nothing is duplicated. Bound to one person:
+// MCP_TEAM / MCP_USER. The secret in the path stands in for auth — the board
+// has none — so it must be long and random; the endpoint is a 404 without it.
+const MCP_SECRET = process.env.MCP_SECRET || '';
+const MCP_TEAM = process.env.MCP_TEAM || '';
+const MCP_USER = process.env.MCP_USER || '';
+let mcpModules = null;
+async function loadMcp() {
+  if (!mcpModules) {
+    mcpModules = Promise.all([
+      import('../mcp/tools.js'),
+      import('@modelcontextprotocol/sdk/server/streamableHttp.js')
+    ]).then(([tools, http]) => ({ createMoveItServer: tools.createMoveItServer, StreamableHTTPServerTransport: http.StreamableHTTPServerTransport }));
+  }
+  return mcpModules;
+}
+app.all('/mcp/:secret', async (req, res) => {
+  const ok = MCP_SECRET && MCP_TEAM && MCP_USER
+    && req.params.secret.length === MCP_SECRET.length
+    && require('crypto').timingSafeEqual(Buffer.from(req.params.secret), Buffer.from(MCP_SECRET));
+  if (!ok) return res.status(404).json({ error: 'Not found' });
+  try {
+    const { createMoveItServer, StreamableHTTPServerTransport } = await loadMcp();
+    // Stateless: a fresh server + transport per request, nothing to leak or expire.
+    const server = createMoveItServer({
+      urlBase: `http://127.0.0.1:${PORT}`,
+      team: MCP_TEAM, user: MCP_USER,
+      aiKey: process.env.AI_ACCESS_KEY || '',
+      tz: req.get('x-tz') || process.env.MCP_TZ || 'UTC'
+    });
+    const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
+    res.on('close', () => { transport.close().catch(() => {}); server.close().catch(() => {}); });
+    await server.connect(transport);
+    await transport.handleRequest(req, res, req.body);
+  } catch (err) {
+    console.error('MCP endpoint error:', err.message);
+    if (!res.headersSent) res.status(500).json({ error: 'MCP endpoint failed' });
+  }
+});
+
 // Persist the database once per request (after the response is sent) instead
 // of once per SQL statement — spillover/cascade paths can run dozens of
 // statements per request, and each full-DB export is O(database size).

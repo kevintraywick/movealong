@@ -1,15 +1,18 @@
 {
-  "name": "movealong-mcp",
+  "name": "moveit-mcp",
   "version": "0.1.0",
-  "description": "MoveAlong as an MCP server — the board's tasks, steps, pages and brief as tools for any agent",
+  "description": "The MoveIt server \u2014 the board's tasks, steps, pages, brief and health log as MCP tools for any agent",
   "private": true,
   "type": "module",
   "main": "index.js",
-  "bin": { "movealong-mcp": "index.js" },
-  "scripts": { "start": "node index.js" },
-  "engines": { "node": ">=22" },
-  "dependencies": {
-    "@modelcontextprotocol/sdk": "^1.30.0",
-    "zod": "^3.25.0"
-  }
+  "bin": {
+    "moveit-mcp": "index.js"
+  },
+  "scripts": {
+    "start": "node index.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {}
 }

@@ -22,6 +22,26 @@ claude mcp add movealong -s user \
 Point `MOVEALONG_URL` at `http://localhost:3000` to work against a local server.
 `MOVEALONG_TZ` defaults to the machine's zone.
 
+## Over the web — the phone app and remote clients (2026-09-13)
+
+The same tools are mounted inside the board at `https://moveit.kevintraywick.com/mcp/<MCP_SECRET>`
+as stateless Streamable HTTP. Set three Railway variables and redeploy:
+
+```
+MCP_SECRET=<long random string — openssl rand -hex 24>
+MCP_TEAM=kevstuff
+MCP_USER=kev
+MCP_TZ=America/Chicago
+```
+
+Then in the Claude app: **Settings › Connectors › Add custom connector**, paste the URL
+(with the secret), no OAuth. "Log 10,000 steps to my MoveIt health dashboard" works from
+the phone after that. The secret is the only lock on the door; rotate it by changing the
+variable. Without `MCP_SECRET` the endpoint is a 404.
+
+Claude Code on the Mac can point at the same URL instead of the local stdio copy:
+`claude mcp add moveit -s user --transport http https://moveit.kevintraywick.com/mcp/<secret>`.
+
 ## Tools
 
 | tool | does |

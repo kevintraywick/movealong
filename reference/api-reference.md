@@ -671,6 +671,9 @@ tasks
 
 ## MCP server
 
+`ALL /mcp/:secret` — the MoveIt server over stateless Streamable HTTP (2026-09-13). 404 unless `MCP_SECRET`, `MCP_TEAM` and `MCP_USER` are set and the path secret matches (timing-safe). Tools are `server/mcp/tools.js`, the same set the stdio entry serves; they call this server's own REST routes over loopback with `AI_ACCESS_KEY`. `x-tz` on the request, else `MCP_TZ`, else UTC.
+
+
 `server/mcp/index.js` wraps this API as fourteen MCP tools for any agent (Claude Code, Claude Desktop, Agent SDK). See `server/mcp/README.md` for registration; the tool list is in CLAUDE.md.
 
 ## Health (dashboard, 2026-09-13)
