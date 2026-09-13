@@ -258,6 +258,29 @@ function findDayWithCapacity({ ownerId, projectId, requestedDate }) {
   throw new Error('No day with capacity within search horizon');
 }
 
+// The task on a day that may be pushed to make room: pending, unlocked, not
+// the goal, not a calendar row, not an unanswered handover, not a review row.
+// Which one: the OLDEST never-ranked task — it has sat there longest without
+// being placed, and the visual bottom (the newest) is usually the task typed
+// a moment ago, which rapid entry would otherwise push straight back out.
+// Only when every row has been hand-ordered does the visual bottom go.
+function bumpableTaskOn({ ownerId, projectId, date }) {
+  const hasProject = projectId !== null && projectId !== undefined;
+  const rows = queryAll(`
+    SELECT * FROM tasks
+    WHERE owner_id = ? AND scheduled_date = ? AND completed = 0
+      AND ${hasProject ? 'project_id = ?' : 'project_id IS NULL'}
+      AND locked = 0 AND COALESCE(goal, 0) = 0
+      AND COALESCE(source, '') != 'calendar'
+      AND NOT (assigned_by IS NOT NULL AND accepted_at IS NULL)
+      AND completed_by IS NULL
+    ORDER BY CASE WHEN position IS NULL THEN 1 ELSE 0 END, position, created_at`,
+    hasProject ? [ownerId, date, projectId] : [ownerId, date]);
+  if (!rows.length) return null;
+  const unranked = rows.filter(r => r.position == null);
+  return unranked.length ? unranked[0] : rows[rows.length - 1];
+}
+
 // ============================================
 // SERIES (TASK CHAIN) HELPERS
 // ============================================
@@ -1387,13 +1410,32 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     return res.status(404).json({ error: 'User not found' });
   }
 
+  // A full day makes room for the new task by pushing its bottom-most
+  // movable task forward (2026-09-13, Kevin: "add the new item to the current
+  // day and push any unlocked item to the next available day"). The thing
+  // you just typed is the thing on your mind; the thing at the bottom of
+  // the list is, by your own ordering, the one that can wait. Locked tasks,
+  // the day's goal, calendar rows, inbox rows and review rows never move.
+  // If nothing on the day is movable, the new task overflows as before.
   let effectiveDate;
+  let bumped = null;
   try {
     effectiveDate = findDayWithCapacity({
       ownerId: user.id,
       projectId: project_id ?? null,
       requestedDate: scheduled_date,
     });
+    if (effectiveDate !== scheduled_date) {
+      const victim = bumpableTaskOn({ ownerId: user.id, projectId: project_id ?? null, date: scheduled_date });
+      if (victim) {
+        const to = findDayWithCapacity({ ownerId: user.id, projectId: project_id ?? null, requestedDate: addDays(scheduled_date, 1) });
+        const now = new Date().toISOString();
+        runSql('UPDATE tasks SET scheduled_date = ?, updated_at = ? WHERE id = ?', [to, now, victim.id]);
+        cascadeChainSuccessors(victim.id, daysBetween(scheduled_date, to));
+        bumped = { id: victim.id, description: victim.description, from: scheduled_date, to };
+        effectiveDate = scheduled_date;
+      }
+    }
   } catch (err) {
     console.error('Capacity helper failed:', err);
     return res.status(500).json({ error: 'Failed to schedule task' });
@@ -1418,7 +1460,8 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       priority: 0,
       completed: 0,
       assigned_by: null,
-      assigned_by_name: null
+      assigned_by_name: null,
+      bumped
     });
   } catch (err) {
     console.error('Error creating task:', err);

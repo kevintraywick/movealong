@@ -3675,7 +3675,16 @@
                 tasks.push(newTask);
                 shouldRefocusInput = true;
 
-                if (newTask.scheduled_date !== dateKey) {
+                // A full day made room by pushing its bottom task forward —
+                // that row moved server-side, so refetch before painting,
+                // and say which one went where.
+                if (newTask.bumped) {
+                    await loadTasks();
+                    const toDay = days.find(d => d.key === newTask.bumped.to);
+                    const where = toDay ? toDay.dayName : newTask.bumped.to;
+                    const what = newTask.bumped.description.length > 32 ? newTask.bumped.description.slice(0, 31) + '…' : newTask.bumped.description;
+                    showToast(`Made room — “${what}” moved to ${where}`);
+                } else if (newTask.scheduled_date !== dateKey) {
                     const requestedDay = days.find(d => d.key === dateKey);
                     const effectiveDay = days.find(d => d.key === newTask.scheduled_date);
                     const requestedName = requestedDay ? requestedDay.dayName : dateKey;

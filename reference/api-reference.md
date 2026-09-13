@@ -211,11 +211,15 @@ Body: { "description": "Do the thing", "scheduled_date": "2024-12-19" }
 Response: { id, description, scheduled_date, requested_date, completed, ... }
 ```
 
-The server caps pending tasks per (owner, project) per day at 10. If the
-requested day is already at the cap, the server places the task on the
-first subsequent day with capacity and returns that as `scheduled_date`.
-`requested_date` echoes the client's original input so clients can detect
-overflow by comparing the two.
+The server caps pending tasks per (owner, project) per day at 7. If the
+requested day is full, the server keeps the new task on the requested day and
+**pushes one existing task forward** — the oldest never-ranked pending task
+(locked, goal, calendar, inbox and review rows are never moved), or the visual
+bottom when every row has been hand-ordered — to the next day with capacity,
+cascading its series. The response then carries
+`bumped: { id, description, from, to }`. If nothing on the day is movable,
+the new task overflows to the next free day instead and `scheduled_date`
+differs from `requested_date`.
 
 `origin_date` is set to the requested day at creation and never changes
 afterward — spillover, reschedules, assign, and return all preserve it.
