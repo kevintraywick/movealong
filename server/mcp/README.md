@@ -1,4 +1,4 @@
-# MoveAlong MCP server
+# The MoveIt server (MCP)
 
 The board as tools. Any MCP client — Claude Code, Claude Desktop, an Agent SDK
 script — can read and write your tasks, steps, task pages and brief, using its
