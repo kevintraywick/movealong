@@ -3644,7 +3644,7 @@
         function renderBriefingPane() {
             const b = briefing;
             const w = b.weather;
-            const kindWord = { calendar: 'cal', mail: 'mail', text: 'text', board: 'board', health: 'health', note: '' };
+            const kindWord = { calendar: 'cal', mail: 'mail', market: 'market', text: 'text', board: 'board', health: 'health', note: '' };
             const items = b.items.map(it => {
                 const link = it.link ? `<a class="briefing-link" href="${escapeHtml(it.link)}" ${/^https?:/i.test(it.link) ? 'target="_blank" rel="noopener noreferrer"' : ''} title="${escapeHtml(it.kind === 'mail' && /^mailto:/i.test(it.link) ? 'Open a reply draft in Mail' : it.kind === 'text' ? 'Open Messages' : 'Open the link')}">${it.kind === 'mail' && /^mailto:/i.test(it.link) ? 'draft ↗' : it.kind === 'text' ? 'reply ↗' : 'open ↗'}</a>` : '';
                 return `<div class="briefing-item${it.done ? ' done' : ''}" data-briefing-id="${it.id}">

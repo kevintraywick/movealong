@@ -1111,7 +1111,7 @@ async function weatherFor(userId, day) {
 // which opens it as a pane under today's card on the first board. One day's
 // items are replaced wholesale by each post; yesterday's unticked items are
 // not carried — tomorrow's briefing re-decides them.
-const BRIEFING_KINDS = ['calendar', 'mail', 'text', 'board', 'health', 'note'];
+const BRIEFING_KINDS = ['calendar', 'mail', 'market', 'text', 'board', 'health', 'note'];
 const BRIEFING_MAX_ITEMS = 12;
 function briefingItems(userId, day) {
   return queryAll('SELECT id, kind, text, detail, link, position, done, done_at, created_at FROM briefing_items WHERE user_id = ? AND day = ? ORDER BY position, id', [userId, day])

@@ -255,11 +255,11 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
 
   server.registerTool('post_briefing', {
     title: 'Post the morning briefing',
-    description: 'Replace the day\'s briefing (default today) with these items, in order. The board opens them as tickable rows in a pane under today\'s card. Kinds: calendar, mail, text, board, health, note. Keep it to a glance: at most 12 items, text under ~90 characters, detail for the sentence behind it, link for a mailto: reply draft (mail), an sms: (text) or an https: page. Call briefing_recipe first if you haven\'t read the recipe this session.',
+    description: 'Replace the day\'s briefing (default today) with these items, in order. The board opens them as tickable rows in a pane under today\'s card. Kinds: calendar, mail, market, text, board, health, note. Keep it to a glance: at most 12 items, text under ~90 characters, detail for the sentence behind it, link for a mailto: reply draft (mail), an sms: (text) or an https: page. Call briefing_recipe first if you haven\'t read the recipe this session.',
     inputSchema: {
       day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       items: z.array(z.object({
-        kind: z.enum(['calendar', 'mail', 'text', 'board', 'health', 'note']),
+        kind: z.enum(['calendar', 'mail', 'market', 'text', 'board', 'health', 'note']),
         text: z.string().min(1).max(200),
         detail: z.string().max(600).optional(),
         link: z.string().max(4000).optional()
@@ -287,15 +287,36 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
   return server;
 }
 
-export const BRIEFING_RECIPE = `Build my morning briefing and post it to the MoveIt board with post_briefing. Today is the board's today (list_tasks tells you). Work in this order and keep every item to one line a person can act on:
+// Kevin's own recipe, 2026-09-13 (sent from the phone; replaced the first draft wholesale).
+// Personal facts — positions, trips, the sprint project, the step target — live in his
+// brief, not here: this file is in a public repo. The recipe points at the brief for them.
+export const BRIEFING_RECIPE = `Build my morning briefing and post it to the MoveIt board with post_briefing. Today is the board's today (list_tasks tells you). Work in this order and keep every item to one line a person can act on.
 
-1. Context: get_brief (who I am, how I like things), list_tasks for today (my goal, anything locked or overdue, how many spilled forward), get_health with weeks=2.
-2. Calendar (kind "calendar"): today's events with start times, earliest first, e.g. "2:30 Dentist — leave by 2". Include a location if there is one. If nothing is on, one item: "Nothing on the calendar".
-3. Mail (kind "mail"): count what arrived since yesterday morning as ONE item first ("14 new emails, 3 want a reply"). Then at most 4 items for the ones that actually need me — a reply owed, money, a deadline, a person I know. Each: who and what in under 90 characters, the gist in detail, and a link that is a mailto: reply draft — mailto:<sender>?subject=Re:%20<subject>&body=<a short reply in my voice, URL-encoded>. Skip newsletters and receipts.
-4. Texts (kind "text"): only if you can read Messages on this Mac (the unread-texts script in the repo). One item per unread thread: who said what, and an sms: link to them. If you can't read texts, post nothing for this kind.
-5. Board (kind "board"): the goal for the day if set; deadlines locked to today; "N tasks slipped forward from earlier days" if any.
-6. Health (kind "health"): one nudge, not a lecture — yoga this week versus last, or a gap in the step log ("no steps logged for yesterday — say the number and I'll log it").
-7. Do NOT post weather; the board fetches it from my ZIP itself.
+1. Context: get_brief (who I am, how I like things), list_tasks for today, get_health with weeks=2.
 
-At most 12 items total, calendar first, then mail, texts, board, health. Then call post_briefing once with the whole list. Tell me in one line what you posted.`;
+2. Calendar (kind "calendar"): today's events with start times, earliest first, e.g. "2:30 Dentist - leave by 2". Include a location if there is one. If nothing is on, one item: "Nothing on the calendar".
+
+3. Mail (kind "mail"): count what arrived since yesterday morning as ONE item first ("14 new emails, 3 want a reply"). Then at most 4 items for the ones that actually need me - a reply owed, money, a deadline, a person I know. Each: who and what in under 90 characters, the gist in detail, and a link that is a mailto: reply draft - mailto:<sender>?subject=Re:%20<subject>&body=<a short reply in my voice, URL-encoded>. Skip newsletters and receipts.
+
+4. Market (kind "market"): only if the previous day was a US market trading day (skip weekends and market holidays). One item summarizing the prior session generally - indices and any notable news. Then at most 2 items on the positions listed in my brief (stocks and options alike). If the brief lists none, post only the summary. Keep each to one line plus detail.
+
+5. Texts (kind "text"): only if you can read Messages on this Mac (the unread-texts script in the repo). One item per unread thread: who said what, and an sms: link to them. If you can't read texts, post nothing for this kind.
+
+6. Do NOT post a board status roll-up. No overdue items, no "N tasks slipped forward", no deadlines locked to today. If a goal is set for the day, that one line is fine.
+
+7. Nudges (kind "board" unless a better kind fits) - at most 3, only when the trigger is actually met:
+   - Oldest unanswered open question from get_brief. One line, the question itself.
+   - A money deadline coming up in the next few days (bills, payment plans) - surface it ahead of time, not on the day.
+   - Trip countdown with prep status for any trip named in my brief or on my calendar, e.g. "<city> in 4 days - packing list not started".
+   - Whether I touched my current sprint project (named in my brief) yesterday. Long-term work is the thing that slips; one honest line.
+
+8. Health (kind "health") - at most 2, only when triggered:
+   - Steps under my daily step target (from my brief; 8,000 if it doesn't say), or a gap in the step log ("no steps logged for yesterday - say the number and I'll log it").
+   - No gym in more than 3 days.
+   - No yoga in more than 3 days.
+   Nudge, do not lecture.
+
+9. Do NOT post weather; the board fetches it from my ZIP itself.
+
+At most 12 items total, in this order: calendar, mail, market, texts, nudges, health. Then call post_briefing once with the whole list. Tell me in one line what you posted.`;
 
