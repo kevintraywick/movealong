@@ -464,6 +464,8 @@ otherwise destroy them. Its departure is what frees a slot in the pane's 7.
 GET  /api/projects/:projectId/preferences
 PUT  /api/projects/:projectId/preferences
 ```
+**`POST /api/subtasks/:id/events`** body `{ event }` — one of `tick untick edit adopt promote research assign regenerate link_click`; 204. Only `link_click` is sent by the browser; the rest are logged by their own routes. **`POST .../brief/learn`** now accepts `scope: 'style'` (how-you-work lines from step_events; gated on 8 new events) and **`POST .../brief/learned`** takes `scope: 'style'` for keep/drop; `GET .../brief` returns `learned.style` and `style_trial: { stats: {line: {rules, holdout, reject_rules, reject_holdout}}, retired, min_tasks, rate }`.
+
 → `{ project: {id, name}, autolock_days: number | null, show_completed: boolean }`. PUT body `{ show_completed: boolean }` (also returned by `GET .../projects` per board) and/or `{ autolock_days }`: 1-365, or `null`/`''` to turn off; 0 and non-integers 400. When set, `GET .../tasks?project_id=` locks any pending task on today-or-earlier whose inclusive day count has reached the threshold (see CLAUDE.md, Board preferences).
 
 ### The brief

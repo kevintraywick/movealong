@@ -96,7 +96,7 @@ function briefClause(brief) {
   if (!brief || !brief.length) return '';
   return `
 
-STANDING NOTES about this person and this board, each tagged with its section — apply the ones that matter to this task and ignore the rest. Never repeat a note back as a step; use it to make the steps fit them (their airports, their tools, the sites they already use, the people involved). Notes tagged (contact) and (medical) are private: use them to shape a step ("call your usual pharmacy", "book from your home airport") but NEVER copy a phone number, address, condition or medication into step text — steps can be seen by teammates. Notes marked "inferred" were guessed from past tasks; where a stated note and an inferred one disagree, the stated one wins:
+STANDING NOTES about this person and this board, each tagged with its section — apply the ones that matter to this task and ignore the rest. Never repeat a note back as a step; use it to make the steps fit them (their airports, their tools, the sites they already use, the people involved). Notes tagged (contact) and (medical) are private: use them to shape a step ("call your usual pharmacy", "book from your home airport") but NEVER copy a phone number, address, condition or medication into step text — steps can be seen by teammates. Notes marked "inferred" were guessed from past tasks; where a stated note and an inferred one disagree, the stated one wins. Notes tagged (how you work) describe what this person actually does with drafted steps — kinds of step they never do, steps they always split out, how many they want — so draft accordingly rather than proposing the same rejected shape again:
 ${brief.map((l, i) => `${i}. ${l}`).join('\n')}`;
 }
 
@@ -545,4 +545,65 @@ Return ONLY a JSON array of at most ${max} strings: the complete new inferred li
     .slice(0, max);
 }
 
-module.exports = { generateSubtasks, researchSubtasks, triageCosts, learnBrief, takeUsage, takeBriefReport, COST_MIN_CONFIDENCE };
+// The how-you-work monitor. Same contract as learnBrief, different evidence:
+// instead of task text it reads the step-event digest — what the person DID
+// with each drafted step, with latencies in words — and returns inferred
+// lines about their working style, phrased as instructions to the drafter.
+async function learnStyle({ name, pinned, learned, rejected, digest, max = 8 }) {
+  const list = (arr) => arr.length ? arr.map(l => `- ${l}`).join('\n') : '(none)';
+  const prompt = `You maintain a short list of INFERRED notes about HOW ${name} WORKS with the task steps an AI assistant drafts for them. The assistant reads these before drafting, so each note must be an instruction it can act on ("never draft phone-call steps — they get ticked off untouched", "the buying step always gets promoted to its own task; draft it as one", "four steps, not seven, for errands"), supported by a pattern in the evidence, not a single event.
+
+How to read the evidence:
+- "tick" within a minute of drafting = the step was rejected (there is no delete on a step; a tick is how they clear one). "tick" hours or days later = they did it.
+- "promote" = the step was made into a task of its own — it wanted to be bigger.
+- "link click" or "research" = the step was worth acting on or spending money on.
+- "assign" = they hand this kind of step to someone or to the AI.
+- "edit" = the step was right, the wording was wrong.
+- "adopt" = a suggested list item they took.
+- "↺ regenerate" seconds after drafting = the whole list missed; after several ticks = they wanted more.
+
+PINNED notes ${name} wrote themselves (already known — never restate or contradict these):
+${list(pinned)}
+
+CURRENT inferred how-you-work notes (yours from last time — keep what the evidence still supports, revise what has shifted, drop what looks stale or one-off):
+${list(learned)}
+
+REJECTED notes ${name} threw out (never propose these again, even reworded):
+${list(rejected)}
+
+EVIDENCE — recent tasks, their drafted steps, and what happened to each (newest first):
+${digest || '(none)'}
+
+Return ONLY a JSON array of at most ${max} strings: the complete new list. Each under 18 words, phrased as an instruction to the drafter. Only patterns seen at least twice. Nothing personal or medical. An empty array is a fine answer.`;
+
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    signal: AbortSignal.timeout(30000),
+    headers: {
+      'Content-Type': 'application/json',
+      'x-api-key': ANTHROPIC_API_KEY,
+      'anthropic-version': '2023-06-01'
+    },
+    body: JSON.stringify({
+      model: MODEL,
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: prompt }]
+    })
+  });
+  if (!response.ok) throw new Error(`Claude API error: ${response.status}`);
+  const data = await response.json();
+  lastUsage = meterUsage(data);
+  const textBlock = data.content.find(block => block.type === 'text');
+  const jsonMatch = textBlock && textBlock.text.match(/\[[\s\S]*\]/);
+  if (!jsonMatch) return [];
+  const parsed = JSON.parse(jsonMatch[0]);
+  if (!Array.isArray(parsed)) return [];
+  const seen = new Set([...pinned, ...rejected].map(l => l.toLowerCase()));
+  return parsed
+    .filter(l => typeof l === 'string' && l.trim())
+    .map(l => l.trim().replace(/^[-*•]\s*/, '').slice(0, 200))
+    .filter(l => !seen.has(l.toLowerCase()))
+    .slice(0, max);
+}
+
+module.exports = { generateSubtasks, researchSubtasks, triageCosts, learnBrief, learnStyle, takeUsage, takeBriefReport, COST_MIN_CONFIDENCE };

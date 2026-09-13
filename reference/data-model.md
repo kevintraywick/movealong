@@ -30,6 +30,10 @@
 | created_at | DATETIME | auto             |
 
 ## projects (brief)
+`step_events` (id, subtask_id NULL for task-level, task_id, owner_id, project_id, event, ms_since_generated, step_text, created_at; index owner_id+created_at) — what the user did with each drafted step; the feedback loop's raw material (2026-09-12). Never scored in code; read as a story by `learnStyle()`.
+`tasks.draft_arm` (`rules` | `holdout` | NULL) and `tasks.draft_rules` (JSON list of the how-you-work notes in play) — set on the first draft when any note exists; 1 in 10 is `holdout` (2026-09-12).
+`users.brief_style_retired` — notes that lost the holdout trial; never re-proposed, keep un-retires.
+`users.brief_style` / `brief_style_rejected` (newline lists) / `brief_style_at` — inferred how-you-work lines from step_events, their rejected list, and when the monitor last looked.
 `projects.show_completed` (INTEGER DEFAULT 0) — show completed rows on the day cards. Off: a ticked task leaves the board and is only on the Completed tasks board (2026-09-12).
 `projects.autolock_days` (INTEGER, NULL = off) — lock a task to today once its inclusive day count reaches this. Applied after spillover in the tasks route; future-dated tasks exempt.
 

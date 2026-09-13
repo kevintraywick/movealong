@@ -6561,7 +6561,7 @@
                 // gets the pane's full width. Three 20px controls plus gaps were
                 // eating a third of every line in a 178px column.
                 return `
-                    <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''} ${st.provisional ? 'provisional' : ''} ${st.researched ? 'researched' : ''}">
+                    <div class="subtask-item ${isDependent ? 'dependent' : ''} ${isAssigned ? 'assigned-subtask' : ''} ${st.provisional ? 'provisional' : ''} ${st.researched ? 'researched' : ''}" data-subtask-id="${st.id}">
                         <div class="subtask-rail">
                             <div class="subtask-check ${st.completed ? 'checked' : ''}" data-subtask-id="${st.id}" data-task-id="${taskId}">${st.completed ? '\u2713' : ''}</div>
                             ${emojiEl}
@@ -7536,6 +7536,18 @@
             const input = document.querySelector(`.task-input[data-date="${selectedKey}"]`);
             if (input) input.focus();
         });
+
+        // ---- Step events: the one gesture only the browser sees ----
+        // A link click inside a drafted step is the cheapest strong signal
+        // that the step was worth acting on. The other events (tick,
+        // promote, research, assign, ↺) are logged by their own routes.
+        document.addEventListener('click', (e) => {
+            const a = e.target.closest('.subtask-item a.task-link');
+            if (!a) return;
+            const row = a.closest('.subtask-item[data-subtask-id]');
+            if (!row) return;
+            api(`/subtasks/${row.dataset.subtaskId}/events`, { method: 'POST', body: { event: 'link_click' } }).catch(() => {});
+        }, true);
 
         // ---- Tip bar ----
         // Tooltips show in the footer, not in the browser's bubble. On hover

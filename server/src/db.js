@@ -231,6 +231,25 @@ async function initDb() {
     )
   `);
   db.run(`
+    -- What the user DID with each drafted step: the feedback loop's raw
+    -- material (2026-09-12). One row per event; ms_since_generated is what
+    -- separates "ticked 4s after drafting" (a rejection — there is no delete
+    -- on a step, so a tick is the delete) from "ticked a day later" (done).
+    -- Never scored by code: the task monitor reads it as a story
+    -- (learnStyle in ai.js) and writes inferred how-you-work lines.
+    CREATE TABLE IF NOT EXISTS step_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      subtask_id INTEGER,
+      task_id INTEGER NOT NULL,
+      owner_id INTEGER NOT NULL,
+      project_id INTEGER,
+      event TEXT NOT NULL,
+      ms_since_generated INTEGER,
+      step_text TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_step_events_owner ON step_events(owner_id, created_at);
+
     CREATE TABLE IF NOT EXISTS brief_usage (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       scope TEXT NOT NULL,
@@ -365,6 +384,11 @@ async function initDb() {
   ensureColumn('tasks', 'autolocked', 'INTEGER DEFAULT 0');
   // Goal for the day (hover + g): orange text, sorts under the day's locks.
   ensureColumn('tasks', 'goal', 'INTEGER DEFAULT 0');
+  // Holdout drafts (2026-09-12): which arm this task's first draft ran in —
+  // 'rules' (how-you-work notes applied), 'holdout' (deliberately omitted,
+  // 1 in 10), NULL (no notes existed) — and the notes that were in play.
+  ensureColumn('tasks', 'draft_arm', 'TEXT');
+  ensureColumn('tasks', 'draft_rules', 'TEXT');
   // The two brief layers (see brief_questions above).
   ensureColumn('users', 'brief', 'TEXT');
   ensureColumn('projects', 'brief', 'TEXT');
@@ -375,7 +399,14 @@ async function initDb() {
   // shared board.
   ensureColumn('users', 'brief_contact', 'TEXT');   // JSON since the same day: {full_name, nickname, phone, email, address, discord, notes}
   ensureColumn('users', 'brief_travel', 'TEXT');
-  ensureColumn('users', 'brief_medical', 'TEXT');   // JSON: {allergies, medications, conditions, doctor, pharmacy, emergency_name, emergency_phone, notes}
+  ensureColumn('users', 'brief_medical', 'TEXT');
+  // How-you-work lines the monitor infers from step_events (2026-09-12):
+  // what this person does with drafted steps, not facts about them. Own
+  // columns so they can move to their own pane without a migration.
+  ensureColumn('users', 'brief_style', 'TEXT');
+  ensureColumn('users', 'brief_style_rejected', 'TEXT');
+  ensureColumn('users', 'brief_style_at', 'DATETIME');
+  ensureColumn('users', 'brief_style_retired', 'TEXT'); // tried against holdout drafts, made no difference   // JSON: {allergies, medications, conditions, doctor, pharmacy, emergency_name, emergency_phone, notes}
   // The self-maintaining half of "About you" / "About this board": lines the
   // task monitor inferred from recent tasks (brief_learned, newline list),
   // lines the user threw out that it must not re-propose (brief_rejected),

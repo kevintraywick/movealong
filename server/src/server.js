@@ -1964,7 +1964,7 @@ function briefContext(req, res) {
   const { subdomain, slug, projectId } = req.params;
   const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
   if (!company) { res.status(404).json({ error: 'Company not found' }); return null; }
-  const user = queryOne('SELECT id, name, brief, brief_learned, brief_learned_at, brief_contact, brief_travel, brief_medical FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  const user = queryOne('SELECT id, name, brief, brief_learned, brief_learned_at, brief_style, brief_contact, brief_travel, brief_medical FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
   if (!user) { res.status(404).json({ error: 'User not found' }); return null; }
   const project = queryOne(`
     SELECT p.id, p.name, p.brief, p.brief_learned, p.brief_learned_at FROM projects p
@@ -1992,8 +1992,14 @@ app.get('/api/companies/:subdomain/users/:slug/projects/:projectId/brief', (req,
     board: project.brief || '',
     learned: {
       personal: briefLines(user.brief_learned, 'personal', user.id).map(l => l.line),
+      style: briefLines(user.brief_style, 'style', user.id).map(l => l.line),
       board: briefLines(project.brief_learned, 'board', project.id).map(l => l.line)
     },
+    style_trial: (() => {
+      const active = briefLines(user.brief_style, 'style', user.id).map(l => l.line);
+      const retired = briefLines(queryOne('SELECT brief_style_retired FROM users WHERE id = ?', [user.id]).brief_style_retired, 'style', user.id).map(l => l.line);
+      return { stats: active.length ? ruleStats(user.id, active) : {}, retired, min_tasks: HOLDOUT_MIN_TASKS, rate: HOLDOUT_RATE };
+    })(),
     fields: { contact: CONTACT_FIELDS, medical: MEDICAL_FIELDS },
     questions,
     usage
@@ -2051,24 +2057,59 @@ app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/questi
 const LEARN_MIN_NEW_TASKS = 3;
 
 function learnedRow(scope, ctx) {
-  const table = LEARNED_SCOPES[scope];
+  const cols = LEARNED_SCOPES[scope];
+  const table = cols.table;
   const id = scope === 'board' ? ctx.project.id : ctx.user.id;
-  const row = queryOne(`SELECT brief, brief_learned, brief_rejected, brief_learned_at FROM ${table} WHERE id = ?`, [id]);
-  return { table, id, row };
+  const raw = queryOne(`SELECT brief, ${cols.learned} AS learned, ${cols.rejected} AS rejected, ${cols.at} AS at FROM ${table} WHERE id = ?`, [id]);
+  const row = { brief: raw.brief, brief_learned: raw.learned, brief_rejected: raw.rejected, brief_learned_at: raw.at };
+  return { table, id, row, cols };
+}
+function learnedScope(raw) {
+  return raw === 'board' ? 'board' : raw === 'style' ? 'style' : 'personal';
 }
 
 app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/learn', async (req, res) => {
   const ctx = briefContext(req, res);
   if (!ctx) return;
-  const scope = req.body && req.body.scope === 'board' ? 'board' : 'personal';
-  const { table, id, row } = learnedRow(scope, ctx);
+  const scope = learnedScope(req.body && req.body.scope);
+  const { table, id, row, cols } = learnedRow(scope, ctx);
   const current = briefLines(row.brief_learned, scope, id).map(l => l.line);
   const reply = (ran, reason) => res.json({ learned: briefLines(
-    queryOne(`SELECT brief_learned FROM ${table} WHERE id = ?`, [id]).brief_learned, scope, id).map(l => l.line), ran, reason });
+    queryOne(`SELECT ${cols.learned} AS learned FROM ${table} WHERE id = ?`, [id]).learned, scope, id).map(l => l.line), ran, reason });
 
   if (!aiKeyAllows(req) || !aiBudgetAllows(req.ip)) return reply(false, 'ai unavailable');
 
   const since = row.brief_learned_at || '1970-01-01';
+
+  // How you work: read from step_events, not task text. Runs only when
+  // enough new events have landed since it last looked.
+  if (scope === 'style') {
+    // The holdout verdicts first — cheap SQL, and a retired note must not be
+    // handed back to the model as "current".
+    const trial = retireUselessRules(ctx.user.id);
+    const active = trial.active;
+    const total = queryOne('SELECT COUNT(*) AS n FROM step_events WHERE owner_id = ?', [ctx.user.id]).n;
+    const fresh = queryOne('SELECT COUNT(*) AS n FROM step_events WHERE owner_id = ? AND created_at > ?', [ctx.user.id, since]).n;
+    if (total < STYLE_MIN_NEW_EVENTS) return reply(false, 'not enough activity yet');
+    if (fresh < STYLE_MIN_NEW_EVENTS && active.length) return reply(false, 'nothing new');
+    try {
+      const ai = require('./ai');
+      const pinned = briefLines(row.brief, 'personal', id).map(l => l.line);
+      const rejected = briefLines(row.brief_rejected, scope, id).map(l => l.line);
+      const off = new Set([...pinned, ...rejected, ...trial.retired].map(l => l.toLowerCase()));
+      const learned = (await ai.learnStyle({
+        name: ctx.user.name, pinned, learned: active, rejected: [...rejected, ...trial.retired], digest: stepDigest(ctx.user.id)
+      })).filter(l => !off.has(l.toLowerCase()));
+      recordUsage(ctx.project.id, null, 'brief_learn', ai.takeUsage());
+      runSql(`UPDATE users SET brief_style = ?, brief_style_at = ? WHERE id = ?`,
+        [learned.length ? learned.map(l => '- ' + l).join('\n') : null, new Date().toISOString(), id]);
+      return reply(true, null);
+    } catch (err) {
+      console.error('Style learn failed:', err.message);
+      return reply(false, 'failed');
+    }
+  }
+
   const tasks = scope === 'board'
     ? queryAll(`SELECT description, created_at FROM tasks WHERE owner_id = ? AND project_id = ? AND source != 'calendar'
                 ORDER BY created_at DESC LIMIT 40`, [ctx.user.id, ctx.project.id])
@@ -2094,7 +2135,7 @@ app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/learn'
       tasks: tasks.map(t => t.description)
     })).filter(l => !off.has(l.toLowerCase()));
     recordUsage(ctx.project.id, null, 'brief_learn', ai.takeUsage());
-    runSql(`UPDATE ${table} SET brief_learned = ?, brief_learned_at = ? WHERE id = ?`,
+    runSql(`UPDATE ${table} SET ${cols.learned} = ?, ${cols.at} = ? WHERE id = ?`,
       [learned.length ? learned.map(l => '- ' + l).join('\n') : null, new Date().toISOString(), id]);
     reply(true, null);
   } catch (err) {
@@ -2110,25 +2151,31 @@ app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/learne
   const ctx = briefContext(req, res);
   if (!ctx) return;
   const { scope: rawScope, line, action } = req.body || {};
-  const scope = rawScope === 'board' ? 'board' : 'personal';
+  const scope = learnedScope(rawScope);
   if (typeof line !== 'string' || !line.trim()) return res.status(400).json({ error: 'line is required' });
   if (action !== 'keep' && action !== 'drop') return res.status(400).json({ error: 'action must be keep or drop' });
-  const { table, id, row } = learnedRow(scope, ctx);
+  const { table, id, row, cols } = learnedRow(scope, ctx);
   const target = line.trim();
   const remaining = briefLines(row.brief_learned, scope, id).map(l => l.line).filter(l => l !== target);
-  const updates = { brief_learned: remaining.length ? remaining.map(l => '- ' + l).join('\n') : null };
+  const updates = { [cols.learned]: remaining.length ? remaining.map(l => '- ' + l).join('\n') : null };
   if (action === 'keep') {
     const cur = (row.brief || '').replace(/\s+$/, '');
     updates.brief = (cur ? cur + '\n' : '') + '- ' + target;
+    if (scope === 'style') {
+      // A kept line that had retired itself is the user overruling the trial.
+      const ret = briefLines(queryOne('SELECT brief_style_retired FROM users WHERE id = ?', [id]).brief_style_retired, scope, id)
+        .map(l => l.line).filter(l => l !== target);
+      updates.brief_style_retired = ret.length ? ret.map(l => '- ' + l).join('\n') : null;
+    }
   } else {
     const rej = briefLines(row.brief_rejected, scope, id).map(l => l.line);
     if (!rej.includes(target)) rej.push(target);
-    updates.brief_rejected = rej.map(l => '- ' + l).join('\n');
+    updates[cols.rejected] = rej.map(l => '- ' + l).join('\n');
   }
-  const cols = Object.keys(updates);
-  runSql(`UPDATE ${table} SET ${cols.map(c => c + ' = ?').join(', ')} WHERE id = ?`, [...cols.map(c => updates[c]), id]);
-  const after = queryOne(`SELECT brief, brief_learned FROM ${table} WHERE id = ?`, [id]);
-  res.json({ text: after.brief || '', learned: briefLines(after.brief_learned, scope, id).map(l => l.line) });
+  const keys = Object.keys(updates);
+  runSql(`UPDATE ${table} SET ${keys.map(c => c + ' = ?').join(', ')} WHERE id = ?`, [...keys.map(c => updates[c]), id]);
+  const after = queryOne(`SELECT brief, ${cols.learned} AS learned FROM ${table} WHERE id = ?`, [id]);
+  res.json({ text: after.brief || '', learned: briefLines(after.learned, scope, id).map(l => l.line) });
 });
 
 app.get('/api/tasks/:taskId/page', (req, res) => {
@@ -2335,6 +2382,43 @@ app.delete('/api/tasks/:taskId', (req, res) => {
     console.error('Error deleting task:', err);
     res.status(500).json({ error: 'Failed to delete task' });
   }
+});
+
+// ============================================
+// STEP EVENTS — what the user did with a drafted step
+// ============================================
+// The feedback loop's raw material. Logged server-side at the routes that
+// already receive the gesture (tick, promote, research, assign, ↺), plus one
+// beacon endpoint for the gestures only the browser sees (a link click).
+// ms_since_generated is measured from the step's own created_at, so a tick
+// seconds after drafting and a tick a day later stay distinguishable.
+const STEP_EVENTS = new Set(['tick', 'untick', 'edit', 'adopt', 'promote', 'research', 'assign', 'regenerate', 'link_click']);
+
+function sqliteMs(ts) {
+  if (!ts) return null;
+  const iso = /^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(ts) ? ts.replace(' ', 'T') + 'Z' : ts;
+  const n = Date.parse(iso);
+  return Number.isFinite(n) ? n : null;
+}
+
+function logStepEvent(event, { subtask, task }) {
+  if (!STEP_EVENTS.has(event) || !task) return;
+  const born = subtask ? sqliteMs(subtask.created_at) : null;
+  const ms = born == null ? null : Math.max(0, Date.now() - born);
+  runSql(`INSERT INTO step_events (subtask_id, task_id, owner_id, project_id, event, ms_since_generated, step_text)
+          VALUES (?, ?, ?, ?, ?, ?, ?)`,
+    [subtask ? subtask.id : null, task.id, task.owner_id, task.project_id, event, ms,
+     subtask ? String(subtask.description || '').slice(0, 200) : null]);
+}
+
+app.post('/api/subtasks/:subtaskId/events', (req, res) => {
+  const event = req.body && req.body.event;
+  if (!STEP_EVENTS.has(event)) return res.status(400).json({ error: 'unknown event' });
+  const subtask = queryOne('SELECT * FROM subtasks WHERE id = ?', [req.params.subtaskId]);
+  if (!subtask) return res.status(404).json({ error: 'Subtask not found' });
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [subtask.task_id]);
+  logStepEvent(event, { subtask, task });
+  res.status(204).end();
 });
 
 // ============================================
@@ -2575,6 +2659,10 @@ app.put('/api/subtasks/:subtaskId', (req, res) => {
   try {
     runSql(`UPDATE subtasks SET ${updates.join(', ')} WHERE id = ?`, values);
     const updated = queryOne('SELECT * FROM subtasks WHERE id = ?', [subtaskId]);
+    const task = queryOne('SELECT * FROM tasks WHERE id = ?', [subtask.task_id]);
+    if (completed !== undefined && !!completed !== !!subtask.completed) logStepEvent(completed ? 'tick' : 'untick', { subtask, task });
+    if (description !== undefined && description !== subtask.description) logStepEvent('edit', { subtask, task });
+    if (assignee_type === 'human' && subtask.assignee_type === 'ai') logStepEvent('adopt', { subtask, task });
     res.json(updated);
   } catch (err) {
     console.error('Error updating subtask:', err);
@@ -2632,6 +2720,7 @@ app.post('/api/subtasks/:subtaskId/promote', (req, res) => {
 
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [subtask.task_id]);
   if (!task) return res.status(404).json({ error: 'Parent task not found' });
+  logStepEvent('promote', { subtask, task });
 
   try {
     const date = findDayWithCapacity({
@@ -2717,6 +2806,7 @@ app.post('/api/subtasks/:subtaskId/research', async (req, res) => {
   if (!aiKeyAllows(req) || !aiBudgetAllows(req.ip)) {
     return res.status(403).json({ error: 'AI is not available on this board' });
   }
+  logStepEvent('research', { subtask, task });
   if (!researchAllowed(task.project_id)) {
     return res.status(402).json({
       error: 'over_budget',
@@ -2785,6 +2875,7 @@ app.post('/api/subtasks/:subtaskId/assign', (req, res) => {
   if (!task) return res.status(404).json({ error: 'Parent task not found' });
 
   try {
+    logStepEvent('assign', { subtask, task });
     // Mark subtask as assigned
     runSql(`UPDATE subtasks SET assigned_to = ?, assigned_by = ?, updated_at = ? WHERE id = ?`,
       [to_user_id, task.owner_id, new Date().toISOString(), subtaskId]);
@@ -2974,8 +3065,134 @@ const PERSONAL_SECTIONS = [
   ['personal', 'brief', 'text'],
   ['travel', 'brief_travel', 'text']
 ];
-const LEARNED_SCOPES = { personal: 'users', board: 'projects' };
+// Each learned scope names its table and its three columns. `style` is the
+// how-you-work list (inferred from step_events, not from task text); keep on
+// a style line pins it into the personal notes like a personal one.
+const LEARNED_SCOPES = {
+  personal: { table: 'users', learned: 'brief_learned', rejected: 'brief_rejected', at: 'brief_learned_at' },
+  board: { table: 'projects', learned: 'brief_learned', rejected: 'brief_rejected', at: 'brief_learned_at' },
+  style: { table: 'users', learned: 'brief_style', rejected: 'brief_style_rejected', at: 'brief_style_at' }
+};
 const LEARNED_MAX = 8;
+const STYLE_MIN_NEW_EVENTS = 8;
+
+// ---- Holdout drafts: do the how-you-work notes actually help? ----
+// One first draft in ten is run WITHOUT the how-you-work notes (the user is
+// not told which). Each note is then judged by the quick-reject rate of the
+// drafts it was applied to against the holdout drafts since it appeared; a
+// note that makes no measurable difference retires itself. This is the one
+// genuinely self-correcting piece: a control arm the app runs on itself,
+// at no cost, forever. Regenerates keep the task's arm so a pane stays
+// consistent with itself.
+const HOLDOUT_RATE = Number(process.env.HOLDOUT_RATE) || 0.1; // env override is for tests only
+const HOLDOUT_MIN_TASKS = 6;        // per arm, before a verdict
+const HOLDOUT_MARGIN = 0.05;        // the rule must beat holdout by this much to survive
+const QUICK_MS = 60000;             // a tick or ↺ inside this is a rejection
+
+function holdoutBrief(task, lines, isRegenerate) {
+  const rules = lines.filter(l => l.scope === 'how you work');
+  if (!rules.length) return lines;
+  let arm = task.draft_arm;
+  if (!arm || !isRegenerate) {
+    arm = isRegenerate && task.draft_arm ? task.draft_arm : (Math.random() < HOLDOUT_RATE ? 'holdout' : 'rules');
+    runSql('UPDATE tasks SET draft_arm = ?, draft_rules = ? WHERE id = ?',
+      [arm, JSON.stringify(rules.map(r => r.line)), task.id]);
+  }
+  return arm === 'holdout' ? lines.filter(l => l.scope !== 'how you work') : lines;
+}
+
+// Quick-reject fraction of one task's draft: ticks and ↺ inside QUICK_MS
+// over the steps drafted. 0 = every step survived its first minute.
+function quickRejectRate(taskId) {
+  const steps = queryOne('SELECT COUNT(*) AS n FROM subtasks WHERE task_id = ?', [taskId]).n;
+  const quick = queryOne(`SELECT COUNT(*) AS n FROM step_events WHERE task_id = ? AND event IN ('tick', 'regenerate')
+                          AND ms_since_generated IS NOT NULL AND ms_since_generated < ?`, [taskId, QUICK_MS]).n;
+  return Math.min(1, quick / Math.max(1, steps));
+}
+
+// Per active note: how many drafts ran with it, how many holdout drafts ran
+// since it first appeared, and the mean quick-reject rate of each arm.
+function ruleStats(ownerId, rules) {
+  const tasks = queryAll(`SELECT id, draft_arm, draft_rules, created_at FROM tasks
+                          WHERE owner_id = ? AND draft_arm IS NOT NULL ORDER BY created_at`, [ownerId]);
+  const rate = new Map(tasks.map(t => [t.id, quickRejectRate(t.id)]));
+  const mean = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : null;
+  const out = {};
+  for (const rule of rules) {
+    const withRule = tasks.filter(t => t.draft_arm === 'rules' && (safeJson(t.draft_rules) || []).includes(rule));
+    const since = withRule.length ? withRule[0].created_at : null;
+    const holdout = since ? tasks.filter(t => t.draft_arm === 'holdout' && t.created_at >= since) : [];
+    out[rule] = {
+      rules: withRule.length,
+      holdout: holdout.length,
+      reject_rules: mean(withRule.map(t => rate.get(t.id))),
+      reject_holdout: mean(holdout.map(t => rate.get(t.id)))
+    };
+  }
+  return out;
+}
+function safeJson(s) { try { return JSON.parse(s); } catch { return null; } }
+
+// Retire any active note that has had its trial and did not beat holdout.
+// Returns the surviving list; writes both columns.
+function retireUselessRules(userId) {
+  const u = queryOne('SELECT brief_style, brief_style_retired FROM users WHERE id = ?', [userId]);
+  const active = briefLines(u.brief_style, 'style', userId).map(l => l.line);
+  if (!active.length) return { active, retired: briefLines(u.brief_style_retired, 'style', userId).map(l => l.line), stats: {} };
+  const stats = ruleStats(userId, active);
+  const retired = briefLines(u.brief_style_retired, 'style', userId).map(l => l.line);
+  const keep = [];
+  for (const rule of active) {
+    const s = stats[rule];
+    const tried = s.rules >= HOLDOUT_MIN_TASKS && s.holdout >= HOLDOUT_MIN_TASKS;
+    const helps = tried && s.reject_rules <= s.reject_holdout - HOLDOUT_MARGIN;
+    if (tried && !helps) { if (!retired.includes(rule)) retired.push(rule); }
+    else keep.push(rule);
+  }
+  if (keep.length !== active.length) {
+    runSql('UPDATE users SET brief_style = ?, brief_style_retired = ? WHERE id = ?',
+      [keep.length ? keep.map(l => '- ' + l).join('\n') : null, retired.length ? retired.map(l => '- ' + l).join('\n') : null, userId]);
+  }
+  return { active: keep, retired, stats };
+}
+
+// The event log as a story the monitor can read: each recent task with its
+// steps and what happened to them, latencies in words. Newest first.
+function stepDigest(ownerId, { tasks = 25 } = {}) {
+  const rows = queryAll(`
+    SELECT e.*, t.description AS task_description
+    FROM step_events e JOIN tasks t ON t.id = e.task_id
+    WHERE e.owner_id = ?
+    ORDER BY e.created_at DESC, e.id DESC LIMIT 400`, [ownerId]);
+  const when = (ms) => {
+    if (ms == null) return '';
+    if (ms < 60000) return `${Math.max(1, Math.round(ms / 1000))}s after drafting`;
+    if (ms < 3600000) return `${Math.round(ms / 60000)} min after drafting`;
+    if (ms < 86400000) return `${Math.round(ms / 3600000)} h after drafting`;
+    return `${Math.round(ms / 86400000)} d after drafting`;
+  };
+  const byTask = new Map();
+  for (const r of rows) {
+    if (!byTask.has(r.task_id)) {
+      if (byTask.size >= tasks) continue;
+      byTask.set(r.task_id, { description: r.task_description, steps: new Map(), taskEvents: [] });
+    }
+    const t = byTask.get(r.task_id);
+    const line = `${r.event.replace('_', ' ')} ${when(r.ms_since_generated)}`.trim();
+    if (r.subtask_id == null) t.taskEvents.push(line);
+    else {
+      if (!t.steps.has(r.subtask_id)) t.steps.set(r.subtask_id, { text: r.step_text || '(step)', events: [] });
+      t.steps.get(r.subtask_id).events.push(line);
+    }
+  }
+  const out = [];
+  for (const t of byTask.values()) {
+    out.push(`TASK "${t.description}"`);
+    for (const st of t.steps.values()) out.push(`  - "${st.text}" → ${st.events.reverse().join(' · ')}`);
+    for (const ev of t.taskEvents.reverse()) out.push(`  ↺ ${ev}`);
+  }
+  return out.join('\n');
+}
 
 function parseFields(raw, fields) {
   let obj = {};
@@ -2999,14 +3216,19 @@ function fieldLines(raw, fields, scope, ownerId) {
 }
 
 function briefFor(ownerId, projectId) {
-  const u = queryOne('SELECT brief, brief_learned, brief_contact, brief_travel, brief_medical FROM users WHERE id = ?', [ownerId]);
+  const u = queryOne('SELECT brief, brief_learned, brief_style, brief_contact, brief_travel, brief_medical FROM users WHERE id = ?', [ownerId]);
   const p = projectId ? queryOne('SELECT brief, brief_learned FROM projects WHERE id = ?', [projectId]) : null;
   const out = [];
   for (const [scope, col, kind, fields] of PERSONAL_SECTIONS) {
     if (!u) break;
     if (kind === 'fields') out.push(...fieldLines(u[col], fields, scope, ownerId));
     else out.push(...briefLines(u[col], scope, ownerId));
-    if (scope === 'personal') out.push(...briefLines(u.brief_learned, scope, ownerId).map(l => ({ ...l, inferred: true })));
+    if (scope === 'personal') {
+      out.push(...briefLines(u.brief_learned, scope, ownerId).map(l => ({ ...l, inferred: true })));
+      // How they work with drafted steps — tagged so the prompt's clause
+      // about "(how you work)" notes applies to exactly these.
+      out.push(...briefLines(u.brief_style, 'how you work', ownerId).map(l => ({ ...l, inferred: true })));
+    }
   }
   if (p) {
     out.push(...briefLines(p.brief, 'board', projectId));
@@ -3189,6 +3411,15 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
 
   const isListTask = LIST_TASK_RE.test(task.description || '');
 
+  const isRegenerate = !!(req.body && req.body.regenerate === true);
+  if (isRegenerate) {
+    // Task-level: no step. Measured from the newest step, so a ↺ ten
+    // seconds after drafting (rejection) and a ↺ after three ticks (a
+    // top-up) read differently in the log.
+    const newest = queryOne('SELECT * FROM subtasks WHERE task_id = ? ORDER BY created_at DESC LIMIT 1', [taskId]);
+    logStepEvent('regenerate', { subtask: newest ? { ...newest, id: null, description: null } : null, task });
+  }
+
   const fullSet = () => queryAll(`
     SELECT id, task_id, parent_subtask_id, description, assignee_type,
            assigned_to, assigned_by, sort_order, provisional, researched, completed, completed_at,
@@ -3237,7 +3468,7 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
         subtaskList = generateMockSubtasks(task.description);
       } else {
         const ai = require('./ai');
-        const brief = briefFor(task.owner_id, task.project_id);
+        const brief = holdoutBrief(task, briefFor(task.owner_id, task.project_id), isRegenerate);
         subtaskList = await ai.generateSubtasks(task.description, {
           count: need,
           existing: kept.map(k => k.description),
@@ -3263,7 +3494,6 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
     // one row costs a full search budget, so ↺ would be the most expensive habit
     // in the app. Adding a task on a research-enabled board is the only automatic
     // trigger; everything else goes through the pane's Research button or →.
-    const isRegenerate = req.body && req.body.regenerate === true;
     const wants = usedRealAi && !isRegenerate && researchEnabled(task.project_id);
     const overBudget = wants && !researchAllowed(task.project_id);
     const willResearch = wants && !overBudget;

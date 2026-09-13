@@ -303,6 +303,17 @@
         }
 
         .learned-text { flex: 1; min-width: 0; overflow-wrap: anywhere; line-height: 1.5; }
+        /* How-you-work lines share the personal list (Kevin, 2026-09-12 —
+           "build the lines, ask me later about a pane"); the tag is what
+           tells them apart. */
+        .learned-tag { font-size: 10px; color: #0284c7; background: #f0f9ff; border-radius: 4px; padding: 0 5px; margin-right: 4px; white-space: nowrap; }
+        body.dark .learned-tag { color: #7dd3fc; background: rgba(14, 165, 233, 0.14); }
+        .learned-tag.retired { color: #94a3b8; background: #f1f5f9; }
+        .learned-line.retired .learned-text { color: #94a3b8; }
+        .learned-trial { font-size: 11px; color: #cbd5e1; margin-left: 6px; white-space: nowrap; }
+        .learned-note { font-size: 11px; color: #94a3b8; line-height: 1.5; margin-top: 6px; }
+        body.dark .learned-tag.retired { color: #64748b; background: #1e293b; }
+        body.dark .learned-line.retired .learned-text, body.dark .learned-trial { color: #475569; }
 
         .learned-line .btn { padding: 1px 8px; font-size: 11px; }
 
@@ -525,32 +536,55 @@
 
         function learnedList(scope) {
             const el = document.getElementById(scope + 'Learned');
-            const items = briefData.learned[scope] || [];
+            // The personal list also carries the how-you-work lines, which
+            // the monitor infers from what you DO with drafted steps rather
+            // than from what the tasks say; each keeps its own scope for
+            // keep/✕ so a decision lands in the right column.
+            const items = (briefData.learned[scope] || []).map(line => ({ line, scope }));
+            const trial = briefData.style_trial || { stats: {}, retired: [] };
+            if (scope === 'personal') {
+                items.push(...(briefData.learned.style || []).map(line => ({ line, scope: 'style' })));
+                // Notes that retired themselves after the holdout trial: shown
+                // greyed so the decision is visible, and keep still overrules it.
+                items.push(...(trial.retired || []).map(line => ({ line, scope: 'style', retired: true })));
+            }
+            const trialWord = (line) => {
+                const s = trial.stats && trial.stats[line];
+                if (!s || !s.rules) return '';
+                const pct = (v) => v == null ? '–' : Math.round(v * 100) + '%';
+                return `<span class="learned-trial" title="Quick-reject rate of drafts made with this note vs. drafts made without it (1 in ${Math.round(1 / (trial.rate || 0.1))} is drafted without, to check the note helps)">${s.rules} with · ${s.holdout} without${s.holdout ? ` · rejects ${pct(s.reject_rules)} vs ${pct(s.reject_holdout)}` : ''}</span>`;
+            };
             const stateEl = `<span class="learned-state" id="${scope}LearnState"></span>`;
             if (!items.length) {
                 el.innerHTML = `<div class="learned-title">Learned from your tasks ${stateEl}</div><div class="learned-empty">Nothing yet — it looks again whenever a few new tasks have come in.</div>`;
                 return;
             }
             el.innerHTML = `<div class="learned-title">Learned from your tasks <span class="pane-hint">keep = make it yours · ✕ = never again</span>${stateEl}</div>` +
-                items.map(line => `
-                    <div class="learned-line" data-line="${escapeHtml(line)}">
-                        <span class="learned-text">${escapeHtml(line)}</span>
+                items.map(({ line, scope: s, retired }) => `
+                    <div class="learned-line ${retired ? 'retired' : ''}" data-line="${escapeHtml(line)}" data-scope="${s}">
+                        <span class="learned-text">${retired ? '<span class="learned-tag retired" title="Tried against drafts made without it and made no measurable difference, so it retired itself. Keep overrules that.">retired</span>' : (s === 'style' ? '<span class="learned-tag" title="Inferred from what you do with drafted steps, not from what the tasks say">how you work</span>' : '')}${escapeHtml(line)}${retired ? '' : trialWord(line)}</span>
                         <button class="btn" data-act="keep" title="Move into your own notes — pinned, and outranks anything inferred">keep</button>
                         <button class="btn quiet" data-act="drop" title="Drop it, and don't propose it again">✕</button>
-                    </div>`).join('');
+                    </div>`).join('') +
+                (scope === 'personal' && items.some(i => i.scope === 'style')
+                    ? `<div class="learned-note">One draft in ${Math.round(1 / (trial.rate || 0.1))} is made without the how-you-work notes, so each note can be checked against drafts that didn't have it. A note that makes no difference after ${trial.min_tasks || 6} drafts each way retires itself.</div>`
+                    : '');
         }
 
         async function learnedAction(scope, line, action) {
             try {
                 const r = await api(`${base}/brief/learned`, { method: 'POST', body: { scope, line, action } });
                 briefData.learned[scope] = r.learned;
+                // A kept style line pins into the personal notes, and style
+                // lines render inside the personal list.
+                const pane = scope === 'style' ? 'personal' : scope;
                 if (action === 'keep') {
-                    const ta = document.getElementById(scope + 'Input');
+                    const ta = document.getElementById(pane + 'Input');
                     ta.value = r.text;
-                    document.getElementById(scope + 'State').textContent = 'saved';
-                    renderUsage(scope, ta.value, briefData.usage[scope] || []);
+                    document.getElementById(pane + 'State').textContent = 'saved';
+                    renderUsage(pane, ta.value, briefData.usage[pane] || []);
                 }
-                learnedList(scope);
+                learnedList(pane);
             } catch (err) {
                 alert('Could not update: ' + err.message);
             }
@@ -560,7 +594,8 @@
             document.getElementById(scope + 'Learned').addEventListener('click', (e) => {
                 const btn = e.target.closest('[data-act]');
                 if (!btn) return;
-                learnedAction(scope, btn.closest('.learned-line').dataset.line, btn.dataset.act);
+                const row = btn.closest('.learned-line');
+                learnedAction(row.dataset.scope || scope, row.dataset.line, btn.dataset.act);
             });
         }
 
@@ -572,7 +607,7 @@
             try {
                 const r = await api(`${base}/brief/learn`, { method: 'POST', body: { scope } });
                 briefData.learned[scope] = r.learned;
-                learnedList(scope);
+                learnedList(scope === 'style' ? 'personal' : scope);
                 if (state()) state().textContent = r.ran ? 'updated just now' : (r.reason === 'nothing new' ? 'up to date' : '');
             } catch (err) {
                 if (state()) state().textContent = '';
@@ -689,6 +724,7 @@
             wireInbox();
             learn('personal');
             learn('board');
+            learn('style');
         }
 
         (async () => {
