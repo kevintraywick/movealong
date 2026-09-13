@@ -1,0 +1,15 @@
+{
+  "name": "movealong-mcp",
+  "version": "0.1.0",
+  "description": "MoveAlong as an MCP server — the board's tasks, steps, pages and brief as tools for any agent",
+  "private": true,
+  "type": "module",
+  "main": "index.js",
+  "bin": { "movealong-mcp": "index.js" },
+  "scripts": { "start": "node index.js" },
+  "engines": { "node": ">=22" },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.30.0",
+    "zod": "^3.25.0"
+  }
+}
