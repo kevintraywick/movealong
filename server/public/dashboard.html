@@ -120,6 +120,78 @@
         .page-error { color: #94a3b8; font-size: 12px; }
         .page-error a { color: #0284c7; }
 
+        /* ---- Health pane ---- */
+        .weeks-nav { margin-left: auto; font-size: 12px; color: #475569; display: flex; align-items: center; gap: 6px; }
+        .weeks-nav select { font-size: 12px; color: #0f172a; border: 1px solid #e2e8f0; border-radius: 6px; padding: 2px 4px; background: #fff; }
+
+        .entry { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; margin-bottom: 12px; }
+        .entry .day-nav { display: flex; align-items: center; gap: 4px; }
+        .entry .day-nav button { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #e2e8f0; background: #fff; color: #0284c7; cursor: pointer; font-size: 12px; line-height: 1; }
+        .entry .day-nav button:hover { border-color: #bae6fd; }
+        .entry .day-nav button:disabled { color: #cbd5e1; cursor: default; }
+        .entry .day-nav input[type=date] { font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 4px; background: #fff; color: #0f172a; font-family: inherit; width: 122px; }
+        .entry .day-word { font-size: 11px; color: #64748b; }
+        .entry .day-word b { color: #0284c7; font-weight: 600; }
+        .entry label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #334155; }
+        .entry label .u { font-size: 10px; color: #94a3b8; }
+        .entry input[type=number] { width: 64px; font-size: 13px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px; background: #fff; color: #0f172a; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+        .entry input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .entry input[type=number]:focus, .entry input[type=date]:focus { outline: none; border-color: #7dd3fc; box-shadow: 0 0 0 2px #e0f2fe; }
+        .entry .check { cursor: pointer; user-select: none; }
+        .entry .check input { accent-color: #0ea5e9; width: 15px; height: 15px; margin: 0; cursor: pointer; }
+        .entry .state { font-size: 11px; color: #94a3b8; margin-left: auto; text-align: right; }
+        .entry .state:empty { display: none; }
+        .entry .state.err { color: #ef4444; }
+
+        .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+        .stat { border: 1px solid #f1f5f9; border-radius: 10px; padding: 8px 10px; }
+        .stat .k { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
+        .stat .k .sw { width: 8px; height: 8px; border-radius: 2px; }
+        .stat .v { font-size: 17px; font-weight: 600; color: #0f172a; margin-top: 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+        .stat .v small { font-size: 11px; font-weight: 500; color: #64748b; margin-left: 4px; }
+        .stat .s { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+        .stat .s.up { color: #0284c7; }
+
+        .sub-title { font-size: 12px; font-weight: 600; color: #334155; margin: 12px 0 4px; display: flex; align-items: baseline; gap: 8px; }
+        .sub-title span { font-weight: 400; color: #94a3b8; font-size: 11px; }
+        .chart .bar { cursor: default; }
+        .chart .bar:hover { filter: brightness(0.85); }
+        .chart .avg { fill: none; stroke: #0f172a; stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .55; }
+        .chart .wline { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+        .chart .wdot { stroke: #fff; stroke-width: 1.5; }
+        .chart .wlabel { font-size: 10px; fill: #475569; text-anchor: middle; }
+        .chart .week-sep { stroke: #e2e8f0; stroke-width: 1; stroke-dasharray: 2 3; }
+
+        .streaks { display: flex; flex-direction: column; gap: 8px; }
+        .streak { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 10px; }
+        .streak .name { font-size: 12px; font-weight: 600; color: #334155; }
+        .streak .weeks { display: flex; gap: 8px; }
+        .streak .week { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+        .streak .cells { display: flex; gap: 2px; }
+        .streak .cell { flex: 1; aspect-ratio: 1; border-radius: 3px; background: #f1f5f9; min-width: 0; }
+        .streak .cell.on { background: var(--c); }
+        .streak .cell.future { background: transparent; }
+        .streak .cell.today { box-shadow: inset 0 0 0 1px #0ea5e9; }
+        .streak .wk { font-size: 10px; color: #94a3b8; text-align: center; font-variant-numeric: tabular-nums; }
+        .streak .wk b { color: #475569; font-weight: 600; }
+
+        body.dark .weeks-nav select, body.dark .entry input[type=number], body.dark .entry .day-nav input[type=date], body.dark .entry .day-nav button { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+        body.dark .weeks-nav, body.dark .entry .day-word { color: #94a3b8; }
+        body.dark .entry .day-nav button { color: #38bdf8; }
+        body.dark .entry { background: #0f172a; border-color: #334155; }
+        body.dark .entry label { color: #cbd5e1; }
+        body.dark .stat { border-color: #334155; }
+        body.dark .stat .v { color: #f1f5f9; }
+        body.dark .sub-title, body.dark .streak .name { color: #cbd5e1; }
+        body.dark .chart .avg { stroke: #f8fafc; }
+        body.dark .chart .wdot { stroke: #1e293b; }
+        body.dark .chart .wlabel { fill: #cbd5e1; }
+        body.dark .chart .week-sep { stroke: #334155; }
+        body.dark .streak .cell { background: #334155; }
+        body.dark .streak .cell.on { background: var(--c); }   /* the compound-selector trap: dark must out-specify .cell.on */
+        body.dark .streak .cell.future { background: transparent; }
+        body.dark .streak .wk b { color: #cbd5e1; }
+
         /* Dark mode — same key as the board. */
         body.dark { background: #0f172a; color: #e2e8f0; }
         body.dark .wordmark { color: #f1f5f9; }
@@ -146,6 +218,37 @@
             <a class="back-link" href="/">&larr; Back to your board</a>
             <span class="page-meta" id="meta"></span>
             <button class="theme-toggle" id="themeToggle" title="Switch theme">🌙</button>
+        </div>
+
+        <div class="pane" id="healthPane">
+            <div class="pane-head">
+                <span class="pane-title">Health</span>
+                <span class="pane-total" id="healthLede">steps · weight · gym · yoga, entered by hand</span>
+                <div class="weeks-nav">
+                    <label for="weeksSel">Show</label>
+                    <select id="weeksSel">
+                        <option value="4">4 weeks</option>
+                        <option value="8" selected>8 weeks</option>
+                        <option value="12">12 weeks</option>
+                        <option value="26">26 weeks</option>
+                    </select>
+                </div>
+            </div>
+            <form class="entry" id="entry" autocomplete="off" onsubmit="return false">
+                <div class="day-nav">
+                    <button type="button" id="prevDay" title="Previous day">&lsaquo;</button>
+                    <input type="date" id="entryDay">
+                    <button type="button" id="nextDay" title="Next day">&rsaquo;</button>
+                </div>
+                <span class="day-word" id="dayWord"></span>
+                <label>Steps <input type="number" id="f_steps" min="0" step="1" inputmode="numeric" placeholder="—"></label>
+                <label>Weight <input type="number" id="f_weight" min="0" step="0.1" inputmode="decimal" placeholder="—"><span class="u">lb</span></label>
+                <label class="check"><input type="checkbox" id="f_gym"> Gym</label>
+                <label class="check"><input type="checkbox" id="f_yoga"> Yoga</label>
+                <span class="state" id="entryState"></span>
+            </form>
+            <div class="stats" id="stats"></div>
+            <div id="healthBody"><div class="empty">Loading&hellip;</div></div>
         </div>
 
         <div class="pane" id="pane">
@@ -176,6 +279,7 @@
             localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'light' : 'dark');
             applyTheme();
             if (data) render();
+            if (health) renderHealth();
         });
         applyTheme();
 
@@ -358,6 +462,249 @@
                 document.getElementById('chartWrap').innerHTML = `<div class="page-error">${escapeHtml(err.message)}</div>`;
             }
         }
+
+        // ================= Health =================
+        // Entered by hand: yesterday's steps each morning, the scale, gym and
+        // yoga. Long-form rows on the server (day × measure), so a new measure
+        // is a registry entry there and a field here. Colours are four of the
+        // validated dashboard palette (steps blue · weight violet · gym orange
+        // · yoga pink) so the two panes read as one page.
+        const HCOL_LIGHT = { steps: '#0284c7', weight: '#4a3aa7', gym: '#eb6834', yoga: '#e87ba4' };
+        const HCOL_DARK  = { steps: '#0284c7', weight: '#9085e9', gym: '#ea580c', yoga: '#db2777' };
+        const hcol = (k) => (document.body.classList.contains('dark') ? HCOL_DARK : HCOL_LIGHT)[k];
+        const HMEASURES = ['steps', 'weight', 'gym', 'yoga'];
+        let health = null;           // last GET
+        let entryDay = null;         // YYYY-MM-DD in the strip
+        let weeks = +(localStorage.getItem('movealong.health.weeks') || 8) || 8;
+        let entryWrite = Promise.resolve();
+
+        const hbase = () => `/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}/health`;
+        const dayKeyShift = (key, n) => { const d = new Date(key + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+        const fmtDay = (key, opts) => new Date(key + 'T00:00:00Z').toLocaleDateString(undefined, Object.assign({ timeZone: 'UTC' }, opts));
+        const fmtN = (n) => Math.round(n).toLocaleString();
+
+        async function apiPut(path, body) {
+            const headers = { 'Content-Type': 'application/json' };
+            try { headers['x-tz'] = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { /* UTC */ }
+            const res = await fetch('/api' + path, { method: 'PUT', headers, body: JSON.stringify(body) });
+            const out = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(out.error || ('HTTP ' + res.status));
+            return out;
+        }
+
+        function fillEntry() {
+            const e = (health && health.entries[entryDay]) || {};
+            document.getElementById('entryDay').value = entryDay;
+            document.getElementById('entryDay').max = health.today;
+            document.getElementById('nextDay').disabled = entryDay >= health.today;
+            const rel = entryDay === health.today ? 'today' : entryDay === dayKeyShift(health.today, -1) ? 'yesterday' : '';
+            document.getElementById('dayWord').innerHTML = (rel ? `<b>${rel}</b> · ` : '') + escapeHtml(fmtDay(entryDay, { weekday: 'short' }));
+            document.getElementById('f_steps').value = e.steps != null ? e.steps : '';
+            document.getElementById('f_weight').value = e.weight != null ? e.weight : '';
+            document.getElementById('f_gym').checked = e.gym === 1;
+            document.getElementById('f_yoga').checked = e.yoga === 1;
+            document.getElementById('entryState').textContent = '';
+        }
+
+        function setEntryDay(key) {
+            if (key > health.today) key = health.today;
+            entryDay = key;
+            fillEntry();
+        }
+
+        // Autosave one field. Blank clears it — "didn't log" must not become 0.
+        function saveField(key) {
+            const el = document.getElementById('f_' + key);
+            const value = el.type === 'checkbox' ? (el.checked ? 1 : 0) : (el.value.trim() === '' ? null : el.value.trim());
+            const day = entryDay;
+            const state = document.getElementById('entryState');
+            state.className = 'state'; state.textContent = 'saving…';
+            entryWrite = entryWrite.then(async () => {
+                try {
+                    const out = await apiPut(`${hbase()}/${day}`, { [key]: value });
+                    health.entries[day] = out.entry;
+                    if (!Object.keys(out.entry).length) delete health.entries[day];
+                    state.textContent = 'saved';
+                    renderHealth();
+                } catch (err) {
+                    state.className = 'state err'; state.textContent = err.message;
+                }
+            });
+        }
+        ['steps', 'weight'].forEach(k => {
+            const el = document.getElementById('f_' + k);
+            el.addEventListener('change', () => saveField(k));
+            el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
+        });
+        ['gym', 'yoga'].forEach(k => document.getElementById('f_' + k).addEventListener('change', () => saveField(k)));
+        document.getElementById('entryDay').addEventListener('change', e => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) setEntryDay(e.target.value); });
+        document.getElementById('prevDay').addEventListener('click', () => setEntryDay(dayKeyShift(entryDay, -1)));
+        document.getElementById('nextDay').addEventListener('click', () => setEntryDay(dayKeyShift(entryDay, 1)));
+        document.getElementById('weeksSel').value = String(weeks);
+        document.getElementById('weeksSel').addEventListener('change', e => { weeks = +e.target.value; localStorage.setItem('movealong.health.weeks', weeks); loadHealth(); });
+
+        // The day list: `weeks` full Monday-to-Sunday weeks ending in the week
+        // that holds today, so the streak grid always has whole rows.
+        function healthDays() {
+            const today = health.today;
+            const dow = (new Date(today + 'T00:00:00Z').getUTCDay() + 6) % 7; // Mon = 0
+            const end = dayKeyShift(today, 6 - dow);
+            const start = dayKeyShift(end, -(weeks * 7 - 1));
+            const out = [];
+            for (let k = start; k <= end; k = dayKeyShift(k, 1)) out.push({ key: k, e: health.entries[k] || {}, future: k > today, today: k === today });
+            return out;
+        }
+
+        function renderStats(days) {
+            const past = days.filter(d => !d.future);
+            const last7 = past.slice(-7), prev7 = past.slice(-14, -7);
+            const avg = (arr, k) => { const v = arr.map(d => d.e[k]).filter(x => x != null); return v.length ? v.reduce((a, b) => a + b, 0) / v.length : null; };
+            const count = (arr, k) => arr.filter(d => d.e[k] === 1).length;
+            const stats = [];
+            // steps: 7-day average vs the 7 before
+            const s7 = avg(last7, 'steps'), sPrev = avg(prev7, 'steps');
+            stats.push({ k: 'steps', name: 'Steps, 7-day avg', v: s7 != null ? fmtN(s7) : '—',
+                s: s7 != null && sPrev != null ? `${s7 >= sPrev ? '▲' : '▼'} ${fmtN(Math.abs(s7 - sPrev))} vs the week before` : 'log a few days to see a trend', up: s7 != null && sPrev != null && s7 >= sPrev });
+            // weight: latest and change over the window
+            const w = past.filter(d => d.e.weight != null);
+            const wl = w[w.length - 1], w0 = w[0];
+            stats.push({ k: 'weight', name: 'Weight', v: wl ? wl.e.weight.toFixed(1) : '—', unit: wl ? 'lb' : '',
+                s: wl && w0 && wl !== w0 ? `${(wl.e.weight - w0.e.weight >= 0 ? '+' : '')}${(wl.e.weight - w0.e.weight).toFixed(1)} since ${fmtDay(w0.key, { month: 'short', day: 'numeric' })}` : (wl ? fmtDay(wl.key, { weekday: 'short', month: 'short', day: 'numeric' }) : 'no weigh-in yet') });
+            // gym / yoga: this week (Mon–today) and per week over the window
+            const thisWeek = days.slice(-7).filter(d => !d.future);
+            for (const k of ['gym', 'yoga']) {
+                const total = count(past, k);
+                const streak = (() => { let n = 0; for (let i = past.length - 1; i >= 0; i--) { if (past[i].e[k] === 1) n++; else if (past[i].e[k] === 0 || past[i].e[k] == null) break; } return n; })();
+                stats.push({ k, name: k === 'gym' ? 'Gym' : 'Yoga', v: String(count(thisWeek, k)), unit: 'this week',
+                    s: `${total} in ${weeks} weeks · ${(total / weeks).toFixed(1)} a week` + (streak > 1 ? ` · ${streak}-day streak` : '') });
+            }
+            document.getElementById('stats').innerHTML = stats.map(st =>
+                `<div class="stat"><div class="k"><span class="sw" style="background:${hcol(st.k)}"></span>${escapeHtml(st.name)}</div>` +
+                `<div class="v">${escapeHtml(st.v)}${st.unit ? `<small>${escapeHtml(st.unit)}</small>` : ''}</div><div class="s${st.up ? ' up' : ''}">${escapeHtml(st.s)}</div></div>`).join('');
+        }
+
+        // Steps: one bar a day, a dashed 7-day rolling average over it.
+        function stepsChart(days) {
+            const W = 720, H = 150, padL = 40, padR = 8, padT = 14, padB = 22;
+            const plotW = W - padL - padR, plotH = H - padT - padB;
+            const n = days.length, slot = plotW / n, barW = Math.max(2, slot * 0.68);
+            const vals = days.map(d => d.e.steps);
+            const max = Math.max(1000, ...vals.filter(v => v != null));
+            const step = max > 20000 ? 5000 : max > 8000 ? 2500 : 1000;
+            const top = Math.ceil(max / step) * step;
+            const y = v => padT + plotH - (v / top) * plotH;
+            let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+            for (let v = 0; v <= top; v += step) {
+                svg += `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}"/>`;
+                svg += `<text class="axis-label" x="${padL - 6}" y="${y(v) + 3}" text-anchor="end">${v >= 1000 ? (v / 1000) + 'k' : v}</text>`;
+            }
+            days.forEach((d, i) => {
+                const cx = padL + slot * i + slot / 2;
+                if (i % 7 === 0 && i) svg += `<line class="week-sep" x1="${padL + slot * i}" x2="${padL + slot * i}" y1="${padT}" y2="${padT + plotH}"/>`;
+                if (d.e.steps != null) svg += `<rect class="bar" data-tip="${escapeHtml(fmtDay(d.key, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${fmtN(d.e.steps)} steps" x="${cx - barW / 2}" y="${y(d.e.steps)}" width="${barW}" height="${Math.max(0, padT + plotH - y(d.e.steps))}" rx="1.5" fill="${hcol('steps')}"/>`;
+                if (i % 7 === 0) svg += `<text class="axis-label${d.today ? ' today' : ''}" x="${padL + slot * i + 2}" y="${H - 6}">${fmtDay(d.key, { month: 'short', day: 'numeric' })}</text>`;
+            });
+            // rolling average, drawn only where a full-ish window exists
+            let path = '', pen = false;
+            days.forEach((d, i) => {
+                if (d.future) return;
+                const win = vals.slice(Math.max(0, i - 6), i + 1).filter(v => v != null);
+                if (win.length < 3) { pen = false; return; }
+                const a = win.reduce((s, v) => s + v, 0) / win.length;
+                path += `${pen ? 'L' : 'M'}${(padL + slot * i + slot / 2).toFixed(1)} ${y(a).toFixed(1)} `; pen = true;
+            });
+            if (path) svg += `<path class="avg" d="${path}"/>`;
+            return svg + '</svg>';
+        }
+
+        // Weight: a line through the days that have one; gaps are just gaps.
+        function weightChart(days) {
+            const pts = days.map((d, i) => ({ i, d })).filter(p => p.d.e.weight != null);
+            if (pts.length < 2) return `<div class="empty" style="padding:14px 0">${pts.length ? 'One weigh-in so far — the line starts with the second.' : 'No weigh-ins yet.'}</div>`;
+            const W = 720, H = 130, padL = 40, padR = 8, padT = 14, padB = 22;
+            const plotW = W - padL - padR, plotH = H - padT - padB;
+            const n = days.length, slot = plotW / n;
+            const ws = pts.map(p => p.d.e.weight);
+            let lo = Math.floor(Math.min(...ws) - 1), hi = Math.ceil(Math.max(...ws) + 1);
+            if (hi - lo < 4) { hi = lo + 4; }
+            const y = v => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
+            const x = i => padL + slot * i + slot / 2;
+            let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg">`;
+            const gstep = hi - lo > 12 ? 5 : hi - lo > 6 ? 2 : 1;
+            for (let v = lo; v <= hi; v += gstep) {
+                svg += `<line class="grid" x1="${padL}" x2="${W - padR}" y1="${y(v)}" y2="${y(v)}"/>`;
+                svg += `<text class="axis-label" x="${padL - 6}" y="${y(v) + 3}" text-anchor="end">${v}</text>`;
+            }
+            days.forEach((d, i) => { if (i % 7 === 0) svg += `<text class="axis-label${d.today ? ' today' : ''}" x="${padL + slot * i + 2}" y="${H - 6}">${fmtDay(d.key, { month: 'short', day: 'numeric' })}</text>`; });
+            svg += `<path class="wline" stroke="${hcol('weight')}" d="${pts.map((p, k) => `${k ? 'L' : 'M'}${x(p.i).toFixed(1)} ${y(p.d.e.weight).toFixed(1)}`).join(' ')}"/>`;
+            pts.forEach(p => { svg += `<circle class="wdot" data-tip="${escapeHtml(fmtDay(p.d.key, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.d.e.weight.toFixed(1)} lb" cx="${x(p.i)}" cy="${y(p.d.e.weight)}" r="3.5" fill="${hcol('weight')}"/>`; });
+            const last = pts[pts.length - 1];
+            // label sits on the side the line isn't coming from
+            const prev = pts[pts.length - 2];
+            const below = prev && prev.d.e.weight > last.d.e.weight;
+            svg += `<text class="wlabel" x="${x(last.i)}" y="${y(last.d.e.weight) + (below ? 15 : -8)}">${last.d.e.weight.toFixed(1)}</text>`;
+            return svg + '</svg>';
+        }
+
+        // Gym and yoga: a cell a day, grouped by week, with the week's count.
+        function streakGrid(days) {
+            const rows = ['gym', 'yoga'].map(k => {
+                const wk = [];
+                for (let i = 0; i < days.length; i += 7) {
+                    const chunk = days.slice(i, i + 7);
+                    const n = chunk.filter(d => d.e[k] === 1).length;
+                    wk.push(`<div class="week"><div class="cells">${chunk.map(d =>
+                        `<div class="cell${d.e[k] === 1 ? ' on' : ''}${d.future ? ' future' : ''}${d.today ? ' today' : ''}" style="--c:${hcol(k)}" title="${escapeHtml(fmtDay(d.key, { weekday: 'short', month: 'short', day: 'numeric' }))}${d.e[k] === 1 ? ' · ' + k : ''}"></div>`).join('')}</div>` +
+                        `<div class="wk">${n ? `<b>${n}</b>` : '·'}</div></div>`);
+                }
+                return `<div class="streak"><div class="name">${k === 'gym' ? 'Gym' : 'Yoga'}</div><div class="weeks">${wk.join('')}</div></div>`;
+            });
+            return `<div class="streaks">${rows.join('')}</div>`;
+        }
+
+        function renderHealth() {
+            if (!health) return;
+            const days = healthDays();
+            renderStats(days);
+            const first = days[0].key, last = days[days.length - 1].key;
+            document.getElementById('healthBody').innerHTML =
+                `<div class="sub-title">Steps <span>a day · dashed line is the 7-day average</span></div>${stepsChart(days)}` +
+                `<div class="sub-title">Weight <span>lb</span></div>${weightChart(days)}` +
+                `<div class="sub-title">Gym and yoga <span>a cell a day, Monday first · count per week</span></div>${streakGrid(days)}` +
+                `<details><summary>As a table</summary><div>${healthTable(days)}</div></details>`;
+            // hover tips on bars and dots reuse the completions tooltip element
+            const tip = document.getElementById('tip');
+            document.querySelectorAll('#healthBody [data-tip]').forEach(el => {
+                el.addEventListener('mouseenter', () => {
+                    tip.innerHTML = `<div class="day">${el.dataset.tip}</div>`;
+                    const r = el.getBoundingClientRect(), pr = document.getElementById('chartWrap').getBoundingClientRect();
+                    tip.style.left = (r.left + r.width / 2 - pr.left) + 'px';
+                    tip.style.top = (r.top - pr.top) + 'px';
+                    tip.classList.add('on');
+                });
+                el.addEventListener('mouseleave', () => tip.classList.remove('on'));
+            });
+        }
+
+        function healthTable(days) {
+            const logged = days.filter(d => Object.keys(d.e).length);
+            if (!logged.length) return '<div class="empty" style="padding:8px 0">Nothing logged yet.</div>';
+            return `<table><tr><th>Day</th><th>Steps</th><th>Weight</th><th>Gym</th><th>Yoga</th></tr>` +
+                logged.slice().reverse().map(d => `<tr><td>${escapeHtml(fmtDay(d.key, { weekday: 'short', month: 'short', day: 'numeric' }))}</td><td>${d.e.steps != null ? fmtN(d.e.steps) : ''}</td><td>${d.e.weight != null ? d.e.weight.toFixed(1) : ''}</td><td>${d.e.gym === 1 ? '✓' : ''}</td><td>${d.e.yoga === 1 ? '✓' : ''}</td></tr>`).join('') + '</table>';
+        }
+
+        async function loadHealth() {
+            if (!sess || !sess.subdomain || !sess.slug) { document.getElementById('healthPane').hidden = true; return; }
+            try {
+                health = await api(`${hbase()}?weeks=${weeks}`);
+                if (!entryDay) entryDay = dayKeyShift(health.today, -1);   // the morning entry is about yesterday
+                fillEntry();
+                renderHealth();
+            } catch (err) {
+                document.getElementById('healthBody').innerHTML = `<div class="page-error">${escapeHtml(err.message)}</div>`;
+            }
+        }
+        loadHealth();
 
         document.getElementById('prevMonth').addEventListener('click', () => { month = shiftMonth(month || data.month, -1); load(); });
         document.getElementById('nextMonth').addEventListener('click', () => { month = shiftMonth(month || data.month, 1); load(); });

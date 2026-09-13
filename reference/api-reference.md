@@ -673,6 +673,12 @@ tasks
 
 `server/mcp/index.js` wraps this API as fourteen MCP tools for any agent (Claude Code, Claude Desktop, Agent SDK). See `server/mcp/README.md` for registration; the tool list is in CLAUDE.md.
 
+## Health (dashboard, 2026-09-13)
+
+`GET /api/companies/:subdomain/users/:slug/health?weeks=N` — the last N weeks (default 8, max 26) of hand-entered health data, ending on the caller's today (`x-tz`). Returns `{ today, from, to, weeks, measures: [{key, label, kind, unit}], entries: { 'YYYY-MM-DD': { steps, weight, gym, yoga } } }` — only measures that were logged appear for a day. Measures are the `HEALTH_MEASURES` registry in `server.js`: `steps` (count), `weight` (lb, one decimal), `gym` and `yoga` (0/1).
+
+`PUT /api/companies/:subdomain/users/:slug/health/:day` — upsert any subset of the measures for one day: `{ steps: 8412, weight: "182.5", gym: true, yoga: null }`. `null`/`''` clears that measure (absence is the honest value for a day you didn't log — never 0). Counts are rounded, weights to one decimal, checks accept true/false/1/0/"yes"/"no". 400 on a day after the caller's today, a non-number, or a body with none of the measures. Returns `{ day, entry }` with the day's full row after the write.
+
 ## Completions (dashboard)
 
 `GET /api/companies/:subdomain/users/:slug/completions?month=YYYY-MM` — completed tasks per local day (`x-tz`) for the month (default: the caller's current month). Returns `{ month, today, days_in_month, projects: [{id, name}] (tab order; id 0 = Calendar), counts: { 'YYYY-MM-DD': { project_id: n } } }`.

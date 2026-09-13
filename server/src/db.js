@@ -250,6 +250,22 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_step_events_owner ON step_events(owner_id, created_at);
 
+    -- Health dashboard (2026-09-13). Long form: one row per (day, measure),
+    -- so adding a measure is a registry entry in server.js, not a migration.
+    -- Values are entered by hand for now (steps for yesterday each morning);
+    -- a Health Auto Export webhook is the upgrade path and writes the same rows.
+    CREATE TABLE IF NOT EXISTS health_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      day DATE NOT NULL,
+      measure TEXT NOT NULL,
+      value REAL NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, day, measure)
+    );
+    CREATE INDEX IF NOT EXISTS idx_health_user_day ON health_entries(user_id, day);
+
     CREATE TABLE IF NOT EXISTS brief_usage (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       scope TEXT NOT NULL,

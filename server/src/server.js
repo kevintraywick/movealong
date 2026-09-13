@@ -945,6 +945,100 @@ app.get('/api/companies/:subdomain/users/:slug/completions', (req, res) => {
   res.json({ month, today, days_in_month: daysInMonth, projects: projectList, counts });
 });
 
+// ---- Health dashboard (2026-09-13) ----
+// The registry is the whole definition of a measure: add a row here and the
+// GET/PUT routes, the dashboard's entry strip and the MCP tool all follow.
+// `kind`: 'count' (integer), 'number' (one decimal), 'check' (0/1 — did it).
+// Entered by hand: steps, gym and yoga are about yesterday (entered the next
+// morning); weight is whatever the scale said that morning. All four are
+// recorded against one day, the one in the entry strip's date field.
+const HEALTH_MEASURES = [
+  { key: 'steps',  label: 'Steps',  kind: 'count',  unit: 'steps' },
+  { key: 'weight', label: 'Weight', kind: 'number', unit: 'lb' },
+  { key: 'gym',    label: 'Gym',    kind: 'check' },
+  { key: 'yoga',   label: 'Yoga',   kind: 'check' }
+];
+const HEALTH_MAX_WEEKS = 26;
+
+function healthUser(req, res) {
+  const { subdomain, slug } = req.params;
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [subdomain]);
+  if (!company) { res.status(404).json({ error: 'Company not found' }); return null; }
+  const user = queryOne('SELECT id FROM users WHERE company_id = ? AND slug = ?', [company.id, slug]);
+  if (!user) { res.status(404).json({ error: 'User not found' }); return null; }
+  return user;
+}
+
+// Entries for the last N weeks (default 8), keyed by day then measure.
+app.get('/api/companies/:subdomain/users/:slug/health', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const today = todayKeyFor(req);
+  let weeks = parseInt(req.query.weeks, 10);
+  if (!Number.isInteger(weeks) || weeks < 1) weeks = 8;
+  weeks = Math.min(weeks, HEALTH_MAX_WEEKS);
+  const from = addDays(today, -(weeks * 7 - 1));
+  const rows = queryAll(
+    'SELECT day, measure, value FROM health_entries WHERE user_id = ? AND day >= ? AND day <= ? ORDER BY day',
+    [user.id, from, today]);
+  const entries = {};
+  for (const r of rows) {
+    if (!HEALTH_MEASURES.some(m => m.key === r.measure)) continue;
+    (entries[r.day] = entries[r.day] || {})[r.measure] = r.value;
+  }
+  res.json({ today, from, to: today, weeks, measures: HEALTH_MEASURES, entries });
+});
+
+// Upsert one day. Body carries any subset of the measures; null or '' clears
+// that measure for the day (an entry you didn't make must not read as 0
+// steps — absence is the honest value). Days after today are refused.
+app.put('/api/companies/:subdomain/users/:slug/health/:day', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const { day } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || isNaN(new Date(day + 'T00:00:00Z'))) {
+    return res.status(400).json({ error: 'day must be YYYY-MM-DD' });
+  }
+  const today = todayKeyFor(req);
+  if (day > today) return res.status(400).json({ error: 'That day has not happened yet' });
+  const body = req.body || {};
+  const writes = [];
+  for (const m of HEALTH_MEASURES) {
+    if (!(m.key in body)) continue;
+    const raw = body[m.key];
+    if (raw === null || raw === '' || raw === undefined) { writes.push([m.key, null]); continue; }
+    let value;
+    if (m.kind === 'check') {
+      value = (raw === true || raw === 1 || raw === '1' || raw === 'true' || raw === 'yes') ? 1
+        : (raw === false || raw === 0 || raw === '0' || raw === 'false' || raw === 'no') ? 0 : NaN;
+      if (Number.isNaN(value)) return res.status(400).json({ error: `${m.key} must be true or false` });
+    } else {
+      value = typeof raw === 'number' ? raw : Number(String(raw).replace(/,/g, ''));
+      if (!Number.isFinite(value) || value < 0) return res.status(400).json({ error: `${m.key} must be a number of 0 or more` });
+      if (m.kind === 'count') value = Math.round(value);
+      else value = Math.round(value * 10) / 10;
+      if (m.key === 'steps' && value > 200000) return res.status(400).json({ error: 'steps looks too high' });
+      if (m.key === 'weight' && value > 1500) return res.status(400).json({ error: 'weight looks too high' });
+    }
+    writes.push([m.key, value]);
+  }
+  if (!writes.length) return res.status(400).json({ error: `Send at least one of: ${HEALTH_MEASURES.map(m => m.key).join(', ')}` });
+  const now = new Date().toISOString();
+  for (const [measure, value] of writes) {
+    if (value === null) {
+      runSql('DELETE FROM health_entries WHERE user_id = ? AND day = ? AND measure = ?', [user.id, day, measure]);
+    } else {
+      runSql(`INSERT INTO health_entries (user_id, day, measure, value, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+              ON CONFLICT(user_id, day, measure) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at`,
+        [user.id, day, measure, value, now, now]);
+    }
+  }
+  const rows = queryAll('SELECT measure, value FROM health_entries WHERE user_id = ? AND day = ?', [user.id, day]);
+  const entry = {};
+  for (const r of rows) entry[r.measure] = r.value;
+  res.json({ day, entry });
+});
+
 app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
   const { subdomain, slug } = req.params;
 

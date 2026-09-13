@@ -36,6 +36,8 @@ Point `MOVEALONG_URL` at `http://localhost:3000` to work against a local server.
 | `add_step` / `tick_step` / `promote_step` | steps under a task |
 | `get_brief` / `append_brief` / `set_contact_field` | the standing notes the assistant reads |
 | `completions` | completed per day per board for a month |
+| `get_health` | the health log (steps, weight, gym, yoga) for the last N weeks |
+| `log_health` | record steps / weight / gym / yoga for a day — defaults to yesterday |
 
 ## Try it
 

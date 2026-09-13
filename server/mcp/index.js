@@ -231,5 +231,30 @@ server.registerTool('completions', {
   inputSchema: { month: z.string().optional() }
 }, async ({ month }) => text(await api(`${me}/completions${month ? `?month=${month}` : ''}`)));
 
+server.registerTool('get_health', {
+  title: 'Health log',
+  description: 'The health dashboard\'s entries (steps, weight in lb, gym, yoga) for the last N weeks, keyed by day. Entered by hand each morning; steps/gym/yoga are about the day they are recorded against.',
+  inputSchema: { weeks: z.number().int().min(1).max(26).optional() }
+}, async ({ weeks }) => text(await api(`${me}/health${weeks ? `?weeks=${weeks}` : ''}`)));
+
+server.registerTool('log_health', {
+  title: 'Log health for a day',
+  description: 'Record steps, weight (lb), gym and/or yoga for one day. day defaults to yesterday (the morning entry). Omit a field to leave it alone; pass null to clear it. Days in the future are refused.',
+  inputSchema: {
+    day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+    steps: z.number().int().min(0).nullable().optional(),
+    weight: z.number().min(0).nullable().optional(),
+    gym: z.boolean().nullable().optional(),
+    yoga: z.boolean().nullable().optional()
+  }
+}, async ({ day, ...fields }) => {
+  const d = new Date(todayKey() + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - 1);
+  const target = day || d.toISOString().slice(0, 10);
+  const body = {};
+  for (const [k, v] of Object.entries(fields)) if (v !== undefined) body[k] = v;
+  if (!Object.keys(body).length) throw new Error('Give at least one of steps, weight, gym, yoga');
+  return text(await api(`${me}/health/${target}`, { method: 'PUT', body }));
+});
+
 const transport = new StdioServerTransport();
 await server.connect(transport);
