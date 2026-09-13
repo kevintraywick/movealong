@@ -12,7 +12,7 @@ Register with Claude Code (user scope, so it is available in every project):
 
 ```
 claude mcp add movealong -s user \
-  -e MOVEALONG_URL=https://movealong-production.up.railway.app \
+  -e MOVEALONG_URL=https://moveit.kevintraywick.com \
   -e MOVEALONG_TEAM=<team subdomain> \
   -e MOVEALONG_USER=<your slug> \
   -e MOVEALONG_AI_KEY=<the AI access key, if the server sets one> \
