@@ -199,6 +199,45 @@
             color: #94a3b8;
         }
 
+        /* A list under the add-task box (2026-09-15): the same shape as the
+           input, greyed, the list's name as its placeholder, ▾ on the right.
+           Typing into it adds to the list; the arrow just opens it. */
+        .list-box {
+            display: flex;
+            align-items: center;
+            margin-bottom: 6px;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            background: #f8fafc;
+        }
+        .list-box:focus-within,
+        .list-box.open { border-color: #bae6fd; background: #fff; }
+        .list-box-input {
+            flex: 1;
+            min-width: 0;
+            padding: 6px 8px;
+            border: none;
+            background: transparent;
+            color: #0f172a;
+            font-size: 12px;
+        }
+        .list-box-input:focus { outline: none; }
+        .list-box-input::placeholder { color: #94a3b8; }
+        .list-box.open .list-box-input::placeholder { color: #64748b; }
+        .list-box-toggle {
+            flex: none;
+            width: 24px;
+            height: 26px;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-size: 12px;
+            cursor: pointer;
+            transition: transform 0.15s, color 0.15s;
+        }
+        .list-box-toggle:hover { color: #0ea5e9; }
+        .list-box.open .list-box-toggle { transform: rotate(180deg); color: #0ea5e9; }
+
         .tasks-container {
             flex: 1;
             display: flex;
@@ -1362,20 +1401,21 @@
             color: #0284c7;
         }
 
-        /* The bar reads as four groups — wordmark + plus, boards, the three
-           switches, then view/theme/account/help — and the 14px header gap alone
-           did not separate them. Each group boundary gets ~22px; inside a group
-           the items stay tight. */
+        /* The bar reads as four groups — wordmark + plus, the three switches,
+           boards, then theme/focus/dashboard/view/account/help — and the 14px
+           header gap alone did not separate them. Since 2026-09-15 the switches
+           come before the boards (closer to today's card, which is what they
+           act on); the boards float in the middle. */
         #projectTabs {
             display: flex;
             gap: 6px;
             align-items: center;
             flex-wrap: wrap;
-            /* auto here and on #assistantSwitch and #calendarSwitch splits the
-               free space three ways, so the boards and the switches sit toward
-               the middle with breathing room on both sides instead of being
-               pinned to the wordmark and the view toggle. */
+            /* auto on both sides splits the free space two ways, so the boards
+               sit in the middle with breathing room, pinned to neither the
+               switch cluster nor the chrome. */
             margin-left: auto;
+            margin-right: auto;
         }
 
         /* An off-screen board has a deadline due (or overdue) — red, the
@@ -1461,10 +1501,9 @@
             margin-left: -2px;
         }
 
-        /* This is what splits the header into left (board identity) and right
-           (chrome) — it used to live on the old .view-toggle. */
-        #assistantSwitch { margin-left: auto; }
-        #calendarSwitch { margin-right: auto; }
+        /* A little air between the + and the first switch, so the cluster
+           reads as its own group rather than a fourth item of the wordmark. */
+        #assistantSwitch { margin-left: 8px; }
 
         /* The icon IS the switch (2026-08-17): the pill said the same thing
            twice, so it is gone. State is carried by the emoji itself —
@@ -2915,6 +2954,12 @@
         body.dark .subtask-loading { color: #94a3b8; }
         body.dark .quick-slot-input { color: #e2e8f0; border-bottom-color: #334155; }
         body.dark .quick-slot-input::placeholder { color: #475569; }
+        body.dark .list-box { background: #172033; border-color: #334155; }
+        body.dark .list-box:focus-within,
+        body.dark .list-box.open { background: #1e293b; border-color: #0284c7; }
+        body.dark .list-box-input { color: #e2e8f0; }
+        body.dark .list-box-input::placeholder { color: #64748b; }
+        body.dark .list-box.open .list-box-input::placeholder { color: #94a3b8; }
         body.dark .subtask-check { border-color: #475569; }
         body.dark .subtask-cost { background: #334155; color: #cbd5e1; }
         body.dark a.subtask-cost:hover { background: #0c4a6e; color: #e0f2fe; }
@@ -3111,10 +3156,10 @@
                 <button class="btn-go" id="signupBtn" disabled>Go</button>
             </div>
 
-            <!-- Project tabs, in the user's own order. The active tab is
-                 styled in place — it never moves to the front. -->
-            <div id="projectTabs"></div>
-
+            <!-- The three switches sit left, beside the wordmark, since
+                 2026-09-15: they act on the day you are adding to, and today's
+                 card is the leftmost thing under them. The boards moved to the
+                 middle. -->
             <!-- AI assistant master switch -->
             <div class="assistant-switch" id="assistantSwitch" title="Assistant — auto-generates steps when you add a task &middot; Shift+Click to set the AI access key">
                 <button class="assistant-toggle on" id="assistantToggleBtn" role="switch" aria-checked="true" aria-label="Toggle AI assistant">&#129504;</button>
@@ -3130,9 +3175,9 @@
                 <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import">&#128197;</button>
             </div>
 
-            <!-- One button, two views — it shows the icon of the view you'd
-                 switch TO, the same convention as the theme toggle beside it. -->
-            <button class="icon-toggle" id="viewToggleBtn"></button>
+            <!-- Project tabs, in the user's own order. The active tab is
+                 styled in place — it never moves to the front. -->
+            <div id="projectTabs"></div>
 
             <!-- Dark/light mode: shows the theme you'd switch to -->
             <button class="theme-toggle" id="themeToggleBtn" title="Switch theme" aria-label="Switch between light and dark mode">🌙</button>
@@ -3146,6 +3191,11 @@
                  stroked-icon vocabulary as the view toggle beside it. -->
             <a class="icon-toggle dashboard-link" id="dashboardLink" href="/dashboard"
                title="Dashboard — what you've completed this month" aria-label="Dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></a>
+
+            <!-- One button, two views — it shows the icon of the view you'd
+                 switch TO, the same convention as the theme toggle. Sits
+                 between the dashboard and the account chip (2026-09-15). -->
+            <button class="icon-toggle" id="viewToggleBtn"></button>
 
             <!-- Display (after Go): quiet user · project chip. Click it for the
                  account popup (sign out) — same click-to-popup idiom as the lock. -->
@@ -3314,6 +3364,37 @@
         // ===== "list ..." tasks: quick list above the standard AI pane =====
         const LIST_TASK_RE = /^list\b/i;
         function isListTask(desc) { return LIST_TASK_RE.test(desc || ''); }
+
+        // The day board shows a pending list as a box, not a row (2026-09-15).
+        // Only a plain pending list of your own qualifies: an inbox row still
+        // needs its accept/return answers, a review row its four, and those
+        // come with the task row.
+        function isListBoxTask(t) {
+            return !!t && !t.completed && !t.assigned_to_id && !t.isPlaceholder
+                && t.source !== 'calendar' && !isAwaiting(t) && !isReview(t) && isListTask(t.description);
+        }
+
+        // A list box: the list's name greyed as the placeholder of an input,
+        // and a ▾ on the right. Type into it and the item goes on the list and
+        // the list opens below; click ▾ to just look. Both open the same pane a
+        // list row used to open, so the pane code is untouched.
+        function renderListBox(task) {
+            const open = expandedTaskIds.has(task.id);
+            return `
+                <div class="list-box ${open ? 'open' : ''}" data-task-id="${task.id}">
+                    <input type="text" class="list-box-input" data-task-id="${task.id}"
+                           placeholder="${escapeHtml(task.description)}" title="Type here to add to this list">
+                    <button class="list-box-toggle" data-task-id="${task.id}" title="${open ? 'Close the list' : 'Open the list'}" aria-label="${open ? 'Close the list' : 'Open the list'}" aria-expanded="${open}">&#9662;</button>
+                </div>
+            `;
+        }
+
+        async function openListBox(taskId) {
+            expandedTaskIds.clear();
+            expandedTaskIds.add(taskId);
+            if (!taskSubtasks.has(taskId)) await loadSubtasks(taskId);
+            renderView();
+        }
 
         // ============================================
         // API HELPERS
@@ -4220,18 +4301,25 @@
             }
         }
 
-        async function addQuickListItem(taskId, description) {
+        async function addQuickListItem(taskId, description, from = 'slot') {
             try {
                 const subtask = await api(`/tasks/${taskId}/subtasks`, {
                     method: 'POST',
                     body: { description, assignee_type: 'human' }
                 });
+                if (!taskSubtasks.has(taskId)) await loadSubtasks(taskId);
                 const existing = taskSubtasks.get(taskId) || [];
-                existing.push(subtask);
+                if (!existing.some(s => s.id === subtask.id)) existing.push(subtask);
                 taskSubtasks.set(taskId, existing);
+                // Typing into the list box opens the list (single-pane rule:
+                // it takes the slot from whatever was open).
+                if (from === 'box') { expandedTaskIds.clear(); expandedTaskIds.add(taskId); }
                 renderView();
-                // Keep the cursor in the next empty slot so a list can be rattled off.
-                const slot = document.querySelector(`.quick-slot-input[data-task-id="${taskId}"]`);
+                // Keep the cursor where the typing happened so a list can be
+                // rattled off: the box if that's where it started, else the
+                // pane's next empty slot.
+                const sel = from === 'box' ? `.list-box-input[data-task-id="${taskId}"]` : `.quick-slot-input[data-task-id="${taskId}"]`;
+                const slot = document.querySelector(sel);
                 if (slot) slot.focus();
             } catch (err) {
                 showToast('Error: ' + err.message);
@@ -5280,7 +5368,12 @@
                 const dayTasks = myTasks.filter(t => t.scheduled_date === day.key);
                 // Priority sorts the pending list only — the completed and
                 // assigned sections below the divider keep their own order.
-                const pendingTasks = sortByPosition(dayTasks.filter(t => !t.completed && !t.assigned_to_id && !isReview(t)));
+                // A pending "list …" task is not a row: it renders as a quiet
+                // box under the add-task input (2026-09-15), so it comes out
+                // of the pending list here. Inbox (awaiting) rows stay rows —
+                // they need their ✓/↩ answers.
+                const listTasks = dayTasks.filter(t => isListBoxTask(t));
+                const pendingTasks = sortByPosition(dayTasks.filter(t => !t.completed && !t.assigned_to_id && !isReview(t) && !isListBoxTask(t)));
                 const reviewTasks = dayTasks.filter(t => isReview(t) && !t.assigned_to_id);
                 const completedTasks = dayTasks.filter(t => t.completed);
                 const assignedTasks = dayTasks.filter(t => t.assigned_to_id && !t.completed);
@@ -5355,6 +5448,7 @@
                             <input type="text" class="task-input" placeholder="Add a task..." data-date="${day.key}">
                         </div>
                     ` : ''}
+                    ${listTasks.map(t => renderListBox(t)).join('')}
                     <div class="tasks-container">
                         <div class="pending-tasks">${tasksHtml}</div>
                     </div>
@@ -5465,7 +5559,7 @@
             // Click on day card to select it
             document.querySelectorAll('.day-card').forEach(card => {
                 card.addEventListener('click', (e) => {
-                    if (e.target.closest('.task-item') || e.target.closest('.task-input') || e.target.closest('.subtask-pane')) return;
+                    if (e.target.closest('.task-item') || e.target.closest('.task-input') || e.target.closest('.list-box') || e.target.closest('.subtask-pane')) return;
                     const dayIndex = parseInt(card.dataset.dayIndex);
                     selectDay(dayIndex);
                 });
@@ -5727,6 +5821,25 @@
                         addSubtask(parseInt(e.target.dataset.taskId), e.target.value.trim());
                         e.target.value = '';
                     }
+                });
+            });
+
+            // List boxes under the add-task input: Enter adds and opens, ▾ opens.
+            document.querySelectorAll('.list-box-input[data-task-id]').forEach(input => {
+                input.addEventListener('keypress', (e) => {
+                    if (e.key === 'Enter' && e.target.value.trim()) {
+                        const text = e.target.value.trim();
+                        e.target.value = '';
+                        addQuickListItem(parseInt(e.target.dataset.taskId), text, 'box');
+                    }
+                });
+            });
+            document.querySelectorAll('.list-box-toggle[data-task-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    const taskId = parseInt(btn.dataset.taskId);
+                    if (expandedTaskIds.has(taskId)) { expandedTaskIds.delete(taskId); renderView(); }
+                    else openListBox(taskId);
                 });
             });
 
@@ -6240,7 +6353,7 @@
             // math would write positions the server (rightly) discards and
             // desync the optimistic repaint from the persisted order.
             return sortByPosition(tasks.filter(t =>
-                t.scheduled_date === dateKey && !t.completed && !t.assigned_to_id && t.source !== 'calendar' && !isAwaiting(t) && !isReview(t)));
+                t.scheduled_date === dateKey && !t.completed && !t.assigned_to_id && t.source !== 'calendar' && !isAwaiting(t) && !isReview(t) && !isListBoxTask(t)));
         }
 
         // Writes are chained per day so two fast reorders can't land out of
