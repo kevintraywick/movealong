@@ -1764,6 +1764,26 @@
 
         .list-suggestion .subtask-desc { color: #475569; }
 
+        /* × on a suggestion: always shown (no hidden affordances), quiet until
+           hovered. Deleting is the only thing to do with a suggestion besides
+           ↑, and the row has the room. */
+        .subtask-drop {
+            flex: none;
+            width: 16px;
+            height: 16px;
+            margin-left: auto;
+            border: none;
+            background: transparent;
+            color: #cbd5e1;
+            font-size: 13px;
+            line-height: 16px;
+            padding: 0;
+            cursor: pointer;
+        }
+        .subtask-drop:hover { color: #ef4444; }
+        body.dark .subtask-drop { color: #475569; }
+        body.dark .subtask-drop:hover { color: #ef4444; }
+
         .list-suggestion .subtask-up {
             width: 16px;
             height: 16px;
@@ -4435,6 +4455,21 @@
             }
         }
 
+        // × on a list-pane suggestion deletes the row (2026-09-16). The first
+        // and only caller of DELETE /api/subtasks/:id — a suggestion is the
+        // AI's, so throwing one out costs nothing.
+        async function dropSuggestion(subtaskId, taskId) {
+            const subtasks = taskSubtasks.get(taskId);
+            if (!subtasks) return;
+            try {
+                await api(`/subtasks/${subtaskId}`, { method: 'DELETE' });
+                taskSubtasks.set(taskId, subtasks.filter(s => s.id !== subtaskId));
+                renderView();
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
         // ↑ on a list-pane suggestion: flip its assignee_type to 'human' so it
         // moves into "My list" (and survives suggestion regeneration).
         async function moveSuggestionToList(subtaskId, taskId) {
@@ -5990,6 +6025,13 @@
                 });
             });
 
+            document.querySelectorAll('.subtask-drop[data-subtask-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    dropSuggestion(parseInt(btn.dataset.subtaskId), parseInt(btn.dataset.taskId));
+                });
+            });
+
             document.querySelectorAll('.subtask-up[data-subtask-id]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -6973,6 +7015,7 @@
                     <div class="subtask-item list-row list-suggestion" data-subtask-id="${st.id}">
                         <button class="subtask-send subtask-up" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Add to the list">&uarr;</button>
                         <div class="subtask-desc">${linkifySubtask(st.description)}</div>
+                        <button class="subtask-drop" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Remove this suggestion" aria-label="Remove this suggestion">&times;</button>
                     </div>
                 `).join('');
                 const suggestionSection = suggestions.length
