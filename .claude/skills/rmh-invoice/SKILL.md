@@ -34,10 +34,15 @@ has granted that for this task in so many words.
    ```
    It writes `…/RMH/Invoices/<year>/RMH <Mon> <year> Invoice.pdf` (same
    naming as every past invoice), refuses to overwrite an existing one (pass
-   `--force` if Kevin says redo), and appends one row to
-   `…/RMH/Invoices/ledger.csv` (`date,invoice,client,hours,amount,status,paid_on`,
-   status `open`) unless that invoice is already there. Read the JSON back
-   for the path and total.
+   `--force` if Kevin says redo), and records the invoice in the ledger:
+   **the Google Sheet "RMH Invoice Ledger"** (id in the client config;
+   columns `date, invoice, client, hours, amount, status, paid_on, pdf`,
+   status `open`) plus a local `ledger.csv` beside the invoices as the copy.
+   The sheet append needs the service-account key at
+   `~/.config/tom/google-service-account.json`; until Kevin sets that up the
+   JSON reports `ledger.sheet: "failed: …"` — then **put the ledger row in the
+   task's Results** so he can paste it. Read the JSON back for the path,
+   total and ledger status.
 2. **Check the numbers against the pattern** before drafting: retainer
    2,100.00; hours × 225; the label reads "Additional <previous month>
    hours". If a value looks off, stop and ask.
@@ -58,8 +63,14 @@ has granted that for this task in so many words.
   Nov Dec.
 - Files live in `/Users/moon/Library/Mobile Documents/com~apple~CloudDocs/MOVE_37/CONSULTING/RMH/Invoices/<year>/`.
 - Bill to: Lisa Jackson, Retail Management Hero, Inc.
-- The ledger is new (there was none); it is the accounts-receivable record.
-  Marking it paid (`status=paid`, `paid_on`) is a hand edit for now.
+- The ledger is the Google Sheet **RMH Invoice Ledger** (created 2026-09-16,
+  seeded from every 2025–2026 invoice PDF; Feb 2025, Dec 2025 and July 2026
+  exist only as Pages files, so their amounts are blank). Every row is
+  `open` until Kevin marks it paid (`status=paid`, `paid_on`) by hand.
+  `scripts/tom/sheets.js` appends with a service account — Kevin's one-time
+  setup: a Google Cloud service account with the Sheets API on, its JSON key
+  at `~/.config/tom/google-service-account.json` (chmod 600), and the sheet
+  shared with the service account's email as Editor.
 - Layout: `scripts/tom/invoice.js` (pdfkit, Helvetica, one sky-blue accent
   bar). Sample render in `scripts/tom/samples/`. Change the look there, not
   per invoice.

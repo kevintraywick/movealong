@@ -11,7 +11,14 @@
     "name": "Your Name",
     "phone": "555-555-5555",
     "email": "you@example.com",
-    "address": ["1 Main St", "Town, ST 00000"]
+    "address": [
+      "1 Main St",
+      "Town, ST 00000"
+    ]
   },
-  "closing": ["Thank you!", "Your Name"]
+  "closing": [
+    "Thank you!",
+    "Your Name"
+  ],
+  "ledger_sheet_id": null
 }

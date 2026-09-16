@@ -130,17 +130,31 @@ client.closing.forEach((line, i) => doc.text(line, L, y + i * 22));
 doc.end();
 
 // ---------- ledger (accounts receivable) ----------
-let ledgerRow = null;
+// Kevin's ledger is a Google Sheet ("RMH Invoice Ledger", id in the client
+// config). A CSV beside the invoices is kept as the local copy and the
+// fallback when the sheet can't be reached (no key yet, offline).
+const ledgerRow = [isoDate, invoiceNo, client.key, hours, total.toFixed(2), 'open', '', `${year}/${path.basename(outPath)}`];
+let ledger = { csv: null, sheet: null };
 if (!flag('no-ledger')) {
-  const ledger = path.join(client.invoices_dir, 'ledger.csv');
-  const headerLine = 'date,invoice,client,hours,amount,status,paid_on';
-  const existing = fs.existsSync(ledger) ? fs.readFileSync(ledger, 'utf8') : headerLine + '\n';
+  const csvPath = path.join(client.invoices_dir, 'ledger.csv');
+  const headerLine = 'date,invoice,client,hours,amount,status,paid_on,pdf';
+  const existing = fs.existsSync(csvPath) ? fs.readFileSync(csvPath, 'utf8') : headerLine + '\n';
   if (!existing.split('\n').some(l => l.split(',')[1] === invoiceNo)) {
-    ledgerRow = `${isoDate},${invoiceNo},${client.key},${hours},${total.toFixed(2)},open,`;
-    fs.writeFileSync(ledger, existing.replace(/\n?$/, '\n') + ledgerRow + '\n');
-  }
+    fs.writeFileSync(csvPath, existing.replace(/\n?$/, '\n') + ledgerRow.join(',') + '\n');
+    ledger.csv = 'appended';
+  } else ledger.csv = 'exists';
 }
 
-const result = { pdf: outPath, invoice: invoiceNo, date: dateLine, hours, rate: client.rate, retainer: client.retainer, expenses, total, ledger_row: ledgerRow };
-if (flag('json')) console.log(JSON.stringify(result, null, 2));
-else console.log(`${invoiceNo}: ${hours} h × $${client.rate} + $${client.retainer} retainer + $${expenses} expenses = $${money(total)}\n→ ${outPath}${ledgerRow ? '\n→ ledger row added' : ''}`);
+async function finish() {
+  if (!flag('no-ledger') && client.ledger_sheet_id) {
+    try {
+      ledger.sheet = await require('./sheets').appendRow(client.ledger_sheet_id, ledgerRow);
+    } catch (err) {
+      ledger.sheet = 'failed: ' + err.message;
+    }
+  }
+    const result = { pdf: outPath, invoice: invoiceNo, date: dateLine, hours, rate: client.rate, retainer: client.retainer, expenses, total, ledger, ledger_row: ledgerRow };
+  if (flag('json')) console.log(JSON.stringify(result, null, 2));
+  else console.log(`${invoiceNo}: ${hours} h × $${client.rate} + $${client.retainer} retainer + $${expenses} expenses = $${money(total)}\n→ ${outPath}\n→ ledger: csv ${ledger.csv || 'skipped'}, sheet ${ledger.sheet || 'skipped'}`);
+}
+finish();
