@@ -222,9 +222,10 @@
             font-size: 12px;
         }
         .list-box-input:focus { outline: none; }
-        /* Same grey as "Add a task…" above it — the first cut sat on a grey
-           box and read dimmer than the input (Kevin: "as bright as add a task"). */
-        .list-box-input::placeholder { color: #94a3b8; }
+        /* Pink (2026-09-15): grey at the add-task input's brightness still read
+           as a second input. The lighter dashboard pink (#e87ba4) is under 3:1
+           on white, so text takes the darker step; dark mode goes lighter. */
+        .list-box-input::placeholder { color: #db2777; opacity: 1; }
         .list-box-toggle {
             flex: none;
             width: 24px;
@@ -2959,7 +2960,7 @@
         body.dark .list-box:focus-within,
         body.dark .list-box.open { border-color: #0284c7; }
         body.dark .list-box-input { color: #e2e8f0; }
-        body.dark .list-box-input::placeholder { color: #94a3b8; }
+        body.dark .list-box-input::placeholder { color: #f472b6; }
         body.dark .subtask-check { border-color: #475569; }
         body.dark .subtask-cost { background: #334155; color: #cbd5e1; }
         body.dark a.subtask-cost:hover { background: #0c4a6e; color: #e0f2fe; }
