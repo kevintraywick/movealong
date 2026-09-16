@@ -34,15 +34,10 @@ has granted that for this task in so many words.
    ```
    It writes `…/RMH/Invoices/<year>/RMH <Mon> <year> Invoice.pdf` (same
    naming as every past invoice), refuses to overwrite an existing one (pass
-   `--force` if Kevin says redo), and records the invoice in the ledger:
-   **the Google Sheet "RMH Invoice Ledger"** (id in the client config;
-   columns `date, invoice, client, hours, amount, status, paid_on, pdf`,
-   status `open`) plus a local `ledger.csv` beside the invoices as the copy.
-   The sheet append needs the service-account key at
-   `~/.config/tom/google-service-account.json`; until Kevin sets that up the
-   JSON reports `ledger.sheet: "failed: …"` — then **put the ledger row in the
-   task's Results** so he can paste it. Read the JSON back for the path,
-   total and ledger status.
+   `--force` if Kevin says redo), and records the invoice in the ledger
+   (`ledger.csv` beside the invoices — the record) and regenerates
+   `ledger.html` beside it — the view Kevin opens in Safari. Read the JSON
+   back for the path, total and ledger status.
 2. **Check the numbers against the pattern** before drafting: retainer
    2,100.00; hours × 225; the label reads "Additional <previous month>
    hours". If a value looks off, stop and ask.
@@ -63,14 +58,15 @@ has granted that for this task in so many words.
   Nov Dec.
 - Files live in `/Users/moon/Library/Mobile Documents/com~apple~CloudDocs/MOVE_37/CONSULTING/RMH/Invoices/<year>/`.
 - Bill to: Lisa Jackson, Retail Management Hero, Inc.
-- The ledger is the Google Sheet **RMH Invoice Ledger** (created 2026-09-16,
-  seeded from every 2025–2026 invoice PDF; Feb 2025, Dec 2025 and July 2026
-  exist only as Pages files, so their amounts are blank). Every row is
-  `open` until Kevin marks it paid (`status=paid`, `paid_on`) by hand.
-  `scripts/tom/sheets.js` appends with a service account — Kevin's one-time
-  setup: a Google Cloud service account with the Sheets API on, its JSON key
-  at `~/.config/tom/google-service-account.json` (chmod 600), and the sheet
-  shared with the service account's email as Editor.
+- **The ledger is `ledger.csv` + `ledger.html` in the Invoices folder** — no
+  Google, no server (Kevin's call, 2026-09-16). Seeded from every 2025–2026
+  invoice PDF; Feb 2025, Dec 2025 and July 2026 exist only as Pages files,
+  so their amounts are blank. Every seeded row is `open` until marked.
+  Changes are commands, never edits to the page:
+  `node scripts/tom/ledger.js paid "RMH Sept 2026" 2026-09-20`,
+  `node scripts/tom/ledger.js paid-through 2026-08-01` (everything dated on
+  or before, date unknown), `node scripts/tom/ledger.js open` (regenerate and
+  open in Safari). When Kevin says an invoice was paid, run the command.
 - Layout: `scripts/tom/invoice.js` (pdfkit, Helvetica, one sky-blue accent
   bar). Sample render in `scripts/tom/samples/`. Change the look there, not
   per invoice.
