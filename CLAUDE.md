@@ -217,6 +217,11 @@ Replaced the 1/2/3 priority marks on 2026-08-14. A task's rank is where it sits.
 - **`stickyArrowTaskId` holds the arrow under the keyboard** like `stickyTaskId` — a move slides the arrow to another card. One `mousemove` listener clears both. `3` then `2` is +5.
 - **The move optimistically writes `task.scheduled_date` locally before the PUT.** `moveTaskToDate()` is async and nothing else updates the row until `loadTasks()` returns, so a fast second digit would otherwise compute from the stale date.
 
+### Edit text in place (Shift+Right-click, 2026-09-16)
+- **Shift+Right-click a task on the board or List view, or a step / list item in a pane, to edit its text where it sits.** One document-level `contextmenu` listener (`startInlineEdit()`): the element's text becomes an `.inline-edit` field (board-rename idiom); Enter or blur saves, Escape or empty cancels, then `renderView()`. Shift is what leaves the browser's own menu on a plain right-click. Plain click on a task still toggles the pane; Option+Click (page) and Shift+Option+Click (quick-lock) are unchanged.
+- **`PUT /api/tasks/:id` now takes `description`** (non-empty string, trimmed, 500 cap; **400 on calendar rows** — the next sync would overwrite the title). Subtasks already accepted it (`PUT /api/subtasks/:id`, which logs a `step_events` `edit`). Inbox, review, completed and placeholder rows are left alone (no `data-task-id` on their description, or checked in the handler). List-pane rows now carry `data-subtask-id` on the row so the editor can find them.
+- The row's `draggable` is switched off while the field is open — Safari otherwise starts a drag when you select text. Re-render restores it. Idle tip added.
+
 ### Goal for the day (hover + `g`, 2026-09-08)
 - **Hover a pending task and press `g`** to make it today's goal; `g` again clears. `tasks.goal` (0/1). Text renders **orange** (`#ea580c`, `#fb923c` dark) and bold, day board and List; `.locked-today` is declared after it (light and dark) so a goal that is also today's deadline reads red.
 - **Sorts to the top of its day under any locked task** (`sortByPosition()`: calendar → locked → goal → manual). Display only. Kevin's brief: "highest priority, which is one".

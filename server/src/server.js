@@ -1784,11 +1784,24 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
 // Update a task (complete, move date, etc.)
 app.put('/api/tasks/:taskId', (req, res) => {
   const { taskId } = req.params;
-  const { scheduled_date, completed, locked, priority, repeat_rule, due_date, goal } = req.body;
+  const { scheduled_date, completed, locked, priority, repeat_rule, due_date, goal, description } = req.body;
 
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [taskId]);
   if (!task) {
     return res.status(404).json({ error: 'Task not found' });
+  }
+
+  // Editing the text (Shift+Right-click on the board, 2026-09-16). A calendar
+  // row's title belongs to the feed — the next sync would overwrite it.
+  let nextDescription;
+  if (description !== undefined) {
+    if (typeof description !== 'string' || !description.trim()) {
+      return res.status(400).json({ error: 'description must be a non-empty string' });
+    }
+    if (task.source === 'calendar') {
+      return res.status(400).json({ error: "Calendar events can't be renamed here" });
+    }
+    nextDescription = description.trim().slice(0, 500);
   }
 
   // A task somebody handed you is not yours until you take it. Ticking it off
@@ -1801,6 +1814,11 @@ app.put('/api/tasks/:taskId', (req, res) => {
 
   const updates = [];
   const values = [];
+
+  if (nextDescription !== undefined) {
+    updates.push('description = ?');
+    values.push(nextDescription);
+  }
 
   if (scheduled_date !== undefined) {
     updates.push('scheduled_date = ?');

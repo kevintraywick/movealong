@@ -226,14 +226,19 @@ afterward — spillover, reschedules, assign, and return all preserve it.
 It drives the frontend's days-pushed counter (inclusive days from origin
 to max(scheduled_date, today), hidden on the origin day).
 
-#### Update task (complete, reschedule, lock, repeat)
+#### Update task (complete, reschedule, lock, repeat, rename)
 ```
 PUT /api/tasks/:taskId
 Body: { "completed": true } or { "scheduled_date": "2024-12-20" }
    or { "locked": true } or { "priority": 3 }
-   or { "repeat_rule": "monthly" }
+   or { "repeat_rule": "monthly" } or { "description": "Buy cedar posts" }
 Response: { updated task }
 ```
+
+`description` (2026-09-16) renames the task: a non-empty string, trimmed,
+capped at 500 characters; **400 on `source = 'calendar'` rows** (the feed
+owns an event's title and the next sync would overwrite it). The board's
+Shift+Right-click editor uses this and `PUT /api/subtasks/:id`.
 
 `repeat_rule` is `null` (one-off) or one of `"daily"` / `"weekly"` /
 `"monthly"`; anything else is coerced to `null`. It is **refused on
