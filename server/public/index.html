@@ -3348,6 +3348,14 @@
         let draggedProjectId = null;
         let justDraggedProject = false;
         let expandedTaskIds = new Set();
+        // A day that holds a list shows the list open (Kevin, 2026-09-16)
+        // unless a task pane has the day's slot. autoOpenListIds is rebuilt on
+        // every renderBoard(); closedListIds remembers a ▾ that shut one for
+        // this page load, so "open by default" never fights the person.
+        let autoOpenListIds = new Set();
+        const closedListIds = new Set();
+        const loadingSubtasksFor = new Set();
+        function listBoxOpen(id) { return expandedTaskIds.has(id) || autoOpenListIds.has(id); }
         let taskSubtasks = new Map();
         function isExpandedTask(id) { return expandedTaskIds.has(id); }
         function toggleExpandedTask(id) {
@@ -3381,7 +3389,7 @@
         // the list opens below; click ▾ to just look. Both open the same pane a
         // list row used to open, so the pane code is untouched.
         function renderListBox(task) {
-            const open = expandedTaskIds.has(task.id);
+            const open = listBoxOpen(task.id);
             return `
                 <div class="list-box ${open ? 'open' : ''}" data-task-id="${task.id}">
                     <input type="text" class="list-box-input" data-task-id="${task.id}"
@@ -3466,6 +3474,15 @@
                 for (const list of taskSubtasks.values()) { st = list.find(s => s.id === subtaskId); if (st) break; }
                 if (!st) return;
                 startInlineEdit(stepDesc, st.description, next => saveSubtaskDescription(subtaskId, next));
+                return;
+            }
+            // The pink list box: edit the list's name where it sits.
+            const box = e.target.closest('.list-box[data-task-id]');
+            if (box) {
+                const task = tasks.find(t => t.id === parseInt(box.dataset.taskId));
+                if (!task) return;
+                e.preventDefault();
+                startInlineEdit(box, task.description, next => saveTaskDescription(task.id, next));
                 return;
             }
             // A task on the board or the List view. Inbox and review rows carry
@@ -5456,6 +5473,7 @@
                 { id: 'p2', description: 'Add your team name above, e.g., Big Time Donuts Crew', isPlaceholder: true }
             ];
 
+            autoOpenListIds = new Set();
             days.forEach((day, index) => {
                 const dayTasks = myTasks.filter(t => t.scheduled_date === day.key);
                 // Priority sorts the pending list only — the completed and
@@ -5465,6 +5483,25 @@
                 // of the pending list here. Inbox (awaiting) rows stay rows —
                 // they need their ✓/↩ answers.
                 const listTasks = dayTasks.filter(t => isListBoxTask(t));
+                // The day's first list opens on its own when nothing else has
+                // the day's pane slot — not a task pane, not the briefing on
+                // today, and not a list the person shut with ▾.
+                const briefingTakesSlot = day.isToday && briefing && !briefingHidden() && isSignedUp
+                    && (briefing.items.length || briefing.weather);
+                if (!dayTasks.some(t => expandedTaskIds.has(t.id)) && !briefingTakesSlot) {
+                    const auto = listTasks.find(t => !closedListIds.has(t.id));
+                    if (auto) {
+                        autoOpenListIds.add(auto.id);
+                        if (!taskSubtasks.has(auto.id) && !loadingSubtasksFor.has(auto.id) && generatingSubtasksFor !== auto.id) {
+                            loadingSubtasksFor.add(auto.id);
+                            loadSubtasks(auto.id).then(() => {
+                                if (!taskSubtasks.has(auto.id)) taskSubtasks.set(auto.id, []); // a failed read must not re-fire every render
+                                loadingSubtasksFor.delete(auto.id);
+                                renderView();
+                            });
+                        }
+                    }
+                }
                 const pendingTasks = sortByPosition(dayTasks.filter(t => !t.completed && !t.assigned_to_id && !isReview(t) && !isListBoxTask(t)));
                 const reviewTasks = dayTasks.filter(t => isReview(t) && !t.assigned_to_id);
                 const completedTasks = dayTasks.filter(t => t.completed);
@@ -5550,7 +5587,7 @@
                 column.className = `day-column ${dimmed ? 'dimmed' : ''}`;
                 column.appendChild(card);
 
-                const expandedDayTasks = dayTasks.filter(t => expandedTaskIds.has(t.id));
+                const expandedDayTasks = dayTasks.filter(t => expandedTaskIds.has(t.id) || autoOpenListIds.has(t.id));
                 // The briefing takes today's pane slot when no task pane has it
                 // (single-pane rule: a task you open replaces it, closing brings it back).
                 if (day.isToday && briefing && !briefingHidden() && !expandedDayTasks.length && isSignedUp
@@ -5930,8 +5967,9 @@
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const taskId = parseInt(btn.dataset.taskId);
-                    if (expandedTaskIds.has(taskId)) { expandedTaskIds.delete(taskId); renderView(); }
-                    else openListBox(taskId);
+                    if (expandedTaskIds.has(taskId)) { expandedTaskIds.delete(taskId); closedListIds.add(taskId); renderView(); }
+                    else if (autoOpenListIds.has(taskId)) { closedListIds.add(taskId); renderView(); }
+                    else { closedListIds.delete(taskId); openListBox(taskId); }
                 });
             });
 
@@ -6916,18 +6954,15 @@
                     </div>
                 `).join('');
 
-                // 3 blank slots to start; once all three fill, one fresh slot follows each entry.
-                let slots = '';
-                const emptySlots = Math.max(3 - mine.length, 1);
-                for (let i = 0; i < emptySlots; i++) {
-                    slots += `
-                        <div class="quick-slot">
-                            <div class="subtask-check"></div>
-                            <input type="text" class="quick-slot-input" data-task-id="${taskId}"
-                                   placeholder="${i === 0 && !mine.length ? 'Add an item&hellip;' : ''}">
-                        </div>
-                    `;
-                }
+                // One entry slot at the TOP, where the day card keeps its
+                // add-task box (Kevin, 2026-09-16). It used to be three dashed
+                // slots under the items.
+                const slots = `
+                    <div class="quick-slot">
+                        <div class="subtask-check"></div>
+                        <input type="text" class="quick-slot-input" data-task-id="${taskId}" placeholder="Add an item&hellip;">
+                    </div>
+                `;
 
                 // Suggestions carry ↑ and their text — no assignee emoji (every
                 // one of them is the AI's; saying so on each row is noise), no
@@ -6949,7 +6984,9 @@
                 // already said by the ↑ that no list row has. Two labels bought
                 // nothing and cost two lines of a pane that is 178px wide.
                 const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Suggest a fresh set — anything you haven't added is replaced">&orarr;</button>`;
-                content = `${regenAll}${header}<div class="subtask-list">${mineRows}</div>${slots}${suggestionSection}${researchNote(taskId, suggestions)}`;
+                // No cost total on a list: a list is things, not a job to price.
+                const listHeader = taskTitle ? `<div class="subtask-pane-header"><span class="subtask-pane-title">${escapeHtml(taskTitle)}</span></div>` : '';
+                content = `${regenAll}${listHeader}${slots}<div class="subtask-list">${mineRows}</div>${suggestionSection}`;
             } else {
                 // Completed steps disappear from the pane (server keeps them for the List-view progress count).
                 const pending = subtasks.filter(st => !st.completed);
@@ -7882,7 +7919,7 @@
         // A new tip is dealt on every page load and whenever the tip is
         // clicked; the same tip stays put while you hover in and out.
         const IDLE_TIPS = [
-            'Shift+Right-click a task, a step or a list item to edit its text in place. Enter saves, Escape cancels.',
+            'Shift+Right-click a task, a step, a list item or a list box to edit its text in place. Enter saves, Escape cancels.',
             'Start a task with the word "list" — "list movies to see" — and the assistant suggests items. Click a suggestion\u2019s \u2191 to keep it.',
             'Drag a task onto the middle of another task to make it the next step in a series. It moves to the day after.',
             'Drag a task to the top or bottom edge of another row to reorder it within its day — a blue line shows where it lands.',

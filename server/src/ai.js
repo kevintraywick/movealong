@@ -143,10 +143,11 @@ function buildPrompt(taskDescription) {
 Suggest the 7 best concrete items they might want on that list, doing the research for them.
 
 RULES:
-1. Each suggestion must be a real, specific candidate — real movie titles, real places, real products, real names — never categories or filler like "something fun" or "a classic option".
-2. Include a URL in parentheses when it helps the user verify or act (e.g. fandango.com, yelp.com/search?find_desc=..., imdb.com, tripadvisor.com).
-3. Keep each suggestion short — under 12 words before the link.
-4. Order from most to least likely to make the list.
+1. Each suggestion must be a real, specific candidate — real movie titles, real places, real names, the actual thing to pack or bring — never categories or filler like "something fun" or "a classic option".
+2. This is a list, not a shopping trip. Never suggest a product for sale, never a price, never a retailer or store link (no amazon, homedepot, rei, target or the like). "Rain jacket" is a list item; "Patagonia Torrentshell ($149, rei.com)" is not.
+3. Most items carry no link. A URL in parentheses is allowed only when it identifies the thing itself — a movie on imdb.com, a place on yelp.com or tripadvisor.com, an event page.
+4. Keep each suggestion short — under 12 words before any link.
+5. Order from most to least likely to make the list.
 
 Return ONLY a JSON array of 7 strings. Example for "list movies to go see":
 ["Check what's playing this week (fandango.com/movies-in-theaters)", "The current #1 at the box office", "The new sci-fi everyone's talking about (imdb.com/chart/moviemeter)"]

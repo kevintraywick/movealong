@@ -3867,7 +3867,9 @@ app.post('/api/tasks/:taskId/generate-subtasks', async (req, res) => {
     // one row costs a full search budget, so ↺ would be the most expensive habit
     // in the app. Adding a task on a research-enabled board is the only automatic
     // trigger; everything else goes through the pane's Research button or →.
-    const wants = usedRealAi && !isRegenerate && researchEnabled(task.project_id);
+    // A list never researches (2026-09-16): the pass priced list items off
+    // retailer pages and put a $ total on a packing list's title.
+    const wants = usedRealAi && !isRegenerate && !isListTask && researchEnabled(task.project_id);
     const overBudget = wants && !researchAllowed(task.project_id);
     const willResearch = wants && !overBudget;
 
