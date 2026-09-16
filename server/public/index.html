@@ -1408,18 +1408,19 @@
            boards, then theme/focus/dashboard/view/account/help — and the 14px
            header gap alone did not separate them. Since 2026-09-15 the switches
            come before the boards (closer to today's card, which is what they
-           act on); the boards float in the middle. */
+           act on); the dashboard icon and the boards float in the middle. */
         #projectTabs {
             display: flex;
             gap: 6px;
             align-items: center;
             flex-wrap: wrap;
-            /* auto on both sides splits the free space two ways, so the boards
-               sit in the middle with breathing room, pinned to neither the
-               switch cluster nor the chrome. */
-            margin-left: auto;
+            /* auto on the right here and on the left of #dashboardLink split
+               the free space two ways, so dashboard + boards sit in the middle
+               with breathing room, pinned to neither the switch cluster nor
+               the chrome. */
             margin-right: auto;
         }
+        #dashboardLink { margin-left: auto; margin-right: 4px; }
 
         /* An off-screen board has a deadline due (or overdue) — red, the
            sanctioned warning colour, same as overdue day panes. */
@@ -3176,6 +3177,11 @@
                 <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import">&#128197;</button>
             </div>
 
+            <!-- Dashboard: what you've completed this month, one page. Sits just left
+                 of the boards (2026-09-16); its margin-left:auto starts the middle group. -->
+            <a class="icon-toggle dashboard-link" id="dashboardLink" href="/dashboard"
+               title="Dashboard — what you've completed this month" aria-label="Dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></a>
+
             <!-- Project tabs, in the user's own order. The active tab is
                  styled in place — it never moves to the front. -->
             <div id="projectTabs"></div>
@@ -3187,11 +3193,6 @@
                  until it's on, like a light switch that shows its own state. -->
             <button class="theme-toggle focus-toggle" id="focusToggleBtn" role="switch" aria-checked="false"
                     title="Focus — dim every day but the one you're on" aria-label="Toggle focus mode"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linejoin="round" stroke-linecap="round" aria-hidden="true"><path d="M5 20.5V11a7 7 0 0 1 14 0v9.5l-2.3-2-2.3 2-2.4-2-2.3 2z"/><circle cx="9.6" cy="10.6" r="1.15" fill="currentColor" stroke="none"/><circle cx="14.4" cy="10.6" r="1.15" fill="currentColor" stroke="none"/></svg></button>
-
-            <!-- Dashboard: what you've completed this month, one page. Same
-                 stroked-icon vocabulary as the view toggle beside it. -->
-            <a class="icon-toggle dashboard-link" id="dashboardLink" href="/dashboard"
-               title="Dashboard — what you've completed this month" aria-label="Dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></a>
 
             <!-- One button, two views — it shows the icon of the view you'd
                  switch TO, the same convention as the theme toggle. Sits
