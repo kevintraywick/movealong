@@ -159,9 +159,10 @@ Return ONLY a JSON array of 7 strings. Example for "list movies to go see":
 Task: "${taskDescription}"
 
 CRITICAL RULES:
+0. CONCISE. Each step is ONE action, UNDER 12 WORDS before any link, starting with a verb. No explanations, no "so that", no "to ensure", no second sentence, no options listed in prose. The pane showing these is 178px wide; a long step wraps to four lines and gets skipped. "Measure the gate opening" — not "Measure the gate opening carefully with a tape measure so you know what size latch to buy".
 1. Every subtask must be SPECIFIC and ACTIONABLE — never vague project-management filler like "Define requirements" or "Research options".
 2. Do NOT prefix subtasks with mini-labels like "Decision:", "Research:", "Project plan:". Just write the action directly.
-3. Include real, working URLs in parentheses when helpful — link to relevant retailers, guides, comparison sites, or location-aware tools. Examples:
+3. Include ONE real, working URL in parentheses only when it helps the person act — a retailer search, a guide, a comparison site, a location-aware tool. Never two links in a step. Examples:
    - amazon.com/s?k=cedar+boards
    - audubon.org/bird-guide
    - google.com/travel/flights
@@ -172,6 +173,7 @@ CRITICAL RULES:
 6. AI-assigned subtasks (assignee_type: "ai") should be research tasks that return concrete options, prices, links, and comparisons.
 7. Human-assigned subtasks (assignee_type: "human") should be physical actions or personal decisions only the person can make.
 8. Use depends_on (0-based index) only when a subtask truly can't start before another finishes.
+9. Re-read every step before answering; cut any word that isn't the action, the object, or the link.
 
 Return ONLY a JSON array. Example:
 [

@@ -26,6 +26,8 @@ Subtasks must be **specific, actionable, research-backed** — never PM filler.
 Bad: "Define requirements and scope", "Research materials and tools needed", "Create a detailed plan".
 Good: "Pick a location — sunny, 5-10 ft high, near trees (birdsonly.com/placement-guide)", "Choose target birds for your area (audubon.org/native-plants/98101)", "Decide: buy plans online ($5-15 on Etsy) vs design your own", "Get materials — cedar boards, screws, waterproof glue (Home Depot list)".
 
+**Concise (Kevin, 2026-09-16: "way too verbose"):** the draft prompt's rule 0 caps a step at ONE action, under 12 words before any link, verb first, one link at most, no rationale clauses — the pane is 178px wide. The list prompt (12) and research pass (14) already carried caps; the ordinary draft had none.
+
 Principles: prefix a mini-label when helpful ("Project plan:", "Decision:", "Research:"); include real, relevant links (retailer searches, guides, location-aware resources); surface the actual decisions ("Decide: cook vs cater vs potluck (Thumbtack caterers near you)"); be domain-specific (bird species and wood types, not "gather materials"); AI-assigned subtasks return concrete options, prices, links and comparisons, not summaries.
 
 ### Two-phase subtasks (draft now, research behind it)
