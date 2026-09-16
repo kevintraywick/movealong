@@ -1,0 +1,17 @@
+{
+  "key": "acme",
+  "client": "Acme Widgets, Inc.",
+  "contact": "Jane Doe",
+  "email": "jane@example.com",
+  "invoice_prefix": "ACME",
+  "retainer": 1000,
+  "rate": 150,
+  "invoices_dir": "/Users/you/Documents/Consulting/Acme/Invoices",
+  "from": {
+    "name": "Your Name",
+    "phone": "555-555-5555",
+    "email": "you@example.com",
+    "address": ["1 Main St", "Town, ST 00000"]
+  },
+  "closing": ["Thank you!", "Your Name"]
+}

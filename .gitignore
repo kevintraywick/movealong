@@ -9,3 +9,9 @@ archive/
 
 # Commercial VO renders (regenerable from the script doc)
 docs/commercial/vo/
+
+# Tom's skills: real client files carry rates and contacts; only example.json ships
+scripts/tom/clients/*.json
+!scripts/tom/clients/example.json
+scripts/tom/node_modules/
+scripts/tom/samples/

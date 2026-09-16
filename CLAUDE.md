@@ -139,6 +139,12 @@ Principles: prefix a mini-label when helpful ("Project plan:", "Decision:", "Res
 - Verified over stdio against a throwaway board: every tool, dedupe, bad-board error, `x-tz` making `list_tasks.today` the Chicago date. Nothing logs to `step_events` beyond what routes already log.
 - **The 2026-09-13 MCP commit shipped without these docs** — a multi-file `patch()` script asserted on a stale CLAUDE.md anchor after writing `index.js`, and the unchained `git commit` ran anyway. Second time this fired (see Conventions).
 
+### Tom — the doing agent (direction 2026-09-16; first skill built, no board plumbing yet)
+- **Kevin named the AI agent Tom.** The premise: some tasks Tom can do himself ("send my RMH invoice"), so he should notice, ask what he needs, do the work, and present the output for review. **Draft only, unless Kevin grants autonomy for that task in words** (Q2). **Heartbeat: a Claude Code scheduled run every 30 minutes** drains Tom's queue (Q3). Whether Tom replaces Tessa is open (Q1).
+- **Specialization = skill files, not different brains.** Kevin pictured specialist agents (production, HR/ops, accounting); the mechanism is one model plus a bundle of skills, tools and credentials per specialty — and the narrower tool access per bundle is the safety win. So **skills are step zero**: `.claude/skills/<name>/SKILL.md` (checked in) with scripts in `scripts/tom/`. The offer at draft time fires only when a skill matches; no match → "Tom can learn this".
+- **Planned build order:** (1) offer at draft time — the phase 1 draft returns `agent_offer`, a quiet Tom chip on the row, one button in the pane; (2) the run reuses Tessa's plumbing (assign to an AI auto-accepts, finished work comes home as a review row with Results on the task page); (3) an `agent_runs` queue + `list_runs`/`claim_run`/`finish_run` MoveIt tools drained by the desktop Claude; (4) the ladder — three accepted offers of the same kind → runs on sight, two rejections → retired.
+- **`rmh-invoice` is the first skill** (`.claude/skills/rmh-invoice/SKILL.md`, `scripts/tom/invoice.js`, config `scripts/tom/clients/rmh.json` — **gitignored**: it carries his rate, retainer and the client contact; `example.json` ships). Pattern read off the 2025–26 invoices: dated the 1st, $2,100 retainer, "Additional <previous month> hours" × $225, expenses, total; invoice # and filename `RMH <Mon> <year>` with his month spellings (June, July, Sept). Renders with **pdfkit** (pure JS, Helvetica, one sky-blue bar — no Pages, no browser), refuses to overwrite, and appends to a new **`Invoices/ledger.csv`** receivables ledger (there was none). The Gmail connector's `create_draft` takes base64 attachments, so Tom leaves a draft with the PDF on it. **Tom asks for the hours** — Kevin totals them by hand; never guess. Recipient email is unknown (`email: null`) until read off the last sent thread.
+
 ### Task pages (/task/:id, 2026-08-21)
 - **Every task has its own page** — `GET /task/:id` serves `public/task.html` (one static file like `/help`), reads its id from the URL, talks to `/api/tasks/:id/page`. Reachable by anyone with the link.
 - **Three panes: Background & instructions** (kept short), **Notes**, **Results**. Header: owner · board · created day and an open/completed chip.
@@ -323,6 +329,8 @@ server/src/calendar.js       - iCal feed fetch/parse/filter + reconciliation int
 server/mcp/                  - The board as an MCP server (own package; talks to REST, never the DB)
 server/movealong.db          - SQLite file (gitignored)
 server/package.json          - Backend deps + scripts (`start`, `dev`)
+scripts/tom/                 - Tom's skills: Mac-side scripts the doing agent runs (own package; invoice.js + clients/, real client files gitignored)
+.claude/skills/              - Project skills Tom follows (rmh-invoice is the first); checked in
 docs/animation/              - Every help vignette one-per-file (+ the commercial animatic)
 docs/animation/build.js      - Regenerates those from help.html
 docs/favicon/build.js        - Regenerates the favicon set into server/public/
