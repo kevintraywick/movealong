@@ -762,11 +762,9 @@
             opacity: 0.45;
         }
 
-        .task-item.due {
-            border-left: 2px dashed #f59e0b;
-            padding-left: 4px;
-            margin-left: -6px;
-        }
+        /* The amber left edges on .due, .locked and the grey one on .calendar
+           were dropped 2026-09-15 (Kevin: "let's drop the vertical lines").
+           The 🔒 (solid / faded) and the 📅 mark carry the state alone. */
 
         .task-unlink {
             flex-shrink: 0;
@@ -822,13 +820,6 @@
             background: rgba(14, 165, 233, 0.15);
         }
 
-        /* Locked tasks get a deadline accent */
-        .task-item.locked {
-            border-left: 2px solid #f59e0b;
-            padding-left: 4px;
-            margin-left: -6px;
-        }
-
         /* Goal for the day (hover + g). Orange — not the lock's amber and not
            the overdue red — and declared before .locked-today so a goal that
            is also today's deadline still reads red. */
@@ -847,12 +838,6 @@
            iCal feed. Deliberately quiet — no amber (that means "you locked
            this") and no red (reserved for overdue and deadlines). They sort
            above every priority level, so they need no extra emphasis. */
-        .task-item.calendar {
-            border-left: 2px solid #cbd5e1;
-            padding-left: 4px;
-            margin-left: -6px;
-        }
-
         .task-event-mark {
             flex-shrink: 0;
             width: 12px;
@@ -2920,7 +2905,6 @@
         body.dark .task-item.source-highlight { background: rgba(56, 189, 248, 0.18); }
         body.dark .task-divider { border-top-color: #334155; }
         body.dark .task-item.completed .task-description { color: #64748b; }
-        body.dark .task-item.calendar { border-left-color: #475569; }
         body.dark .task-event-time { color: #94a3b8; }
         /* Beats the light .task-item.calendar .task-description compound (0,3,0). */
         body.dark .task-item.calendar .task-description { color: #cbd5e1; }
