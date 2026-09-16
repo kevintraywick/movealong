@@ -1764,25 +1764,24 @@
 
         .list-suggestion .subtask-desc { color: #475569; }
 
-        /* × on a suggestion: always shown (no hidden affordances), quiet until
-           hovered. Deleting is the only thing to do with a suggestion besides
-           ↑, and the row has the room. */
-        .subtask-drop {
+        /* An empty circle on a suggestion, the board's completion idiom
+           (Kevin, 2026-09-16): click it and the suggestion is done with —
+           deleted. Row reads circle · ↑ · text, like a board row's
+           circle · → · text. */
+        .subtask-dismiss {
             flex: none;
-            width: 16px;
-            height: 16px;
-            margin-left: auto;
-            border: none;
+            width: 14px;
+            height: 14px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 50%;
             background: transparent;
-            color: #cbd5e1;
-            font-size: 13px;
-            line-height: 16px;
             padding: 0;
             cursor: pointer;
+            transition: border-color 0.2s, background 0.2s;
         }
-        .subtask-drop:hover { color: #ef4444; }
-        body.dark .subtask-drop { color: #475569; }
-        body.dark .subtask-drop:hover { color: #ef4444; }
+        .subtask-dismiss:hover { border-color: #0ea5e9; background: #f0f9ff; }
+        body.dark .subtask-dismiss { border-color: #475569; }
+        body.dark .subtask-dismiss:hover { border-color: #38bdf8; background: #1e293b; }
 
         .list-suggestion .subtask-up {
             width: 16px;
@@ -4455,7 +4454,7 @@
             }
         }
 
-        // × on a list-pane suggestion deletes the row (2026-09-16). The first
+        // The circle on a list-pane suggestion deletes the row (2026-09-16). The first
         // and only caller of DELETE /api/subtasks/:id — a suggestion is the
         // AI's, so throwing one out costs nothing.
         async function dropSuggestion(subtaskId, taskId) {
@@ -6025,7 +6024,7 @@
                 });
             });
 
-            document.querySelectorAll('.subtask-drop[data-subtask-id]').forEach(btn => {
+            document.querySelectorAll('.subtask-dismiss[data-subtask-id]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
                     dropSuggestion(parseInt(btn.dataset.subtaskId), parseInt(btn.dataset.taskId));
@@ -7013,9 +7012,9 @@
                 // thing on the row.
                 const suggestionRows = suggestions.map(st => `
                     <div class="subtask-item list-row list-suggestion" data-subtask-id="${st.id}">
+                        <button class="subtask-dismiss" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Done with this suggestion — removes it" aria-label="Remove this suggestion"></button>
                         <button class="subtask-send subtask-up" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Add to the list">&uarr;</button>
                         <div class="subtask-desc">${linkifySubtask(st.description)}</div>
-                        <button class="subtask-drop" data-subtask-id="${st.id}" data-task-id="${taskId}" title="Remove this suggestion" aria-label="Remove this suggestion">&times;</button>
                     </div>
                 `).join('');
                 const suggestionSection = suggestions.length
