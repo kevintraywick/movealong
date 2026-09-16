@@ -3487,40 +3487,54 @@
             }
         }
 
-        document.addEventListener('contextmenu', (e) => {
-            if (!e.shiftKey || inlineEditing) return;
+        // Shift+Click (2026-09-16, Kevin: the right button is taken on his
+        // setup) or Shift+Right-click. One resolver, two listeners. The click
+        // listener runs in the CAPTURE phase so it wins over the row's own
+        // click handler, which would otherwise toggle the pane.
+        function tryInlineEdit(e) {
+            if (inlineEditing || e.target.closest('a, .inline-edit')) return false;
             // A step or list item in a pane
             const stepDesc = e.target.closest('.subtask-item[data-subtask-id] .subtask-desc');
             if (stepDesc) {
-                e.preventDefault();
                 const subtaskId = parseInt(stepDesc.closest('.subtask-item').dataset.subtaskId);
                 let st = null;
                 for (const list of taskSubtasks.values()) { st = list.find(s => s.id === subtaskId); if (st) break; }
-                if (!st) return;
+                if (!st) return false;
                 startInlineEdit(stepDesc, st.description, next => saveSubtaskDescription(subtaskId, next));
-                return;
+                return true;
             }
             // The pink list box: edit the list's name where it sits.
             const box = e.target.closest('.list-box[data-task-id]');
             if (box) {
                 const task = tasks.find(t => t.id === parseInt(box.dataset.taskId));
-                if (!task) return;
-                e.preventDefault();
+                if (!task) return false;
                 startInlineEdit(box, task.description, next => saveTaskDescription(task.id, next));
-                return;
+                return true;
             }
             // A task on the board or the List view. Inbox and review rows carry
             // no data-task-id on their description, so they are left alone —
             // and so are calendar events, whose titles belong to the feed.
             const taskDesc = e.target.closest('.task-description[data-task-id], .project-task-desc[data-task-id]');
-            if (!taskDesc) return;
+            if (!taskDesc) return false;
             const taskId = parseInt(taskDesc.dataset.taskId);
             const task = tasks.find(t => t.id === taskId);
-            if (!task || task.completed || task.isPlaceholder) return;
-            e.preventDefault();
-            if (task.source === 'calendar') { showToast("Calendar events can't be renamed here"); return; }
+            if (!task || task.completed || task.isPlaceholder) return false;
+            if (task.source === 'calendar') { showToast("Calendar events can't be renamed here"); return true; }
             startInlineEdit(taskDesc, task.description, next => saveTaskDescription(taskId, next));
+            return true;
+        }
+        document.addEventListener('contextmenu', (e) => {
+            if (e.shiftKey && tryInlineEdit(e)) e.preventDefault();
         });
+        document.addEventListener('click', (e) => {
+            // Shift alone: Shift+Option is quick-lock, Shift+Cmd/Ctrl stay the browser's.
+            if (!e.shiftKey || e.altKey || e.metaKey || e.ctrlKey) return;
+            if (tryInlineEdit(e)) { e.preventDefault(); e.stopPropagation(); }
+        }, true);
+        // Shift+mousedown on the list box would otherwise focus its input first.
+        document.addEventListener('mousedown', (e) => {
+            if (e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey && !inlineEditing && e.target.closest('.list-box[data-task-id]')) e.preventDefault();
+        }, true);
 
         async function openListBox(taskId) {
             expandedTaskIds.clear();
@@ -7966,7 +7980,7 @@
         // A new tip is dealt on every page load and whenever the tip is
         // clicked; the same tip stays put while you hover in and out.
         const IDLE_TIPS = [
-            'Shift+Right-click a task, a step, a list item or a list box to edit its text in place. Enter saves, Escape cancels.',
+            'Shift+Click a task, a step, a list item or a list box to edit its text in place. Enter saves, Escape cancels.',
             'Start a task with the word "list" — "list movies to see" — and the assistant suggests items. Click a suggestion\u2019s \u2191 to keep it.',
             'Drag a task onto the middle of another task to make it the next step in a series. It moves to the day after.',
             'Drag a task to the top or bottom edge of another row to reorder it within its day — a blue line shows where it lands.',
