@@ -1560,6 +1560,11 @@
             color: #0f172a;
         }
 
+        /* A list pane wears the list box's pink as a thin border (Kevin,
+           2026-09-16), so the box and the pane below it read as one thing. */
+        .subtask-pane.list-pane { border-color: #db2777; }
+        body.dark .subtask-pane.list-pane { border-color: #f472b6; }
+
         /* Never wider than the day it hangs from. */
         .subtask-pane.board-pane {
             position: absolute;
@@ -7040,7 +7045,7 @@
             }
 
             return `
-                <div class="subtask-pane">
+                <div class="subtask-pane ${isListTask(taskTitle) ? 'list-pane' : ''}">
                     ${content}
                 </div>
             `;
