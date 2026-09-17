@@ -699,6 +699,18 @@ tasks
 
 `PUT /api/companies/:subdomain/users/:slug/health/:day` — upsert any subset of the measures for one day: `{ steps: 8412, weight: "182.5", gym: true, yoga: null }`. `null`/`''` clears that measure (absence is the honest value for a day you didn't log — never 0). Counts are rounded, weights to one decimal, checks accept true/false/1/0/"yes"/"no". 400 on a day after the caller's today, a non-number, or a body with none of the measures. Returns `{ day, entry }` with the day's full row after the write.
 
+## Notes (2026-09-16)
+
+Free-standing notes a person sends themself — a quote, an idea, a feature request — from the phone through the MoveIt server's `send_note` or typed on `/notes`. Per user, not per board. Timestamps are ISO strings.
+
+`GET /api/companies/:subdomain/users/:slug/notes` — live notes, newest first: `[{ id, body, source ('web'|'mcp'), created_at, updated_at, archived_at }]`. `?archived=1` includes archived ones. `?count=1&since=<ISO>` returns `{ count }` of notes created after that moment (the board icon's dot).
+
+`POST /api/companies/:subdomain/users/:slug/notes` — `{ body, source? }` → 201 with the note. Body trimmed, 5000 cap; unknown source falls back to `web`.
+
+`PUT /api/notes/:id` — `{ body }` and/or `{ archived: true|false }`. `DELETE /api/notes/:id` — for good.
+
+`GET /notes` serves the page (`public/notes.html`).
+
 ## Completions (dashboard)
 
 `GET /api/companies/:subdomain/users/:slug/completions?month=YYYY-MM` — completed tasks per local day (`x-tz`) for the month (default: the caller's current month). Returns `{ month, today, days_in_month, projects: [{id, name}] (tab order; id 0 = Calendar), counts: { 'YYYY-MM-DD': { project_id: n } } }`.

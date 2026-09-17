@@ -143,6 +143,23 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     inputSchema: { task_id: z.number().int(), body: z.string().min(1) }
   }, async ({ task_id, body }) => text(await api(`/api/tasks/${task_id}/notes`, { method: 'POST', body: { body, author_slug: USER } })));
 
+  // Free-standing notes (2026-09-16) — NOT a task's note feed (that is
+  // add_note). "Claude, send a note to MoveIt that says …" lands here.
+  server.registerTool('send_note', {
+    title: 'Send a note to the Notes page',
+    description: 'Send the user a free-standing note — a quote they heard, an idea, a feature request for MoveIt, anything to keep. It lands on their Notes page (/notes) as its own card, not on any task or board. Use add_note only for notes ON a task.',
+    inputSchema: { body: z.string().min(1) }
+  }, async ({ body }) => {
+    const note = await api(`${me}/notes`, { method: 'POST', body: { body, source: 'mcp' } });
+    return text({ ok: true, note, page: `${URL_BASE}/notes` });
+  });
+
+  server.registerTool('list_notes', {
+    title: 'Read the Notes page',
+    description: 'The user\'s free-standing notes, newest first (archived ones only if asked).',
+    inputSchema: { include_archived: z.boolean().optional() }
+  }, async ({ include_archived }) => text(await api(`${me}/notes${include_archived ? '?archived=1' : ''}`)));
+
   server.registerTool('set_results', {
     title: 'Write a task\'s results',
     description: 'Set the Results pane on the task page (replaces). Optionally the Background too. Markdown-ish plain text; URLs and image URLs render.',

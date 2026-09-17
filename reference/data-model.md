@@ -96,6 +96,22 @@ All `cost_*` columns are written **only** by the research pass, and are an
 estimate about the world — deliberately never combined with `ai_usage`, which is
 metered actuals.
 
+## notes
+
+Free-standing notes (2026-09-16), one card each on `/notes`. Per user. Written by the routes with ISO timestamps (not `CURRENT_TIMESTAMP` — Safari's `Date()` rejects SQLite's form).
+
+| Column      | Type    | Notes |
+|-------------|---------|-------|
+| id          | INTEGER | PK |
+| user_id     | INTEGER | FK → users, ON DELETE CASCADE |
+| body        | TEXT    | ≤ 5000; rendered escaped, URLs linked, image URLs inline |
+| source      | TEXT    | `web` (typed on the page) or `mcp` (sent through the MoveIt server) |
+| created_at  | TEXT    | ISO |
+| updated_at  | TEXT    | ISO |
+| archived_at | TEXT    | ISO or NULL; "Make it a task" archives the note |
+
+Index: `idx_notes_user` on (user_id, archived_at).
+
 ## task_notes
 
 Append-only notes feed on a task's page (`/task/:id`). A feed with

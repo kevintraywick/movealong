@@ -1414,13 +1414,26 @@
             gap: 6px;
             align-items: center;
             flex-wrap: wrap;
-            /* auto on the right here and on the left of #dashboardLink split
-               the free space two ways, so dashboard + boards sit in the middle
+            /* auto on the right here and on the left of #notesLink split
+               the free space two ways, so notes + dashboard + boards sit in the middle
                with breathing room, pinned to neither the switch cluster nor
                the chrome. */
             margin-right: auto;
         }
-        #dashboardLink { margin-left: auto; margin-right: 4px; }
+        #notesLink { margin-left: auto; margin-right: 0; position: relative; }
+        #dashboardLink { margin-right: 4px; }
+        /* A dot on the notes icon when a note arrived since the page was last
+           opened (localStorage 'movealong.notes.seen'); the visit clears it. */
+        #notesLink.unread::after {
+            content: '';
+            position: absolute;
+            top: 3px;
+            right: 3px;
+            width: 6px;
+            height: 6px;
+            border-radius: 50%;
+            background: #0ea5e9;
+        }
 
         /* An off-screen board has a deadline due (or overdue) — red, the
            sanctioned warning colour, same as overdue day panes. */
@@ -3203,6 +3216,8 @@
 
             <!-- Dashboard: what you've completed this month, one page. Sits just left
                  of the boards (2026-09-16); its margin-left:auto starts the middle group. -->
+            <a class="icon-toggle dashboard-link" id="notesLink" href="/notes"
+               title="Notes — quotes, ideas and feature requests you sent yourself" aria-label="Notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M9 12h6"/><path d="M9 16h4"/></svg></a>
             <a class="icon-toggle dashboard-link" id="dashboardLink" href="/dashboard"
                title="Dashboard — what you've completed this month" aria-label="Dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></a>
 
@@ -3853,6 +3868,7 @@
             // hanging the budget read here keeps the bar live with no new call sites.
             refreshBudget();
             loadBriefing();
+            refreshNotesBadge();
         }
 
         // ---- Morning briefing ----
@@ -3921,6 +3937,19 @@
             } catch (err) {
                 console.error('Failed to refresh project deadlines:', err);
             }
+        }
+
+        // Notes newer than the last visit to /notes light a dot on the icon.
+        async function refreshNotesBadge() {
+            const link = document.getElementById('notesLink');
+            if (!link || !currentUser) return;
+            const since = localStorage.getItem('movealong.notes.seen');
+            try {
+                const q = since ? `?count=1&since=${encodeURIComponent(since)}` : '?count=1';
+                const r = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/notes${q}`);
+                link.classList.toggle('unread', (r.count || 0) > 0);
+                link.title = r.count ? `Notes — ${r.count} new since you last looked` : 'Notes — quotes, ideas and feature requests you sent yourself';
+            } catch (e) { /* the icon still works without the dot */ }
         }
 
         async function loadSubtasks(taskId) {

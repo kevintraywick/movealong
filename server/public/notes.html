@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notes · MoveIt</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="mask-icon" href="/favicon-mask.svg" color="#0ea5e9">
+    <style>
+        @font-face {
+            font-family: 'Bricolage Grotesque';
+            src: url('/fonts/bricolage-grotesque-800.woff2') format('woff2');
+            font-weight: 800;
+            font-display: swap;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+            background: #f8fafc;
+            color: #0f172a;
+            padding: 20px;
+        }
+
+        .page { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+
+        .page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+        .wordmark {
+            font-family: 'Bricolage Grotesque', -apple-system, sans-serif;
+            font-weight: 800;
+            font-size: 17px;
+            color: #0f172a;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+        .wordmark span { color: #0ea5e9; }
+
+        .back-link { font-size: 12px; color: #0284c7; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+        .page-meta { font-size: 12px; color: #64748b; margin-left: auto; }
+        .page-meta b { color: #475569; font-weight: 600; }
+
+        .theme-toggle {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 1px solid #e2e8f0; background: #fff; color: #0284c7;
+            font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .theme-toggle:hover { border-color: #bae6fd; }
+
+        /* The composer sits at the top, like the day card's add-task box. */
+        .composer {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 10px 12px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        .composer:focus-within { border-color: #bae6fd; }
+        .composer textarea {
+            width: 100%;
+            min-height: 44px;
+            border: none;
+            resize: vertical;
+            font: inherit;
+            font-size: 13px;
+            line-height: 1.5;
+            color: #0f172a;
+            background: transparent;
+        }
+        .composer textarea:focus { outline: none; }
+        .composer textarea::placeholder { color: #94a3b8; }
+        .composer-row { display: flex; align-items: center; gap: 10px; }
+        .composer-hint { font-size: 11px; color: #94a3b8; }
+        .composer-row .btn { margin-left: auto; }
+
+        .btn {
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            color: #0284c7;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .btn:hover { border-color: #bae6fd; background: #f0f9ff; }
+        .btn.primary { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        .btn.primary:hover { background: #0284c7; border-color: #0284c7; }
+        .btn:disabled { opacity: .5; cursor: default; }
+
+        .toolbar { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #64748b; }
+        .toolbar label { display: flex; align-items: center; gap: 5px; cursor: pointer; }
+        .toolbar input { accent-color: #0ea5e9; }
+        .toolbar .count { margin-left: auto; }
+
+        /* One card per note. CSS columns give a masonry without a script;
+           each card refuses to split across columns. */
+        .cards { columns: 3 260px; column-gap: 14px; }
+        .card {
+            break-inside: avoid;
+            display: inline-block;
+            width: 100%;
+            margin: 0 0 14px;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 12px 14px 10px;
+            animation: rise .18s ease-out;
+        }
+        @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+        .card.archived { opacity: .55; }
+        .card.fresh { border-color: #7dd3fc; box-shadow: inset 3px 0 0 #7dd3fc; }
+        .card-body {
+            font-size: 13px;
+            line-height: 1.55;
+            white-space: pre-wrap;
+            overflow-wrap: anywhere;
+            color: #0f172a;
+        }
+        .card-body a { color: #0284c7; }
+        .card-body img { max-width: 100%; border-radius: 6px; display: block; margin-top: 6px; }
+        .card textarea.edit {
+            width: 100%;
+            min-height: 60px;
+            border: 1px solid #7dd3fc;
+            border-radius: 6px;
+            padding: 6px 8px;
+            font: inherit;
+            font-size: 13px;
+            line-height: 1.5;
+            resize: vertical;
+            color: #0f172a;
+            background: #fff;
+        }
+        .card textarea.edit:focus { outline: none; border-color: #0ea5e9; }
+        .card-foot {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 8px;
+            padding-top: 6px;
+            border-top: 1px solid #f1f5f9;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        .card-foot .when { white-space: nowrap; }
+        .card-foot .src {
+            padding: 1px 6px;
+            border-radius: 999px;
+            background: #f0f9ff;
+            color: #0284c7;
+            font-weight: 600;
+            font-size: 10px;
+            letter-spacing: .02em;
+        }
+        .card-foot { flex-wrap: wrap; }
+        .card-acts { margin-left: auto; display: flex; gap: 2px; }
+        .card-acts button {
+            white-space: nowrap;
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-size: 11px;
+            padding: 2px 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .card-acts button:hover { color: #0284c7; background: #f0f9ff; }
+        .card-acts button.danger:hover { color: #ef4444; background: #fef2f2; }
+
+        .empty {
+            background: #fff;
+            border: 1px dashed #e2e8f0;
+            border-radius: 12px;
+            padding: 22px;
+            text-align: center;
+            color: #64748b;
+            line-height: 1.6;
+        }
+        .empty b { color: #0f172a; font-weight: 600; }
+        .empty code { font-size: 12px; color: #0284c7; }
+
+        .toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: #0f172a; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 12px;
+            opacity: 0; transition: all .2s; pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%); }
+
+        body.dark { background: #0f172a; color: #e2e8f0; }
+        body.dark .wordmark { color: #f1f5f9; }
+        body.dark .page-meta b { color: #cbd5e1; }
+        body.dark .theme-toggle { background: #1e293b; border-color: #334155; color: #38bdf8; }
+        body.dark .composer, body.dark .card, body.dark .empty { background: #1e293b; border-color: #334155; }
+        body.dark .composer:focus-within { border-color: #0284c7; }
+        body.dark .composer textarea, body.dark .card-body, body.dark .empty b { color: #e2e8f0; }
+        body.dark .composer textarea::placeholder { color: #64748b; }
+        body.dark .btn { background: #1e293b; border-color: #334155; color: #38bdf8; }
+        body.dark .btn:hover { background: #0f172a; border-color: #0284c7; }
+        body.dark .btn.primary { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        body.dark .card textarea.edit { background: #0f172a; color: #e2e8f0; border-color: #0284c7; }
+        body.dark .card-foot { border-top-color: #334155; }
+        body.dark .card-foot .src { background: #0f172a; color: #38bdf8; }
+        body.dark .card-acts button:hover { background: #0f172a; }
+        body.dark .card-acts button.danger:hover { background: #3f1d1d; }
+        body.dark .card.fresh { border-color: #0284c7; box-shadow: inset 3px 0 0 #0284c7; }
+        body.dark .toast { background: #f1f5f9; color: #0f172a; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="page-header">
+            <a class="wordmark" href="/">Move<span>It</span></a>
+            <a class="back-link" href="/">&larr; Back to your board</a>
+            <span class="page-meta" id="meta"></span>
+            <button class="theme-toggle" id="themeToggle" title="Switch theme">🌙</button>
+        </div>
+
+        <div class="composer">
+            <textarea id="composer" placeholder="Jot a note — a quote, an idea, something to build…" rows="2"></textarea>
+            <div class="composer-row">
+                <span class="composer-hint">⌘⏎ saves · from your phone: “Claude, send a note to MoveIt that says …”</span>
+                <button class="btn primary" id="saveBtn">Save note</button>
+            </div>
+        </div>
+
+        <div class="toolbar">
+            <label><input type="checkbox" id="showArchived"> Show archived</label>
+            <span class="count" id="count"></span>
+        </div>
+
+        <div id="cards" class="cards"></div>
+        <div id="empty" class="empty" hidden></div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+        // ---- theme, synced with the board ----
+        const THEME_KEY = 'movealong.theme';
+        function applyTheme() {
+            const dark = localStorage.getItem(THEME_KEY) === 'dark';
+            document.body.classList.toggle('dark', dark);
+            document.getElementById('themeToggle').textContent = dark ? '☀️' : '🌙';
+        }
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'light' : 'dark');
+            applyTheme();
+        });
+        applyTheme();
+
+        function session() {
+            try { return JSON.parse(localStorage.getItem('movealong.session') || 'null'); }
+            catch (e) { return null; }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        // Same rendering as a task page's notes: escape first, then rebuild
+        // hrefs; image URLs render inline.
+        const URL_RE = /(?:https?:\/\/|www\.)[^\s<>"']+/gi;
+        const IMG_RE = /\.(png|jpe?g|gif|webp)(\?[^\s]*)?$/i;
+        function renderRich(text) {
+            const escaped = escapeHtml(text);
+            return escaped.replace(URL_RE, (match) => {
+                let url = match;
+                let trailing = '';
+                while (/[.,)\]'"!?]$/.test(url)) { trailing = url.slice(-1) + trailing; url = url.slice(0, -1); }
+                const href = url.startsWith('www.') ? 'https://' + url : url;
+                if (IMG_RE.test(url)) {
+                    return `<a href="${href}" target="_blank" rel="noopener noreferrer"><img src="${href}" alt=""></a>${trailing}`;
+                }
+                return `<a href="${href}" target="_blank" rel="noopener noreferrer">${url}</a>${trailing}`;
+            });
+        }
+
+        async function api(path, { method = 'GET', body } = {}) {
+            const headers = { 'Content-Type': 'application/json' };
+            try { headers['x-tz'] = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { /* UTC */ }
+            const res = await fetch('/api' + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+            return data;
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 2200);
+        }
+
+        function whenLabel(iso) {
+            const d = new Date(iso);
+            if (isNaN(d)) return '';
+            const today = new Date().toLocaleDateString('en-CA');
+            const day = d.toLocaleDateString('en-CA');
+            const time = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+            if (day === today) return `today · ${time}`;
+            const yesterday = new Date(); yesterday.setDate(yesterday.getDate() - 1);
+            if (day === yesterday.toLocaleDateString('en-CA')) return `yesterday · ${time}`;
+            const sameYear = d.getFullYear() === new Date().getFullYear();
+            return d.toLocaleDateString([], sameYear ? { month: 'short', day: 'numeric' } : { month: 'short', day: 'numeric', year: 'numeric' });
+        }
+
+        const sess = session();
+        const me = sess ? `/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}` : null;
+        let notes = [];
+        let editingId = null;
+        // Notes newer than the last visit get a blue edge, once.
+        const SEEN_KEY = 'movealong.notes.seen';
+        const lastSeen = localStorage.getItem(SEEN_KEY) || '';
+
+        async function load() {
+            if (!me) {
+                document.getElementById('empty').hidden = false;
+                document.getElementById('empty').innerHTML = 'Sign in on <a href="/">your board</a> first — this page reads the account from that tab.';
+                return;
+            }
+            const archived = document.getElementById('showArchived').checked;
+            notes = await api(`${me}/notes${archived ? '?archived=1' : ''}`);
+            render();
+        }
+
+        function render() {
+            const cards = document.getElementById('cards');
+            const empty = document.getElementById('empty');
+            const live = notes.filter(n => !n.archived_at).length;
+            document.getElementById('count').textContent = notes.length
+                ? `${live} note${live === 1 ? '' : 's'}${notes.length > live ? ` · ${notes.length - live} archived` : ''}`
+                : '';
+            if (!notes.length) {
+                cards.innerHTML = '';
+                empty.hidden = false;
+                empty.innerHTML = `<b>Nothing here yet.</b><br>Type one above, or from your phone say <code>Claude, send a note to MoveIt that says …</code>`;
+                return;
+            }
+            empty.hidden = true;
+            cards.innerHTML = notes.map(n => {
+                const fresh = lastSeen && n.created_at > lastSeen && !n.archived_at;
+                const body = editingId === n.id
+                    ? `<textarea class="edit" data-id="${n.id}">${escapeHtml(n.body)}</textarea>`
+                    : `<div class="card-body">${renderRich(n.body)}</div>`;
+                const acts = editingId === n.id
+                    ? `<button data-act="save" data-id="${n.id}">Save</button><button data-act="cancel" data-id="${n.id}">Cancel</button>`
+                    : n.archived_at
+                        ? `<button data-act="unarchive" data-id="${n.id}">Restore</button><button class="danger" data-act="delete" data-id="${n.id}" title="Delete for good">Delete</button>`
+                        : `<button data-act="edit" data-id="${n.id}">Edit</button><button data-act="task" data-id="${n.id}" title="Put this on today's card of your first board">Make it a task</button><button data-act="archive" data-id="${n.id}">Archive</button>`;
+                return `
+                    <div class="card ${n.archived_at ? 'archived' : ''} ${fresh ? 'fresh' : ''}" data-id="${n.id}">
+                        ${body}
+                        <div class="card-foot">
+                            <span class="when" title="${escapeHtml(n.created_at)}">${whenLabel(n.created_at)}</span>
+                            ${n.source === 'mcp' ? '<span class="src" title="Sent through the MoveIt server">phone</span>' : ''}
+                            <div class="card-acts">${acts}</div>
+                        </div>
+                    </div>`;
+            }).join('');
+            const ta = cards.querySelector('textarea.edit');
+            if (ta) { ta.focus(); ta.setSelectionRange(ta.value.length, ta.value.length); }
+        }
+
+        async function saveNew() {
+            const ta = document.getElementById('composer');
+            const body = ta.value.trim();
+            if (!body) return;
+            const btn = document.getElementById('saveBtn');
+            btn.disabled = true;
+            try {
+                const note = await api(`${me}/notes`, { method: 'POST', body: { body } });
+                notes.unshift(note);
+                ta.value = '';
+                render();
+            } catch (err) { showToast('Error: ' + err.message); }
+            btn.disabled = false;
+            ta.focus();
+        }
+
+        document.getElementById('saveBtn').addEventListener('click', saveNew);
+        document.getElementById('composer').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveNew(); }
+        });
+        document.getElementById('showArchived').addEventListener('change', load);
+
+        document.getElementById('cards').addEventListener('keydown', (e) => {
+            if (!e.target.matches('textarea.edit')) return;
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveEdit(parseInt(e.target.dataset.id)); }
+            if (e.key === 'Escape') { editingId = null; render(); }
+        });
+
+        async function saveEdit(id) {
+            const ta = document.querySelector(`textarea.edit[data-id="${id}"]`);
+            const body = ta ? ta.value.trim() : '';
+            if (!body) { editingId = null; render(); return; }
+            try {
+                const updated = await api(`/notes/${id}`, { method: 'PUT', body: { body } });
+                notes = notes.map(n => n.id === id ? updated : n);
+            } catch (err) { showToast('Error: ' + err.message); }
+            editingId = null;
+            render();
+        }
+
+        document.getElementById('cards').addEventListener('click', async (e) => {
+            const btn = e.target.closest('button[data-act]');
+            if (!btn) return;
+            const id = parseInt(btn.dataset.id);
+            const note = notes.find(n => n.id === id);
+            if (!note) return;
+            const act = btn.dataset.act;
+            try {
+                if (act === 'edit') { editingId = id; render(); }
+                else if (act === 'cancel') { editingId = null; render(); }
+                else if (act === 'save') { await saveEdit(id); }
+                else if (act === 'archive' || act === 'unarchive') {
+                    const updated = await api(`/notes/${id}`, { method: 'PUT', body: { archived: act === 'archive' } });
+                    if (act === 'archive' && !document.getElementById('showArchived').checked) notes = notes.filter(n => n.id !== id);
+                    else notes = notes.map(n => n.id === id ? updated : n);
+                    render();
+                    showToast(act === 'archive' ? 'Archived — "Show archived" brings it back' : 'Restored');
+                } else if (act === 'delete') {
+                    if (!confirm('Delete this note for good?')) return;
+                    await api(`/notes/${id}`, { method: 'DELETE' });
+                    notes = notes.filter(n => n.id !== id);
+                    render();
+                } else if (act === 'task') {
+                    // Today, first board. The first line is the task; the
+                    // whole note goes on the task page as background so
+                    // nothing is lost when a long note becomes a short row.
+                    const boards = await api(`${me}/projects`);
+                    if (!boards.length) { showToast('You have no board yet'); return; }
+                    const firstLine = note.body.split('\n').map(l => l.trim()).find(Boolean) || note.body;
+                    const today = new Date().toLocaleDateString('en-CA');
+                    const task = await api(`${me}/tasks`, { method: 'POST', body: {
+                        description: firstLine.slice(0, 500), scheduled_date: today, project_id: boards[0].id
+                    } });
+                    if (note.body.trim() !== firstLine) {
+                        try { await api(`/tasks/${task.id}/page`, { method: 'PUT', body: { background: note.body } }); } catch (e) { /* the row exists; background is a nicety */ }
+                    }
+                    const updated = await api(`/notes/${id}`, { method: 'PUT', body: { archived: true } });
+                    if (!document.getElementById('showArchived').checked) notes = notes.filter(n => n.id !== id);
+                    else notes = notes.map(n => n.id === id ? updated : n);
+                    render();
+                    showToast(`On ${boards[0].name} for today — the note is archived`);
+                }
+            } catch (err) { showToast('Error: ' + err.message); }
+        });
+
+        load().then(() => {
+            // The visit is what clears the board icon's dot; the fresh edges
+            // were computed from the previous value before this write.
+            if (me) localStorage.setItem(SEEN_KEY, new Date().toISOString());
+            document.getElementById('meta').innerHTML = sess ? `<b>${escapeHtml(sess.slug)}</b> · notes` : '';
+        }).catch(err => showToast('Error: ' + err.message));
+    </script>
+</body>
+</html>

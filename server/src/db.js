@@ -165,6 +165,26 @@ async function initDb() {
     )
   `);
 
+  // Free-standing notes (2026-09-16): a quote, an idea, a feature request —
+  // anything Kevin sends himself from the phone ("Claude, send a note to
+  // MoveIt that says …") or types on /notes. Per person, not per board; a
+  // note becomes a task only when he says so (the page's "Make it a task").
+  // Timestamps are written as ISO strings by the routes, not CURRENT_TIMESTAMP,
+  // because Safari's Date() rejects SQLite's space-separated form.
+  db.run(`
+    CREATE TABLE IF NOT EXISTS notes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL,
+      body TEXT NOT NULL,
+      source TEXT DEFAULT 'web',
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      archived_at TEXT,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )
+  `);
+  db.run('CREATE INDEX IF NOT EXISTS idx_notes_user ON notes(user_id, archived_at)');
+
   // One subscribed calendar feed per user. The URL is a secret iCal address —
   // a bearer credential for the whole calendar — so it is never returned to
   // the client unmasked (see the calendar routes in server.js).

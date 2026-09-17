@@ -135,6 +135,11 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
 });
 
+// Notes (2026-09-16): one card per note, newest first. Same pattern.
+app.get('/notes', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'notes.html'));
+});
+
 // Static assets (wordmark font, any future images)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -1255,6 +1260,76 @@ app.put('/api/companies/:subdomain/users/:slug/health/:day', (req, res) => {
   const entry = {};
   for (const r of rows) entry[r.measure] = r.value;
   res.json({ day, entry });
+});
+
+// ---- Notes (2026-09-16) ----
+// Free-standing notes a person sends themself: from the phone through the
+// MoveIt server's send_note, or typed on /notes. Per user. Archiving hides;
+// delete is real. `?since=ISO&count=1` answers "anything new?" for the
+// board's icon without shipping the bodies.
+const NOTE_MAX = 5000;
+const NOTE_SOURCES = ['web', 'mcp'];
+function noteRow(id) {
+  return queryOne('SELECT id, user_id, body, source, created_at, updated_at, archived_at FROM notes WHERE id = ?', [id]);
+}
+
+app.get('/api/companies/:subdomain/users/:slug/notes', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const since = typeof req.query.since === 'string' && !isNaN(new Date(req.query.since)) ? req.query.since : null;
+  const archived = req.query.archived === '1' || req.query.archived === 'true';
+  const where = ['user_id = ?'];
+  const params = [user.id];
+  if (!archived) where.push('archived_at IS NULL');
+  if (since) { where.push('created_at > ?'); params.push(since); }
+  if (req.query.count === '1') {
+    const row = queryOne(`SELECT COUNT(*) AS n FROM notes WHERE ${where.join(' AND ')}`, params);
+    return res.json({ count: row ? row.n : 0 });
+  }
+  const rows = queryAll(
+    `SELECT id, body, source, created_at, updated_at, archived_at FROM notes WHERE ${where.join(' AND ')} ORDER BY created_at DESC, id DESC`,
+    params);
+  res.json(rows);
+});
+
+app.post('/api/companies/:subdomain/users/:slug/notes', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const body = typeof (req.body || {}).body === 'string' ? req.body.body.trim() : '';
+  if (!body) return res.status(400).json({ error: 'body is required' });
+  const source = NOTE_SOURCES.includes((req.body || {}).source) ? req.body.source : 'web';
+  const now = new Date().toISOString();
+  runSql('INSERT INTO notes (user_id, body, source, created_at, updated_at) VALUES (?, ?, ?, ?, ?)',
+    [user.id, body.slice(0, NOTE_MAX), source, now, now]);
+  const row = queryOne('SELECT last_insert_rowid() AS id');
+  res.status(201).json(noteRow(row.id));
+});
+
+app.put('/api/notes/:noteId', (req, res) => {
+  const note = noteRow(req.params.noteId);
+  if (!note) return res.status(404).json({ error: 'Note not found' });
+  const updates = [];
+  const params = [];
+  const b = req.body || {};
+  if (b.body !== undefined) {
+    if (typeof b.body !== 'string' || !b.body.trim()) return res.status(400).json({ error: 'body must be a non-empty string' });
+    updates.push('body = ?'); params.push(b.body.trim().slice(0, NOTE_MAX));
+  }
+  if (b.archived !== undefined) {
+    updates.push('archived_at = ?'); params.push(b.archived ? new Date().toISOString() : null);
+  }
+  if (!updates.length) return res.status(400).json({ error: 'Nothing to update' });
+  updates.push('updated_at = ?'); params.push(new Date().toISOString());
+  params.push(note.id);
+  runSql(`UPDATE notes SET ${updates.join(', ')} WHERE id = ?`, params);
+  res.json(noteRow(note.id));
+});
+
+app.delete('/api/notes/:noteId', (req, res) => {
+  const note = noteRow(req.params.noteId);
+  if (!note) return res.status(404).json({ error: 'Note not found' });
+  runSql('DELETE FROM notes WHERE id = ?', [note.id]);
+  res.json({ success: true });
 });
 
 app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {

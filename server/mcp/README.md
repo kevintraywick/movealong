@@ -64,6 +64,7 @@ sends one — Claude Code on the Mac runs both; the MoveIt server can't reach Me
 | `update_task` | complete/reopen, move, lock, goal, repeat, rename |
 | `get_task` | row + page (background, results, notes) + steps |
 | `add_note` | append to the task page's note feed |
+| `send_note` / `list_notes` | a free-standing note to the Notes page (`/notes`) — a quote, an idea, a feature request; not attached to any task |
 | `set_results` | write the Results (and/or Background) pane |
 | `add_step` / `tick_step` / `promote_step` | steps under a task |
 | `get_brief` / `append_brief` / `set_contact_field` | the standing notes the assistant reads |
