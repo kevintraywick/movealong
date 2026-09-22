@@ -711,6 +711,20 @@ Free-standing notes a person sends themself — a quote, an idea, a feature requ
 
 `GET /notes` serves the page (`public/notes.html`).
 
+## Lists (2026-09-22)
+
+The Lists page keeps a `list` task past the day it was written on: `tasks.shelved = 1` takes the row off the board, where it becomes a named master you rename, prune and copy back onto any day. Items are its ordinary `subtasks` (the `human` ones), so `POST /api/tasks/:id/subtasks`, `PUT|DELETE /api/subtasks/:id` and `PUT /api/tasks/:id { description }` (rename) all serve this page as-is.
+
+`GET /api/companies/:subdomain/users/:slug/lists` — every shelved list, most recently touched first: `[{ id, description, project_id, project_name, created_at, updated_at, items: [{ id, description, sort_order, created_at }] }]`. Items are the pending non-AI subtasks.
+
+`POST /api/companies/:subdomain/users/:slug/lists` — `{ name }` → 201 with the list. Born shelved, on the user's first board; a leading "list"/"list:" is stripped from the name.
+
+`POST /api/tasks/:id/shelve` — board → page, and it **moves**. 400 unless the description matches `/^list\b/i`; refused on calendar rows, unanswered handovers and completed rows. Deletes the AI suggestions and anything already ticked, splices the row out of any series, clears `locked`/`goal`/`repeat_rule`/`due_date`/`position`, strips the "list" prefix from the name. Returns the same shape as GET.
+
+`POST /api/tasks/:id/unshelve` — page → board, and it **copies**: a new task on `scheduled_date` (default the caller's today; 400 on a past day or a malformed one) and `project_id` (default the master's board; 400 if the caller doesn't belong to it), described `list: <name>`, with every item copied unticked. The master is untouched. No `findDayWithCapacity()`: a list renders as a box under the add-task input, not one of the day's seven rows, so it neither fills a day nor bumps anybody. Returns the created task plus `project_name`.
+
+`GET /lists` serves the page (`public/lists.html`). `DELETE /api/tasks/:id` deletes a master for good (items cascade).
+
 ## Completions (dashboard)
 
 `GET /api/companies/:subdomain/users/:slug/completions?month=YYYY-MM` — completed tasks per local day (`x-tz`) for the month (default: the caller's current month). Returns `{ month, today, days_in_month, projects: [{id, name}] (tab order; id 0 = Calendar), counts: { 'YYYY-MM-DD': { project_id: n } } }`.

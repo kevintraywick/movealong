@@ -140,6 +140,10 @@ app.get('/notes', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'notes.html'));
 });
 
+app.get('/lists', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'lists.html'));
+});
+
 // Static assets (wordmark font, any future images)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -299,8 +303,8 @@ function spawnNextRepeat(task) {
 function findDayWithCapacity({ ownerId, projectId, requestedDate }) {
   const hasProject = projectId !== null && projectId !== undefined;
   const sql = hasProject
-    ? 'SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ? AND scheduled_date = ? AND completed = 0 AND project_id = ?'
-    : 'SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ? AND scheduled_date = ? AND completed = 0 AND project_id IS NULL';
+    ? 'SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ? AND scheduled_date = ? AND completed = 0 AND COALESCE(shelved, 0) = 0 AND project_id = ?'
+    : 'SELECT COUNT(*) as cnt FROM tasks WHERE owner_id = ? AND scheduled_date = ? AND completed = 0 AND COALESCE(shelved, 0) = 0 AND project_id IS NULL';
 
   let date = requestedDate;
   for (let i = 0; i < 365; i++) {
@@ -324,6 +328,7 @@ function bumpableTaskOn({ ownerId, projectId, date }) {
     SELECT * FROM tasks
     WHERE owner_id = ? AND scheduled_date = ? AND completed = 0
       AND ${hasProject ? 'project_id = ?' : 'project_id IS NULL'}
+      AND COALESCE(shelved, 0) = 0
       AND locked = 0 AND COALESCE(goal, 0) = 0
       AND COALESCE(source, '') != 'calendar'
       AND NOT (assigned_by IS NOT NULL AND accepted_at IS NULL)
@@ -716,6 +721,7 @@ app.get('/api/companies/:subdomain/users/:slug/shared-board', (req, res) => {
     LEFT JOIN users cb ON t.completed_by = cb.id
     LEFT JOIN projects p ON t.project_id = p.id
     WHERE t.owner_id = ?
+      AND COALESCE(t.shelved, 0) = 0
       AND t.scheduled_date <= ?
       AND (t.completed = 0 OR t.scheduled_date >= ?)
       AND NOT (t.source = 'calendar' AND t.scheduled_date < ?)
@@ -1332,6 +1338,169 @@ app.delete('/api/notes/:noteId', (req, res) => {
   res.json({ success: true });
 });
 
+// ============================================
+// THE LISTS PAGE (/lists, 2026-09-22)
+// ============================================
+// A list you will want again — "things to take to Seattle" — has no business
+// expiring with the day it was written on. Shelving lifts the row off the
+// board (`tasks.shelved = 1`) and onto the Lists page, where it is a named,
+// editable master: rename it "Travel", add to it, prune it.
+//
+// Sending one to a day COPIES it. The master is a library card, not a token:
+// it stays on the page, and every copy starts with nothing ticked, so ticking
+// "passport" off in Seattle never erases it from the list you keep.
+//
+// A shelved row is still an ordinary task row with ordinary subtasks — which
+// is why every board query in this file now carries `shelved = 0`. There is no
+// second store and no second item type to keep in step.
+
+// The master's own name has no "list" prefix: the page is already a page of
+// lists, so "list things to take to Seattle" is filed as "things to take to
+// Seattle" and renamed to "Travel" from there.
+function listNameFrom(description) {
+  const stripped = String(description || '').replace(/^list\b[:\-\s]*/i, '').trim();
+  return stripped || String(description || '').trim();
+}
+
+// ...and the trip back adds it again, because the board decides a list pane by
+// reading the description (LIST_TASK_RE, the same regex the frontend uses).
+// "Travel" would otherwise land on a day as an ordinary task with AI steps.
+function boardDescriptionFor(name) {
+  const clean = String(name || '').trim();
+  return LIST_TASK_RE.test(clean) ? clean : `list: ${clean}`;
+}
+
+function listItemsOf(taskId) {
+  return queryAll(
+    `SELECT id, description, sort_order, created_at
+       FROM subtasks
+      WHERE task_id = ? AND COALESCE(assignee_type, 'human') != 'ai' AND completed = 0
+      ORDER BY sort_order, created_at, id`,
+    [taskId]);
+}
+
+function shelvedListRow(taskId) {
+  const t = queryOne(
+    `SELECT t.id, t.description, t.project_id, t.created_at, t.updated_at, p.name AS project_name
+       FROM tasks t LEFT JOIN projects p ON t.project_id = p.id
+      WHERE t.id = ? AND COALESCE(t.shelved, 0) = 1`, [taskId]);
+  if (!t) return null;
+  return { ...t, items: listItemsOf(t.id) };
+}
+
+app.get('/api/companies/:subdomain/users/:slug/lists', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const rows = queryAll(
+    `SELECT t.id FROM tasks t
+      WHERE t.owner_id = ? AND COALESCE(t.shelved, 0) = 1
+      ORDER BY t.updated_at DESC, t.id DESC`, [user.id]);
+  res.json(rows.map(r => shelvedListRow(r.id)).filter(Boolean));
+});
+
+// A list born on the page itself. It belongs to no day and never has.
+app.post('/api/companies/:subdomain/users/:slug/lists', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const name = typeof (req.body || {}).name === 'string' ? req.body.name.trim() : '';
+  if (!name) return res.status(400).json({ error: 'name is required' });
+
+  const company = queryOne('SELECT company_id FROM users WHERE id = ?', [user.id]);
+  const board = queryOne(
+    `SELECT p.id FROM projects p JOIN project_members pm ON pm.project_id = p.id
+      WHERE pm.user_id = ?
+      ORDER BY CASE WHEN pm.position IS NULL THEN 1 ELSE 0 END, pm.position, p.created_at
+      LIMIT 1`, [user.id]);
+  const today = todayKeyFor(req);
+  const now = new Date().toISOString();
+  runSql(
+    `INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date, origin_date, shelved, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)`,
+    [company.company_id, user.id, board ? board.id : null, listNameFrom(name).slice(0, 500), today, today, now, now]);
+  const row = queryOne('SELECT last_insert_rowid() AS id');
+  res.status(201).json(shelvedListRow(row.id));
+});
+
+// Board -> page. This one MOVES: the row leaves September 19th, which is the
+// whole point of the gesture.
+app.post('/api/tasks/:taskId/shelve', (req, res) => {
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [req.params.taskId]);
+  if (!task) return res.status(404).json({ error: 'Task not found' });
+  if (task.shelved) return res.json(shelvedListRow(task.id));
+  if (!LIST_TASK_RE.test(task.description || '')) {
+    return res.status(400).json({ error: 'Only a list can go to the Lists page' });
+  }
+  if (task.source === 'calendar') return res.status(400).json({ error: "A calendar event can't be shelved" });
+  if (isAwaitingAcceptance(task)) return res.status(400).json({ error: 'Accept this first' });
+  if (task.completed) return res.status(400).json({ error: 'That list is already completed' });
+
+  // The master is the list the user curated: the AI's suggestions were a
+  // board-time helper, and a ticked item is one they took off the list.
+  runSql("DELETE FROM subtasks WHERE task_id = ? AND assignee_type = 'ai'", [task.id]);
+  runSql('DELETE FROM subtasks WHERE task_id = ? AND completed = 1', [task.id]);
+
+  // Off the board means off everything the board hangs on a row: a series it
+  // sat in, a deadline, a goal, a cadence, a hand-ordered slot.
+  spliceOutOfChain(task);
+  runSql(`UPDATE tasks
+             SET shelved = 1, description = ?, locked = 0, goal = 0, repeat_rule = NULL,
+                 due_date = NULL, position = NULL, parent_task_id = NULL, updated_at = ?
+           WHERE id = ?`,
+    [listNameFrom(task.description).slice(0, 500), new Date().toISOString(), task.id]);
+
+  res.json(shelvedListRow(task.id));
+});
+
+// Page -> board. This one COPIES, and the copy starts fresh: the master keeps
+// every item, unticked, for the next trip.
+app.post('/api/tasks/:taskId/unshelve', (req, res) => {
+  const master = queryOne('SELECT * FROM tasks WHERE id = ?', [req.params.taskId]);
+  if (!master) return res.status(404).json({ error: 'List not found' });
+  if (!master.shelved) return res.status(400).json({ error: 'That list is not on the Lists page' });
+
+  const today = todayKeyFor(req);
+  const date = typeof (req.body || {}).scheduled_date === 'string' ? req.body.scheduled_date.trim() : today;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: 'scheduled_date must be YYYY-MM-DD' });
+  if (date < today) return res.status(400).json({ error: 'Pick today or a day ahead' });
+
+  let projectId = (req.body || {}).project_id;
+  projectId = projectId === undefined || projectId === null || projectId === '' ? master.project_id : parseInt(projectId, 10);
+  // A NULL project is meaningful in exactly one place in this app (calendar
+  // rows, which show on every board) — a list must never land there, so a
+  // master with no board of its own adopts the owner's first one.
+  if (!projectId) {
+    const first = queryOne(
+      `SELECT p.id FROM projects p JOIN project_members pm ON pm.project_id = p.id
+        WHERE pm.user_id = ?
+        ORDER BY CASE WHEN pm.position IS NULL THEN 1 ELSE 0 END, pm.position, p.created_at
+        LIMIT 1`, [master.owner_id]);
+    if (!first) return res.status(400).json({ error: 'You have no board to put it on yet' });
+    projectId = first.id;
+  }
+  const member = queryOne('SELECT id FROM project_members WHERE project_id = ? AND user_id = ?', [projectId, master.owner_id]);
+  if (!member) return res.status(400).json({ error: 'That board is not yours' });
+
+  // No findDayWithCapacity(): a list is a box under the add-task input, not one
+  // of the day's seven rows, so it neither fills a day nor bumps anybody.
+  const now = new Date().toISOString();
+  runSql(
+    `INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date, origin_date, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    [master.company_id, master.owner_id, projectId,
+     boardDescriptionFor(master.description).slice(0, 500), date, date, now, now]);
+  const created = queryOne('SELECT last_insert_rowid() AS id');
+
+  listItemsOf(master.id).forEach((item, i) => {
+    runSql(
+      `INSERT INTO subtasks (task_id, description, assignee_type, sort_order) VALUES (?, ?, 'human', ?)`,
+      [created.id, item.description, i]);
+  });
+
+  const task = queryOne('SELECT * FROM tasks WHERE id = ?', [created.id]);
+  const project = projectId ? queryOne('SELECT name FROM projects WHERE id = ?', [projectId]) : null;
+  res.status(201).json({ ...task, project_name: project ? project.name : null });
+});
+
 app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
   const { subdomain, slug } = req.params;
 
@@ -1352,6 +1521,7 @@ app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
                AND t.owner_id = ?
                AND t.locked = 1
                AND t.completed = 0
+               AND COALESCE(t.shelved, 0) = 0
                AND t.scheduled_date <= ?) AS due_today
     FROM projects p
     JOIN project_members pm ON pm.project_id = p.id
@@ -1658,6 +1828,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     WHERE owner_id = ?
       AND completed = 0
       AND locked = 0
+      AND COALESCE(shelved, 0) = 0
       AND COALESCE(source, 'user') != 'calendar'
       AND scheduled_date < ?
   `;
@@ -1706,6 +1877,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
         UPDATE tasks SET locked = 1, autolocked = 1, scheduled_date = ?, updated_at = ?
         WHERE owner_id = ? AND project_id = ?
           AND completed = 0 AND locked = 0 AND COALESCE(autolocked, 0) = 0
+          AND COALESCE(shelved, 0) = 0
           AND COALESCE(source, 'user') != 'calendar'
           AND NOT (assigned_by IS NOT NULL AND accepted_at IS NULL)
           AND completed_by IS NULL
@@ -1746,6 +1918,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     LEFT JOIN users u ON t.assigned_by = u.id
     LEFT JOIN users cb ON t.completed_by = cb.id
     WHERE t.owner_id = ?
+      AND COALESCE(t.shelved, 0) = 0
   `;
   const taskParams = [user.id];
   if (req.query.project_id) {
@@ -4137,6 +4310,7 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
       LEFT JOIN users u ON t.assigned_by = u.id
       LEFT JOIN users cb ON t.completed_by = cb.id
       WHERE t.project_id = ? AND t.owner_id = ? AND t.completed = 0
+        AND COALESCE(t.shelved, 0) = 0
       ORDER BY t.scheduled_date,
                CASE WHEN t.position IS NULL THEN 1 ELSE 0 END, t.position,
                t.created_at

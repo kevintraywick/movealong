@@ -1420,7 +1420,8 @@
                the chrome. */
             margin-right: auto;
         }
-        #notesLink { margin-left: auto; margin-right: 0; position: relative; }
+        #listsLink { margin-left: auto; margin-right: 4px; }
+        #notesLink { margin-right: 0; position: relative; }
         #dashboardLink { margin-right: 4px; }
         /* A dot on the notes icon when a note arrived since the page was last
            opened (localStorage 'movealong.notes.seen'); the visit clears it. */
@@ -1658,6 +1659,27 @@
             letter-spacing: 0.6px;
             font-weight: 600;
         }
+
+        /* "Keep on the Lists page" — the quiet footer of a list pane. Pink,
+           because it is the list's own colour, and it only brightens on hover
+           so it never competes with the items above it. */
+        .list-keep {
+            display: block;
+            width: 100%;
+            margin-top: 8px;
+            padding: 4px 0 1px;
+            border: none;
+            border-top: 1px dashed #fbcfe8;
+            background: transparent;
+            color: #94a3b8;
+            font-family: inherit;
+            font-size: 11px;
+            text-align: left;
+            cursor: pointer;
+        }
+        .list-keep:hover { color: #db2777; }
+        body.dark .list-keep { border-top-color: #4c1d3d; color: #64748b; }
+        body.dark .list-keep:hover { color: #f472b6; }
 
         .subtask-regenerate {
             position: absolute;
@@ -3214,8 +3236,12 @@
                 <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import">&#128197;</button>
             </div>
 
-            <!-- Dashboard: what you've completed this month, one page. Sits just left
-                 of the boards (2026-09-16); its margin-left:auto starts the middle group. -->
+            <!-- Three pages of your own: the lists you keep, the notes you sent
+                 yourself, and what you've completed this month. They sit just
+                 left of the boards (2026-09-16); #listsLink's margin-left:auto
+                 starts the middle group. -->
+            <a class="icon-toggle dashboard-link" id="listsLink" href="/lists"
+               title="Lists — the lists you keep, ready to drop onto any day" aria-label="Lists"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><circle cx="4.6" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></a>
             <a class="icon-toggle dashboard-link" id="notesLink" href="/notes"
                title="Notes — quotes, ideas and feature requests you sent yourself" aria-label="Notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M9 12h6"/><path d="M9 16h4"/></svg></a>
             <a class="icon-toggle dashboard-link" id="dashboardLink" href="/dashboard"
@@ -4512,6 +4538,23 @@
                 await api(`/subtasks/${subtaskId}`, { method: 'DELETE' });
                 taskSubtasks.set(taskId, subtasks.filter(s => s.id !== subtaskId));
                 renderView();
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        // "Keep on the Lists page": the list leaves this day for /lists, where
+        // it becomes a named master you can rename, prune, and copy back onto
+        // any day later. The row MOVES (the server drops the AI's suggestions
+        // and anything already ticked); what comes back is always a copy.
+        async function shelveList(taskId) {
+            try {
+                await api(`/tasks/${taskId}/shelve`, { method: 'POST' });
+                tasks = tasks.filter(t => t.id !== taskId);
+                expandedTaskIds.delete(taskId);
+                taskSubtasks.delete(taskId);
+                renderView();
+                showToast('Kept — it\u2019s on your Lists page');
             } catch (err) {
                 showToast('Error: ' + err.message);
             }
@@ -6079,6 +6122,13 @@
                 });
             });
 
+            document.querySelectorAll('.list-keep[data-shelve-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    shelveList(parseInt(btn.dataset.shelveId));
+                });
+            });
+
             document.querySelectorAll('.subtask-up[data-subtask-id]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -7076,7 +7126,11 @@
                 const regenAll = `<button class="subtask-regenerate" data-task-id="${taskId}" title="Suggest a fresh set — anything you haven't added is replaced">&orarr;</button>`;
                 // No cost total on a list: a list is things, not a job to price.
                 const listHeader = taskTitle ? `<div class="subtask-pane-header"><span class="subtask-pane-title">${escapeHtml(taskTitle)}</span></div>` : '';
-                content = `${regenAll}${listHeader}${slots}<div class="subtask-list">${mineRows}</div>${suggestionSection}`;
+                // The way off the board. Spelled out rather than glyphed: this
+                // is the one control in the pane that takes the whole list
+                // somewhere else, and a 178px column has room for four words.
+                const keep = `<button class="list-keep" data-shelve-id="${taskId}" title="Move this list to the Lists page — it leaves this day, and you can send a fresh copy to any day later">Keep on the Lists page</button>`;
+                content = `${regenAll}${listHeader}${slots}<div class="subtask-list">${mineRows}</div>${suggestionSection}${keep}`;
             } else {
                 // Completed steps disappear from the pane (server keeps them for the List-view progress count).
                 const pending = subtasks.filter(st => !st.completed);
@@ -8011,6 +8065,7 @@
         const IDLE_TIPS = [
             'Shift+Click a task, a step, a list item or a list box to edit its text in place. Enter saves, Escape cancels.',
             'Start a task with the word "list" — "list movies to see" — and the assistant suggests items. Click a suggestion\u2019s \u2191 to keep it.',
+            'A list you\u2019ll want again — a packing list, a grocery run — can be kept: open its pane and click “Keep on the Lists page”. Send a fresh copy to any day from there.',
             'Drag a task onto the middle of another task to make it the next step in a series. It moves to the day after.',
             'Drag a task to the top or bottom edge of another row to reorder it within its day — a blue line shows where it lands.',
             'Hover a task and press 1\u20139 to send it straight to that slot in its day. 0 sends it to the bottom.',

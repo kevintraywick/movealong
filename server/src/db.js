@@ -100,6 +100,7 @@ async function initDb() {
       position INTEGER,
       repeat_rule TEXT,
       goal INTEGER DEFAULT 0,
+      shelved INTEGER DEFAULT 0,
       research_status TEXT,
       source TEXT DEFAULT 'user',
       external_uid TEXT,
@@ -440,6 +441,12 @@ async function initDb() {
   ensureColumn('tasks', 'autolocked', 'INTEGER DEFAULT 0');
   // Goal for the day (hover + g): orange text, sorts under the day's locks.
   ensureColumn('tasks', 'goal', 'INTEGER DEFAULT 0');
+
+  // A "list" task lifted off the board onto the Lists page (/lists, 2026-09-22).
+  // Shelved rows are tasks like any other — they keep their items as subtasks —
+  // but they belong to no day: every board query filters them out, and sending
+  // one back to a day COPIES it, so the master stays on the page for next time.
+  ensureColumn('tasks', 'shelved', 'INTEGER DEFAULT 0');
   // Holdout drafts (2026-09-12): which arm this task's first draft ran in —
   // 'rules' (how-you-work notes applied), 'holdout' (deliberately omitted,
   // 1 in 10), NULL (no notes existed) — and the notes that were in play.

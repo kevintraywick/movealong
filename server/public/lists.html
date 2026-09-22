@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lists · MoveIt</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="mask-icon" href="/favicon-mask.svg" color="#0ea5e9">
+    <style>
+        @font-face {
+            font-family: 'Bricolage Grotesque';
+            src: url('/fonts/bricolage-grotesque-800.woff2') format('woff2');
+            font-weight: 800;
+            font-display: swap;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px;
+            background: #f8fafc;
+            color: #0f172a;
+            padding: 20px;
+        }
+
+        .page { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+        .page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+
+        .wordmark {
+            font-family: 'Bricolage Grotesque', -apple-system, sans-serif;
+            font-weight: 800;
+            font-size: 17px;
+            color: #0f172a;
+            text-decoration: none;
+            letter-spacing: -0.02em;
+        }
+        .wordmark span { color: #0ea5e9; }
+
+        .back-link { font-size: 12px; color: #0284c7; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+        .page-meta { font-size: 12px; color: #64748b; margin-left: auto; }
+        .page-meta b { color: #475569; font-weight: 600; }
+
+        .theme-toggle {
+            width: 26px; height: 26px; border-radius: 50%;
+            border: 1px solid #e2e8f0; background: #fff; color: #0284c7;
+            font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .theme-toggle:hover { border-color: #bae6fd; }
+
+        .lede { font-size: 12px; color: #64748b; line-height: 1.6; }
+
+        /* The composer is the board's add-task box: one line, type and go.
+           Pink placeholder, because pink is what a list is on the board. */
+        .composer {
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            padding: 8px 12px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .composer:focus-within { border-color: #f9a8d4; }
+        .composer input {
+            flex: 1;
+            border: none;
+            font: inherit;
+            font-size: 13px;
+            color: #0f172a;
+            background: transparent;
+        }
+        .composer input:focus { outline: none; }
+        .composer input::placeholder { color: #db2777; opacity: 1; }
+
+        .btn {
+            border: 1px solid #e2e8f0;
+            background: #fff;
+            color: #0284c7;
+            border-radius: 6px;
+            padding: 4px 10px;
+            font-size: 12px;
+            cursor: pointer;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+        .btn:hover { border-color: #bae6fd; background: #f0f9ff; }
+        .btn.primary { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        .btn.primary:hover { background: #0284c7; border-color: #0284c7; }
+        .btn:disabled { opacity: .5; cursor: default; }
+
+        .toolbar { display: flex; align-items: center; gap: 12px; font-size: 12px; color: #64748b; }
+
+        .cards { columns: 3 280px; column-gap: 14px; }
+        .card {
+            break-inside: avoid;
+            display: inline-block;
+            width: 100%;
+            margin: 0 0 14px;
+            background: #fff;
+            /* The pink edge is the list's own colour, the same one the board's
+               list box and its pane wear. */
+            border: 1px solid #e2e8f0;
+            border-left: 3px solid #db2777;
+            border-radius: 12px;
+            padding: 12px 14px 10px;
+            animation: rise .18s ease-out;
+        }
+        @keyframes rise { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
+
+        .card-title {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0f172a;
+            cursor: text;
+            overflow-wrap: anywhere;
+        }
+        .card-title:hover { color: #0284c7; }
+        .card input.rename, .card input.additem {
+            width: 100%;
+            border: 1px solid #f9a8d4;
+            border-radius: 6px;
+            padding: 4px 7px;
+            font: inherit;
+            color: #0f172a;
+            background: #fff;
+        }
+        .card input.rename { font-size: 14px; font-weight: 600; }
+        .card input.rename:focus, .card input.additem:focus { outline: none; border-color: #db2777; }
+        .card input.additem { font-size: 12px; margin-top: 8px; border-style: dashed; border-color: #e2e8f0; }
+        .card input.additem::placeholder { color: #94a3b8; }
+
+        .items { list-style: none; margin-top: 8px; display: flex; flex-direction: column; gap: 1px; }
+        .item { display: flex; align-items: flex-start; gap: 7px; padding: 2px 0; }
+        /* An empty circle removes the item — the same circle that dismisses an
+           AI suggestion in the pane. A master list has nothing to tick off:
+           ticking is what you do to a copy, on a day. */
+        .item button {
+            flex-shrink: 0;
+            margin-top: 2px;
+            width: 13px; height: 13px;
+            border-radius: 50%;
+            border: 1.5px solid #cbd5e1;
+            background: transparent;
+            cursor: pointer;
+            padding: 0;
+        }
+        .item button:hover { border-color: #db2777; background: #fdf2f8; }
+        .item span { line-height: 1.5; overflow-wrap: anywhere; cursor: text; }
+        .item span:hover { color: #0284c7; }
+        .items-empty { margin-top: 8px; font-size: 12px; color: #94a3b8; font-style: italic; }
+
+        .card-foot {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+            padding-top: 8px;
+            border-top: 1px solid #f1f5f9;
+            font-size: 11px;
+            color: #94a3b8;
+        }
+        .card-foot input[type=date], .card-foot select {
+            /* WebKit paints a native date field white whatever the page says,
+               so the appearance is dropped and the field is drawn here. */
+            -webkit-appearance: none;
+            appearance: none;
+            font: inherit;
+            font-size: 11px;
+            color: #475569;
+            background: #fff;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 3px 5px;
+        }
+        .card-foot .spacer { margin-left: auto; }
+        .card-foot button.quiet {
+            border: none;
+            background: transparent;
+            color: #94a3b8;
+            font-size: 11px;
+            padding: 2px 5px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-family: inherit;
+        }
+        .card-foot button.quiet:hover { color: #0284c7; background: #f0f9ff; }
+        .card-foot button.quiet.danger:hover { color: #ef4444; background: #fef2f2; }
+
+        .empty {
+            background: #fff;
+            border: 1px dashed #e2e8f0;
+            border-radius: 12px;
+            padding: 22px;
+            text-align: center;
+            color: #64748b;
+            line-height: 1.7;
+        }
+        .empty b { color: #0f172a; font-weight: 600; }
+
+        .toast {
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%) translateY(20px);
+            background: #0f172a; color: #fff; padding: 8px 14px; border-radius: 8px; font-size: 12px;
+            opacity: 0; transition: all .2s; pointer-events: none;
+        }
+        .toast.show { opacity: 1; transform: translateX(-50%); }
+
+        body.dark { background: #0f172a; color: #e2e8f0; color-scheme: dark; }
+        body.dark .wordmark { color: #f1f5f9; }
+        body.dark .page-meta b { color: #cbd5e1; }
+        body.dark .theme-toggle { background: #1e293b; border-color: #334155; color: #38bdf8; }
+        body.dark .composer, body.dark .card, body.dark .empty { background: #1e293b; border-color: #334155; }
+        body.dark .card { border-left-color: #f472b6; }
+        body.dark .composer:focus-within { border-color: #f472b6; }
+        body.dark .composer input { color: #e2e8f0; }
+        body.dark .composer input::placeholder { color: #f472b6; }
+        body.dark .card-title, body.dark .empty b { color: #e2e8f0; }
+        body.dark .card input.rename, body.dark .card input.additem { background: #0f172a; color: #e2e8f0; border-color: #334155; }
+        body.dark .card input.rename { border-color: #f472b6; }
+        body.dark .btn { background: #1e293b; border-color: #334155; color: #38bdf8; }
+        body.dark .btn:hover { background: #0f172a; border-color: #0284c7; }
+        body.dark .btn.primary { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        body.dark .card-foot { border-top-color: #334155; }
+        body.dark .card-foot input[type=date], body.dark .card-foot select { background-color: #0f172a; color: #cbd5e1; border-color: #334155; }
+        body.dark .card-foot button.quiet:hover { background: #0f172a; }
+        body.dark .card-foot button.quiet.danger:hover { background: #3f1d1d; }
+        body.dark .item button { border-color: #475569; }
+        body.dark .item button:hover { border-color: #f472b6; background: #3f1d2e; }
+        body.dark .toast { background: #f1f5f9; color: #0f172a; }
+
+        /* The caret the native select lost with `appearance: none`. Declared
+           last so the dark block's `background` shorthand can't wipe it. */
+        .card-foot select {
+            padding-right: 17px;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%2394a3b8' stroke-width='1.6'/%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 5px center;
+            background-size: 7px;
+        }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="page-header">
+            <a class="wordmark" href="/">Move<span>It</span></a>
+            <a class="back-link" href="/">&larr; Back to your board</a>
+            <span class="page-meta" id="meta"></span>
+            <button class="theme-toggle" id="themeToggle" title="Switch theme">🌙</button>
+        </div>
+
+        <p class="lede">Lists you keep. A list on the board can be moved here from its pane — it leaves the day it was written on. Send one to a day and you get a fresh copy; the list itself stays here for next time.</p>
+
+        <div class="composer">
+            <input type="text" id="composer" placeholder="Name a new list — “Travel”, “Groceries”…">
+            <button class="btn primary" id="createBtn">New list</button>
+        </div>
+
+        <div class="toolbar"><span id="count"></span></div>
+
+        <div id="cards" class="cards"></div>
+        <div id="empty" class="empty" hidden></div>
+    </div>
+    <div class="toast" id="toast"></div>
+
+    <script>
+        const THEME_KEY = 'movealong.theme';
+        function applyTheme() {
+            const dark = localStorage.getItem(THEME_KEY) === 'dark';
+            document.body.classList.toggle('dark', dark);
+            document.getElementById('themeToggle').textContent = dark ? '☀️' : '🌙';
+        }
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'light' : 'dark');
+            applyTheme();
+        });
+        applyTheme();
+
+        function session() {
+            try { return JSON.parse(localStorage.getItem('movealong.session') || 'null'); }
+            catch (e) { return null; }
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        async function api(path, { method = 'GET', body } = {}) {
+            const headers = { 'Content-Type': 'application/json' };
+            try { headers['x-tz'] = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { /* UTC */ }
+            const res = await fetch('/api' + path, { method, headers, body: body === undefined ? undefined : JSON.stringify(body) });
+            const data = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(data.error || ('HTTP ' + res.status));
+            return data;
+        }
+
+        let toastTimer = null;
+        function showToast(msg) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.classList.add('show');
+            clearTimeout(toastTimer);
+            toastTimer = setTimeout(() => t.classList.remove('show'), 2600);
+        }
+
+        // Local day, formatted the way every day key in this app is.
+        function todayKey() { return new Date().toLocaleDateString('en-CA'); }
+        function dayLabel(key) {
+            const d = new Date(key + 'T12:00:00');
+            if (isNaN(d)) return key;
+            if (key === todayKey()) return 'today';
+            return d.toLocaleDateString([], { weekday: 'short', month: 'short', day: 'numeric' });
+        }
+
+        const sess = session();
+        const me = sess ? `/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}` : null;
+        let lists = [];
+        let boards = [];
+        let renamingId = null;
+        // Chosen day per card, so a date picked in one card survives a re-render
+        // of another.
+        const dayFor = new Map();
+
+        async function load() {
+            if (!me) {
+                document.getElementById('empty').hidden = false;
+                document.getElementById('empty').innerHTML = 'Sign in on <a href="/">your board</a> first — this page reads the account from that tab.';
+                return;
+            }
+            [lists, boards] = await Promise.all([api(`${me}/lists`), api(`${me}/projects`)]);
+            render();
+        }
+
+        function render() {
+            const cards = document.getElementById('cards');
+            const empty = document.getElementById('empty');
+            document.getElementById('count').textContent = lists.length
+                ? `${lists.length} list${lists.length === 1 ? '' : 's'}`
+                : '';
+            if (!lists.length) {
+                cards.innerHTML = '';
+                empty.hidden = false;
+                empty.innerHTML = '<b>No lists kept yet.</b><br>Name one above, or open a list on your board and click <b>Keep on the Lists page</b> at the bottom of its pane.';
+                return;
+            }
+            empty.hidden = true;
+            const today = todayKey();
+            cards.innerHTML = lists.map(l => {
+                const title = renamingId === l.id
+                    ? `<input class="rename" data-id="${l.id}" value="${escapeHtml(l.description)}">`
+                    : `<div class="card-title" data-id="${l.id}" title="Click to rename">${escapeHtml(l.description)}</div>`;
+                const items = l.items.length
+                    ? `<ul class="items">${l.items.map(it => `
+                        <li class="item" data-item="${it.id}">
+                            <button data-act="drop-item" data-item="${it.id}" data-id="${l.id}" title="Remove from this list" aria-label="Remove from this list"></button>
+                            <span data-act="edit-item" data-item="${it.id}" data-id="${l.id}" title="Click to edit">${escapeHtml(it.description)}</span>
+                        </li>`).join('')}</ul>`
+                    : '<div class="items-empty">Nothing on it yet.</div>';
+                const boardOpts = boards.map(b =>
+                    `<option value="${b.id}" ${b.id === l.project_id ? 'selected' : ''}>${escapeHtml(b.name)}</option>`).join('');
+                const day = dayFor.get(l.id) || today;
+                return `
+                    <div class="card" data-id="${l.id}">
+                        ${title}
+                        ${items}
+                        <input class="additem" data-id="${l.id}" type="text" placeholder="Add an item…">
+                        <div class="card-foot">
+                            <select data-act="board" data-id="${l.id}" title="Which board the copy lands on">${boardOpts}</select>
+                            <input type="date" data-act="day" data-id="${l.id}" value="${day}" min="${today}" title="Which day the copy lands on">
+                            <button class="btn" data-act="send" data-id="${l.id}" title="Put a fresh copy of this list on that day">Put on the board</button>
+                            <span class="spacer"></span>
+                            <button class="quiet danger" data-act="delete" data-id="${l.id}" title="Delete this list for good">Delete</button>
+                        </div>
+                    </div>`;
+            }).join('');
+            const ren = cards.querySelector('input.rename');
+            if (ren) { ren.focus(); ren.setSelectionRange(ren.value.length, ren.value.length); }
+        }
+
+        async function createList() {
+            const input = document.getElementById('composer');
+            const name = input.value.trim();
+            if (!name) return;
+            const btn = document.getElementById('createBtn');
+            btn.disabled = true;
+            try {
+                const list = await api(`${me}/lists`, { method: 'POST', body: { name } });
+                lists.unshift(list);
+                input.value = '';
+                render();
+            } catch (err) { showToast('Error: ' + err.message); }
+            btn.disabled = false;
+            input.focus();
+        }
+
+        document.getElementById('createBtn').addEventListener('click', createList);
+        document.getElementById('composer').addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') { e.preventDefault(); createList(); }
+        });
+
+        async function saveRename(id) {
+            const input = document.querySelector(`input.rename[data-id="${id}"]`);
+            const name = input ? input.value.trim() : '';
+            renamingId = null;
+            const list = lists.find(l => l.id === id);
+            if (!name || !list || name === list.description) { render(); return; }
+            try {
+                await api(`/tasks/${id}`, { method: 'PUT', body: { description: name } });
+                list.description = name;
+            } catch (err) { showToast('Error: ' + err.message); }
+            render();
+        }
+
+        async function addItem(id, text) {
+            const description = text.trim();
+            if (!description) return;
+            const list = lists.find(l => l.id === id);
+            if (!list) return;
+            try {
+                const item = await api(`/tasks/${id}/subtasks`, { method: 'POST', body: { description, assignee_type: 'human' } });
+                list.items.push({ id: item.id, description, sort_order: item.sort_order });
+                render();
+                const input = document.querySelector(`input.additem[data-id="${id}"]`);
+                if (input) input.focus();
+            } catch (err) { showToast('Error: ' + err.message); }
+        }
+
+        document.getElementById('cards').addEventListener('keydown', (e) => {
+            if (e.target.matches('input.rename')) {
+                if (e.key === 'Enter') { e.preventDefault(); saveRename(parseInt(e.target.dataset.id)); }
+                if (e.key === 'Escape') { renamingId = null; render(); }
+            }
+            if (e.target.matches('input.additem') && e.key === 'Enter') {
+                e.preventDefault();
+                const id = parseInt(e.target.dataset.id);
+                const text = e.target.value;
+                e.target.value = '';
+                addItem(id, text);
+            }
+        });
+
+        document.getElementById('cards').addEventListener('focusout', (e) => {
+            if (e.target.matches('input.rename')) saveRename(parseInt(e.target.dataset.id));
+        });
+
+        // The board and day pickers are remembered per card, not acted on: the
+        // "Put on the board" button is the one that does something.
+        document.getElementById('cards').addEventListener('change', (e) => {
+            const el = e.target.closest('[data-act="day"]');
+            if (el) dayFor.set(parseInt(el.dataset.id), el.value);
+        });
+
+        document.getElementById('cards').addEventListener('click', async (e) => {
+            const titleEl = e.target.closest('.card-title[data-id]');
+            if (titleEl) { renamingId = parseInt(titleEl.dataset.id); render(); return; }
+
+            const el = e.target.closest('[data-act]');
+            if (!el) return;
+            const act = el.dataset.act;
+            const id = parseInt(el.dataset.id);
+            const list = lists.find(l => l.id === id);
+            if (!list) return;
+
+            try {
+                if (act === 'drop-item') {
+                    const itemId = parseInt(el.dataset.item);
+                    await api(`/subtasks/${itemId}`, { method: 'DELETE' });
+                    list.items = list.items.filter(it => it.id !== itemId);
+                    render();
+                } else if (act === 'edit-item') {
+                    const itemId = parseInt(el.dataset.item);
+                    const item = list.items.find(it => it.id === itemId);
+                    if (!item) return;
+                    const next = prompt('Edit this item', item.description);
+                    if (next === null || !next.trim() || next.trim() === item.description) return;
+                    await api(`/subtasks/${itemId}`, { method: 'PUT', body: { description: next.trim() } });
+                    item.description = next.trim();
+                    render();
+                } else if (act === 'delete') {
+                    if (!confirm(`Delete “${list.description}” and everything on it?`)) return;
+                    await api(`/tasks/${id}`, { method: 'DELETE' });
+                    lists = lists.filter(l => l.id !== id);
+                    render();
+                } else if (act === 'send') {
+                    const daySel = document.querySelector(`input[data-act="day"][data-id="${id}"]`);
+                    const boardSel = document.querySelector(`select[data-act="board"][data-id="${id}"]`);
+                    const day = (daySel && daySel.value) || todayKey();
+                    const projectId = boardSel ? parseInt(boardSel.value) : list.project_id;
+                    el.disabled = true;
+                    const task = await api(`/tasks/${id}/unshelve`, {
+                        method: 'POST', body: { scheduled_date: day, project_id: projectId }
+                    });
+                    el.disabled = false;
+                    const boardName = task.project_name ? ` on ${task.project_name}` : '';
+                    showToast(`Copied to ${dayLabel(day)}${boardName} — “${list.description}” stays here`);
+                }
+            } catch (err) { showToast('Error: ' + err.message); }
+        });
+
+        load().then(() => {
+            document.getElementById('meta').innerHTML = sess ? `<b>${escapeHtml(sess.slug)}</b> · lists` : '';
+        }).catch(err => showToast('Error: ' + err.message));
+    </script>
+</body>
+</html>
