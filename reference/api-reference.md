@@ -725,7 +725,7 @@ The Lists page keeps a `list` task past the day it was written on: `tasks.shelve
 
 `POST /api/tasks/:id/sync-master` — a board copy pushing what you added on the road back up to its master (`tasks.list_master_id`, set at unshelve). The master's items become **the copy's items — all of them, ticked or not, and all unticked on the master**: a tick on a copy means packed, not "remove it from the list I keep". The copy's AI suggestions are excluded and the master's **name is not synced**. 400 with no master link, 404 if the master is gone. Returns the master (GET shape) plus `item_count`.
 
-`GET /lists` serves the page (`public/lists.html`). `DELETE /api/tasks/:id` deletes a master for good (items cascade; copies on days are just unlinked).
+`GET /lists` serves the page (`public/lists.html`). `DELETE /api/tasks/:id` deletes a master for good (items cascade; copies on days are just unlinked) — and is also what the list pane's **Delete** uses to throw away a list on the board, which never touches its master.
 
 ## Completions (dashboard)
 

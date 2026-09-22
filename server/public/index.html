@@ -1419,15 +1419,17 @@
             gap: 6px;
             align-items: center;
             flex-wrap: wrap;
-            /* auto on the right here and on the left of #notesLink split
+            /* auto on the right here and on the left of the icon group split
                the free space two ways, so notes + dashboard + boards sit in the middle
                with breathing room, pinned to neither the switch cluster nor
                the chrome. */
             margin-right: auto;
         }
-        #listsLink { margin-left: auto; margin-right: 4px; }
-        #notesLink { margin-right: 0; position: relative; }
+        /* The group's leftmost icon carries the float. Order is notes ·
+           dashboard · lists (Kevin, 2026-09-22), so it is #notesLink. */
+        #notesLink { margin-left: auto; margin-right: 4px; position: relative; }
         #dashboardLink { margin-right: 4px; }
+        #listsLink { margin-right: 0; }
         /* A dot on the notes icon when a note arrived since the page was last
            opened (localStorage 'movealong.notes.seen'); the visit clears it. */
         #notesLink.unread::after {
@@ -1668,13 +1670,17 @@
         /* "Keep on the Lists page" — the quiet footer of a list pane. Pink,
            because it is the list's own colour, and it only brightens on hover
            so it never competes with the items above it. */
-        .list-keep {
-            display: block;
-            width: 100%;
+        .list-foot {
+            display: flex;
+            align-items: baseline;
+            gap: 6px;
             margin-top: 8px;
-            padding: 4px 0 1px;
-            border: none;
+            padding-top: 4px;
             border-top: 1px dashed #fbcfe8;
+        }
+        .list-keep, .list-drop {
+            padding: 0 0 1px;
+            border: none;
             background: transparent;
             color: #94a3b8;
             font-family: inherit;
@@ -1682,9 +1688,16 @@
             text-align: left;
             cursor: pointer;
         }
+        .list-keep { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
         .list-keep:hover { color: #db2777; }
-        body.dark .list-keep { border-top-color: #4c1d3d; color: #64748b; }
+        /* Red only on hover — the one destructive thing in the pane should be
+           legible without shouting from a 178px column. */
+        .list-drop { flex: none; margin-left: auto; }
+        .list-drop:hover { color: #ef4444; }
+        body.dark .list-foot { border-top-color: #4c1d3d; }
+        body.dark .list-keep, body.dark .list-drop { color: #64748b; }
         body.dark .list-keep:hover { color: #f472b6; }
+        body.dark .list-drop:hover { color: #f87171; }
 
         .subtask-regenerate {
             position: absolute;
@@ -3241,16 +3254,16 @@
                 <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import">&#128197;</button>
             </div>
 
-            <!-- Three pages of your own: the lists you keep, the notes you sent
-                 yourself, and what you've completed this month. They sit just
-                 left of the boards (2026-09-16); #listsLink's margin-left:auto
+            <!-- Three pages of your own: the notes you sent yourself, what
+                 you've completed this month, and the lists you keep. They sit just
+                 left of the boards (2026-09-16); #notesLink's margin-left:auto
                  starts the middle group. -->
-            <a class="icon-toggle dashboard-link" id="listsLink" href="/lists"
-               title="Lists — the lists you keep, ready to drop onto any day" aria-label="Lists"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><circle cx="4.6" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></a>
             <a class="icon-toggle dashboard-link" id="notesLink" href="/notes"
                title="Notes — quotes, ideas and feature requests you sent yourself" aria-label="Notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M9 12h6"/><path d="M9 16h4"/></svg></a>
             <a class="icon-toggle dashboard-link" id="dashboardLink" href="/dashboard"
                title="Dashboard — what you've completed this month" aria-label="Dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></a>
+            <a class="icon-toggle dashboard-link" id="listsLink" href="/lists"
+               title="Lists — the lists you keep, ready to drop onto any day" aria-label="Lists"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><circle cx="4.6" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></a>
 
             <!-- Project tabs, in the user's own order. The active tab is
                  styled in place — it never moves to the front. -->
@@ -4591,6 +4604,30 @@
                 taskSubtasks.delete(taskId);
                 renderView();
                 showToast('Kept — it\u2019s on your Lists page');
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        // Delete a whole list off the board. Asks first — this is the one
+        // destructive gesture in the pane, and the items go with it. A copy's
+        // master on the Lists page is a separate row and is untouched.
+        async function deleteList(taskId) {
+            const task = tasks.find(t => t.id === taskId);
+            const master = listMasterOf.get(taskId);
+            const name = task ? listBoxLabel(task.description) : 'this list';
+            const warning = master
+                ? `Delete \u201c${name}\u201d from the board?\n\n\u201c${master.name}\u201d on your Lists page is not touched.`
+                : `Delete \u201c${name}\u201d and everything on it?\n\nThere is no undo.`;
+            if (!confirm(warning)) return;
+            try {
+                await api(`/tasks/${taskId}`, { method: 'DELETE' });
+                tasks = tasks.filter(t => t.id !== taskId);
+                expandedTaskIds.delete(taskId);
+                taskSubtasks.delete(taskId);
+                listMasterOf.delete(taskId);
+                renderView();
+                showToast(master ? `Deleted — \u201c${master.name}\u201d is still on your Lists page` : 'List deleted');
             } catch (err) {
                 showToast('Error: ' + err.message);
             }
@@ -6190,6 +6227,13 @@
                 });
             });
 
+            document.querySelectorAll('.list-drop[data-drop-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteList(parseInt(btn.dataset.dropId));
+                });
+            });
+
             document.querySelectorAll('.subtask-up[data-subtask-id]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -7198,7 +7242,12 @@
                 const keep = master
                     ? `<button class="list-keep" data-sync-id="${taskId}" title="Copy these items up to &ldquo;${escapeHtml(master.name)}&rdquo; on the Lists page. Items you ticked off here stay on the list you keep; the name isn't changed.">Update &ldquo;${escapeHtml(master.name)}&rdquo;</button>`
                     : `<button class="list-keep" data-shelve-id="${taskId}" title="Move this list to the Lists page — it leaves this day, and you can send a fresh copy to any day later">Keep on the Lists page</button>`;
-                content = `${regenAll}${listHeader}${slots}<div class="subtask-list">${mineRows}</div>${suggestionSection}${keep}`;
+                // The only way to get rid of a list from the board. A boxed
+                // list has no completion circle, and ticking items off empties
+                // it one line at a time — so without this a list you are done
+                // with can only be pushed to another day forever.
+                const drop = `<button class="list-drop" data-drop-id="${taskId}" title="${master ? `Delete this list from the board. &ldquo;${escapeHtml(master.name)}&rdquo; on the Lists page is not touched.` : 'Delete this list and everything on it. There is no undo.'}">Delete</button>`;
+                content = `${regenAll}${listHeader}${slots}<div class="subtask-list">${mineRows}</div>${suggestionSection}<div class="list-foot">${keep}${drop}</div>`;
             } else {
                 // Completed steps disappear from the pane (server keeps them for the List-view progress count).
                 const pending = subtasks.filter(st => !st.completed);
