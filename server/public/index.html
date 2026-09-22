@@ -226,6 +226,11 @@
            as a second input. The lighter dashboard pink (#e87ba4) is under 3:1
            on white, so text takes the darker step; dark mode goes lighter. */
         .list-box-input::placeholder { color: #db2777; opacity: 1; }
+        /* The box is 200px of day card, so its two controls are a notch
+           tighter than a task row's and the input gives up the space. */
+        .list-box .task-arrow,
+        .list-box .task-lock { width: 15px; height: 15px; }
+        .list-box .task-lock { margin-left: 1px; }
         .list-box-toggle {
             flex: none;
             width: 24px;
@@ -3436,6 +3441,19 @@
         let boardBudget = null; // { month, budget_usd, spent_usd } for currentProject
         let assistantEnabled = true; // master AI assistant switch (persisted in localStorage)
 
+        // taskId -> { id, name } of the Lists-page list a board copy came from.
+        // The pane needs it to offer "Update Travel", and it is filled from
+        // both task reads (the board's and the List view's) because a pane
+        // opens on either. A row whose master was deleted comes back without
+        // one, so the entry is cleared, not left stale.
+        const listMasterOf = new Map();
+        function noteListMasters(rows) {
+            (rows || []).forEach(t => {
+                if (t.list_master_id && t.list_master_name) listMasterOf.set(t.id, { id: t.list_master_id, name: t.list_master_name });
+                else listMasterOf.delete(t.id);
+            });
+        }
+
         // ===== "list ..." tasks: quick list above the standard AI pane =====
         const LIST_TASK_RE = /^list\b/i;
         function isListTask(desc) { return LIST_TASK_RE.test(desc || ''); }
@@ -3455,10 +3473,21 @@
         // list row used to open, so the pane code is untouched.
         function renderListBox(task) {
             const open = listBoxOpen(task.id);
+            // → and 📅 (Kevin, 2026-09-22): a box gave up the whole row's
+            // vocabulary, and moving a list forward and pinning it to a date
+            // are the two that a list actually wants. They carry the SAME
+            // classes as a task row's, so the existing `.task-arrow` /
+            // `.task-lock` click wiring and the hover-and-press-1-9 gesture
+            // pick them up with no second code path. Drag stays out.
+            const isLocked = !!task.locked;
+            const isDue = !isLocked && !!task.due_date;
+            const arrow = `<div class="task-arrow" data-task-id="${task.id}" title="Move this list to the next day &middot; Shift+Click for +1 week &middot; hover and press 1-9 to jump that many days">&rarr;</div>`;
+            const lock = `<div class="task-lock ${isLocked ? 'locked' : (isDue ? 'due' : '')}" data-task-id="${task.id}" title="${isLocked ? 'Locked to this day — click to manage' : (isDue ? `Locks to ${escapeHtml(task.due_date)} when that day comes — click to manage` : 'Lock this list to a date')}">${isLocked || isDue ? '🔒' : '📅'}</div>`;
             return `
-                <div class="list-box ${open ? 'open' : ''}" data-task-id="${task.id}">
+                <div class="list-box ${open ? 'open' : ''} ${isLocked ? 'locked' : ''}" data-task-id="${task.id}">
                     <input type="text" class="list-box-input" data-task-id="${task.id}"
                            placeholder="${escapeHtml(listBoxLabel(task.description))}" title="Type here to add to this list">
+                    ${arrow}${lock}
                     <button class="list-box-toggle" data-task-id="${task.id}" title="${open ? 'Close the list' : 'Open the list'}" aria-label="${open ? 'Close the list' : 'Open the list'}" aria-expanded="${open}">&#9662;</button>
                 </div>
             `;
@@ -3544,8 +3573,12 @@
                 startInlineEdit(stepDesc, st.description, next => saveSubtaskDescription(subtaskId, next));
                 return true;
             }
-            // The pink list box: edit the list's name where it sits.
-            const box = e.target.closest('.list-box[data-task-id]');
+            // The pink list box: edit the list's name where it sits — but not
+            // from its own controls. Shift+Click the arrow is +1 week, and this
+            // resolver runs in the capture phase, so without the guard it would
+            // swallow that gesture and rename the list instead.
+            const boxControl = e.target.closest('.list-box .task-arrow, .list-box .task-lock, .list-box-toggle');
+            const box = !boxControl && e.target.closest('.list-box[data-task-id]');
             if (box) {
                 const task = tasks.find(t => t.id === parseInt(box.dataset.taskId));
                 if (!task) return false;
@@ -3574,7 +3607,9 @@
         }, true);
         // Shift+mousedown on the list box would otherwise focus its input first.
         document.addEventListener('mousedown', (e) => {
-            if (e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey && !inlineEditing && e.target.closest('.list-box[data-task-id]')) e.preventDefault();
+            if (e.shiftKey && !e.altKey && !e.metaKey && !e.ctrlKey && !inlineEditing
+                && e.target.closest('.list-box[data-task-id]')
+                && !e.target.closest('.list-box .task-arrow, .list-box .task-lock, .list-box-toggle')) e.preventDefault();
         }, true);
 
         async function openListBox(taskId) {
@@ -3883,6 +3918,7 @@
                     endpoint += `?project_id=${currentProject.id}`;
                 }
                 tasks = await api(endpoint);
+                noteListMasters(tasks);
             } catch (err) {
                 console.error('Failed to load tasks:', err);
                 tasks = [];
@@ -4556,6 +4592,24 @@
                 renderView();
                 showToast('Kept — it\u2019s on your Lists page');
             } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        // "Update Travel": the items on this copy become the master's items —
+        // all of them, including the ones ticked off here, all unticked on the
+        // master. A tick on a copy means done for this trip, not "drop it from
+        // the list I keep".
+        async function syncListMaster(taskId) {
+            const master = listMasterOf.get(taskId);
+            try {
+                const updated = await api(`/tasks/${taskId}/sync-master`, { method: 'POST' });
+                showToast(`\u201c${updated.description}\u201d updated — ${updated.item_count} item${updated.item_count === 1 ? '' : 's'}`);
+            } catch (err) {
+                // The master can be deleted from the Lists page while a copy
+                // sits on a day; the row is still a perfectly good list.
+                if (master) listMasterOf.delete(taskId);
+                renderView();
                 showToast('Error: ' + err.message);
             }
         }
@@ -6129,6 +6183,13 @@
                 });
             });
 
+            document.querySelectorAll('.list-keep[data-sync-id]').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    syncListMaster(parseInt(btn.dataset.syncId));
+                });
+            });
+
             document.querySelectorAll('.subtask-up[data-subtask-id]').forEach(btn => {
                 btn.addEventListener('click', (e) => {
                     e.stopPropagation();
@@ -7129,7 +7190,14 @@
                 // The way off the board. Spelled out rather than glyphed: this
                 // is the one control in the pane that takes the whole list
                 // somewhere else, and a 178px column has room for four words.
-                const keep = `<button class="list-keep" data-shelve-id="${taskId}" title="Move this list to the Lists page — it leaves this day, and you can send a fresh copy to any day later">Keep on the Lists page</button>`;
+                // One footer, two meanings. A list that came off the Lists
+                // page belongs to a master already, so the useful gesture is
+                // pushing what you added here back up to it — shelving it
+                // again would just make a second "Travel".
+                const master = listMasterOf.get(taskId);
+                const keep = master
+                    ? `<button class="list-keep" data-sync-id="${taskId}" title="Copy these items up to &ldquo;${escapeHtml(master.name)}&rdquo; on the Lists page. Items you ticked off here stay on the list you keep; the name isn't changed.">Update &ldquo;${escapeHtml(master.name)}&rdquo;</button>`
+                    : `<button class="list-keep" data-shelve-id="${taskId}" title="Move this list to the Lists page — it leaves this day, and you can send a fresh copy to any day later">Keep on the Lists page</button>`;
                 content = `${regenAll}${listHeader}${slots}<div class="subtask-list">${mineRows}</div>${suggestionSection}${keep}`;
             } else {
                 // Completed steps disappear from the pane (server keeps them for the List-view progress count).
@@ -7163,6 +7231,7 @@
             try {
                 const data = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/master`);
                 const masterProjects = data.projects;
+                masterProjects.forEach(proj => noteListMasters(proj.tasks));
 
                 if (masterProjects.length === 0) {
                     container.innerHTML = '<div class="empty-project">No projects yet. Create one above!</div>';

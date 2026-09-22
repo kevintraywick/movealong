@@ -101,6 +101,7 @@ async function initDb() {
       repeat_rule TEXT,
       goal INTEGER DEFAULT 0,
       shelved INTEGER DEFAULT 0,
+      list_master_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
       research_status TEXT,
       source TEXT DEFAULT 'user',
       external_uid TEXT,
@@ -447,6 +448,12 @@ async function initDb() {
   // but they belong to no day: every board query filters them out, and sending
   // one back to a day COPIES it, so the master stays on the page for next time.
   ensureColumn('tasks', 'shelved', 'INTEGER DEFAULT 0');
+
+  // The list on the Lists page this copy came from. It is what lets a copy
+  // push the items you added on the road back up to the master ("Update
+  // Travel"). SET NULL on delete: deleting the master just leaves the copy a
+  // plain list, never destroys a list sitting on somebody's day.
+  ensureColumn('tasks', 'list_master_id', 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
   // Holdout drafts (2026-09-12): which arm this task's first draft ran in —
   // 'rules' (how-you-work notes applied), 'holdout' (deliberately omitted,
   // 1 in 10), NULL (no notes existed) — and the notes that were in play.

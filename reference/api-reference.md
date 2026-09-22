@@ -723,10 +723,14 @@ The Lists page keeps a `list` task past the day it was written on: `tasks.shelve
 
 `POST /api/tasks/:id/unshelve` — page → board, and it **copies**: a new task on `scheduled_date` (default the caller's today; 400 on a past day or a malformed one) and `project_id` (default the master's board; 400 if the caller doesn't belong to it), described `list: <name>`, with every item copied unticked. The master is untouched. No `findDayWithCapacity()`: a list renders as a box under the add-task input, not one of the day's seven rows, so it neither fills a day nor bumps anybody. Returns the created task plus `project_name`.
 
-`GET /lists` serves the page (`public/lists.html`). `DELETE /api/tasks/:id` deletes a master for good (items cascade).
+`POST /api/tasks/:id/sync-master` — a board copy pushing what you added on the road back up to its master (`tasks.list_master_id`, set at unshelve). The master's items become **the copy's items — all of them, ticked or not, and all unticked on the master**: a tick on a copy means packed, not "remove it from the list I keep". The copy's AI suggestions are excluded and the master's **name is not synced**. 400 with no master link, 404 if the master is gone. Returns the master (GET shape) plus `item_count`.
+
+`GET /lists` serves the page (`public/lists.html`). `DELETE /api/tasks/:id` deletes a master for good (items cascade; copies on days are just unlinked).
 
 ## Completions (dashboard)
 
 `GET /api/companies/:subdomain/users/:slug/completions?month=YYYY-MM` — completed tasks per local day (`x-tz`) for the month (default: the caller's current month). Returns `{ month, today, days_in_month, projects: [{id, name}] (tab order; id 0 = Calendar), counts: { 'YYYY-MM-DD': { project_id: n } } }`.
+
+The board read (`GET .../tasks`) and the List view carry `list_master_id` and `list_master_name` for list copies.
 
 `PUT /api/tasks/:id` also accepts `goal` (0/1) — today's goal; refused on calendar rows.

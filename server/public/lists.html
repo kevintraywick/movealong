@@ -118,7 +118,7 @@
             overflow-wrap: anywhere;
         }
         .card-title:hover { color: #0284c7; }
-        .card input.rename, .card input.additem {
+        .card input.rename, .card input.additem, .card input.edititem {
             width: 100%;
             border: 1px solid #f9a8d4;
             border-radius: 6px;
@@ -128,7 +128,8 @@
             background: #fff;
         }
         .card input.rename { font-size: 14px; font-weight: 600; }
-        .card input.rename:focus, .card input.additem:focus { outline: none; border-color: #db2777; }
+        .card input.rename:focus, .card input.additem:focus, .card input.edititem:focus { outline: none; border-color: #db2777; }
+        .card input.edititem { flex: 1; min-width: 0; font-size: 13px; padding: 1px 5px; }
         .card input.additem { font-size: 12px; margin-top: 8px; border-style: dashed; border-color: #e2e8f0; }
         .card input.additem::placeholder { color: #94a3b8; }
 
@@ -218,7 +219,7 @@
         body.dark .composer input { color: #e2e8f0; }
         body.dark .composer input::placeholder { color: #f472b6; }
         body.dark .card-title, body.dark .empty b { color: #e2e8f0; }
-        body.dark .card input.rename, body.dark .card input.additem { background: #0f172a; color: #e2e8f0; border-color: #334155; }
+        body.dark .card input.rename, body.dark .card input.additem, body.dark .card input.edititem { background: #0f172a; color: #e2e8f0; border-color: #334155; }
         body.dark .card input.rename { border-color: #f472b6; }
         body.dark .btn { background: #1e293b; border-color: #334155; color: #38bdf8; }
         body.dark .btn:hover { background: #0f172a; border-color: #0284c7; }
@@ -251,7 +252,7 @@
             <button class="theme-toggle" id="themeToggle" title="Switch theme">🌙</button>
         </div>
 
-        <p class="lede">Lists you keep. A list on the board can be moved here from its pane — it leaves the day it was written on. Send one to a day and you get a fresh copy; the list itself stays here for next time.</p>
+        <p class="lede">Lists you keep. A list on the board can be moved here from its pane — it leaves the day it was written on. Send one to a day and you get a fresh copy; the list itself stays here for next time. Add something to a copy while you're using it and <b>Update “…”</b> at the bottom of its pane brings it back up here.</p>
 
         <div class="composer">
             <input type="text" id="composer" placeholder="Name a new list — “Travel”, “Groceries”…">
@@ -321,6 +322,10 @@
         let lists = [];
         let boards = [];
         let renamingId = null;
+        // The item being edited in place, if any. Same idiom as the title:
+        // the text becomes a field where it sits, Enter or blur saves,
+        // Escape cancels.
+        let editingItemId = null;
         // Chosen day per card, so a date picked in one card survives a re-render
         // of another.
         const dayFor = new Map();
@@ -357,7 +362,9 @@
                     ? `<ul class="items">${l.items.map(it => `
                         <li class="item" data-item="${it.id}">
                             <button data-act="drop-item" data-item="${it.id}" data-id="${l.id}" title="Remove from this list" aria-label="Remove from this list"></button>
-                            <span data-act="edit-item" data-item="${it.id}" data-id="${l.id}" title="Click to edit">${escapeHtml(it.description)}</span>
+                            ${editingItemId === it.id
+                                ? `<input class="edititem" data-item="${it.id}" data-id="${l.id}" value="${escapeHtml(it.description)}">`
+                                : `<span data-act="edit-item" data-item="${it.id}" data-id="${l.id}" title="Click to edit">${escapeHtml(it.description)}</span>`}
                         </li>`).join('')}</ul>`
                     : '<div class="items-empty">Nothing on it yet.</div>';
                 const boardOpts = boards.map(b =>
@@ -377,7 +384,7 @@
                         </div>
                     </div>`;
             }).join('');
-            const ren = cards.querySelector('input.rename');
+            const ren = cards.querySelector('input.rename, input.edititem');
             if (ren) { ren.focus(); ren.setSelectionRange(ren.value.length, ren.value.length); }
         }
 
@@ -415,6 +422,20 @@
             render();
         }
 
+        async function saveItem(listId, itemId) {
+            const input = document.querySelector(`input.edititem[data-item="${itemId}"]`);
+            const text = input ? input.value.trim() : '';
+            editingItemId = null;
+            const list = lists.find(l => l.id === listId);
+            const item = list && list.items.find(it => it.id === itemId);
+            if (!item || !text || text === item.description) { render(); return; }
+            try {
+                await api(`/subtasks/${itemId}`, { method: 'PUT', body: { description: text } });
+                item.description = text;
+            } catch (err) { showToast('Error: ' + err.message); }
+            render();
+        }
+
         async function addItem(id, text) {
             const description = text.trim();
             if (!description) return;
@@ -434,6 +455,10 @@
                 if (e.key === 'Enter') { e.preventDefault(); saveRename(parseInt(e.target.dataset.id)); }
                 if (e.key === 'Escape') { renamingId = null; render(); }
             }
+            if (e.target.matches('input.edititem')) {
+                if (e.key === 'Enter') { e.preventDefault(); saveItem(parseInt(e.target.dataset.id), parseInt(e.target.dataset.item)); }
+                if (e.key === 'Escape') { editingItemId = null; render(); }
+            }
             if (e.target.matches('input.additem') && e.key === 'Enter') {
                 e.preventDefault();
                 const id = parseInt(e.target.dataset.id);
@@ -445,6 +470,7 @@
 
         document.getElementById('cards').addEventListener('focusout', (e) => {
             if (e.target.matches('input.rename')) saveRename(parseInt(e.target.dataset.id));
+            if (e.target.matches('input.edititem')) saveItem(parseInt(e.target.dataset.id), parseInt(e.target.dataset.item));
         });
 
         // The board and day pickers are remembered per card, not acted on: the
@@ -472,13 +498,7 @@
                     list.items = list.items.filter(it => it.id !== itemId);
                     render();
                 } else if (act === 'edit-item') {
-                    const itemId = parseInt(el.dataset.item);
-                    const item = list.items.find(it => it.id === itemId);
-                    if (!item) return;
-                    const next = prompt('Edit this item', item.description);
-                    if (next === null || !next.trim() || next.trim() === item.description) return;
-                    await api(`/subtasks/${itemId}`, { method: 'PUT', body: { description: next.trim() } });
-                    item.description = next.trim();
+                    editingItemId = parseInt(el.dataset.item);
                     render();
                 } else if (act === 'delete') {
                     if (!confirm(`Delete “${list.description}” and everything on it?`)) return;

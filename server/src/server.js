@@ -1444,7 +1444,8 @@ app.post('/api/tasks/:taskId/shelve', (req, res) => {
   spliceOutOfChain(task);
   runSql(`UPDATE tasks
              SET shelved = 1, description = ?, locked = 0, goal = 0, repeat_rule = NULL,
-                 due_date = NULL, position = NULL, parent_task_id = NULL, updated_at = ?
+                 due_date = NULL, position = NULL, parent_task_id = NULL,
+                 list_master_id = NULL, updated_at = ?
            WHERE id = ?`,
     [listNameFrom(task.description).slice(0, 500), new Date().toISOString(), task.id]);
 
@@ -1484,10 +1485,10 @@ app.post('/api/tasks/:taskId/unshelve', (req, res) => {
   // of the day's seven rows, so it neither fills a day nor bumps anybody.
   const now = new Date().toISOString();
   runSql(
-    `INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date, origin_date, created_at, updated_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+    `INSERT INTO tasks (company_id, owner_id, project_id, description, scheduled_date, origin_date, list_master_id, created_at, updated_at)
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
     [master.company_id, master.owner_id, projectId,
-     boardDescriptionFor(master.description).slice(0, 500), date, date, now, now]);
+     boardDescriptionFor(master.description).slice(0, 500), date, date, master.id, now, now]);
   const created = queryOne('SELECT last_insert_rowid() AS id');
 
   listItemsOf(master.id).forEach((item, i) => {
@@ -1499,6 +1500,37 @@ app.post('/api/tasks/:taskId/unshelve', (req, res) => {
   const task = queryOne('SELECT * FROM tasks WHERE id = ?', [created.id]);
   const project = projectId ? queryOne('SELECT name FROM projects WHERE id = ?', [projectId]) : null;
   res.status(201).json({ ...task, project_name: project ? project.name : null });
+});
+
+// A copy on the board pushing what you added on the road back up to its
+// master. The master's items become the copy's items — ALL of them, ticked or
+// not, and all unticked on arrival (Kevin, 2026-09-22): ticking "passport" off
+// in Seattle means packed, not "drop it from Travel". Removing something for
+// good is done on the Lists page, which is the only place a list is edited as
+// a list.
+//
+// The name is deliberately not synced: renaming the copy "list: Seattle trip"
+// for one trip must not rename the list you keep.
+app.post('/api/tasks/:taskId/sync-master', (req, res) => {
+  const copy = queryOne('SELECT * FROM tasks WHERE id = ?', [req.params.taskId]);
+  if (!copy) return res.status(404).json({ error: 'List not found' });
+  if (!copy.list_master_id) return res.status(400).json({ error: 'This list did not come from the Lists page' });
+  const master = queryOne('SELECT * FROM tasks WHERE id = ? AND COALESCE(shelved, 0) = 1', [copy.list_master_id]);
+  if (!master) return res.status(404).json({ error: 'That list is no longer on the Lists page' });
+
+  const items = queryAll(
+    `SELECT description FROM subtasks
+      WHERE task_id = ? AND COALESCE(assignee_type, 'human') != 'ai'
+      ORDER BY sort_order, created_at, id`, [copy.id]);
+
+  runSql('DELETE FROM subtasks WHERE task_id = ?', [master.id]);
+  items.forEach((item, i) => {
+    runSql(`INSERT INTO subtasks (task_id, description, assignee_type, sort_order) VALUES (?, ?, 'human', ?)`,
+      [master.id, item.description, i]);
+  });
+  runSql('UPDATE tasks SET updated_at = ? WHERE id = ?', [new Date().toISOString(), master.id]);
+
+  res.json({ ...shelvedListRow(master.id), item_count: items.length });
 });
 
 app.get('/api/companies/:subdomain/users/:slug/projects', (req, res) => {
@@ -1901,6 +1933,8 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.priority,
       t.position,
       t.repeat_rule, t.goal,
+      t.list_master_id,
+      lm.description AS list_master_name,
       t.source,
       t.event_start,
       t.external_uid,
@@ -1917,6 +1951,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
     FROM tasks t
     LEFT JOIN users u ON t.assigned_by = u.id
     LEFT JOIN users cb ON t.completed_by = cb.id
+    LEFT JOIN tasks lm ON t.list_master_id = lm.id AND COALESCE(lm.shelved, 0) = 1
     WHERE t.owner_id = ?
       AND COALESCE(t.shelved, 0) = 0
   `;
@@ -4302,6 +4337,8 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
   const result = projects.map(project => {
     const tasks = queryAll(`
       SELECT t.id, t.description, t.scheduled_date, t.completed, t.assigned_by, t.accepted_at, t.completed_by, t.priority, t.position, t.locked, t.due_date, t.repeat_rule, t.goal,
+        t.list_master_id,
+        lm.description as list_master_name,
         u.name as assigned_by_name,
         cb.name as completed_by_name,
         (SELECT COUNT(*) FROM subtasks WHERE task_id = t.id) as subtask_count,
@@ -4309,6 +4346,7 @@ app.get('/api/companies/:subdomain/users/:slug/master', (req, res) => {
       FROM tasks t
       LEFT JOIN users u ON t.assigned_by = u.id
       LEFT JOIN users cb ON t.completed_by = cb.id
+      LEFT JOIN tasks lm ON t.list_master_id = lm.id AND COALESCE(lm.shelved, 0) = 1
       WHERE t.project_id = ? AND t.owner_id = ? AND t.completed = 0
         AND COALESCE(t.shelved, 0) = 0
       ORDER BY t.scheduled_date,
