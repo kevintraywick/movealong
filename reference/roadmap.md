@@ -48,6 +48,19 @@
 - [x] Goal for the day — hover + g, orange, heads the day under locks (2026-09-08)
 - [x] Dashboard page — completed tasks per day for the month, stacked by board, legend beneath; bar-chart icon in the header (2026-09-08)
 
+- [x] Phase 1 drafts moved to Opus 5, research stays on Sonnet 5 (2026-09-08)
+- [x] Repeating tasks (hover + r), one instance at a time — completing spawns the next (daily / weekly / monthly)
+- [x] The feedback loop, first half — `step_events` on every gesture, how-you-work lines learned from them, holdout drafts that retire a rule that doesn't beat no-rule (2026-09-12)
+- [x] Completed tasks board — a ticked task leaves the day card; own view with a month chart and day strip; `show_completed` preference (2026-09-12)
+- [x] Renamed MoveIt; the board as an MCP server — stdio for Claude Code and `/mcp/:secret` over the web for the phone app (2026-09-13)
+- [x] The morning briefing — a pane under today's card, assembled by the user's own Claude through the MoveIt server; weather is the server's job (2026-09-13)
+- [x] Health pane on the dashboard — steps, weight, gym, yoga entered by hand; streak grids and a rolling average (2026-09-13)
+- [x] A day's list is a pink box under the add-task input, open by default (2026-09-15/16)
+- [x] Shift+Click edits a task, step, list item or list name in place (2026-09-16)
+- [x] Notes (/notes) — cards for anything sent from the phone through `send_note` or typed there (2026-09-16)
+- [x] Tom's first skill — the RMH invoice: PDF, receivables ledger, Gmail draft (2026-09-16)
+- [x] **The Lists page (/lists)** — keep a list past its day, rename it, and drop a fresh copy onto any day; a copy can push what you added back up to the master; a boxed list keeps → and 📅 and can be deleted outright (2026-09-22)
+
 ## Next
 - [ ] **Subtasks v2** (direction settled 2026-09-06, mockups under review): decision rows with chips, branch generated on click as dependents, one open decision per pane; `agent_runs` + dot strip that expands into a named list; path-so-far tree on the task page; then real fan-out. See `reference/subtasks-v2-brainstorm.md`.
 - [ ] **Feedback loop on any task** (very soon, Kevin 2026-09-02) — a way to say how a task or its steps went, feeding the brief
