@@ -441,13 +441,27 @@ export const INBOX_RECIPE = `Run my MoveIt mail strip: first do what I asked, th
    - open, reply, forward, task: I handled it myself, so just remove UNREAD.
    If one fails, report ok: false with the error. Don't retry it in the same run.
 
-3. Search unread threads in the inbox only: query "is:unread in:inbox", pageSize 20. Take unread_total from the result count estimate. If nothing is unread, post an empty list — that clears the strip.
+3. Know my context before you judge anything. Read what's going on around the mail. Do each of these once per run, not per email:
+   - My calendar for the next 14 days. If this run has already read it (the heartbeat does the calendar first), use that. Otherwise list the events from Google Calendar, today 00:00 to 14 days out.
+   - get_brief: who I am, who my people and providers are, how I like things.
+   - list_tasks for today and the rest of the week: what I'm working on.
+   - Who I actually correspond with: search "in:sent newer_than:60d" (pageSize 50) and note the addresses and domains I've written to.
+   Then read each email as a person who knows all that would. Look at who this is to me, what it's about, and whether it connects to something on my calendar, my board or a conversation I'm already in. Open the thread (get_thread) when the preview isn't enough to tell, but only for mail that might need me, not for obvious newsletters.
 
-4. Build one item per thread from its newest unread message:
+4. Search unread threads in the inbox only: query "is:unread in:inbox", pageSize 20. Take unread_total from the result count estimate. If nothing is unread, post an empty list — that clears the strip.
+
+5. Build one item per thread from its newest unread message:
    - sender_name: short, what I'd call them ("Railway", "Dollar Flight Club", "Margo"). sender_addr: the address.
    - Skip a thread whose newest message in the inbox isn't unread (Gmail matches a whole thread when any message is).
    - subject: as written. body: the first ~100 characters of the message text. Strip preheader filler (the invisible ͏ and zero-width runs), HTML entities and "View in browser" boilerplate.
-   - attention: true only when it needs me: a real person writing to me and waiting on an answer, money owed or due, a deadline in the next few days, a security alert I didn't cause, or something of mine broken in production and still broken. Newsletters, promotions, receipts, routine notifications and alerts I caused myself are false. Most rows should be false.
+   - attention: true when it needs me or is about something that matters to me right now:
+     a real person writing to me and waiting on an answer, or anyone I've written to in the last 60 days writing back;
+     anything tied to an event on my calendar in the next 14 days. Match on the sender's name or domain, the event's title or place, or the subject ("City Eyeworks" mail while I have a City Eyeworks appointment this week). Say which event in the reason;
+     my own care, even when it's only an FYI: doctors, dentists, eye clinics, pharmacies, labs, therapists, vets, health insurance, my kids' schools;
+     anything about a task on my board;
+     money owed or due; a deadline in the next few days; a security alert I didn't cause; something of mine broken in production and still broken.
+     Newsletters, promotions, receipts, routine notifications and alerts I caused myself are false. Most rows should still be false.
+     Standing choices come first: if \`learned\` has attention true or false for this sender (match by address, or by sender_name for the same organization writing from another address), use it and say "you marked this sender" in the reason.
    - action, one of open, reply, forward, archive, delete, junk, unsubscribe, task:
      reply when a person is waiting on me (set reply_link to mailto:<sender>?subject=Re:%20<subject>&body=<a short reply in my voice, URL-encoded>);
      task when it asks for work that takes more than a reply;
@@ -457,12 +471,12 @@ export const INBOX_RECIPE = `Run my MoveIt mail strip: first do what I asked, th
      junk for spam and phishing;
      unsubscribe for recurring mail I never open (set unsubscribe_link to an https: or mailto: unsubscribe address if the message has one);
      open when you can't tell.
-   - reason: one sentence explaining the light and the action. The board shows it in the tip bar when I hover the row.
+   - reason: one sentence, in plain words, naming the context that decided it ("You're seeing them today at 12:15 — they say your trial lenses are backordered."). The board shows it in the tip bar when I hover the row.
    - view_url: the thread's Gmail viewUrl. received_at: the newest message's ISO date.
 
-5. Check \`learned\` for each sender (compare addresses case-insensitively). If there is a \`suggest\` action, use it. If there is an \`auto\` action and the row isn't attention, do that action in Gmail yourself now, the same way as step 2, and post the row with auto: true. The board logs it and doesn't show it. Never auto-handle a row with attention.
+6. Check \`learned\` for each sender (compare addresses case-insensitively). If there is a \`suggest\` action, use it. If there is an \`auto\` action and the row isn't attention, do that action in Gmail yourself now, the same way as step 2, and post the row with auto: true. The board logs it and doesn't show it. Never auto-handle a row with attention.
 
-6. Call post_inbox once with every item and unread_total. Then tell me in one line: how many queued actions you did, how many rows you posted, and anything you handled on your own.`;
+7. Call post_inbox once with every item and unread_total. Then tell me in one line: how many queued actions you did, how many rows you posted, and anything you handled on your own.`;
 
 
 // The calendar band (2026-09-23). Kevin's calls: events are facts, drawn as
@@ -488,14 +502,15 @@ Tell me in one line how many events you posted and for which days.`;
 // there to answer a question, so it never asks one.
 export const HEARTBEAT_RECIPE = `You are Tom, running on a 30-minute heartbeat with nobody watching. Do these in order, then stop.
 
-A. The mail strip — follow this recipe exactly:
-${INBOX_RECIPE}
-
-B. The calendar — follow this recipe exactly:
+A. The calendar first, so the mail can be read against it — follow this recipe exactly:
 ${CALENDAR_RECIPE}
+
+B. The mail strip — follow this recipe exactly, using the events you just read:
+${INBOX_RECIPE}
 
 Rules for an unattended run:
 - Never ask a question and never wait for an answer. If something needs Kevin, it belongs on the strip (attention: true), not in your reply.
 - If a Gmail or Calendar action is denied or fails, report it with finish_inbox_action ok: false (for mail) and carry on. Do not retry it and do not look for another way to do it.
 - Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing and marking spam under the recipe are the only Gmail writes.
-- Finish with one line: what you did with the mail and how many events you posted.`;
+- \`enabled\` / \`connected\` in post_calendar's reply describe only the secret-address feed. Events you post show on the board regardless; don't mention it.
+- Finish with one line: how many events you posted and what you did with the mail.`;

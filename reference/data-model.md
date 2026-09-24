@@ -152,6 +152,18 @@ rather than merely counted.
 `projects.ai_budget_usd` (whole dollars, default 5) is the monthly cap this is
 summed against. It gates **research only** — phase 1 drafting always runs.
 
+## inbox_senders
+
+The mail strip's standing per-sender choices (2026-09-24), written by Option+Click on a row's dot (`PUT /api/inbox-items/:id {attention}`) and returned as `learned[].attention` from `GET .../inbox`. Outlives the rows.
+
+| Column      | Type     | Notes |
+|-------------|----------|-------|
+| user_id     | INTEGER  | FK → users.id, CASCADE; PK with sender_addr |
+| sender_addr | TEXT     | Lowercased |
+| sender_name | TEXT     | As on the row, so Claude can match the same organization's other addresses |
+| attention   | INTEGER  | 1 = always blue, 0 = never; the latest flip wins |
+| set_at      | DATETIME | ISO |
+
 ## calendar_feeds
 One subscribed iCal feed per user (`user_id` is UNIQUE).
 

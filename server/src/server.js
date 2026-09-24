@@ -1228,7 +1228,7 @@ function inboxLearned(userId) {
     const action = list[0].action;
     const cleanRun = streak >= INBOX_AUTO_STREAK && list.slice(0, INBOX_AUTO_STREAK).every(r => !r.overridden_action);
     out.push({
-      sender, handled: list.length, last_action: action, streak,
+      sender, sender_name: null, attention: null, handled: list.length, last_action: action, streak,
       corrected: list.filter(r => r.overridden_action).length,
       attention_last: !!list[0].attention,
       suggest: streak >= INBOX_SUGGEST_STREAK ? action : null,
@@ -1237,6 +1237,19 @@ function inboxLearned(userId) {
       // only runs on sight once three suggestions in a row went untouched.
       auto: cleanRun && INBOX_AUTO_ACTIONS.includes(action) ? action : null
     });
+  }
+  // Standing attention choices (Option+Click the dot): `attention` true or
+  // false means "the user said so for this sender — use it"; null means judge.
+  const bySender = new Map(out.map(o => [o.sender, o]));
+  for (const p of queryAll('SELECT sender_addr, sender_name, attention FROM inbox_senders WHERE user_id = ? ORDER BY set_at DESC', [userId])) {
+    let o = bySender.get(p.sender_addr);
+    if (!o) {
+      o = { sender: p.sender_addr, sender_name: null, attention: null, handled: 0, last_action: null, streak: 0,
+            corrected: 0, attention_last: null, suggest: null, auto: null };
+      bySender.set(p.sender_addr, o); out.push(o);
+    }
+    o.sender_name = p.sender_name;
+    o.attention = p.attention == null ? null : !!p.attention;
   }
   return out.sort((a, b) => b.handled - a.handled);
 }
@@ -1340,6 +1353,12 @@ app.put('/api/inbox-items/:id', (req, res) => {
   if (attention !== undefined) {
     if (typeof attention !== 'boolean') return res.status(400).json({ error: 'attention must be true or false' });
     runSql('UPDATE inbox_items SET attention = ?, overridden_attention = ? WHERE id = ?', [attention ? 1 : 0, (attention ? 1 : 0) !== row.suggested_attention ? 1 : 0, row.id]);
+    // A flip is a standing choice about the sender, not just this email.
+    if (row.sender_addr) {
+      runSql(`INSERT INTO inbox_senders (user_id, sender_addr, sender_name, attention, set_at) VALUES (?, ?, ?, ?, ?)
+        ON CONFLICT(user_id, sender_addr) DO UPDATE SET sender_name = excluded.sender_name, attention = excluded.attention, set_at = excluded.set_at`,
+        [row.user_id, row.sender_addr.toLowerCase(), row.sender_name || null, attention ? 1 : 0, new Date().toISOString()]);
+    }
   }
   res.json(inboxRow(queryOne(`SELECT ${INBOX_COLS} FROM inbox_items WHERE id = ?`, [row.id])));
 });

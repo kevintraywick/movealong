@@ -332,6 +332,19 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_pushes_owner_day ON task_pushes(owner_id, day);
 
+    -- The mail strip's standing per-sender choices (2026-09-24). Option+Click
+    -- on a row's dot records here as well as on the row, because the row can
+    -- vanish (read elsewhere) before it is ever handled, and the choice must
+    -- outlive it. The latest flip wins.
+    CREATE TABLE IF NOT EXISTS inbox_senders (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      sender_addr TEXT NOT NULL,
+      sender_name TEXT,
+      attention INTEGER,
+      set_at DATETIME,
+      PRIMARY KEY (user_id, sender_addr)
+    );
+
     -- The mail strip (2026-09-23): one row per unread Gmail thread, posted by
     -- the user's own Claude through the MoveIt server (post_inbox) and shown
     -- as up to five rows stacked on the tip bar. The board holds no mail
