@@ -308,6 +308,46 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_briefing_user_day ON briefing_items(user_id, day);
 
+    -- The mail strip (2026-09-23): one row per unread Gmail thread, posted by
+    -- the user's own Claude through the MoveIt server (post_inbox) and shown
+    -- as up to five rows stacked on the tip bar. The board holds no mail
+    -- credentials, so clicking an action only QUEUES it; Claude carries it
+    -- out on its next run and reports back (finish_inbox_action). Finished
+    -- rows are kept: the sender's history is what teaches the suggestions.
+    -- One row per thread per new message: a reply landing on a thread that
+    -- was already handled is a new row, so the history is never overwritten.
+    -- suggested_* is what Claude proposed; action/attention is what the user
+    -- left it at (Option+Click changes them, overridden_* records that).
+    CREATE TABLE IF NOT EXISTS inbox_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      thread_id TEXT NOT NULL,
+      sender_name TEXT,
+      sender_addr TEXT,
+      subject TEXT,
+      body TEXT,
+      received_at TEXT,
+      view_url TEXT,
+      reply_link TEXT,
+      unsubscribe_link TEXT,
+      reason TEXT,
+      suggested_action TEXT NOT NULL,
+      action TEXT NOT NULL,
+      overridden_action INTEGER DEFAULT 0,
+      suggested_attention INTEGER DEFAULT 0,
+      attention INTEGER DEFAULT 0,
+      overridden_attention INTEGER DEFAULT 0,
+      status TEXT DEFAULT 'shown',
+      auto INTEGER DEFAULT 0,
+      queued_at DATETIME,
+      done_at DATETIME,
+      error TEXT,
+      task_id INTEGER,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_inbox_user_status ON inbox_items(user_id, status);
+    CREATE INDEX IF NOT EXISTS idx_inbox_user_thread ON inbox_items(user_id, thread_id);
+
     CREATE TABLE IF NOT EXISTS brief_usage (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       scope TEXT NOT NULL,
@@ -481,6 +521,10 @@ async function initDb() {
   ensureColumn('users', 'zip_lat', 'REAL');
   ensureColumn('users', 'zip_lon', 'REAL');
   ensureColumn('users', 'zip_place', 'TEXT');
+  // The mail strip: how many unread threads Claude saw on its last run (the
+  // strip shows five and a "+N" for the rest), and when that run was.
+  ensureColumn('users', 'inbox_total', 'INTEGER');
+  ensureColumn('users', 'inbox_posted_at', 'DATETIME');
   ensureColumn('users', 'brief_style', 'TEXT');
   ensureColumn('users', 'brief_style_rejected', 'TEXT');
   ensureColumn('users', 'brief_style_at', 'DATETIME');

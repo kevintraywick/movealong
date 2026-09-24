@@ -301,6 +301,54 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     description: 'Assemble and post today\'s morning briefing to the MoveIt board.'
   }, () => ({ messages: [{ role: 'user', content: { type: 'text', text: BRIEFING_RECIPE } }] }));
 
+  // ---- Mail strip ----
+  const INBOX_ACTIONS = ['open', 'reply', 'forward', 'archive', 'delete', 'junk', 'unsubscribe', 'task'];
+  server.registerTool('get_inbox', {
+    title: 'Read the mail strip',
+    description: 'The mail strip on the board: the rows shown (up to five), `queued` — actions the user clicked that you must now carry out in Gmail, then report with finish_inbox_action — and `learned`, each sender\'s history (a `suggest` action to propose, an `auto` action to just do). Call inbox_recipe first if you haven\'t read it this session.',
+    inputSchema: {}
+  }, async () => text(await api(`${me}/inbox`)));
+
+  server.registerTool('post_inbox', {
+    title: 'Post the mail strip',
+    description: 'Replace the strip\'s set of unread Gmail threads, newest first, at most 20 (the board shows five, attention first). One item per thread. Rows the user already queued are left alone; rows missing from this post are dropped as read elsewhere. An item with auto: true is one you already handled under a learned `auto` rule: it is logged, not shown.',
+    inputSchema: {
+      unread_total: z.number().int().min(0).optional(),
+      items: z.array(z.object({
+        thread_id: z.string().min(1),
+        sender_name: z.string().max(120).optional(),
+        sender_addr: z.string().max(200).optional(),
+        subject: z.string().max(300).optional(),
+        body: z.string().max(300).optional(),
+        received_at: z.string().max(40).optional(),
+        attention: z.boolean(),
+        action: z.enum(INBOX_ACTIONS),
+        reason: z.string().max(300).optional(),
+        view_url: z.string().max(4000).optional(),
+        reply_link: z.string().max(4000).optional(),
+        unsubscribe_link: z.string().max(4000).optional(),
+        auto: z.boolean().optional()
+      })).max(20)
+    }
+  }, async ({ items, unread_total }) => text(await api(`${me}/inbox`, { method: 'PUT', body: { items, unread_total } })));
+
+  server.registerTool('finish_inbox_action', {
+    title: 'Report a mail action done',
+    description: 'After carrying out a queued mail-strip action in Gmail, report it. ok: false (with the error) puts the row back on the strip so the user sees it failed.',
+    inputSchema: { item_id: z.number().int(), ok: z.boolean(), error: z.string().max(300).optional() }
+  }, async ({ item_id, ok, error }) => text(await api(`/api/inbox-items/${item_id}/finish`, { method: 'PUT', body: { ok, error } })));
+
+  server.registerTool('inbox_recipe', {
+    title: 'How to run the mail strip',
+    description: 'The steps for draining queued mail actions and posting the unread threads to the board\'s mail strip. Read it, do it.',
+    inputSchema: {}
+  }, async () => text(INBOX_RECIPE));
+
+  server.registerPrompt('mail-strip', {
+    title: 'Mail strip',
+    description: 'Carry out the mail actions queued on the MoveIt board and repost the unread threads.'
+  }, () => ({ messages: [{ role: 'user', content: { type: 'text', text: INBOX_RECIPE } }] }));
+
   return server;
 }
 
@@ -337,3 +385,40 @@ export const BRIEFING_RECIPE = `Build my morning briefing and post it to the Mov
 
 At most 12 items total, in this order: calendar, mail, market, texts, nudges, health. Then call post_briefing once with the whole list. Tell me in one line what you posted.`;
 
+
+// The mail strip (2026-09-23). Kevin's rules: unread anywhere (his filters
+// archive most mail before he sees it), two colours only — blue for "needs
+// me", grey for the rest — and Tom learns from what he does with each sender.
+export const INBOX_RECIPE = `Run my MoveIt mail strip: first do what I asked, then show me what's unread. Use the Gmail connector for the mail and the MoveIt tools for the board.
+
+1. get_inbox. Read three things from it: \`queued\` (actions I clicked), \`learned\` (per-sender history) and \`items\` (what's on the strip now).
+
+2. Carry out every queued row in Gmail, on the whole thread (thread_id), then call finish_inbox_action with its id:
+   - delete: move the thread to the trash.
+   - junk: mark the thread as spam.
+   - archive: remove the INBOX and UNREAD labels.
+   - unsubscribe: remove INBOX and UNREAD (the board already opened the unsubscribe link for me if there was one).
+   - open, reply, forward, task: I handled it myself, so just remove UNREAD.
+   If one fails, report ok: false with the error. Don't retry it in the same run.
+
+3. Search unread threads anywhere except trash and spam: query "is:unread -in:trash -in:spam", pageSize 20. Take unread_total from the result count estimate.
+
+4. Build one item per thread from its newest unread message:
+   - sender_name: short, what I'd call them ("Railway", "Dollar Flight Club", "Margo"). sender_addr: the address.
+   - subject: as written. body: the first ~100 characters of the message text. Strip preheader filler (the invisible ͏ and zero-width runs), HTML entities and "View in browser" boilerplate.
+   - attention: true only when it needs me: a real person writing to me and waiting on an answer, money owed or due, a deadline in the next few days, a security alert I didn't cause, or something of mine broken in production and still broken. Newsletters, promotions, receipts, routine notifications and alerts I caused myself are false. Most rows should be false.
+   - action, one of open, reply, forward, archive, delete, junk, unsubscribe, task:
+     reply when a person is waiting on me (set reply_link to mailto:<sender>?subject=Re:%20<subject>&body=<a short reply in my voice, URL-encoded>);
+     task when it asks for work that takes more than a reply;
+     forward when someone else should have it;
+     archive for things worth keeping but not acting on;
+     delete for expired offers, past events and notifications that were only a flag;
+     junk for spam and phishing;
+     unsubscribe for recurring mail I never open (set unsubscribe_link to an https: or mailto: unsubscribe address if the message has one);
+     open when you can't tell.
+   - reason: one sentence explaining the light and the action. The board shows it in the tip bar when I hover the row.
+   - view_url: the thread's Gmail viewUrl. received_at: the newest message's ISO date.
+
+5. Check \`learned\` for each sender (compare addresses case-insensitively). If there is a \`suggest\` action, use it. If there is an \`auto\` action and the row isn't attention, do that action in Gmail yourself now, the same way as step 2, and post the row with auto: true. The board logs it and doesn't show it. Never auto-handle a row with attention.
+
+6. Call post_inbox once with every item and unread_total. Then tell me in one line: how many queued actions you did, how many rows you posted, and anything you handled on your own.`;

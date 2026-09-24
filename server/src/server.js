@@ -1174,6 +1174,182 @@ app.put('/api/briefing-items/:id', (req, res) => {
   res.json({ ...out, done: !!out.done });
 });
 
+// ---- Mail strip (2026-09-23) ----
+// Up to five unread Gmail threads, stacked on the tip bar. The user's own
+// Claude reads the mail and posts the rows (post_inbox); the board holds no
+// Gmail credentials, so an action click only QUEUES the action and Claude
+// carries it out on its next run (finish_inbox_action). Two-colour light:
+// attention (blue) or not (grey). Option+Click on the board changes either
+// the action or the light, and those corrections plus every finished row
+// are the history the next run's suggestions are learned from.
+const INBOX_ACTIONS = ['open', 'reply', 'forward', 'archive', 'delete', 'junk', 'unsubscribe', 'task'];
+const INBOX_SHOWN = 5;          // rows on the strip — Kevin: "up to five, so it doesn't clutter"
+const INBOX_MAX_POST = 20;      // Claude may post more, so a handled row's slot refills at once
+const INBOX_SUGGEST_STREAK = 2; // same final action twice for a sender → suggest it
+const INBOX_AUTO_STREAK = 3;    // three times running, never corrected → Tom just does it
+const INBOX_AUTO_ACTIONS = ['archive', 'delete', 'junk'];   // never auto-reply, auto-forward
+const INBOX_COLS = 'id, thread_id, sender_name, sender_addr, subject, body, received_at, view_url, reply_link, unsubscribe_link, reason, suggested_action, action, overridden_action, suggested_attention, attention, overridden_attention, status, auto, queued_at, done_at, error, task_id, created_at';
+const inboxRow = (r) => r && ({ ...r, attention: !!r.attention, suggested_attention: !!r.suggested_attention,
+  overridden_action: !!r.overridden_action, overridden_attention: !!r.overridden_attention, auto: !!r.auto });
+
+// What the history says about each sender, newest handled first. A streak is
+// the run of identical final actions at the head of the list; the correction
+// count is how often the user had to change what was suggested.
+function inboxLearned(userId) {
+  const rows = queryAll(`SELECT sender_addr, action, attention, overridden_action, overridden_attention FROM inbox_items
+    WHERE user_id = ? AND status = 'done' AND auto = 0 AND sender_addr IS NOT NULL ORDER BY done_at DESC, id DESC`, [userId]);
+  const by = new Map();
+  for (const r of rows) {
+    const k = r.sender_addr.toLowerCase();
+    if (!by.has(k)) by.set(k, []);
+    by.get(k).push(r);
+  }
+  const out = [];
+  for (const [sender, list] of by) {
+    let streak = 0;
+    while (streak < list.length && list[streak].action === list[0].action) streak++;
+    const action = list[0].action;
+    const cleanRun = streak >= INBOX_AUTO_STREAK && list.slice(0, INBOX_AUTO_STREAK).every(r => !r.overridden_action);
+    out.push({
+      sender, handled: list.length, last_action: action, streak,
+      corrected: list.filter(r => r.overridden_action).length,
+      attention_last: !!list[0].attention,
+      suggest: streak >= INBOX_SUGGEST_STREAK ? action : null,
+      // Autonomy needs the last three to be accepted, not merely ended on:
+      // a sender corrected to "delete" twice gets "delete" suggested, and
+      // only runs on sight once three suggestions in a row went untouched.
+      auto: cleanRun && INBOX_AUTO_ACTIONS.includes(action) ? action : null
+    });
+  }
+  return out.sort((a, b) => b.handled - a.handled);
+}
+
+function inboxPayload(userId) {
+  const u = queryOne('SELECT inbox_total, inbox_posted_at FROM users WHERE id = ?', [userId]) || {};
+  const shown = queryAll(`SELECT ${INBOX_COLS} FROM inbox_items WHERE user_id = ? AND status = 'shown'
+    ORDER BY attention DESC, received_at DESC, id DESC`, [userId]).map(inboxRow);
+  const queued = queryAll(`SELECT ${INBOX_COLS} FROM inbox_items WHERE user_id = ? AND status = 'queued' ORDER BY queued_at, id`, [userId]).map(inboxRow);
+  const items = shown.slice(0, INBOX_SHOWN);
+  const unread = Math.max(u.inbox_total || 0, shown.length + queued.length);
+  return {
+    items, queued,
+    more: Math.max(0, unread - items.length - queued.length),
+    unread_total: unread,
+    posted_at: u.inbox_posted_at || null,
+    actions: INBOX_ACTIONS,
+    learned: inboxLearned(userId)
+  };
+}
+
+function cleanInboxLink(v, schemes) {
+  const s = v == null ? '' : String(v).trim().slice(0, 4000);
+  return s && schemes.test(s) ? s : null;   // no javascript: through here
+}
+
+app.get('/api/companies/:subdomain/users/:slug/inbox', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  res.json(inboxPayload(user.id));
+});
+
+// Replace the strip's unread set. Rows the user already queued are left
+// alone; shown rows missing from this post were read somewhere else and go.
+app.put('/api/companies/:subdomain/users/:slug/inbox', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const body = req.body || {};
+  if (!Array.isArray(body.items)) return res.status(400).json({ error: 'items must be an array' });
+  if (body.items.length > INBOX_MAX_POST) return res.status(400).json({ error: `At most ${INBOX_MAX_POST} threads per post` });
+  const clean = [];
+  for (const it of body.items) {
+    if (!it || typeof it !== 'object') return res.status(400).json({ error: 'each item is an object' });
+    const thread_id = String(it.thread_id || '').trim().slice(0, 200);
+    if (!thread_id) return res.status(400).json({ error: 'each item needs thread_id' });
+    const action = String(it.action || '').toLowerCase();
+    if (!INBOX_ACTIONS.includes(action)) return res.status(400).json({ error: `action must be one of ${INBOX_ACTIONS.join(', ')}` });
+    const str = (v, n) => (v == null ? null : String(v).replace(/\s+/g, ' ').trim().slice(0, n) || null);
+    clean.push({
+      thread_id, action,
+      attention: it.attention ? 1 : 0,
+      auto: it.auto ? 1 : 0,
+      sender_name: str(it.sender_name, 120),
+      sender_addr: str(it.sender_addr, 200),
+      subject: str(it.subject, 300),
+      body: str(it.body, 300),
+      received_at: str(it.received_at, 40),
+      reason: str(it.reason, 300),
+      view_url: cleanInboxLink(it.view_url, /^https:\/\//i),
+      reply_link: cleanInboxLink(it.reply_link, /^mailto:/i),
+      unsubscribe_link: cleanInboxLink(it.unsubscribe_link, /^(https:\/\/|mailto:)/i)
+    });
+  }
+  const now = new Date().toISOString();
+  const posted = new Set(clean.map(c => c.thread_id));
+  for (const shown of queryAll("SELECT id, thread_id FROM inbox_items WHERE user_id = ? AND status = 'shown'", [user.id])) {
+    if (!posted.has(shown.thread_id)) runSql('DELETE FROM inbox_items WHERE id = ?', [shown.id]);
+  }
+  for (const c of clean) {
+    const latest = queryOne('SELECT id, status, received_at, overridden_action, overridden_attention FROM inbox_items WHERE user_id = ? AND thread_id = ? ORDER BY id DESC LIMIT 1', [user.id, c.thread_id]);
+    const content = [c.sender_name, c.sender_addr, c.subject, c.body, c.received_at, c.view_url, c.reply_link, c.unsubscribe_link, c.reason];
+    if (latest && latest.status === 'queued') continue;
+    if (latest && latest.status === 'shown') {
+      // Fresh content and suggestions, but a choice the user made sticks.
+      runSql(`UPDATE inbox_items SET sender_name = ?, sender_addr = ?, subject = ?, body = ?, received_at = ?, view_url = ?, reply_link = ?, unsubscribe_link = ?, reason = ?,
+        suggested_action = ?, suggested_attention = ?${latest.overridden_action ? '' : ', action = ?'}${latest.overridden_attention ? '' : ', attention = ?'} WHERE id = ?`,
+        [...content, c.action, c.attention, ...(latest.overridden_action ? [] : [c.action]), ...(latest.overridden_attention ? [] : [c.attention]), latest.id]);
+      continue;
+    }
+    // Handled already, and no newer message on the thread: nothing new to show.
+    if (latest && latest.status === 'done' && !(c.received_at && latest.received_at && c.received_at > latest.received_at)) continue;
+    runSql(`INSERT INTO inbox_items (user_id, thread_id, sender_name, sender_addr, subject, body, received_at, view_url, reply_link, unsubscribe_link, reason,
+      suggested_action, action, suggested_attention, attention, status, auto, done_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [user.id, c.thread_id, ...content, c.action, c.action, c.attention, c.attention, c.auto ? 'done' : 'shown', c.auto, c.auto ? now : null]);
+  }
+  const total = Number.isInteger(body.unread_total) && body.unread_total >= 0 ? body.unread_total : null;
+  runSql('UPDATE users SET inbox_total = ?, inbox_posted_at = ? WHERE id = ?', [total, now, user.id]);
+  res.status(201).json(inboxPayload(user.id));
+});
+
+// The board's Option+Click: change the action or the light. Either one
+// differing from what was suggested is recorded as a correction.
+app.put('/api/inbox-items/:id', (req, res) => {
+  const row = queryOne('SELECT * FROM inbox_items WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Mail row not found' });
+  const { action, attention } = req.body || {};
+  if (action !== undefined) {
+    if (!INBOX_ACTIONS.includes(action)) return res.status(400).json({ error: `action must be one of ${INBOX_ACTIONS.join(', ')}` });
+    runSql('UPDATE inbox_items SET action = ?, overridden_action = ? WHERE id = ?', [action, action !== row.suggested_action ? 1 : 0, row.id]);
+  }
+  if (attention !== undefined) {
+    if (typeof attention !== 'boolean') return res.status(400).json({ error: 'attention must be true or false' });
+    runSql('UPDATE inbox_items SET attention = ?, overridden_attention = ? WHERE id = ?', [attention ? 1 : 0, (attention ? 1 : 0) !== row.suggested_attention ? 1 : 0, row.id]);
+  }
+  res.json(inboxRow(queryOne(`SELECT ${INBOX_COLS} FROM inbox_items WHERE id = ?`, [row.id])));
+});
+
+// A click on the action chip: hand it to Claude. `task_id` rides along when
+// the board just made the email into a task (Claude then only marks it read).
+app.post('/api/inbox-items/:id/queue', (req, res) => {
+  const row = queryOne('SELECT * FROM inbox_items WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Mail row not found' });
+  if (row.status !== 'shown') return res.status(409).json({ error: `Already ${row.status}` });
+  const taskId = Number.isInteger((req.body || {}).task_id) ? req.body.task_id : null;
+  runSql("UPDATE inbox_items SET status = 'queued', queued_at = ?, error = NULL, task_id = COALESCE(?, task_id) WHERE id = ?", [new Date().toISOString(), taskId, row.id]);
+  res.json(inboxRow(queryOne(`SELECT ${INBOX_COLS} FROM inbox_items WHERE id = ?`, [row.id])));
+});
+
+// Claude, after doing it in Gmail. A failure puts the row back on the strip
+// with the error in its tip, so nothing is silently dropped.
+app.put('/api/inbox-items/:id/finish', (req, res) => {
+  const row = queryOne('SELECT * FROM inbox_items WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Mail row not found' });
+  const { ok, error } = req.body || {};
+  if (typeof ok !== 'boolean') return res.status(400).json({ error: 'ok must be true or false' });
+  if (ok) runSql("UPDATE inbox_items SET status = 'done', done_at = ?, error = NULL WHERE id = ?", [new Date().toISOString(), row.id]);
+  else runSql("UPDATE inbox_items SET status = 'shown', error = ? WHERE id = ?", [String(error || 'failed').slice(0, 300), row.id]);
+  res.json(inboxRow(queryOne(`SELECT ${INBOX_COLS} FROM inbox_items WHERE id = ?`, [row.id])));
+});
+
 // ---- Health dashboard (2026-09-13) ----
 // The registry is the whole definition of a measure: add a row here and the
 // GET/PUT routes, the dashboard's entry strip and the MCP tool all follow.

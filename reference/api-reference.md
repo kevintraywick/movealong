@@ -693,6 +693,18 @@ tasks
 
 `PUT /api/briefing-items/:id` — `{ done: boolean }`.
 
+## Mail strip (2026-09-23)
+
+`GET /api/companies/:subdomain/users/:slug/inbox` — `{ items (≤ 5, status shown, attention first then newest), queued (rows clicked, waiting for Claude), more, unread_total, posted_at, actions, learned: [{sender, handled, last_action, streak, corrected, attention_last, suggest, auto}] }`.
+
+`PUT /api/companies/:subdomain/users/:slug/inbox` — `{ unread_total?, items: [{thread_id, sender_name?, sender_addr?, subject?, body?, received_at?, attention, action, reason?, view_url?, reply_link?, unsubscribe_link?, auto?}] }`, max 20. Actions `open | reply | forward | archive | delete | junk | unsubscribe | task`. Upserts by thread: a shown row takes the new content but keeps a user-corrected action/light; queued rows are untouched; a done thread returns only when `received_at` is newer; shown rows absent from the post are deleted. `auto: true` stores the row as done (Tom already handled it) and never shows it. `view_url` must be `https:`, `reply_link` `mailto:`, `unsubscribe_link` either. 201 with the GET payload.
+
+`PUT /api/inbox-items/:id` — `{ action?, attention? }`, the board's Option+Click; sets `overridden_*` when it differs from the suggestion.
+
+`POST /api/inbox-items/:id/queue` — `{ task_id? }`; shown → queued (409 otherwise).
+
+`PUT /api/inbox-items/:id/finish` — `{ ok, error? }` from Claude; ok → done, not ok → back to shown with `error`.
+
 ## Health (dashboard, 2026-09-13)
 
 `GET /api/companies/:subdomain/users/:slug/health?weeks=N` — the last N weeks (default 8, max 26) of hand-entered health data, ending on the caller's today (`x-tz`). Returns `{ today, from, to, weeks, measures: [{key, label, kind, unit}], entries: { 'YYYY-MM-DD': { steps, weight, gym, yoga } } }` — only measures that were logged appear for a day. Measures are the `HEALTH_MEASURES` registry in `server.js`: `steps` (count), `weight` (lb, one decimal), `gym` and `yoga` (0/1).

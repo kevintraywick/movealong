@@ -1137,6 +1137,45 @@
         body.dark .instructions.tip .tip-label { color: #38bdf8; }
         .instructions { text-align: center; min-height: 30px; line-height: 18px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+        /* The mail strip (2026-09-23): up to five unread Gmail threads,
+           stacked on the tip bar, each row the tip bar's height. Posted by
+           the user's own Claude; `bottom` is set from the tip bar's measured
+           height. Two colours only: a grey dot, or accent blue for "needs
+           you". Nothing is bold — five rows of bold subjects read as shouting. */
+        .mail-strip {
+            position: fixed; left: 0; right: 0; bottom: 31px; z-index: 100;
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+            border-top: 1px solid #e8edf3;
+        }
+        .mail-strip[hidden] { display: none; }
+        .mail-row {
+            display: grid;
+            grid-template-columns: 150px 14px 92px minmax(0, 1.25fr) minmax(0, 1fr) 36px;
+            align-items: center; column-gap: 12px;
+            min-height: 30px; padding: 6px 32px 6px 16px; line-height: 18px;
+            font-size: 13px; color: #475569; cursor: pointer;
+        }
+        .mail-row + .mail-row { border-top: 1px solid #f1f5f9; }
+        .mail-row:hover { background: #f0f9ff; }
+        .mail-row > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .mail-from { color: #0f172a; }
+        .mail-light { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; justify-self: center; }
+        .mail-light.attention { background: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18); }
+        .mail-act {
+            justify-self: start; font: inherit; font-size: 11px; line-height: 16px; padding: 0 8px;
+            border-radius: 999px; border: 1px solid #cbd5e1; color: #475569; background: transparent; cursor: pointer;
+        }
+        .mail-act:hover { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        .mail-row.attention .mail-act { border-color: #bae6fd; color: #0284c7; }
+        .mail-row.attention .mail-act:hover { color: #fff; border-color: #0ea5e9; }
+        .mail-subject { color: #334155; }
+        .mail-body { color: #94a3b8; }
+        .mail-age { color: #94a3b8; font-size: 11px; text-align: right; }
+        .mail-more { color: #0284c7; text-decoration: none; }
+        .mail-more:hover { text-decoration: underline; }
+        .mail-row.failed .mail-act { border-color: #ef4444; color: #ef4444; }
+
 
         /* Form elements (used in modal) */
         .form-group {
@@ -3119,6 +3158,19 @@
             background: rgba(15, 23, 42, 0.85);
             border-top-color: #1e293b;
         }
+        body.dark .mail-strip { background: rgba(15, 23, 42, 0.85); border-top-color: #1e293b; }
+        body.dark .mail-row { color: #94a3b8; }
+        body.dark .mail-row + .mail-row { border-top-color: #1e293b; }
+        body.dark .mail-row:hover { background: #172554; }
+        body.dark .mail-from { color: #f1f5f9; }
+        body.dark .mail-subject { color: #cbd5e1; }
+        body.dark .mail-body, body.dark .mail-age { color: #64748b; }
+        body.dark .mail-light { background: #475569; }
+        body.dark .mail-light.attention { background: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
+        body.dark .mail-act { border-color: #475569; color: #94a3b8; }
+        body.dark .mail-row.attention .mail-act { border-color: #0c4a6e; color: #38bdf8; }
+        body.dark .mail-act:hover, body.dark .mail-row.attention .mail-act:hover { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        body.dark .mail-more { color: #38bdf8; }
         /* .help-link is a filled brand-blue badge — needs no dark override */
         body.dark .add-new-icon { background: #334155; color: #94a3b8; }
         /* Handed-over rows and the team view. Amber survives into dark mode the
@@ -3326,6 +3378,9 @@
         <!-- The tip bar. Every tooltip in the app lands here on hover instead
              of in the browser's own bubble: one place to look, no half-second
              delay, and room for a full sentence. Empty when nothing is hovered. -->
+        <!-- The mail strip: unread Gmail threads your own Claude posted,
+             stacked on the tip bar. Hidden until the first post. -->
+        <div class="mail-strip" id="mailStrip" hidden></div>
         <div class="instructions" id="tipBar" aria-live="polite"></div>
     </div>
 
@@ -3944,6 +3999,7 @@
             refreshBudget();
             loadBriefing();
             refreshNotesBadge();
+            loadInbox();
         }
 
         // ---- Morning briefing ----
@@ -4026,6 +4082,153 @@
                 link.title = r.count ? `Notes — ${r.count} new since you last looked` : 'Notes — quotes, ideas and feature requests you sent yourself';
             } catch (e) { /* the icon still works without the dot */ }
         }
+
+        // ---- Mail strip ----
+        // Rows come from the user's own Claude (post_inbox); the board holds
+        // no Gmail credentials. Click a row: the thread opens in Gmail. Click
+        // its action: links open here, the rest is queued for Claude's next
+        // run and the row leaves. Option+Click the action cycles it;
+        // Option+Click the dot flips "needs you". Both are the corrections
+        // Tom learns each sender from.
+        let inbox = null;
+        const MAIL_ACTIONS = ['open', 'reply', 'forward', 'archive', 'delete', 'junk', 'unsubscribe', 'task'];
+        const MAIL_LABEL = { open: 'Open', reply: 'Reply', forward: 'Forward', archive: 'Archive', delete: 'Delete', junk: 'Junk', unsubscribe: 'Unsubscribe', task: 'Make task' };
+        const MAIL_TIP = {
+            open: 'Click to open the thread in Gmail.',
+            reply: 'Click to reply — a draft opens in Mail.',
+            forward: 'Click to open the thread in Gmail and forward it.',
+            archive: 'Click to archive it. Tom does it on his next run.',
+            delete: 'Click to delete it. Tom does it on his next run.',
+            junk: 'Click to mark it as junk. Tom does it on his next run.',
+            unsubscribe: 'Click to unsubscribe — the link opens here and Tom archives the email.',
+            task: 'Click to make it a task on today, with the email on its page.',
+        };
+        const MAIL_TOAST = {
+            archive: 'Tom archives it on his next run', delete: 'Tom deletes it on his next run',
+            junk: 'Tom marks it as junk on his next run', unsubscribe: 'Tom archives it on his next run',
+        };
+
+        async function loadInbox() {
+            if (!currentUser) return;
+            try {
+                const fresh = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/inbox`);
+                const changed = JSON.stringify(fresh.items) !== JSON.stringify(inbox && inbox.items) || (inbox && inbox.more) !== fresh.more;
+                inbox = fresh;
+                if (changed) renderMailStrip();
+            } catch (e) { /* the board works without the strip */ }
+        }
+        // Claude posts every half hour or so; a cheap re-read keeps an open
+        // tab current without a reload.
+        setInterval(() => { if (document.visibilityState === 'visible') loadInbox(); }, 120000);
+
+        function mailAge(iso) {
+            const t = Date.parse(iso || '');
+            if (!t) return '';
+            const mins = Math.max(0, Math.round((Date.now() - t) / 60000));
+            if (mins < 60) return mins < 1 ? 'now' : mins + 'm';
+            if (mins < 1440) return Math.round(mins / 60) + 'h';
+            return Math.round(mins / 1440) + 'd';
+        }
+
+        function renderMailStrip() {
+            const strip = document.getElementById('mailStrip');
+            if (!strip) return;
+            const items = (inbox && inbox.items) || [];
+            if (!items.length) {
+                strip.hidden = true;
+                strip.innerHTML = '';
+                document.body.style.paddingBottom = '';
+                return;
+            }
+            strip.innerHTML = items.map((m, i) => {
+                const last = i === items.length - 1;
+                const more = last && inbox.more > 0
+                    ? `<a class="mail-more" href="https://mail.google.com/mail/u/0/#search/is%3Aunread" target="_blank" rel="noopener noreferrer" data-tip="${inbox.more} more unread. Click to see them in Gmail.">+${inbox.more}</a>`
+                    : escapeHtml(mailAge(m.received_at));
+                const rowTip = [m.sender_addr, m.error ? `Last try failed: ${m.error}` : m.reason].filter(Boolean).join(' · ');
+                const lightTip = (m.attention ? 'Blue: this one needs you.' : 'Grey: nothing here needs you.') + ' Option+Click to change it.';
+                const actTip = (MAIL_TIP[m.action] || '') + ' Option+Click for a different action.';
+                return `
+                <div class="mail-row${m.attention ? ' attention' : ''}${m.error ? ' failed' : ''}" data-mail-id="${m.id}" data-tip="${escapeHtml(rowTip)}">
+                    <span class="mail-from">${escapeHtml(m.sender_name || m.sender_addr || '')}</span>
+                    <span class="mail-light${m.attention ? ' attention' : ''}" data-tip="${escapeHtml(lightTip)}"></span>
+                    <span><button class="mail-act" type="button" data-tip="${escapeHtml(actTip)}">${escapeHtml(MAIL_LABEL[m.action] || m.action)}</button></span>
+                    <span class="mail-subject">${escapeHtml((m.subject || '').slice(0, 100))}</span>
+                    <span class="mail-body">${escapeHtml((m.body || '').slice(0, 100))}</span>
+                    <span class="mail-age">${more}</span>
+                </div>`;
+            }).join('');
+            strip.hidden = false;
+            const bar = document.getElementById('tipBar');
+            strip.style.bottom = (bar ? bar.offsetHeight : 31) + 'px';
+            // The page scrolls far enough that nothing hides under the strip.
+            document.body.style.paddingBottom = (40 + strip.offsetHeight) + 'px';
+        }
+
+        // mailto: must navigate (a new tab for it is a blank tab in Safari);
+        // anything else opens beside the board. Called inside the click, so
+        // the popup blocker sees a user gesture.
+        function openMailLink(link) {
+            if (!link) return;
+            if (/^mailto:/i.test(link)) window.location.href = link;
+            else window.open(link, '_blank', 'noopener');
+        }
+
+        async function runMailAction(m) {
+            const a = m.action;
+            if (a === 'open' || a === 'forward') openMailLink(m.view_url);
+            else if (a === 'reply') openMailLink(m.reply_link || m.view_url);
+            else if (a === 'unsubscribe') openMailLink(m.unsubscribe_link || m.view_url);
+            let taskId = null;
+            try {
+                if (a === 'task') {
+                    const who = m.sender_name || m.sender_addr || 'someone';
+                    const t = await addTask(`Email: ${(m.subject || '(no subject)').slice(0, 120)} — ${who}`, getTodayKey());
+                    if (!t) return;   // addTask already said why
+                    taskId = t.id;
+                    const background = [`From ${who}${m.sender_addr && m.sender_name ? ` <${m.sender_addr}>` : ''}`, m.subject, m.body, m.view_url].filter(Boolean).join('\n');
+                    await api(`/tasks/${taskId}/page`, { method: 'PUT', body: { background } }).catch(() => {});
+                }
+                await api(`/inbox-items/${m.id}/queue`, { method: 'POST', body: taskId ? { task_id: taskId } : {} });
+                inbox.items = inbox.items.filter(x => x.id !== m.id);
+                renderMailStrip();
+                if (MAIL_TOAST[a]) showToast(MAIL_TOAST[a]);
+                else if (a === 'task') showToast('Made it a task on today');
+                loadInbox();   // the next thread slides into the freed slot
+            } catch (err) {
+                showToast('Error: ' + err.message);
+            }
+        }
+
+        async function correctMail(m, change) {
+            Object.assign(m, change);
+            renderMailStrip();
+            try { await api(`/inbox-items/${m.id}`, { method: 'PUT', body: change }); }
+            catch (err) { showToast('Error: ' + err.message); loadInbox(); }
+        }
+
+        document.getElementById('mailStrip').addEventListener('click', (e) => {
+            const row = e.target.closest('.mail-row');
+            if (!row || !inbox) return;
+            if (e.target.closest('a.mail-more')) return;
+            const m = inbox.items.find(x => String(x.id) === row.dataset.mailId);
+            if (!m) return;
+            if (e.target.closest('.mail-act')) {
+                e.preventDefault();
+                if (e.altKey) {
+                    const next = MAIL_ACTIONS[(MAIL_ACTIONS.indexOf(m.action) + 1) % MAIL_ACTIONS.length];
+                    correctMail(m, { action: next });
+                } else {
+                    runMailAction(m);
+                }
+                return;
+            }
+            if (e.altKey && e.target.closest('.mail-light')) {
+                correctMail(m, { attention: !m.attention });
+                return;
+            }
+            openMailLink(m.view_url);
+        });
 
         async function loadSubtasks(taskId) {
             try {
@@ -4127,7 +4330,7 @@
                 } else {
                     renderView();
                 }
-
+                return newTask;
             } catch (err) {
                 showToast('Error: ' + err.message);
             }
@@ -8212,6 +8415,7 @@
             'Press Escape to close any open popup.',
             'A ticked task leaves the board. Click the tab you\u2019re on and open Completed tasks to see everything you\u2019ve finished, with a chart.',
             'Prefer finished tasks to stay on their day? Preferences (from the board tab) has a switch for that.',
+            'In the mail rows above this bar, Option+Click an action to cycle it, or Option+Click the dot to flip it blue (needs you) or grey. Tom learns each sender from what you pick.',
         ];
 
         (function wireTipBar() {
