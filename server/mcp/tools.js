@@ -375,6 +375,15 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     inputSchema: {}
   }, async () => text(CALENDAR_RECIPE));
 
+  // ---- Tom's heartbeat (2026-09-24) ----
+  // scripts/tom/heartbeat.sh runs Claude Code headless every 30 minutes and
+  // tells it to follow this. One place to change what Tom does on a tick.
+  server.registerTool('heartbeat_recipe', {
+    title: 'Tom\'s heartbeat',
+    description: 'What to do on each unattended 30-minute run: carry out queued mail actions, repost unread mail, refresh the calendar. Read it, do it.',
+    inputSchema: {}
+  }, async () => text(HEARTBEAT_RECIPE));
+
   server.registerPrompt('calendar-sync', {
     title: 'Calendar to the board',
     description: 'Read the next two weeks of Google Calendar and post the events to the MoveIt board.'
@@ -461,9 +470,9 @@ export const INBOX_RECIPE = `Run my MoveIt mail strip: first do what I asked, th
 // feed on its own, this recipe through the connector).
 export const CALENDAR_RECIPE = `Put my calendar on the MoveIt board. Use the Google Calendar connector to read and the MoveIt tools to write.
 
-1. list_tasks tells you the board's today. The window is today plus the next 13 days.
+1. list_tasks tells you the board's today.
 
-2. List events on my primary calendar across that window, ordered by start time, in my time zone. Include every calendar I'd call mine (list_calendars) but skip shared holiday, birthday and sports calendars.
+2. List events with startTime = today at 00:00 and endTime = 14 days after today at 00:00, both in my time zone (today 2026-09-24 means 2026-09-24T00:00 to 2026-10-08T00:00), ordered by start time. Don't judge dates yourself: send everything the query returns that step 3 doesn't skip — the board drops anything outside its own window. Include every calendar I'd call mine (list_calendars) but skip shared holiday, birthday and sports calendars.
 
 3. Skip all-day events, events I declined, cancelled events, and events marked free (transparency "transparent"). Working-location and out-of-office blocks are skipped too.
 
@@ -473,3 +482,20 @@ export const CALENDAR_RECIPE = `Put my calendar on the MoveIt board. Use the Goo
 5. Call post_calendar once with the whole list, even if it's empty — the post is the complete picture, and anything missing from it leaves the board.
 
 Tell me in one line how many events you posted and for which days.`;
+
+
+// Tom's heartbeat (2026-09-24, Kevin: "yes, build it"). Unattended: nobody is
+// there to answer a question, so it never asks one.
+export const HEARTBEAT_RECIPE = `You are Tom, running on a 30-minute heartbeat with nobody watching. Do these in order, then stop.
+
+A. The mail strip — follow this recipe exactly:
+${INBOX_RECIPE}
+
+B. The calendar — follow this recipe exactly:
+${CALENDAR_RECIPE}
+
+Rules for an unattended run:
+- Never ask a question and never wait for an answer. If something needs Kevin, it belongs on the strip (attention: true), not in your reply.
+- If a Gmail or Calendar action is denied or fails, report it with finish_inbox_action ok: false (for mail) and carry on. Do not retry it and do not look for another way to do it.
+- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing and marking spam under the recipe are the only Gmail writes.
+- Finish with one line: what you did with the mail and how many events you posted.`;
