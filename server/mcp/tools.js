@@ -467,7 +467,8 @@ export const CALENDAR_RECIPE = `Put my calendar on the MoveIt board. Use the Goo
 
 3. Skip all-day events, events I declined, cancelled events, and events marked free (transparency "transparent"). Working-location and out-of-office blocks are skipped too.
 
-4. For each event send: id (the Google event id), ical_uid if the event has one, title (the summary, as written), start and end as ISO 8601 with offset, location if there is one, and link (the event's htmlLink).
+4. For each event send: id (the Google event id), ical_uid if the event has one, title, start and end as ISO 8601 with offset, location if there is one, and link (the event's htmlLink).
+   The title is the shortest words that still say what it is: cut filler and redundancy. "Appointment with City Eyeworks" is "City Eyeworks"; "Meeting with Margo about Q4 budget" is "Margo - Q4 budget"; "Dr. Patel dental cleaning appointment" is "Dr. Patel dental cleaning". Drop "Invitation:", "Reminder:", my own name, and dates or times repeated in the title. Keep names, places and the thing itself. Under about 24 characters when you can.
 
 5. Call post_calendar once with the whole list, even if it's empty — the post is the complete picture, and anything missing from it leaves the board.
 

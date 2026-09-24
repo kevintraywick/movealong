@@ -936,12 +936,12 @@
         }
 
         /* Ticking an event off keeps the board clean and puts it in the
-           completion count. Smaller than a task's circle: the band is quieter. */
+           completion count. Same size as a task's circle (Kevin, 2026-09-24). */
         .ev-circle {
             flex-shrink: 0;
-            width: 11px;
-            height: 11px;
-            border: 1.5px solid #cbd5e1;
+            width: 14px;
+            height: 14px;
+            border: 2px solid #cbd5e1;
             border-radius: 50%;
             box-sizing: border-box;
         }

@@ -29,7 +29,7 @@ try {
     deleteAllEvents: () => {},
     normalizeFeedUrl: off, syncFeed: off, maskUrl: off,
     fetchEvents: off, expandEvents: off, prunePastEvents: () => {},
-    reconcileEvents: off, dateKeyIn: off, hhmmIn: off, addDaysKey: off,
+    reconcileEvents: off, dateKeyIn: off, hhmmIn: off, addDaysKey: off, tidyEventTitle: t => t,
     WINDOW_DAYS: 0, SYNC_INTERVAL_MS: 0,
   };
 }
@@ -4707,7 +4707,7 @@ app.put('/api/companies/:subdomain/users/:slug/calendar/events', (req, res) => {
   let skipped = 0;
   for (const ev of list) {
     const start = ev && ev.start ? new Date(ev.start) : null;
-    const title = ev && typeof ev.title === 'string' ? ev.title.trim().slice(0, 200) : '';
+    const title = ev && typeof ev.title === 'string' ? calendar.tidyEventTitle(ev.title).slice(0, 200) : '';
     // All-day events are skipped, as the feed skips them: they are holidays,
     // birthdays and OOO blocks, not a time in the day.
     if (!start || isNaN(start) || ev.all_day || !/T/.test(String(ev.start))) { skipped++; continue; }

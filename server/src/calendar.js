@@ -106,6 +106,21 @@ function asText(v) {
   return String(v);
 }
 
+// Calendar titles carry filler the band doesn't need (Kevin, 2026-09-24:
+// "Appointment with City Eyeworks" should read "City Eyeworks"). A fixed list
+// of leading phrases, applied to both paths; Claude's recipe shortens further
+// with judgment. Never shortens a title to nothing.
+const TITLE_FILLER_RE = /^(?:(?:updated\s+)?invitation|reminder|event|appt)\s*:\s*|^(?:your\s+)?(?:appointment|appt|meeting|call|visit|session|reservation|booking)\s+(?:with|at|for)\s+/i;
+function tidyEventTitle(title) {
+  let t = String(title || '').trim();
+  for (let i = 0; i < 2; i++) {
+    const next = t.replace(TITLE_FILLER_RE, '').trim();
+    if (!next || next === t) break;
+    t = next;
+  }
+  return t || String(title || '').trim();
+}
+
 // Holidays, birthdays and OOO blocks are what "ignore holidays, etc." means.
 // Calendars tag them as all-day and/or free/transparent.
 function isIgnorable(ev) {
@@ -164,7 +179,7 @@ function expandEvents(text, tz, todayKey) {
     out.push({
       uid,
       instanceKey,
-      summary: (summary || '(no title)').slice(0, 200),
+      summary: (tidyEventTitle(summary) || '(no title)').slice(0, 200),
       dateKey,
       startHHMM: hhmmIn(startDate, zone),
       endHHMM: endDate instanceof Date && !isNaN(endDate) ? hhmmIn(endDate, zone) : null,
@@ -411,6 +426,6 @@ function maskUrl(url) {
 module.exports = {
   normalizeFeedUrl, fetchEvents, expandEvents, syncFeed, maybeSyncInBackground,
   prunePastEvents, deleteAllEvents, getFeed, maskUrl, reconcileEvents,
-  dateKeyIn, hhmmIn, addDaysKey,
+  dateKeyIn, hhmmIn, addDaysKey, tidyEventTitle,
   WINDOW_DAYS, SYNC_INTERVAL_MS
 };
