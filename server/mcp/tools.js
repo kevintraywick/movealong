@@ -386,8 +386,8 @@ export const BRIEFING_RECIPE = `Build my morning briefing and post it to the Mov
 At most 12 items total, in this order: calendar, mail, market, texts, nudges, health. Then call post_briefing once with the whole list. Tell me in one line what you posted.`;
 
 
-// The mail strip (2026-09-23). Kevin's rules: unread anywhere (his filters
-// archive most mail before he sees it), two colours only — blue for "needs
+// The mail strip (2026-09-23). Kevin's rules: unread mail in the inbox only
+// (he tried "unread anywhere" and it surfaced ~200 filtered newsletters), two colours only — blue for "needs
 // me", grey for the rest — and Tom learns from what he does with each sender.
 export const INBOX_RECIPE = `Run my MoveIt mail strip: first do what I asked, then show me what's unread. Use the Gmail connector for the mail and the MoveIt tools for the board.
 
@@ -401,10 +401,11 @@ export const INBOX_RECIPE = `Run my MoveIt mail strip: first do what I asked, th
    - open, reply, forward, task: I handled it myself, so just remove UNREAD.
    If one fails, report ok: false with the error. Don't retry it in the same run.
 
-3. Search unread threads anywhere except trash and spam: query "is:unread -in:trash -in:spam", pageSize 20. Take unread_total from the result count estimate.
+3. Search unread threads in the inbox only: query "is:unread in:inbox", pageSize 20. Take unread_total from the result count estimate. If nothing is unread, post an empty list — that clears the strip.
 
 4. Build one item per thread from its newest unread message:
    - sender_name: short, what I'd call them ("Railway", "Dollar Flight Club", "Margo"). sender_addr: the address.
+   - Skip a thread whose newest message in the inbox isn't unread (Gmail matches a whole thread when any message is).
    - subject: as written. body: the first ~100 characters of the message text. Strip preheader filler (the invisible ͏ and zero-width runs), HTML entities and "View in browser" boilerplate.
    - attention: true only when it needs me: a real person writing to me and waiting on an answer, money owed or due, a deadline in the next few days, a security alert I didn't cause, or something of mine broken in production and still broken. Newsletters, promotions, receipts, routine notifications and alerts I caused myself are false. Most rows should be false.
    - action, one of open, reply, forward, archive, delete, junk, unsubscribe, task:
