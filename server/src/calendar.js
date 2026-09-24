@@ -154,7 +154,7 @@ function expandEvents(text, tz, todayKey) {
   const out = [];
   const seen = new Set();
 
-  const push = (uid, summary, startDate) => {
+  const push = (uid, summary, startDate, endDate, location, url) => {
     if (out.length >= MAX_EVENTS) return;
     const dateKey = dateKeyIn(startDate, zone);
     if (dateKey < todayKey || dateKey > endKey) return;
@@ -166,7 +166,10 @@ function expandEvents(text, tz, todayKey) {
       instanceKey,
       summary: (summary || '(no title)').slice(0, 200),
       dateKey,
-      startHHMM: hhmmIn(startDate, zone)
+      startHHMM: hhmmIn(startDate, zone),
+      endHHMM: endDate instanceof Date && !isNaN(endDate) ? hhmmIn(endDate, zone) : null,
+      location: asText(location).trim().slice(0, 200) || null,
+      link: /^https:\/\//i.test(asText(url)) ? asText(url).slice(0, 500) : null
     });
   };
 
@@ -178,7 +181,7 @@ function expandEvents(text, tz, todayKey) {
 
     if (!ev.rrule) {
       if (isIgnorable(ev)) continue;
-      push(uid, asText(ev.summary).trim(), ev.start);
+      push(uid, asText(ev.summary).trim(), ev.start, ev.end, ev.location, ev.url);
       continue;
     }
 
@@ -202,12 +205,13 @@ function expandEvents(text, tz, todayKey) {
       const override = ev.recurrences && (ev.recurrences[occKey] || ev.recurrences[utcKey]);
       if (override) {
         if (isIgnorable(override)) continue;
-        push(uid, asText(override.summary).trim(), override.start);
+        push(uid, asText(override.summary).trim(), override.start, override.end, override.location, override.url);
         continue;
       }
 
       if (ruleIgnorable) continue;
-      push(uid, asText(ev.summary).trim(), occ);
+      const len = ev.end && ev.start ? ev.end - ev.start : 0;
+      push(uid, asText(ev.summary).trim(), occ, len ? new Date(occ.getTime() + len) : null, ev.location, ev.url);
     }
   }
 
@@ -235,8 +239,94 @@ function prunePastEvents(userId, todayKey) {
   );
 }
 
+// The feed's own rows. Rows Claude posted through the connector
+// (event_via = 'connector') belong to that path and survive a feed change.
 function deleteAllEvents(userId) {
-  runSql("DELETE FROM tasks WHERE owner_id = ? AND source = 'calendar'", [userId]);
+  runSql("DELETE FROM tasks WHERE owner_id = ? AND source = 'calendar' AND COALESCE(event_via, 'ics') = 'ics'", [userId]);
+}
+
+// Google's secret address carries no per-event URL, so a click on one of its
+// events opens that day in Google Calendar instead.
+function dayLinkFor(feedUrl, dateKey) {
+  try {
+    if (!/(^|\.)google\.com$/i.test(new URL(feedUrl).hostname)) return null;
+  } catch (e) { return null; }
+  const [y, m, d] = dateKey.split('-').map(Number);
+  return `https://calendar.google.com/calendar/r/day/${y}/${m}/${d}`;
+}
+
+/**
+ * Upsert a set of occurrences as calendar rows and prune this path's stale
+ * rows inside [today, endKey]. Shared by the feed sync and the connector
+ * route. Rows match on external_uid whichever path wrote them, so an event
+ * reaching the board both ways is one row, not two; a row keeps the path
+ * that created it, and only that path's absence removes it.
+ */
+function reconcileEvents(userId, companyId, incoming, via, today, endKey) {
+  const existing = queryAll(
+    "SELECT * FROM tasks WHERE owner_id = ? AND source = 'calendar'",
+    [userId]
+  );
+  const byKey = new Map();
+  for (const row of existing) byKey.set(row.external_uid, row);
+
+  const now = new Date().toISOString();
+  let created = 0, updated = 0, removed = 0;
+
+  for (const ev of incoming) {
+    const match = byKey.get(ev.instanceKey);
+    const endHHMM = ev.endHHMM || null, location = ev.location || null;
+    const link = ev.link || null, fallback = ev.fallbackLink || null;
+    if (match) {
+      byKey.delete(ev.instanceKey);
+      // Update in place. Never delete-and-recreate: subtasks CASCADE on task
+      // delete. `completed` is never touched either. A missing link or place
+      // never erases one the other path supplied, and the feed's whole-day
+      // link never replaces an event's own.
+      const nextLink = link || match.event_link || fallback, nextLoc = location || match.event_location;
+      if (match.description !== ev.summary ||
+          match.scheduled_date !== ev.dateKey ||
+          match.event_start !== ev.startHHMM ||
+          (match.event_end || null) !== endHHMM ||
+          (match.event_location || null) !== nextLoc ||
+          (match.event_link || null) !== nextLink) {
+        runSql(
+          `UPDATE tasks
+             SET description = ?, scheduled_date = ?, origin_date = ?,
+                 event_start = ?, event_end = ?, event_location = ?, event_link = ?,
+                 updated_at = ?
+           WHERE id = ?`,
+          [ev.summary, ev.dateKey, ev.dateKey, ev.startHHMM, endHHMM, nextLoc, nextLink, now, match.id]
+        );
+        updated++;
+      }
+    } else {
+      // origin_date = scheduled_date keeps the day counter at 1, which the
+      // renderer hides — an event should not grow an age badge.
+      runSql(
+        `INSERT INTO tasks
+           (company_id, owner_id, project_id, description, scheduled_date,
+            origin_date, locked, priority, source, external_uid, event_start,
+            event_end, event_location, event_link, event_via,
+            created_at, updated_at)
+         VALUES (?, ?, NULL, ?, ?, ?, 0, 0, 'calendar', ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [companyId, userId, ev.summary, ev.dateKey, ev.dateKey,
+         ev.instanceKey, ev.startHHMM, endHHMM, location, link || fallback, via, now, now]
+      );
+      created++;
+    }
+  }
+
+  // Anything left was cancelled or removed upstream. Only prune inside the
+  // window — beyond it we simply have no knowledge — and only this path's rows.
+  for (const stale of byKey.values()) {
+    if ((stale.event_via || 'ics') !== via) continue;
+    if (stale.scheduled_date >= today && stale.scheduled_date <= endKey) {
+      runSql('DELETE FROM tasks WHERE id = ?', [stale.id]);
+      removed++;
+    }
+  }
+  return { created, updated, removed };
 }
 
 function recordSync(userId, status, error, count) {
@@ -278,60 +368,9 @@ async function syncFeed(userId, todayKey) {
       return { error: err.message };
     }
 
-    const existing = queryAll(
-      "SELECT * FROM tasks WHERE owner_id = ? AND source = 'calendar'",
-      [userId]
-    );
-    const byKey = new Map();
-    for (const row of existing) byKey.set(row.external_uid, row);
-
-    const now = new Date().toISOString();
     const endKey = addDaysKey(today, WINDOW_DAYS - 1);
-    let created = 0, updated = 0, removed = 0;
-
-    for (const ev of incoming) {
-      const match = byKey.get(ev.instanceKey);
-      if (match) {
-        byKey.delete(ev.instanceKey);
-        // Update in place. Never delete-and-recreate: subtasks CASCADE on task
-        // delete, so recreating would silently destroy any subtask pane the
-        // user built on this event. `completed` is never touched either.
-        if (match.description !== ev.summary ||
-            match.scheduled_date !== ev.dateKey ||
-            match.event_start !== ev.startHHMM) {
-          runSql(
-            `UPDATE tasks
-               SET description = ?, scheduled_date = ?, origin_date = ?,
-                   event_start = ?, updated_at = ?
-             WHERE id = ?`,
-            [ev.summary, ev.dateKey, ev.dateKey, ev.startHHMM, now, match.id]
-          );
-          updated++;
-        }
-      } else {
-        // origin_date = scheduled_date keeps the day counter at 1, which the
-        // renderer hides — an event should not grow an age badge.
-        runSql(
-          `INSERT INTO tasks
-             (company_id, owner_id, project_id, description, scheduled_date,
-              origin_date, locked, priority, source, external_uid, event_start,
-              created_at, updated_at)
-           VALUES (?, ?, NULL, ?, ?, ?, 0, 0, 'calendar', ?, ?, ?, ?)`,
-          [user.company_id, userId, ev.summary, ev.dateKey, ev.dateKey,
-           ev.instanceKey, ev.startHHMM, now, now]
-        );
-        created++;
-      }
-    }
-
-    // Anything left was cancelled or removed upstream. Only prune inside the
-    // window — beyond it we simply have no knowledge.
-    for (const stale of byKey.values()) {
-      if (stale.scheduled_date <= endKey) {
-        runSql('DELETE FROM tasks WHERE id = ?', [stale.id]);
-        removed++;
-      }
-    }
+    for (const ev of incoming) ev.fallbackLink = dayLinkFor(feed.url, ev.dateKey);
+    const { created, updated, removed } = reconcileEvents(userId, user.company_id, incoming, 'ics', today, endKey);
 
     recordSync(userId, 'ok', null, incoming.length);
     // The per-request res.on('finish', flushDb) has already fired by the time
@@ -369,6 +408,7 @@ function maskUrl(url) {
 
 module.exports = {
   normalizeFeedUrl, fetchEvents, expandEvents, syncFeed, maybeSyncInBackground,
-  prunePastEvents, deleteAllEvents, getFeed, maskUrl,
+  prunePastEvents, deleteAllEvents, getFeed, maskUrl, reconcileEvents,
+  dateKeyIn, hhmmIn, addDaysKey,
   WINDOW_DAYS, SYNC_INTERVAL_MS
 };

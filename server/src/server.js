@@ -29,6 +29,7 @@ try {
     deleteAllEvents: () => {},
     normalizeFeedUrl: off, syncFeed: off, maskUrl: off,
     fetchEvents: off, expandEvents: off, prunePastEvents: () => {},
+    reconcileEvents: off, dateKeyIn: off, hhmmIn: off, addDaysKey: off,
     WINDOW_DAYS: 0, SYNC_INTERVAL_MS: 0,
   };
 }
@@ -2129,7 +2130,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       t.list_master_id,
       lm.description AS list_master_name,
       t.source,
-      t.event_start,
+      t.event_start, t.event_end, t.event_location, t.event_link,
       t.external_uid,
       t.completed,
       t.completed_at,
@@ -4583,8 +4584,15 @@ function resolveCalendarUser(req, res) {
 
 function calendarStatus(userId) {
   const feed = calendar.getFeed(userId);
-  if (!feed) return { connected: false, enabled: false };
+  // Events Claude posts through the Google Calendar connector arrive without
+  // a feed; the popup says so, and the 📅 switch reads on while they exist.
+  const u = queryOne('SELECT calendar_posted_at FROM users WHERE id = ?', [userId]);
+  const via = queryOne(
+    "SELECT COUNT(*) AS n FROM tasks WHERE owner_id = ? AND source = 'calendar' AND event_via = 'connector'", [userId]);
+  const connector = { connector_count: via ? via.n : 0, connector_posted_at: (u && u.calendar_posted_at) || null };
+  if (!feed) return { connected: false, enabled: false, ...connector };
   return {
+    ...connector,
     connected: true,
     enabled: !!feed.enabled,
     url_masked: calendar.maskUrl(feed.url),
@@ -4673,6 +4681,62 @@ app.post('/api/companies/:subdomain/users/:slug/calendar/sync', async (req, res)
     return res.status(400).json({ error: result.error, ...calendarStatus(user.id) });
   }
   res.json({ ...calendarStatus(user.id), ...result });
+});
+
+// Events from Claude through the Google Calendar connector (architecture B:
+// the board holds no Google credentials). The post is the whole picture for
+// the next WINDOW_DAYS days: rows this path wrote that are missing from it are
+// removed. An event that also arrives through the secret-address feed matches
+// on external_uid and stays one row.
+const CAL_POST_MAX = 200;
+app.put('/api/companies/:subdomain/users/:slug/calendar/events', (req, res) => {
+  const user = resolveCalendarUser(req, res);
+  if (!user) return;
+  const list = req.body && req.body.events;
+  if (!Array.isArray(list)) return res.status(400).json({ error: 'events must be an array' });
+  if (list.length > CAL_POST_MAX) return res.status(400).json({ error: `At most ${CAL_POST_MAX} events` });
+
+  const row = queryOne('SELECT company_id, timezone FROM users WHERE id = ?', [user.id]);
+  const hdr = req.get('x-tz');
+  const zone = (row.timezone && validZone(row.timezone)) ? row.timezone
+    : (typeof hdr === 'string' && hdr.length <= 64 && validZone(hdr)) ? hdr : 'UTC';
+  const today = todayInZone(zone);
+  const endKey = calendar.addDaysKey(today, calendar.WINDOW_DAYS - 1);
+
+  const incoming = [], seen = new Set();
+  let skipped = 0;
+  for (const ev of list) {
+    const start = ev && ev.start ? new Date(ev.start) : null;
+    const title = ev && typeof ev.title === 'string' ? ev.title.trim().slice(0, 200) : '';
+    // All-day events are skipped, as the feed skips them: they are holidays,
+    // birthdays and OOO blocks, not a time in the day.
+    if (!start || isNaN(start) || ev.all_day || !/T/.test(String(ev.start))) { skipped++; continue; }
+    const dateKey = calendar.dateKeyIn(start, zone);
+    if (dateKey < today || dateKey > endKey) { skipped++; continue; }
+    // Google's secret address uses "<event id>@google.com" as the UID, and a
+    // recurring instance's id is "<series id>_<start>", so this is the key the
+    // feed would write for the same event.
+    const rawId = String(ev.ical_uid || ev.id || '').slice(0, 300);
+    if (!rawId) { skipped++; continue; }
+    const uid = ev.ical_uid ? rawId : rawId.replace(/_\d{8}(T\d{6}Z?)?$/, '') + '@google.com';
+    const instanceKey = `${uid}#${dateKey}`;
+    if (seen.has(instanceKey)) continue;
+    seen.add(instanceKey);
+    const end = ev.end ? new Date(ev.end) : null;
+    const link = typeof ev.link === 'string' && /^https:\/\//i.test(ev.link) ? ev.link.slice(0, 500) : null;
+    incoming.push({
+      instanceKey, summary: title || '(no title)', dateKey,
+      startHHMM: calendar.hhmmIn(start, zone),
+      endHHMM: end && !isNaN(end) ? calendar.hhmmIn(end, zone) : null,
+      location: typeof ev.location === 'string' ? ev.location.trim().slice(0, 200) || null : null,
+      link
+    });
+  }
+
+  calendar.prunePastEvents(user.id, today);
+  const result = calendar.reconcileEvents(user.id, row.company_id, incoming, 'connector', today, endKey);
+  runSql('UPDATE users SET calendar_posted_at = ? WHERE id = ?', [new Date().toISOString(), user.id]);
+  res.json({ ...result, total: incoming.length, skipped, today, window_end: endKey, ...calendarStatus(user.id) });
 });
 
 app.delete('/api/companies/:subdomain/users/:slug/calendar', (req, res) => {

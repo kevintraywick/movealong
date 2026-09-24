@@ -106,6 +106,10 @@ async function initDb() {
       source TEXT DEFAULT 'user',
       external_uid TEXT,
       event_start TEXT,
+      event_end TEXT,
+      event_location TEXT,
+      event_link TEXT,
+      event_via TEXT,
       completed INTEGER DEFAULT 0,
       completed_at DATETIME,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
@@ -413,6 +417,14 @@ async function initDb() {
   ensureColumn('tasks', 'external_uid', 'TEXT');
   // Local HH:MM, for the row's time chip and intra-day ordering.
   ensureColumn('tasks', 'event_start', 'TEXT');
+  // The band (2026-09-23): end time for the tip and for fading past events,
+  // place, a link back to the event, and which path wrote the row
+  // ('ics' = the secret-address feed, 'connector' = Claude through the Google
+  // Calendar connector). Each path prunes only its own rows.
+  ensureColumn('tasks', 'event_end', 'TEXT');
+  ensureColumn('tasks', 'event_location', 'TEXT');
+  ensureColumn('tasks', 'event_link', 'TEXT');
+  ensureColumn('tasks', 'event_via', 'TEXT');
   // Two-phase subtasks: phase 1 writes rows with provisional = 1 (rendered
   // greyed), the background research pass rewrites them in place and clears it.
   ensureColumn('subtasks', 'provisional', 'INTEGER DEFAULT 0');
@@ -545,6 +557,7 @@ async function initDb() {
   // strip shows five and a "+N" for the rest), and when that run was.
   ensureColumn('users', 'inbox_total', 'INTEGER');
   ensureColumn('users', 'inbox_posted_at', 'DATETIME');
+  ensureColumn('users', 'calendar_posted_at', 'DATETIME');
   ensureColumn('users', 'brief_style', 'TEXT');
   ensureColumn('users', 'brief_style_rejected', 'TEXT');
   ensureColumn('users', 'brief_style_at', 'DATETIME');

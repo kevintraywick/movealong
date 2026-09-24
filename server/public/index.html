@@ -885,6 +885,52 @@
             opacity: 0.5;
         }
 
+        /* The calendar band (2026-09-23): events are facts about the day, not
+           tasks, so they sit between the date and the add-task box as quiet
+           lines — no circle, arrow or counter, and they never take one of the
+           day's seven rows. Past events on today fade. Plain for every source. */
+        .ev-band {
+            margin: -2px 0 8px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+
+        .ev-line {
+            display: flex;
+            gap: 6px;
+            font-size: 12px;
+            line-height: 18px;
+            color: #64748b;
+            cursor: pointer;
+            border-radius: 3px;
+            padding: 0 2px;
+            margin: 0 -2px;
+            white-space: nowrap;
+            overflow: hidden;
+        }
+
+        .ev-line:hover {
+            background: #f0f9ff;
+            color: #334155;
+        }
+
+        .ev-line.past {
+            opacity: 0.4;
+        }
+
+        .ev-time {
+            flex-shrink: 0;
+            min-width: 40px;
+            font-size: 11px;
+            font-variant-numeric: tabular-nums;
+            color: #94a3b8;
+        }
+
+        .ev-title {
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
         /* Connect form inside the shared popup box. */
         .cal-popup-form {
             padding: 8px 10px 4px;
@@ -3040,6 +3086,10 @@
         body.dark .task-divider { border-top-color: #334155; }
         body.dark .task-item.completed .task-description { color: #64748b; }
         body.dark .task-event-time { color: #94a3b8; }
+        body.dark .ev-band { border-bottom-color: #334155; }
+        body.dark .ev-line { color: #94a3b8; }
+        body.dark .ev-line:hover { background: #172554; color: #e2e8f0; }
+        body.dark .ev-time { color: #64748b; }
         /* Beats the light .task-item.calendar .task-description compound (0,3,0). */
         body.dark .task-item.calendar .task-description { color: #cbd5e1; }
         body.dark .cal-popup-form input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
@@ -3833,6 +3883,12 @@
         let days = generateDays(getTodayKey());
 
         // Built off the local today, not off the clock — same reason.
+        function addDaysToKey(key, n) {
+            const d = new Date(key + 'T00:00:00.000Z');
+            d.setUTCDate(d.getUTCDate() + n);
+            return d.toISOString().split('T')[0];
+        }
+
         function getTomorrowKey() {
             const d = new Date(getTodayKey() + 'T00:00:00.000Z');
             d.setUTCDate(d.getUTCDate() + 1);
@@ -4467,6 +4523,21 @@
             }
         }
 
+        // Google Calendar's prefilled new-event form for a task: an all-day
+        // event on its day (the form lets you set the time), with the task's
+        // page in the description.
+        function googleCalendarLink(task) {
+            const day = (task.due_date || task.scheduled_date).replace(/-/g, '');
+            const next = addDaysToKey(task.due_date || task.scheduled_date, 1).replace(/-/g, '');
+            const params = new URLSearchParams({
+                action: 'TEMPLATE',
+                text: task.description,
+                dates: `${day}/${next}`,
+                details: `From MoveIt: ${location.origin}/task/${task.id}`
+            });
+            return `https://calendar.google.com/calendar/render?${params}`;
+        }
+
         // Popup for managing a task's lock: lock-to-this-day, pick a future
         // date, or unlock. Anchored under the clicked 📅/🔒 icon.
         function showLockPopup(e, taskId) {
@@ -4493,6 +4564,10 @@
             if (isLocked || isDue) {
                 html += `<div class="lock-opt danger" data-act="unlock">🔓 ${isLocked ? 'Unlock' : 'Cancel the deadline'}</div>`;
             }
+            // The way back to the calendar: Google's own new-event form,
+            // filled in with this task on its day. You pick the time and save
+            // there; the event then comes back to the board as a line in the band.
+            html += `<div class="lock-opt" data-act="to-gcal" title="Opens a new Google Calendar event for this task on its day. Pick a time and save; it comes back here as an event.">Add to Google Calendar</div>`;
             html += '</div>';
             popup.innerHTML = html;
 
@@ -4519,6 +4594,9 @@
                         hidePopups();
                         await setTaskLock(taskId, false);
                         showToast('Unlocked');
+                    } else if (act === 'to-gcal') {
+                        hidePopups();
+                        window.open(googleCalendarLink(task), '_blank', 'noopener');
                     }
                 });
             });
@@ -5883,6 +5961,44 @@
         // ============================================
         // RENDER BOARD (Calendar View)
         // ============================================
+        // "14:05" -> "2:05p", the board's compact clock.
+        function eventClock(hhmm) {
+            const m = /^(\d{1,2}):(\d{2})$/.exec(hhmm || '');
+            if (!m) return '';
+            const h = +m[1];
+            return `${h % 12 || 12}:${m[2]}${h < 12 ? 'a' : 'p'}`;
+        }
+
+        function eventTip(ev, day) {
+            const span = eventClock(ev.event_start) + (ev.event_end ? '–' + eventClock(ev.event_end) : '');
+            const act = ev.event_link ? 'Click to open it in your calendar; ' : '';
+            return `${day.dayName} ${span} · ${ev.description}${ev.event_location ? ' · ' + ev.event_location : ''}. ${act}Option+Click makes a prep task on this day.`;
+        }
+
+        function renderEventBand(events, day) {
+            if (!events.length) return '';
+            const sorted = events.slice().sort((a, b) => (a.event_start || '').localeCompare(b.event_start || ''));
+            // Today's events fade once they end (or start, when there is no end).
+            const now = new Date().toTimeString().slice(0, 5);
+            return `<div class="ev-band">${sorted.map(ev => {
+                const past = day.isToday && (ev.event_end || ev.event_start || '99') <= now;
+                return `<div class="ev-line${past ? ' past' : ''}" data-event-id="${ev.id}" title="${escapeHtml(eventTip(ev, day))}"><span class="ev-time">${escapeHtml(eventClock(ev.event_start))}</span><span class="ev-title">${escapeHtml(ev.description)}</span></div>`;
+            }).join('')}</div>`;
+        }
+
+        // Option+Click an event: a task on its day to get ready for it, drafted
+        // like any other (the mail strip's "Make task" idiom).
+        async function prepTaskForEvent(ev) {
+            const t = await addTask(`Before ${ev.description.slice(0, 120)} (${eventClock(ev.event_start)})`, ev.scheduled_date);
+            if (!t) return;
+            const background = [
+                `Calendar: ${ev.description}`,
+                `${ev.scheduled_date} ${eventClock(ev.event_start)}${ev.event_end ? '–' + eventClock(ev.event_end) : ''}`,
+                ev.event_location, ev.event_link
+            ].filter(Boolean).join('\n');
+            api(`/tasks/${t.id}/page`, { method: 'PUT', body: { background } }).catch(() => {});
+        }
+
         function renderBoard() {
             const board = document.getElementById('board');
             board.innerHTML = '';
@@ -5905,7 +6021,10 @@
 
             autoOpenListIds = new Set();
             days.forEach((day, index) => {
-                const dayTasks = myTasks.filter(t => t.scheduled_date === day.key);
+                // Calendar events leave the task lists for the band above the
+                // add-task box (renderEventBand).
+                const dayEvents = myTasks.filter(t => t.scheduled_date === day.key && t.source === 'calendar');
+                const dayTasks = myTasks.filter(t => t.scheduled_date === day.key && t.source !== 'calendar');
                 // Priority sorts the pending list only — the completed and
                 // assigned sections below the divider keep their own order.
                 // A pending "list …" task is not a row: it renders as a quiet
@@ -6002,6 +6121,7 @@
                         <div class="day-header">${day.dayName}</div>
                         <div class="day-date">${day.dateStr}</div>
                     </div>
+                    ${renderEventBand(dayEvents, day)}
                     ${showInput ? `
                         <div class="task-input-container">
                             <input type="text" class="task-input" placeholder="Add a task..." data-date="${day.key}">
@@ -6089,6 +6209,15 @@
         }
 
         function attachBoardListeners() {
+            document.querySelectorAll('.ev-line').forEach(line => {
+                line.addEventListener('click', e => {
+                    e.stopPropagation();
+                    const ev = tasks.find(t => String(t.id) === line.dataset.eventId);
+                    if (!ev) return;
+                    if (e.altKey) { prepTaskForEvent(ev); return; }
+                    if (ev.event_link) window.open(ev.event_link, '_blank', 'noopener');
+                });
+            });
             document.querySelectorAll('.briefing-pane').forEach(pane => {
                 pane.addEventListener('click', e => {
                     if (e.target.closest('a')) return;
@@ -7986,7 +8115,9 @@
         function renderCalendarToggle() {
             const btn = document.getElementById('calendarToggleBtn');
             if (!btn) return;
-            const on = !!(calendarState.connected && calendarState.enabled);
+            // On when the feed is on, or when Claude has posted events through
+            // the Google Calendar connector (the second path, no feed needed).
+            const on = !!((calendarState.connected && calendarState.enabled) || calendarState.connector_count);
             btn.classList.toggle('on', on);
             btn.setAttribute('aria-checked', on ? 'true' : 'false');
         }
@@ -8017,10 +8148,14 @@
             const popup = document.getElementById('calendarPopup');
             const anchor = document.getElementById('calendarSwitch');
 
+            const viaClaude = calendarState.connector_count
+                ? `<div class="cal-status">${calendarState.connector_count} events from your Claude (Google Calendar connector) · posted ${relativeSince(calendarState.connector_posted_at)}. Say “put my calendar on the board” to refresh them.</div>`
+                : '';
             if (!calendarState.connected) {
                 popup.innerHTML = `
                     <div class="lock-popup-menu">
                         <div class="lock-popup-title">Connect a calendar <span class="beta-tag">Beta</span></div>
+                        ${viaClaude}
                         <div class="cal-popup-form">
                             <input type="text" id="calUrlInput" placeholder="Paste your secret iCal URL" autocomplete="off" spellcheck="false">
                             <div class="cal-note">Google, Proton, iCloud and Outlook each publish a private iCal address in their calendar settings.</div>
@@ -8038,6 +8173,7 @@
                         <div class="cal-status">${escapeHtml(calendarState.url_masked || '')}<br>
                             ${calendarState.event_count || 0} events · synced ${relativeSince(calendarState.last_synced_at)}</div>
                         ${err}
+                        ${viaClaude}
                         <div class="lock-opt" data-act="sync">Sync now</div>
                         <div class="lock-opt" data-act="toggle">${calendarState.enabled ? 'Turn off' : 'Turn on'}</div>
                         <div class="lock-opt danger" data-act="disconnect">Disconnect</div>
@@ -8395,6 +8531,7 @@
         // A new tip is dealt on every page load and whenever the tip is
         // clicked; the same tip stays put while you hover in and out.
         const IDLE_TIPS = [
+            'Option+Click a calendar event on a day to make a task for getting ready for it — the assistant drafts the steps.',
             'Shift+Click a task, a step, a list item or a list box to edit its text in place. Enter saves, Escape cancels.',
             'Start a task with the word "list" — "list movies to see" — and the assistant suggests items. Click a suggestion\u2019s \u2191 to keep it.',
             'A list you\u2019ll want again — a packing list, a grocery run — can be kept: open its pane and click “Keep on the Lists page”. Send a fresh copy to any day from there.',

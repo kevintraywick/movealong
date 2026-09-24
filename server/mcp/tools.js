@@ -349,6 +349,37 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     description: 'Carry out the mail actions queued on the MoveIt board and repost the unread threads.'
   }, () => ({ messages: [{ role: 'user', content: { type: 'text', text: INBOX_RECIPE } }] }));
 
+  // ---- Calendar (2026-09-23) ----
+  // The second way events reach the board: the secret-address feed is the
+  // automatic one; this is Claude reading Google Calendar through its connector.
+  server.registerTool('post_calendar', {
+    title: 'Post calendar events',
+    description: 'Put the user\'s timed calendar events for the next 14 days on the board, where each day shows them as quiet lines above its tasks. Send the whole 14 days every time: events this path posted earlier that are missing now are removed. All-day events are skipped. Pass each Google event\'s id (and its iCalUID if you have it) so an event the secret-address feed also brings stays one line. Call calendar_recipe first if you haven\'t read it this session.',
+    inputSchema: {
+      events: z.array(z.object({
+        id: z.string().min(1).max(300),
+        ical_uid: z.string().max(300).optional(),
+        title: z.string().max(300),
+        start: z.string().max(40).describe('ISO 8601 with offset, e.g. 2026-09-24T12:15:00-05:00'),
+        end: z.string().max(40).optional(),
+        location: z.string().max(300).optional(),
+        link: z.string().max(1000).optional().describe('The event\'s htmlLink'),
+        all_day: z.boolean().optional()
+      })).max(200)
+    }
+  }, async ({ events }) => text(await api(`${me}/calendar/events`, { method: 'PUT', body: { events } })));
+
+  server.registerTool('calendar_recipe', {
+    title: 'How to post the calendar',
+    description: 'The steps for reading Google Calendar and posting the next two weeks of events to the board.',
+    inputSchema: {}
+  }, async () => text(CALENDAR_RECIPE));
+
+  server.registerPrompt('calendar-sync', {
+    title: 'Calendar to the board',
+    description: 'Read the next two weeks of Google Calendar and post the events to the MoveIt board.'
+  }, () => ({ messages: [{ role: 'user', content: { type: 'text', text: CALENDAR_RECIPE } }] }));
+
   return server;
 }
 
@@ -423,3 +454,21 @@ export const INBOX_RECIPE = `Run my MoveIt mail strip: first do what I asked, th
 5. Check \`learned\` for each sender (compare addresses case-insensitively). If there is a \`suggest\` action, use it. If there is an \`auto\` action and the row isn't attention, do that action in Gmail yourself now, the same way as step 2, and post the row with auto: true. The board logs it and doesn't show it. Never auto-handle a row with attention.
 
 6. Call post_inbox once with every item and unread_total. Then tell me in one line: how many queued actions you did, how many rows you posted, and anything you handled on your own.`;
+
+
+// The calendar band (2026-09-23). Kevin's calls: events are facts, drawn as
+// plain lines above each day's tasks; both paths feed it (the secret-address
+// feed on its own, this recipe through the connector).
+export const CALENDAR_RECIPE = `Put my calendar on the MoveIt board. Use the Google Calendar connector to read and the MoveIt tools to write.
+
+1. list_tasks tells you the board's today. The window is today plus the next 13 days.
+
+2. List events on my primary calendar across that window, ordered by start time, in my time zone. Include every calendar I'd call mine (list_calendars) but skip shared holiday, birthday and sports calendars.
+
+3. Skip all-day events, events I declined, cancelled events, and events marked free (transparency "transparent"). Working-location and out-of-office blocks are skipped too.
+
+4. For each event send: id (the Google event id), ical_uid if the event has one, title (the summary, as written), start and end as ISO 8601 with offset, location if there is one, and link (the event's htmlLink).
+
+5. Call post_calendar once with the whole list, even if it's empty — the post is the complete picture, and anything missing from it leaves the board.
+
+Tell me in one line how many events you posted and for which days.`;

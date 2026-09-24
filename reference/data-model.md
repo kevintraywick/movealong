@@ -68,7 +68,11 @@
 | research_status| TEXT     | NULL (never researched) / `'running'` / `'done'` / `'failed'` / `'over_budget'`. Phase 2 of subtask generation. Cleared to `'failed'` on boot for anything left `'running'` by a restart |
 | source         | TEXT     | `'user'` (default) or `'calendar'`. Calendar rows are mirrored from the user's iCal feed |
 | external_uid   | TEXT     | Calendar rows only: the ICS `UID` + `#` + the instance's date key. A recurring event's every instance shares one UID, so UID alone is not unique. This is the reconciliation key |
-| event_start    | TEXT     | Calendar rows only: local `HH:MM`, for the row's time chip and intra-day ordering |
+| event_start    | TEXT     | Calendar rows only: local `HH:MM`, for the band's time and intra-day ordering |
+| event_end      | TEXT     | Calendar rows only: local `HH:MM` end, for the tip and fading today's past events (2026-09-23) |
+| event_location | TEXT     | Calendar rows only: the event's place, shown in the tip |
+| event_link     | TEXT     | Calendar rows only: https link a click opens — the event's own (connector) or, for a Google feed with no per-event URL, that day in Google Calendar |
+| event_via      | TEXT     | Calendar rows only: `ics` (secret-address feed; NULL on older rows means the same) or `connector` (posted by Claude). Each path prunes only its own rows |
 | completed      | INTEGER  | 0 or 1           |
 | completed_at   | DATETIME | nullable         |
 | created_at     | DATETIME | auto             |

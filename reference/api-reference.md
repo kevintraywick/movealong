@@ -573,7 +573,10 @@ Response: {
   event_count: 12, window_days: 14
 }
 ```
-Returns `{ connected: false, enabled: false }` when no feed is set up.
+Returns `{ connected: false, enabled: false }` when no feed is set up. Every
+status also carries `connector_count` and `connector_posted_at` — the events
+Claude posted through the Google Calendar connector (below), which need no feed.
+The 📅 switch reads on while either path has events.
 
 #### Connect / change / enable / disable
 ```
@@ -587,6 +590,23 @@ Response: the same status object; 400 with { error } on a bad or unreachable URL
 other scheme, and loopback / link-local / private-range hosts — the server
 fetches this URL, so an unguarded value is an SSRF primitive. Replacing the URL
 with a different calendar clears the previously imported rows.
+
+#### Post events from the connector (2026-09-23)
+```
+PUT /api/companies/:subdomain/users/:slug/calendar/events
+Body: { events: [{ id, ical_uid?, title, start, end?, location?, link?, all_day? }] }  (max 200)
+Response: { created, updated, removed, total, skipped, today, window_end } + status object
+```
+The second way events reach the board (architecture B: Claude reads Google
+Calendar and writes here; MCP `post_calendar`, recipe `calendar_recipe`, prompt
+`calendar-sync`). The post is the whole picture for today + 13 days in the
+user's `timezone` setting (then `x-tz`, then UTC): rows this path wrote that are
+missing are removed. Skipped: all-day (`all_day` or a date-only `start`), past
+and beyond-window events. `link` must be `https:`. The key is
+`<ical_uid or id with any _<start> instance suffix stripped>@google.com#<day>`,
+which is what Google's secret address uses as UID, so an event arriving both
+ways is one row. Rows carry `event_via` ('ics' | 'connector'); each path prunes
+only its own, and a feed disconnect or turn-off deletes only feed rows.
 
 #### Force a sync
 ```
