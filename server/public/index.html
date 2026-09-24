@@ -1147,11 +1147,12 @@
             background: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
             border-top: 1px solid #e8edf3;
+            border-bottom: 1px solid #e8edf3;
         }
         .mail-strip[hidden] { display: none; }
         .mail-row {
             display: grid;
-            grid-template-columns: 150px 14px 92px minmax(0, 1.25fr) minmax(0, 1fr) 36px;
+            grid-template-columns: 150px 14px 92px 150px minmax(0, 1fr) 36px;
             align-items: center; column-gap: 12px;
             min-height: 30px; padding: 6px 32px 6px 16px; line-height: 18px;
             font-size: 13px; color: #475569; cursor: pointer;
@@ -3158,7 +3159,7 @@
             background: rgba(15, 23, 42, 0.85);
             border-top-color: #1e293b;
         }
-        body.dark .mail-strip { background: rgba(15, 23, 42, 0.85); border-top-color: #1e293b; }
+        body.dark .mail-strip { background: rgba(15, 23, 42, 0.85); border-top-color: #1e293b; border-bottom-color: #1e293b; }
         body.dark .mail-row { color: #94a3b8; }
         body.dark .mail-row + .mail-row { border-top-color: #1e293b; }
         body.dark .mail-row:hover { background: #172554; }
@@ -4103,6 +4104,15 @@
             unsubscribe: 'Click to unsubscribe — the link opens here and Tom archives the email.',
             task: 'Click to make it a task on today, with the email on its page.',
         };
+        // The subject is a label, capped short; the body carries the weight.
+        // Rows headed for the bin get 40% of the body, so the eye lands on
+        // the rows that are worth reading (Kevin, 2026-09-23).
+        const MAIL_SUBJECT_MAX = 20;
+        const MAIL_BODY_MAX = 100;
+        const MAIL_BODY_SHORT = ['archive', 'delete', 'junk'];
+        const clip = (t, n) => { t = t || ''; return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t; };
+        // Clear air between the mail and the tip bar, so they read as two things.
+        const MAIL_GAP = 8;
         const MAIL_TOAST = {
             archive: 'Tom archives it on his next run', delete: 'Tom deletes it on his next run',
             junk: 'Tom marks it as junk on his next run', unsubscribe: 'Tom archives it on his next run',
@@ -4153,16 +4163,16 @@
                     <span class="mail-from">${escapeHtml(m.sender_name || m.sender_addr || '')}</span>
                     <span class="mail-light${m.attention ? ' attention' : ''}" data-tip="${escapeHtml(lightTip)}"></span>
                     <span><button class="mail-act" type="button" data-tip="${escapeHtml(actTip)}">${escapeHtml(MAIL_LABEL[m.action] || m.action)}</button></span>
-                    <span class="mail-subject">${escapeHtml((m.subject || '').slice(0, 100))}</span>
-                    <span class="mail-body">${escapeHtml((m.body || '').slice(0, 100))}</span>
+                    <span class="mail-subject"${(m.subject || '').length > MAIL_SUBJECT_MAX ? ` data-tip="${escapeHtml(m.subject)}"` : ''}>${escapeHtml(clip(m.subject, MAIL_SUBJECT_MAX))}</span>
+                    <span class="mail-body">${escapeHtml(clip(m.body, MAIL_BODY_SHORT.includes(m.action) ? Math.round(MAIL_BODY_MAX * 0.4) : MAIL_BODY_MAX))}</span>
                     <span class="mail-age">${more}</span>
                 </div>`;
             }).join('');
             strip.hidden = false;
             const bar = document.getElementById('tipBar');
-            strip.style.bottom = (bar ? bar.offsetHeight : 31) + 'px';
+            strip.style.bottom = ((bar ? bar.offsetHeight : 31) + MAIL_GAP) + 'px';
             // The page scrolls far enough that nothing hides under the strip.
-            document.body.style.paddingBottom = (40 + strip.offsetHeight) + 'px';
+            document.body.style.paddingBottom = (40 + MAIL_GAP + strip.offsetHeight) + 'px';
         }
 
         // mailto: must navigate (a new tab for it is a blank tab in Safari);
