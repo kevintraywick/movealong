@@ -4111,8 +4111,6 @@
         const MAIL_BODY_MAX = 100;
         const MAIL_BODY_SHORT = ['archive', 'delete', 'junk'];
         const clip = (t, n) => { t = t || ''; return t.length > n ? t.slice(0, n - 1).trimEnd() + '…' : t; };
-        // Clear air between the mail and the tip bar, so they read as two things.
-        const MAIL_GAP = 8;
         const MAIL_TOAST = {
             archive: 'Tom archives it on his next run', delete: 'Tom deletes it on his next run',
             junk: 'Tom marks it as junk on his next run', unsubscribe: 'Tom archives it on his next run',
@@ -4170,9 +4168,12 @@
             }).join('');
             strip.hidden = false;
             const bar = document.getElementById('tipBar');
-            strip.style.bottom = ((bar ? bar.offsetHeight : 31) + MAIL_GAP) + 'px';
+            // Clear air between the mail and the tip bar, one tip bar tall, so
+            // the two rules read as two things rather than a double line.
+            const barH = bar ? bar.offsetHeight : 31;
+            strip.style.bottom = (barH * 2) + 'px';
             // The page scrolls far enough that nothing hides under the strip.
-            document.body.style.paddingBottom = (40 + MAIL_GAP + strip.offsetHeight) + 'px';
+            document.body.style.paddingBottom = (40 + barH + strip.offsetHeight) + 'px';
         }
 
         // mailto: must navigate (a new tab for it is a blank tab in Safari);
