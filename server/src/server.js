@@ -383,6 +383,15 @@ function cascadeChainSuccessors(taskId, deltaDays) {
   }
 }
 
+// A pending task moved to a later day. Logged for the dashboard's red
+// "pushed" bar; see task_pushes in db.js for what counts and on which day.
+function logPush(task, fromDate, toDate, kind, day) {
+  if (!task || !fromDate || !toDate || toDate <= fromDate) return;
+  if (task.completed || task.source === 'calendar' || task.shelved) return;
+  runSql('INSERT INTO task_pushes (owner_id, task_id, project_id, day, from_date, to_date, kind) VALUES (?, ?, ?, ?, ?, ?, ?)',
+    [task.owner_id, task.id, task.project_id ?? null, day || fromDate, fromDate, toDate, kind]);
+}
+
 // Remove a task from its series without breaking it: the task's successor
 // re-links to the task's predecessor. Used when a task is re-dropped
 // elsewhere, assigned away, or deleted.
@@ -1001,8 +1010,15 @@ app.get('/api/companies/:subdomain/users/:slug/completions', (req, res) => {
     if (!projectList.some(p => p.id === pid)) projectList.push({ id: pid, name });
   }
 
+  // Pushed: distinct tasks moved to a later day, per day (the red bar).
+  const pushed = {};
+  for (const r of queryAll(`SELECT day, COUNT(DISTINCT COALESCE(task_id, -id)) AS n FROM task_pushes
+      WHERE owner_id = ? AND day >= ? AND day < ? GROUP BY day`, [user.id, month + '-01', addMonths(month + '-01', 1)])) {
+    pushed[r.day] = r.n;
+  }
+
   const daysInMonth = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate();
-  res.json({ month, today, days_in_month: daysInMonth, projects: projectList, counts });
+  res.json({ month, today, days_in_month: daysInMonth, projects: projectList, counts, pushed });
 });
 
 // ---- Where you are: ZIP + time zone (2026-09-13) ----
@@ -2061,6 +2077,7 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       if (!fresh || fresh.completed || fresh.locked || fresh.scheduled_date >= today) continue;
       if (fresh.source === 'calendar') continue;
       const delta = daysBetween(fresh.scheduled_date, today);
+      logPush(fresh, fresh.scheduled_date, today, 'spill', fresh.scheduled_date);
       runSql('UPDATE tasks SET scheduled_date = ?, updated_at = ? WHERE id = ?',
         [today, new Date().toISOString(), fresh.id]);
       cascadeChainSuccessors(fresh.id, delta);
@@ -2201,6 +2218,7 @@ app.post('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
       if (victim) {
         const to = findDayWithCapacity({ ownerId: user.id, projectId: project_id ?? null, requestedDate: addDays(scheduled_date, 1) });
         const now = new Date().toISOString();
+        logPush(victim, victim.scheduled_date, to, 'bump', todayKeyFor(req));
         runSql('UPDATE tasks SET scheduled_date = ?, updated_at = ? WHERE id = ?', [to, now, victim.id]);
         cascadeChainSuccessors(victim.id, daysBetween(scheduled_date, to));
         bumped = { id: victim.id, description: victim.description, from: scheduled_date, to };
@@ -2362,6 +2380,8 @@ app.put('/api/tasks/:taskId', (req, res) => {
 
   try {
     runSql(`UPDATE tasks SET ${updates.join(', ')} WHERE id = ?`, values);
+
+    if (scheduled_date !== undefined && !completed) logPush(task, task.scheduled_date, scheduled_date, 'move', todayKeyFor(req));
 
     // Series cascade: moving a member drags its successors by the same delta.
     if (scheduled_date !== undefined && scheduled_date !== task.scheduled_date) {

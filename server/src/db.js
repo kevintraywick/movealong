@@ -308,6 +308,26 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_briefing_user_day ON briefing_items(user_id, day);
 
+    -- Pushes (2026-09-23): one row each time a pending task moves to a later
+    -- day — the → arrow or a 1-9 jump ('move'), spillover ('spill'), or a
+    -- full day making room ('bump'). Series cascades are not logged; the
+    -- push that caused them is. 'day' is the day it counts against: the
+    -- caller's today for a move or bump, the day the task was left on for a
+    -- spill. The dashboard counts distinct tasks per day. Starts empty —
+    -- there is no history to backfill from.
+    CREATE TABLE IF NOT EXISTS task_pushes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      owner_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      task_id INTEGER REFERENCES tasks(id) ON DELETE SET NULL,
+      project_id INTEGER,
+      day DATE NOT NULL,
+      from_date DATE NOT NULL,
+      to_date DATE NOT NULL,
+      kind TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_pushes_owner_day ON task_pushes(owner_id, day);
+
     -- The mail strip (2026-09-23): one row per unread Gmail thread, posted by
     -- the user's own Claude through the MoveIt server (post_inbox) and shown
     -- as up to five rows stacked on the tip bar. The board holds no mail

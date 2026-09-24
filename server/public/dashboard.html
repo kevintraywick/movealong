@@ -292,6 +292,12 @@
         const PALETTE_DARK = ['#0284c7', '#ea580c', '#9085e9', '#b45309', '#db2777'];
         const OTHER_LIGHT = '#94a3b8', OTHER_DARK = '#64748b';
         const MAX_SERIES = 5;
+        // Pushed (2026-09-23): tasks moved to a later day, drawn as a red bar
+        // beside each day's completions. The app's #ef4444 sits 6.9 ΔE from
+        // the orange board (validator hard floor is 15), so light uses a deep
+        // red and dark a pale one — each clears every board colour. The bar
+        // always stands on its own on the right, labelled with its count.
+        const PUSHED_LIGHT = '#b91c1c', PUSHED_DARK = '#fca5a5';
 
         function session() {
             try { return JSON.parse(localStorage.getItem('movealong.session') || 'null'); }
@@ -342,7 +348,7 @@
             const series = seriesFor(d);
             const days = d.days_in_month;
             const perDay = [];
-            let grand = 0;
+            let grand = 0, pushedTotal = 0;
             const seriesTotals = series.map(() => 0);
             for (let i = 1; i <= days; i++) {
                 const key = d.month + '-' + String(i).padStart(2, '0');
@@ -354,18 +360,22 @@
                 });
                 const total = stack.reduce((a, b) => a + b, 0);
                 grand += total;
-                perDay.push({ key, day: i, stack, total });
+                const pushed = (d.pushed && d.pushed[key]) || 0;
+                pushedTotal += pushed;
+                perDay.push({ key, day: i, stack, total, pushed });
             }
+            const pushedColor = document.body.classList.contains('dark') ? PUSHED_DARK : PUSHED_LIGHT;
 
             document.getElementById('monthName').textContent = monthLabel(d.month);
             document.getElementById('nextMonth').disabled = d.month >= d.today.slice(0, 7);
-            document.getElementById('total').innerHTML = grand
-                ? `<b>${grand}</b> ${grand === 1 ? 'task' : 'tasks'}`
-                : '';
+            document.getElementById('total').innerHTML = [
+                grand ? `<b>${grand}</b> ${grand === 1 ? 'task' : 'tasks'}` : '',
+                pushedTotal ? `<b>${pushedTotal}</b> pushed` : ''
+            ].filter(Boolean).join(' · ');
 
             const wrap = document.getElementById('chartWrap');
             const tip = document.getElementById('tip');
-            if (!grand) {
+            if (!grand && !pushedTotal) {
                 wrap.innerHTML = `<div class="empty">Nothing completed in ${escapeHtml(monthLabel(d.month))} yet.</div>`;
                 wrap.appendChild(tip);
                 document.getElementById('legend').innerHTML = '';
@@ -376,10 +386,13 @@
             // ---- geometry ----
             const W = 720, H = 220, padL = 24, padR = 6, padT = 14, padB = 22;
             const plotW = W - padL - padR, plotH = H - padT - padB;
-            const maxTotal = Math.max(...perDay.map(p => p.total));
+            const maxTotal = Math.max(...perDay.map(p => Math.max(p.total, p.pushed)));
             const yMax = Math.max(4, Math.ceil(maxTotal / 2) * 2);
             const slot = plotW / days;
-            const barW = Math.max(6, Math.min(18, slot - 4));
+            // A month with pushes pairs each day: completions left, pushed right.
+            const paired = pushedTotal > 0;
+            const barW = paired ? Math.max(3, Math.min(9, (slot - 5) / 2)) : Math.max(6, Math.min(18, slot - 4));
+            const pairGap = 1;
             const y = v => padT + plotH - (v / yMax) * plotH;
 
             let svg = `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Completed tasks per day, ${escapeHtml(monthLabel(d.month))}">`;
@@ -392,7 +405,8 @@
             // bars
             perDay.forEach((p, i) => {
                 const cx = padL + slot * i + slot / 2;
-                const x = cx - barW / 2;
+                const x = paired ? cx - barW - pairGap / 2 : cx - barW / 2;
+                const doneX = x + barW / 2;
                 svg += `<rect class="hit" x="${padL + slot * i}" y="${padT}" width="${slot}" height="${plotH}" data-i="${i}"/>`;
                 let acc = 0;
                 p.stack.forEach((n, si) => {
@@ -404,7 +418,12 @@
                     svg += `<path class="seg" data-i="${i}" data-si="${si}" fill="${series[si].color}" d="M${x} ${bottom} V${top + r} a${r} ${r} 0 0 1 ${r} -${r} h${barW - 2 * r} a${r} ${r} 0 0 1 ${r} ${r} V${bottom} Z"/>`;
                     acc += n;
                 });
-                if (p.total) svg += `<text class="value" x="${cx}" y="${y(p.total) - 4}">${p.total}</text>`;
+                if (p.total) svg += `<text class="value" x="${doneX}" y="${y(p.total) - 4}">${p.total}</text>`;
+                if (p.pushed) {
+                    const px = cx + pairGap / 2, top = y(p.pushed), bottom = y(0), r = 3;
+                    svg += `<path class="seg" data-i="${i}" fill="${pushedColor}" d="M${px} ${bottom} V${top + r} a${r} ${r} 0 0 1 ${r} -${r} h${barW - 2 * r} a${r} ${r} 0 0 1 ${r} ${r} V${bottom} Z"/>`;
+                    svg += `<text class="value" x="${px + barW / 2}" y="${top - 4}">${p.pushed}</text>`;
+                }
                 const isToday = p.key === d.today;
                 const showLabel = isToday || p.day === 1 || p.day % 5 === 0 || days <= 12;
                 if (showLabel) svg += `<text class="axis-label${isToday ? ' today' : ''}" x="${cx}" y="${H - 6}" text-anchor="middle">${p.day}</text>`;
@@ -419,12 +438,13 @@
                 const dayName = new Date(p.key + 'T00:00:00Z').toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', timeZone: 'UTC' });
                 const rows = series.map((s, si) => p.stack[si]
                     ? `<div class="row"><span class="sw" style="background:${s.color}"></span>${escapeHtml(s.name)} <b>${p.stack[si]}</b></div>` : '').join('');
-                tip.innerHTML = `<div class="day">${escapeHtml(dayName)}${p.total ? '' : ' · nothing completed'}</div>${rows}`;
+                const pushedRow = p.pushed ? `<div class="row"><span class="sw" style="background:${pushedColor}"></span>Pushed <b>${p.pushed}</b></div>` : '';
+                tip.innerHTML = `<div class="day">${escapeHtml(dayName)}${p.total ? '' : ' · nothing completed'}</div>${rows}${pushedRow}`;
                 const rect = wrap.getBoundingClientRect();
                 const svgEl = wrap.querySelector('svg');
                 const scale = rect.width / W;
                 const cx = (padL + slot * i + slot / 2) * scale;
-                const topY = y(p.total) * scale;
+                const topY = y(Math.max(p.total, p.pushed)) * scale;
                 tip.style.left = cx + 'px';
                 tip.style.top = topY + 'px';
                 tip.classList.add('on');
@@ -437,14 +457,14 @@
             // legend: swatch · board · count
             document.getElementById('legend').innerHTML = series.map((s, si) =>
                 `<span class="item${seriesTotals[si] ? '' : ' quiet'}"><span class="sw" style="background:${s.color}"></span>${escapeHtml(s.name)} <span class="n">${seriesTotals[si]}</span></span>`
-            ).join('');
+            ).join('') + (pushedTotal ? `<span class="item" title="Tasks moved to a later day — by the arrow, a number key, spillover or a full day"><span class="sw" style="background:${pushedColor}"></span>Pushed <span class="n">${pushedTotal}</span></span>` : '');
 
             // table view
             const tw = document.getElementById('tableWrap');
             tw.hidden = false;
-            document.getElementById('table').innerHTML = `<table><tr><th>Day</th>${series.map(s => `<th>${escapeHtml(s.name)}</th>`).join('')}<th>Total</th></tr>`
-                + perDay.filter(p => p.total).map(p => `<tr><td>${p.day}</td>${p.stack.map(n => `<td>${n || ''}</td>`).join('')}<td>${p.total}</td></tr>`).join('')
-                + `<tr><th>Total</th>${seriesTotals.map(n => `<th>${n}</th>`).join('')}<th>${grand}</th></tr></table>`;
+            document.getElementById('table').innerHTML = `<table><tr><th>Day</th>${series.map(s => `<th>${escapeHtml(s.name)}</th>`).join('')}<th>Total</th><th>Pushed</th></tr>`
+                + perDay.filter(p => p.total || p.pushed).map(p => `<tr><td>${p.day}</td>${p.stack.map(n => `<td>${n || ''}</td>`).join('')}<td>${p.total || ''}</td><td>${p.pushed || ''}</td></tr>`).join('')
+                + `<tr><th>Total</th>${seriesTotals.map(n => `<th>${n}</th>`).join('')}<th>${grand}</th><th>${pushedTotal}</th></tr></table>`;
         }
 
         async function load() {

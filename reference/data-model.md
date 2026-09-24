@@ -194,6 +194,10 @@ The assistant's inbox in reverse: one thing the model wished it had known while 
 
 `briefing_items` (id, user_id → users CASCADE, day DATE, kind, text, detail, link, position, done, done_at, created_at; index user_id+day) — the morning briefing (2026-09-13), posted by the user's own Claude through the MoveIt server and replaced wholesale per day. Weather is not stored (fetched per day from the ZIP). `users.zip`, `users.timezone`, and the cached geocode `users.zip_lat / zip_lon / zip_place` live on the user.
 
+## task_pushes
+
+`task_pushes` (id, owner_id → users CASCADE, task_id → tasks SET NULL, project_id, day, from_date, to_date, kind `move | spill | bump`, created_at; index owner_id+day) — one row per forward move of a pending task (2026-09-23), for the dashboard's red "pushed" bar. `day` is the caller's today for move/bump, the left-behind date for a spill. Cascades are not logged.
+
 ## inbox_items
 
 `inbox_items` (id, user_id → users CASCADE, thread_id, sender_name, sender_addr, subject, body, received_at, view_url, reply_link, unsubscribe_link, reason, suggested_action, action, overridden_action, suggested_attention, attention, overridden_attention, status `shown | queued | done`, auto, queued_at, done_at, error, task_id, created_at; indexes user_id+status, user_id+thread_id) — the mail strip (2026-09-23). One row per thread per new message; done rows are kept as the per-sender history the suggestions are learned from. `users.inbox_total` / `users.inbox_posted_at` record the last post.

@@ -741,7 +741,7 @@ The Lists page keeps a `list` task past the day it was written on: `tasks.shelve
 
 ## Completions (dashboard)
 
-`GET /api/companies/:subdomain/users/:slug/completions?month=YYYY-MM` — completed tasks per local day (`x-tz`) for the month (default: the caller's current month). Returns `{ month, today, days_in_month, projects: [{id, name}] (tab order; id 0 = Calendar), counts: { 'YYYY-MM-DD': { project_id: n } } }`.
+`GET /api/companies/:subdomain/users/:slug/completions?month=YYYY-MM` — completed tasks per local day (`x-tz`) for the month (default: the caller's current month). Returns `{ month, today, days_in_month, projects: [{id, name}] (tab order; id 0 = Calendar), counts: { 'YYYY-MM-DD': { project_id: n } }, pushed: { 'YYYY-MM-DD': n } }` — `pushed` counts distinct tasks moved to a later day (see `task_pushes`).
 
 The board read (`GET .../tasks`) and the List view carry `list_master_id` and `list_master_name` for list copies.
 
