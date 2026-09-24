@@ -1229,15 +1229,17 @@
            tip bar, under the action column, so it costs no row. */
         .mail-all {
             position: fixed; left: 204px; z-index: 100;
-            display: flex; align-items: center; gap: 8px;
-            font-size: 12px; color: #94a3b8;
+            display: flex; align-items: center; gap: 6px;
+            font-size: 11px; color: #cbd5e1;
         }
         .mail-all[hidden] { display: none; }
+        /* A whisper, not a button (Kevin: "much more subtle"): grey text that
+           turns blue on hover, like the board's other quiet controls. */
         .mail-all button {
-            font: inherit; font-size: 11px; padding: 1px 10px; border-radius: 999px; cursor: pointer;
-            border: 1px solid #0ea5e9; background: #0ea5e9; color: #fff;
+            font: inherit; padding: 0; border: 0; background: none; cursor: pointer;
+            color: #94a3b8;
         }
-        .mail-all button:hover { background: #0284c7; border-color: #0284c7; }
+        .mail-all button:hover { color: #0284c7; text-decoration: underline; text-underline-offset: 2px; }
         .mail-all button:disabled { opacity: 0.5; cursor: default; }
         .mail-row {
             display: grid;
@@ -3268,7 +3270,9 @@
         body.dark .mail-row.attention .mail-act { border-color: #0c4a6e; color: #38bdf8; }
         body.dark .mail-act:hover, body.dark .mail-row.attention .mail-act:hover { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
         body.dark .mail-more { color: #38bdf8; }
-        body.dark .mail-all { color: #64748b; }
+        body.dark .mail-all { color: #475569; }
+        body.dark .mail-all button { color: #64748b; }
+        body.dark .mail-all button:hover { color: #38bdf8; }
         /* .help-link is a filled brand-blue badge — needs no dark override */
         body.dark .add-new-icon { background: #334155; color: #94a3b8; }
         /* Handed-over rows and the team view. Amber survives into dark mode the
@@ -4284,8 +4288,8 @@
                 all.hidden = !batch.length;
                 all.style.bottom = barH + 'px';
                 all.style.height = barH + 'px';
-                all.innerHTML = `<button type="button" id="mailAllBtn" data-tip="${escapeHtml(`Take Tom’s suggestion on ${batch.length === 1 ? 'the' : 'all ' + batch.length} ${batch.length === 1 ? 'row' : 'rows'} marked ${[...new Set(batch.map(m => MAIL_LABEL[m.action] || m.action))].join(', ')}. Tom does them on his next run.`)}">Accept ${batch.length === items.length && batch.length > 1 ? 'all ' : ''}${batch.length}</button>`
-                    + (left ? `<span>${left} to open yourself</span>` : '');
+                all.innerHTML = `<button type="button" id="mailAllBtn" data-tip="${escapeHtml(`Take Tom’s suggestion on ${batch.length === 1 ? 'the' : 'all ' + batch.length} ${batch.length === 1 ? 'row' : 'rows'} marked ${[...new Set(batch.map(m => MAIL_LABEL[m.action] || m.action))].join(', ')}. Tom does them on his next run.`)}">accept ${batch.length === items.length && batch.length > 1 ? 'all ' : ''}${batch.length}</button>`
+                    + (left ? `<span>· ${left} to open yourself</span>` : '');
             }
             // The page scrolls far enough that nothing hides under the strip.
             document.body.style.paddingBottom = (40 + barH + strip.offsetHeight) + 'px';
