@@ -897,6 +897,7 @@
 
         .ev-line {
             display: flex;
+            align-items: center;
             gap: 6px;
             font-size: 12px;
             line-height: 18px;
@@ -918,17 +919,45 @@
             opacity: 0.4;
         }
 
+        /* Time on the right (Kevin, 2026-09-24): the title leads, like a task. */
         .ev-time {
             flex-shrink: 0;
-            min-width: 40px;
+            margin-left: auto;
             font-size: 11px;
             font-variant-numeric: tabular-nums;
             color: #94a3b8;
         }
 
         .ev-title {
+            flex: 1;
+            min-width: 0;
             overflow: hidden;
             text-overflow: ellipsis;
+        }
+
+        /* Ticking an event off keeps the board clean and puts it in the
+           completion count. Smaller than a task's circle: the band is quieter. */
+        .ev-circle {
+            flex-shrink: 0;
+            width: 11px;
+            height: 11px;
+            border: 1.5px solid #cbd5e1;
+            border-radius: 50%;
+            box-sizing: border-box;
+        }
+
+        .ev-circle:hover {
+            border-color: #38bdf8;
+            background: rgba(56, 189, 248, 0.1);
+        }
+
+        .ev-line.done .ev-circle {
+            background: #cbd5e1;
+        }
+
+        .ev-line.done .ev-title {
+            text-decoration: line-through;
+            color: #94a3b8;
         }
 
         /* Connect form inside the shared popup box. */
@@ -3090,6 +3119,9 @@
         body.dark .ev-line { color: #94a3b8; }
         body.dark .ev-line:hover { background: #172554; color: #e2e8f0; }
         body.dark .ev-time { color: #64748b; }
+        body.dark .ev-circle { border-color: #475569; }
+        body.dark .ev-line.done .ev-circle { background: #475569; }
+        body.dark .ev-line.done .ev-title { color: #64748b; }
         /* Beats the light .task-item.calendar .task-description compound (0,3,0). */
         body.dark .task-item.calendar .task-description { color: #cbd5e1; }
         body.dark .cal-popup-form input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
@@ -4479,6 +4511,8 @@
                 const hidden = !(currentProject && currentProject.show_completed) && viewMode === 'calendar';
                 showToast(wentHome
                     ? `Done — sent back to ${senderName || 'the sender'}`
+                    : task.source === 'calendar'
+                        ? (task.completed ? 'Event ticked off — it counts on your dashboard' : 'Event reopened')
                     : (task.completed
                         ? (hidden ? 'Completed — it\u2019s on the Completed tasks board now' : 'Task completed!')
                         : 'Task reopened'));
@@ -5976,13 +6010,17 @@
         }
 
         function renderEventBand(events, day) {
+            // A ticked event leaves the band, like a ticked task leaves the
+            // card, unless the board shows completed rows.
+            const showDone = !!(currentProject && currentProject.show_completed) && !focusMode;
+            events = events.filter(ev => !ev.completed || showDone);
             if (!events.length) return '';
             const sorted = events.slice().sort((a, b) => (a.event_start || '').localeCompare(b.event_start || ''));
             // Today's events fade once they end (or start, when there is no end).
             const now = new Date().toTimeString().slice(0, 5);
             return `<div class="ev-band">${sorted.map(ev => {
                 const past = day.isToday && (ev.event_end || ev.event_start || '99') <= now;
-                return `<div class="ev-line${past ? ' past' : ''}" data-event-id="${ev.id}" title="${escapeHtml(eventTip(ev, day))}"><span class="ev-time">${escapeHtml(eventClock(ev.event_start))}</span><span class="ev-title">${escapeHtml(ev.description)}</span></div>`;
+                return `<div class="ev-line${past ? ' past' : ''}${ev.completed ? ' done' : ''}" data-event-id="${ev.id}" title="${escapeHtml(eventTip(ev, day))}"><span class="ev-circle" title="${ev.completed ? 'Reopen this event.' : 'Tick this event off: it leaves the day and counts as done on the dashboard.'}"></span><span class="ev-title">${escapeHtml(ev.description)}</span><span class="ev-time">${escapeHtml(eventClock(ev.event_start))}</span></div>`;
             }).join('')}</div>`;
         }
 
@@ -6214,6 +6252,7 @@
                     e.stopPropagation();
                     const ev = tasks.find(t => String(t.id) === line.dataset.eventId);
                     if (!ev) return;
+                    if (e.target.closest('.ev-circle')) { toggleComplete(ev.id); return; }
                     if (e.altKey) { prepTaskForEvent(ev); return; }
                     if (ev.event_link) window.open(ev.event_link, '_blank', 'noopener');
                 });

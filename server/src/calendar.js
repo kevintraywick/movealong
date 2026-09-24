@@ -232,9 +232,11 @@ function getFeed(userId) {
 // because a meeting happened whether or not you ticked it off. This needs no
 // network knowledge, so it must NOT be gated on a successful fetch: otherwise
 // a broken feed leaves past events accumulating on invisible days forever.
+// A ticked-off event is kept (2026-09-24): it is a completion, and the
+// dashboard counts it. Only the unticked ones disappear.
 function prunePastEvents(userId, todayKey) {
   runSql(
-    "DELETE FROM tasks WHERE owner_id = ? AND source = 'calendar' AND scheduled_date < ?",
+    "DELETE FROM tasks WHERE owner_id = ? AND source = 'calendar' AND scheduled_date < ? AND completed = 0",
     [userId, todayKey]
   );
 }
@@ -242,7 +244,7 @@ function prunePastEvents(userId, todayKey) {
 // The feed's own rows. Rows Claude posted through the connector
 // (event_via = 'connector') belong to that path and survive a feed change.
 function deleteAllEvents(userId) {
-  runSql("DELETE FROM tasks WHERE owner_id = ? AND source = 'calendar' AND COALESCE(event_via, 'ics') = 'ics'", [userId]);
+  runSql("DELETE FROM tasks WHERE owner_id = ? AND source = 'calendar' AND COALESCE(event_via, 'ics') = 'ics' AND completed = 0", [userId]);
 }
 
 // Google's secret address carries no per-event URL, so a click on one of its
@@ -320,7 +322,7 @@ function reconcileEvents(userId, companyId, incoming, via, today, endKey) {
   // Anything left was cancelled or removed upstream. Only prune inside the
   // window — beyond it we simply have no knowledge — and only this path's rows.
   for (const stale of byKey.values()) {
-    if ((stale.event_via || 'ics') !== via) continue;
+    if ((stale.event_via || 'ics') !== via || stale.completed) continue;
     if (stale.scheduled_date >= today && stale.scheduled_date <= endKey) {
       runSql('DELETE FROM tasks WHERE id = ?', [stale.id]);
       removed++;
