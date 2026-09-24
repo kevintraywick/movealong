@@ -1225,6 +1225,20 @@
             border-bottom: 1px solid #e8edf3;
         }
         .mail-strip[hidden] { display: none; }
+        /* Accept all (2026-09-24): sits in the gap between the strip and the
+           tip bar, under the action column, so it costs no row. */
+        .mail-all {
+            position: fixed; left: 204px; z-index: 100;
+            display: flex; align-items: center; gap: 8px;
+            font-size: 12px; color: #94a3b8;
+        }
+        .mail-all[hidden] { display: none; }
+        .mail-all button {
+            font: inherit; font-size: 11px; padding: 1px 10px; border-radius: 999px; cursor: pointer;
+            border: 1px solid #0ea5e9; background: #0ea5e9; color: #fff;
+        }
+        .mail-all button:hover { background: #0284c7; border-color: #0284c7; }
+        .mail-all button:disabled { opacity: 0.5; cursor: default; }
         .mail-row {
             display: grid;
             grid-template-columns: 150px 14px 92px 150px minmax(0, 1fr) 36px;
@@ -3254,6 +3268,7 @@
         body.dark .mail-row.attention .mail-act { border-color: #0c4a6e; color: #38bdf8; }
         body.dark .mail-act:hover, body.dark .mail-row.attention .mail-act:hover { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
         body.dark .mail-more { color: #38bdf8; }
+        body.dark .mail-all { color: #64748b; }
         /* .help-link is a filled brand-blue badge — needs no dark override */
         body.dark .add-new-icon { background: #334155; color: #94a3b8; }
         /* Handed-over rows and the team view. Amber survives into dark mode the
@@ -3464,6 +3479,7 @@
         <!-- The mail strip: unread Gmail threads your own Claude posted,
              stacked on the tip bar. Hidden until the first post. -->
         <div class="mail-strip" id="mailStrip" hidden></div>
+    <div class="mail-all" id="mailAll" hidden></div>
         <div class="instructions" id="tipBar" aria-live="polite"></div>
     </div>
 
@@ -4184,7 +4200,7 @@
         const MAIL_LABEL = { open: 'Open', reply: 'Reply', forward: 'Forward', archive: 'Archive', delete: 'Delete', junk: 'Junk', unsubscribe: 'Unsubscribe', task: 'Make task' };
         const MAIL_TIP = {
             open: 'Click to open the thread in Gmail.',
-            reply: 'Click to reply — a draft opens in Mail.',
+            reply: 'Click to open Tom\u2019s reply draft. Nothing is sent until you send it.',
             forward: 'Click to open the thread in Gmail and forward it.',
             archive: 'Click to archive it. Tom does it on his next run.',
             delete: 'Click to delete it. Tom does it on his next run.',
@@ -4230,9 +4246,11 @@
             const strip = document.getElementById('mailStrip');
             if (!strip) return;
             const items = (inbox && inbox.items) || [];
+            const all = document.getElementById('mailAll');
             if (!items.length) {
                 strip.hidden = true;
                 strip.innerHTML = '';
+                if (all) all.hidden = true;
                 document.body.style.paddingBottom = '';
                 return;
             }
@@ -4260,6 +4278,15 @@
             // the two rules read as two things rather than a double line.
             const barH = bar ? bar.offsetHeight : 31;
             strip.style.bottom = (barH * 2) + 'px';
+            if (all) {
+                const batch = items.filter(m => MAIL_BATCH.includes(m.action));
+                const left = items.length - batch.length;
+                all.hidden = !batch.length;
+                all.style.bottom = barH + 'px';
+                all.style.height = barH + 'px';
+                all.innerHTML = `<button type="button" id="mailAllBtn" data-tip="${escapeHtml(`Take Tom’s suggestion on ${batch.length === 1 ? 'the' : 'all ' + batch.length} ${batch.length === 1 ? 'row' : 'rows'} marked ${[...new Set(batch.map(m => MAIL_LABEL[m.action] || m.action))].join(', ')}. Tom does them on his next run.`)}">Accept ${batch.length === items.length && batch.length > 1 ? 'all ' : ''}${batch.length}</button>`
+                    + (left ? `<span>${left} to open yourself</span>` : '');
+            }
             // The page scrolls far enough that nothing hides under the strip.
             document.body.style.paddingBottom = (40 + barH + strip.offsetHeight) + 'px';
         }
@@ -4271,6 +4298,40 @@
             if (!link) return;
             if (/^mailto:/i.test(link)) window.location.href = link;
             else window.open(link, '_blank', 'noopener');
+        }
+
+        // What Accept all takes: the actions that need no page opened. Open,
+        // reply, forward and unsubscribe each open a tab, and a browser lets
+        // one click open one tab, so those rows stay for a click of their own.
+        const MAIL_BATCH = ['archive', 'delete', 'junk', 'task'];
+
+        async function acceptAllMail() {
+            const btn = document.getElementById('mailAllBtn');
+            const batch = ((inbox && inbox.items) || []).filter(m => MAIL_BATCH.includes(m.action));
+            if (!batch.length) return;
+            if (btn) btn.disabled = true;
+            let done = 0, failed = 0;
+            for (const m of batch) {
+                try {
+                    let taskId = null;
+                    if (m.action === 'task') {
+                        const who = m.sender_name || m.sender_addr || 'someone';
+                        const t = await addTask(`Email: ${(m.subject || '(no subject)').slice(0, 120)} — ${who}`, getTodayKey());
+                        if (!t) { failed++; continue; }
+                        taskId = t.id;
+                        const background = [`From ${who}${m.sender_addr && m.sender_name ? ` <${m.sender_addr}>` : ''}`, m.subject, m.body, m.view_url].filter(Boolean).join('\n');
+                        await api(`/tasks/${taskId}/page`, { method: 'PUT', body: { background } }).catch(() => {});
+                    }
+                    await api(`/inbox-items/${m.id}/queue`, { method: 'POST', body: taskId ? { task_id: taskId } : {} });
+                    inbox.items = inbox.items.filter(x => x.id !== m.id);
+                    done++;
+                } catch (err) {
+                    failed++;
+                }
+            }
+            renderMailStrip();
+            showToast(`Accepted ${done}${failed ? ` · ${failed} failed` : ''} — Tom does them on his next run`);
+            loadInbox();
         }
 
         async function runMailAction(m) {
@@ -4305,6 +4366,10 @@
             try { await api(`/inbox-items/${m.id}`, { method: 'PUT', body: change }); }
             catch (err) { showToast('Error: ' + err.message); loadInbox(); }
         }
+
+        document.getElementById('mailAll').addEventListener('click', (e) => {
+            if (e.target.closest('#mailAllBtn')) acceptAllMail();
+        });
 
         document.getElementById('mailStrip').addEventListener('click', (e) => {
             const row = e.target.closest('.mail-row');
