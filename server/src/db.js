@@ -574,6 +574,12 @@ async function initDb() {
   ensureColumn('users', 'brief_style', 'TEXT');
   ensureColumn('users', 'brief_style_rejected', 'TEXT');
   ensureColumn('users', 'brief_style_at', 'DATETIME');
+  // What Tom learns about people and organizations from the mail (2026-09-24,
+  // Kevin's Q2 yes): "City Eyeworks is my eye clinic". Own columns, not
+  // brief_learned — the task monitor rewrites that list wholesale.
+  ensureColumn('users', 'brief_mail', 'TEXT');
+  ensureColumn('users', 'brief_mail_rejected', 'TEXT');
+  ensureColumn('users', 'brief_mail_at', 'DATETIME');
   ensureColumn('users', 'brief_style_retired', 'TEXT'); // tried against holdout drafts, made no difference   // JSON: {allergies, medications, conditions, doctor, pharmacy, emergency_name, emergency_phone, notes}
   // The self-maintaining half of "About you" / "About this board": lines the
   // task monitor inferred from recent tasks (brief_learned, newline list),

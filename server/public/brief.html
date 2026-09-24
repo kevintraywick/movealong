@@ -544,6 +544,8 @@
             const trial = briefData.style_trial || { stats: {}, retired: [] };
             if (scope === 'personal') {
                 items.push(...(briefData.learned.style || []).map(line => ({ line, scope: 'style' })));
+                // What Tom read in the mail about people and places.
+                items.push(...(briefData.learned.mail || []).map(line => ({ line, scope: 'mail' })));
                 // Notes that retired themselves after the holdout trial: shown
                 // greyed so the decision is visible, and keep still overrules it.
                 items.push(...(trial.retired || []).map(line => ({ line, scope: 'style', retired: true })));
@@ -562,7 +564,7 @@
             el.innerHTML = `<div class="learned-title">Learned from your tasks <span class="pane-hint">keep = make it yours · ✕ = never again</span>${stateEl}</div>` +
                 items.map(({ line, scope: s, retired }) => `
                     <div class="learned-line ${retired ? 'retired' : ''}" data-line="${escapeHtml(line)}" data-scope="${s}">
-                        <span class="learned-text">${retired ? '<span class="learned-tag retired" title="Tried against drafts made without it and made no measurable difference, so it retired itself. Keep overrules that.">retired</span>' : (s === 'style' ? '<span class="learned-tag" title="Inferred from what you do with drafted steps, not from what the tasks say">how you work</span>' : '')}${escapeHtml(line)}${retired ? '' : trialWord(line)}</span>
+                        <span class="learned-text">${retired ? '<span class="learned-tag retired" title="Tried against drafts made without it and made no measurable difference, so it retired itself. Keep overrules that.">retired</span>' : (s === 'style' ? '<span class="learned-tag" title="Inferred from what you do with drafted steps, not from what the tasks say">how you work</span>' : s === 'mail' ? '<span class="learned-tag" title="Tom read this in your mail">from mail</span>' : '')}${escapeHtml(line)}${retired ? '' : trialWord(line)}</span>
                         <button class="btn" data-act="keep" title="Move into your own notes — pinned, and outranks anything inferred">keep</button>
                         <button class="btn quiet" data-act="drop" title="Drop it, and don't propose it again">✕</button>
                     </div>`).join('') +
@@ -577,7 +579,7 @@
                 briefData.learned[scope] = r.learned;
                 // A kept style line pins into the personal notes, and style
                 // lines render inside the personal list.
-                const pane = scope === 'style' ? 'personal' : scope;
+                const pane = (scope === 'style' || scope === 'mail') ? 'personal' : scope;
                 if (action === 'keep') {
                     const ta = document.getElementById(pane + 'Input');
                     ta.value = r.text;

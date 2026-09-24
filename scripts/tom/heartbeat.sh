@@ -5,8 +5,9 @@
 # out the mail actions queued on the board, repost unread mail, refresh the
 # calendar band.
 #
-# Tools are an allow-list: the MoveIt server, Gmail reads plus the three
-# writes the recipe uses (trash, unlabel, spam), and Calendar reads. Anything
+# Tools are an allow-list: the MoveIt server, Gmail reads plus the writes
+# the recipe uses (trash, unlabel, spam, and reply drafts — never sending),
+# and Calendar reads. Anything
 # else — sending mail, touching events, files, shell — is denied, because a
 # headless run has nobody to ask.
 #
@@ -49,6 +50,8 @@ ALLOWED=(
   "mcp__claude_ai_Gmail__trash_thread"
   "mcp__claude_ai_Gmail__unlabel_thread"
   "mcp__claude_ai_Gmail__mark_thread_spam"
+  "mcp__claude_ai_Gmail__list_drafts"
+  "mcp__claude_ai_Gmail__create_draft"
   "mcp__claude_ai_Google_Calendar__list_calendars"
   "mcp__claude_ai_Google_Calendar__list_events"
 )

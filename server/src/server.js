@@ -2865,6 +2865,7 @@ app.get('/api/companies/:subdomain/users/:slug/projects/:projectId/brief', (req,
     learned: {
       personal: briefLines(user.brief_learned, 'personal', user.id).map(l => l.line),
       style: briefLines(user.brief_style, 'style', user.id).map(l => l.line),
+      mail: briefLines(queryOne('SELECT brief_mail FROM users WHERE id = ?', [user.id]).brief_mail, 'mail', user.id).map(l => l.line),
       board: briefLines(project.brief_learned, 'board', project.id).map(l => l.line)
     },
     style_trial: (() => {
@@ -2937,7 +2938,7 @@ function learnedRow(scope, ctx) {
   return { table, id, row, cols };
 }
 function learnedScope(raw) {
-  return raw === 'board' ? 'board' : raw === 'style' ? 'style' : 'personal';
+  return raw === 'board' ? 'board' : raw === 'style' ? 'style' : raw === 'mail' ? 'mail' : 'personal';
 }
 
 app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/learn', async (req, res) => {
@@ -3048,6 +3049,29 @@ app.post('/api/companies/:subdomain/users/:slug/projects/:projectId/brief/learne
   runSql(`UPDATE ${table} SET ${keys.map(c => c + ' = ?').join(', ')} WHERE id = ?`, [...keys.map(c => updates[c]), id]);
   const after = queryOne(`SELECT brief, ${cols.learned} AS learned FROM ${table} WHERE id = ?`, [id]);
   res.json({ text: after.brief || '', learned: briefLines(after.learned, scope, id).map(l => l.line) });
+});
+
+// Tom notes something durable he read in the mail (MCP note_from_mail).
+// Lands in the brief page's learned list tagged "from mail", where keep pins
+// it into About you and ✕ bans it. Deduped against everything already
+// written, pinned or refused; the oldest note drops past MAIL_NOTES_MAX.
+app.post('/api/companies/:subdomain/users/:slug/brief/mail-notes', (req, res) => {
+  const company = queryOne('SELECT id FROM companies WHERE subdomain = ?', [req.params.subdomain]);
+  if (!company) return res.status(404).json({ error: 'Company not found' });
+  const user = queryOne('SELECT id, brief, brief_learned, brief_mail, brief_mail_rejected FROM users WHERE company_id = ? AND slug = ?', [company.id, req.params.slug]);
+  if (!user) return res.status(404).json({ error: 'User not found' });
+  const line = typeof (req.body || {}).line === 'string' ? req.body.line.trim().replace(/^[-*•]\s*/, '').slice(0, 200) : '';
+  if (!line) return res.status(400).json({ error: 'line is required' });
+  const norm = (t) => t.toLowerCase().replace(/[.\s]+$/, '');
+  const known = [user.brief, user.brief_learned, user.brief_mail, user.brief_mail_rejected]
+    .flatMap(t => briefLines(t, 'mail', user.id).map(l => norm(l.line)));
+  const lines = briefLines(user.brief_mail, 'mail', user.id).map(l => l.line);
+  if (known.includes(norm(line))) return res.json({ added: false, reason: 'already known', lines });
+  lines.push(line);
+  while (lines.length > MAIL_NOTES_MAX) lines.shift();
+  runSql('UPDATE users SET brief_mail = ?, brief_mail_at = ? WHERE id = ?',
+    [lines.map(l => '- ' + l).join('\n'), new Date().toISOString(), user.id]);
+  res.json({ added: true, lines });
 });
 
 app.get('/api/tasks/:taskId/page', (req, res) => {
@@ -3943,8 +3967,10 @@ const PERSONAL_SECTIONS = [
 const LEARNED_SCOPES = {
   personal: { table: 'users', learned: 'brief_learned', rejected: 'brief_rejected', at: 'brief_learned_at' },
   board: { table: 'projects', learned: 'brief_learned', rejected: 'brief_rejected', at: 'brief_learned_at' },
-  style: { table: 'users', learned: 'brief_style', rejected: 'brief_style_rejected', at: 'brief_style_at' }
+  style: { table: 'users', learned: 'brief_style', rejected: 'brief_style_rejected', at: 'brief_style_at' },
+  mail: { table: 'users', learned: 'brief_mail', rejected: 'brief_mail_rejected', at: 'brief_mail_at' }
 };
+const MAIL_NOTES_MAX = 20;
 const LEARNED_MAX = 8;
 const STYLE_MIN_NEW_EVENTS = 8;
 
@@ -4088,7 +4114,7 @@ function fieldLines(raw, fields, scope, ownerId) {
 }
 
 function briefFor(ownerId, projectId) {
-  const u = queryOne('SELECT brief, brief_learned, brief_style, brief_contact, brief_travel, brief_medical FROM users WHERE id = ?', [ownerId]);
+  const u = queryOne('SELECT brief, brief_learned, brief_style, brief_mail, brief_contact, brief_travel, brief_medical FROM users WHERE id = ?', [ownerId]);
   const p = projectId ? queryOne('SELECT brief, brief_learned FROM projects WHERE id = ?', [projectId]) : null;
   const out = [];
   for (const [scope, col, kind, fields] of PERSONAL_SECTIONS) {
@@ -4100,6 +4126,8 @@ function briefFor(ownerId, projectId) {
       // How they work with drafted steps — tagged so the prompt's clause
       // about "(how you work)" notes applies to exactly these.
       out.push(...briefLines(u.brief_style, 'how you work', ownerId).map(l => ({ ...l, inferred: true })));
+      // Who people and organizations are, as Tom read them in the mail.
+      out.push(...briefLines(u.brief_mail, 'from mail', ownerId).map(l => ({ ...l, inferred: true })));
     }
   }
   if (p) {

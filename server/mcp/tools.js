@@ -219,6 +219,12 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     return text({ ok: true, scope, line: clean });
   });
 
+  server.registerTool('note_from_mail', {
+    title: 'Note who someone is',
+    description: 'Record one durable fact you worked out from the mail about a person or organization and who they are to the user ("City Eyeworks is my eye clinic", "Margo at RMH handles my invoices"). It shows on the brief page tagged "from mail", where the user keeps or drops it, and the assistant reads it from then on. Already-known and refused lines are ignored. Never a phone number, address, account number, amount or medical detail.',
+    inputSchema: { line: z.string().min(1).max(200) }
+  }, async ({ line }) => text(await api(`${me}/brief/mail-notes`, { method: 'POST', body: { line } })));
+
   server.registerTool('set_contact_field', {
     title: 'Set a contact field',
     description: 'Set one field of the user\'s contact section on the brief: full_name, nickname, phone, email, address, discord, notes.',
@@ -463,7 +469,7 @@ export const INBOX_RECIPE = `Run my MoveIt mail strip: first do what I asked, th
      Newsletters, promotions, receipts, routine notifications and alerts I caused myself are false. Most rows should still be false.
      Standing choices come first: if \`learned\` has attention true or false for this sender (match by address, or by sender_name for the same organization writing from another address), use it and say "you marked this sender" in the reason.
    - action, one of open, reply, forward, archive, delete, junk, unsubscribe, task:
-     reply when a person is waiting on me (set reply_link to mailto:<sender>?subject=Re:%20<subject>&body=<a short reply in my voice, URL-encoded>);
+     reply when a person is waiting on me. Leave a real draft in Gmail (see step 6), and set reply_link to that draft's viewUrl;
      task when it asks for work that takes more than a reply;
      forward when someone else should have it;
      archive for things worth keeping but not acting on;
@@ -474,9 +480,13 @@ export const INBOX_RECIPE = `Run my MoveIt mail strip: first do what I asked, th
    - reason: one sentence, in plain words, naming the context that decided it ("You're seeing them today at 12:15 — they say your trial lenses are backordered."). The board shows it in the tip bar when I hover the row.
    - view_url: the thread's Gmail viewUrl. received_at: the newest message's ISO date.
 
-6. Check \`learned\` for each sender (compare addresses case-insensitively). If there is a \`suggest\` action, use it. If there is an \`auto\` action and the row isn't attention, do that action in Gmail yourself now, the same way as step 2, and post the row with auto: true. The board logs it and doesn't show it. Never auto-handle a row with attention.
+6. Reply drafts. Call list_drafts once (pageSize 50) and note which thread_ids already have a draft. For each reply row whose thread has none, call create_draft with replyToMessageId = the newest message's id, to = the sender's address, subject "Re: <subject>" and a short plain-text body in my voice: what a person who knows my context would say, and nothing you don't know to be true. If the thread already has a draft, leave it alone, never make a second one, and set reply_link to the thread's view_url. Never send anything. If create_draft is unavailable or fails, fall back to reply_link = mailto:<sender>?subject=Re:%20<subject>&body=<the same reply, URL-encoded>.
 
-7. Call post_inbox once with every item and unread_total. Then tell me in one line: how many queued actions you did, how many rows you posted, and anything you handled on your own.`;
+7. What you learned about people. When the mail makes clear who someone is to me, and get_brief doesn't already say it, call note_from_mail with one short line: "City Eyeworks is my eye clinic", "Jay is on the product marketing team". Only durable facts about who, never what a single email said. No phone numbers, addresses, amounts, account numbers or medical details: the brief is readable by anyone with the board's link. At most 3 per run.
+
+8. Check \`learned\` for each sender (compare addresses case-insensitively). If there is a \`suggest\` action, use it. If there is an \`auto\` action and the row isn't attention, do that action in Gmail yourself now, the same way as step 2, and post the row with auto: true. The board logs it and doesn't show it. Never auto-handle a row with attention.
+
+9. Call post_inbox once with every item and unread_total. Then tell me in one line: how many queued actions you did, how many rows you posted, and anything you handled on your own.`;
 
 
 // The calendar band (2026-09-23). Kevin's calls: events are facts, drawn as
@@ -511,6 +521,6 @@ ${INBOX_RECIPE}
 Rules for an unattended run:
 - Never ask a question and never wait for an answer. If something needs Kevin, it belongs on the strip (attention: true), not in your reply.
 - If a Gmail or Calendar action is denied or fails, report it with finish_inbox_action ok: false (for mail) and carry on. Do not retry it and do not look for another way to do it.
-- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing and marking spam under the recipe are the only Gmail writes.
+- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing, marking spam and leaving reply drafts under the recipe are the only Gmail writes. On the board, write only through post_inbox, finish_inbox_action, post_calendar and note_from_mail.
 - \`enabled\` / \`connected\` in post_calendar's reply describe only the secret-address feed. Events you post show on the board regardless; don't mention it.
 - Finish with one line: how many events you posted and what you did with the mail.`;
