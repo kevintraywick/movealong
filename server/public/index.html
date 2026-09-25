@@ -3371,6 +3371,57 @@
         body.dark .project-task-item.goal .project-task-desc { color: #fb923c; }
         /* Declared after the dark goal rule so a goal that is also today's deadline stays red. */
         body.dark .task-item.locked-today .task-description { color: #ef4444; }
+
+        /* ---- A phone held upright: one day at a time (Kevin, 2026-09-25) ----
+           body.portrait is set from matchMedia (portraitQuery) — a class rather
+           than a bare media query so the JS that scrolls to the day and the
+           CSS that sizes it can never disagree. Landscape keeps the row of
+           days. Each day is the board's full width and the board snaps a day
+           per swipe; #dayNav steps with ‹ › and jumps back to today. */
+        .day-nav { display: none; }
+        body.portrait .day-nav[hidden] { display: none; }   /* only on your own board */
+        body.portrait { padding: 12px 12px 40px; }
+        body.portrait .app-header { margin: -12px -12px 10px; padding: 4px 12px; gap: 10px; }
+        body.portrait .focus-toggle { display: none; }   /* one day is already focus */
+        body.portrait .chain-hint { display: none; }     /* there is no drag on a phone */
+        body.portrait .day-nav {
+            display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+        }
+        body.portrait .day-nav button {
+            font: inherit; border: none; background: none; cursor: pointer;
+            color: #64748b; padding: 6px 10px; border-radius: 8px;
+        }
+        body.portrait .day-nav .dn-step { font-size: 20px; line-height: 1; }
+        body.portrait .day-nav .dn-step:disabled { color: #e2e8f0; cursor: default; }
+        body.portrait .day-nav .dn-label {
+            flex: 1; text-align: center; font-size: 15px; font-weight: 600; color: #0f172a;
+        }
+        body.portrait .day-nav .dn-label.today { color: #0ea5e9; }
+        body.portrait .day-nav .dn-today { font-size: 12px; color: #0284c7; border: 1px solid #bae6fd; padding: 3px 10px; border-radius: 999px; }
+        body.portrait .day-nav .dn-today[hidden] { display: none; }
+        body.portrait .board-container {
+            scroll-snap-type: x mandatory; gap: 12px; padding-bottom: 12px;
+            -webkit-overflow-scrolling: touch;
+        }
+        body.portrait #board .day-column { flex: 0 0 100%; width: 100%; scroll-snap-align: start; scroll-snap-stop: always; }
+        body.portrait #board .day-card { width: 100%; min-height: calc(100svh - 150px); font-size: 15px; }
+        body.portrait #board .day-card .day-header-row { display: none; }   /* the nav bar names the day */
+        /* The pane flows under the tasks instead of hanging below a card that
+           is now a screen tall; the card gives up its height while one is open. */
+        body.portrait .subtask-pane.board-pane { position: static; width: 100%; margin-top: 10px; }
+        body.portrait #board .day-column:has(.board-pane) .day-card { min-height: 0; }
+        /* The tip bar reads hovers, and nothing hovers on a touch screen. */
+        body.portrait #tipBar { display: none; }
+        body.portrait .mail-row {
+            grid-template-columns: minmax(0, 0.8fr) 10px auto minmax(0, 1fr) 30px;
+            column-gap: 8px; padding: 6px 12px;
+        }
+        body.portrait .mail-body { display: none; }
+        body.portrait .mail-all { left: 12px; }
+        body.dark.portrait .day-nav .dn-label { color: #e2e8f0; }
+        body.dark.portrait .day-nav .dn-label.today { color: #38bdf8; }
+        body.dark.portrait .day-nav .dn-step:disabled { color: #334155; }
+        body.dark.portrait .day-nav .dn-today { color: #38bdf8; border-color: #0c4a6e; }
     </style>
 </head>
 <body>
@@ -3448,6 +3499,13 @@
             <a class="help-link" href="/help" target="_blank" rel="noopener" title="Help — features, gestures, and running your own copy" aria-label="Help">?</a>
         </div>
 
+        <!-- Portrait phones only: which day is on screen, and the way to others. -->
+        <div class="day-nav" id="dayNav">
+            <button class="dn-step" id="dayPrev" type="button" aria-label="Previous day">&lsaquo;</button>
+            <span class="dn-label" id="dayLabel"></span>
+            <button class="dn-today" id="dayToday" type="button" hidden>Today</button>
+            <button class="dn-step" id="dayNext" type="button" aria-label="Next day">&rsaquo;</button>
+        </div>
         <div class="board-container" id="board">
         </div>
 
@@ -4280,14 +4338,17 @@
             const bar = document.getElementById('tipBar');
             // Clear air between the mail and the tip bar, one tip bar tall, so
             // the two rules read as two things rather than a double line.
+            // offsetHeight is 0 in portrait, where the tip bar is hidden; the
+            // gap (which holds Accept all) keeps its own height there.
             const barH = bar ? bar.offsetHeight : 31;
-            strip.style.bottom = (barH * 2) + 'px';
+            const gap = barH || 24;
+            strip.style.bottom = (barH + gap) + 'px';
             if (all) {
                 const batch = items.filter(m => MAIL_BATCH.includes(m.action));
                 const left = items.length - batch.length;
                 all.hidden = !batch.length;
                 all.style.bottom = barH + 'px';
-                all.style.height = barH + 'px';
+                all.style.height = gap + 'px';
                 all.innerHTML = `<button type="button" id="mailAllBtn" data-tip="${escapeHtml(`Take Tom’s suggestion on ${batch.length === 1 ? 'the' : 'all ' + batch.length} ${batch.length === 1 ? 'row' : 'rows'} marked ${[...new Set(batch.map(m => MAIL_LABEL[m.action] || m.action))].join(', ')}. Tom does them on his next run.`)}">accept ${batch.length === items.length && batch.length > 1 ? 'all ' : ''}${batch.length}</button>`
                     + (left ? `<span>· ${left} to open yourself</span>` : '');
             }
@@ -5380,6 +5441,7 @@
             const team = document.getElementById('teamContainer');
             const completed = document.getElementById('completedContainer');
             board.style.display = 'none';
+            document.getElementById('dayNav').hidden = viewMode !== 'calendar';
             master.style.display = 'none';
             team.style.display = 'none';
             completed.style.display = 'none';
@@ -6280,7 +6342,73 @@
             fitExpandedPane(board);
 
             attachBoardListeners();
+            showPortraitDay(board);
         }
+
+        // ---- Portrait: one day at a time (2026-09-25) ----
+        // The board still renders all thirty days; portrait sizes each to the
+        // full width and scrolls to one. portraitDayKey is the day on screen
+        // (null = today), kept across re-renders — rebuilding the board resets
+        // its scroll, so every render puts the day back.
+        const portraitQuery = window.matchMedia('(orientation: portrait) and (max-width: 600px)');
+        let portraitDayKey = null;
+        function isPortrait() { return portraitQuery.matches; }
+        function applyPortrait() { document.body.classList.toggle('portrait', isPortrait()); }
+        function portraitIndex() {
+            const key = portraitDayKey || getTodayKey();
+            let i = days.findIndex(d => d.key === key);
+            if (i < 0) i = days.findIndex(d => d.isToday);
+            return i < 0 ? 0 : i;
+        }
+        function showPortraitDay(board, smooth) {
+            if (!isPortrait() || !days.length) return;
+            const i = portraitIndex();
+            const col = board.querySelectorAll('.day-column')[i];
+            if (col) board.scrollTo({ left: col.offsetLeft, behavior: smooth ? 'smooth' : 'auto' });
+            paintDayNav(i);
+        }
+        function paintDayNav(i) {
+            const day = days[i];
+            if (!day) return;
+            const todayKey = getTodayKey();
+            const label = document.getElementById('dayLabel');
+            const rel = day.isToday ? 'Today' : day.key === addDaysToKey(todayKey, 1) ? 'Tomorrow'
+                : day.key === addDaysToKey(todayKey, -1) ? 'Yesterday' : day.dayName;
+            label.textContent = `${rel} · ${day.dateStr}`;
+            label.classList.toggle('today', day.isToday);
+            document.getElementById('dayToday').hidden = day.isToday;
+            document.getElementById('dayPrev').disabled = i === 0;
+            document.getElementById('dayNext').disabled = i === days.length - 1;
+        }
+        function stepPortraitDay(delta) {
+            const i = Math.max(0, Math.min(days.length - 1, portraitIndex() + delta));
+            portraitDayKey = days[i].key;
+            showPortraitDay(document.getElementById('board'), true);
+        }
+        (function wirePortrait() {
+            const board = document.getElementById('board');
+            let settle = null;
+            // A swipe: once the snap settles, whichever day is in view is the day.
+            board.addEventListener('scroll', () => {
+                if (!isPortrait()) return;
+                clearTimeout(settle);
+                settle = setTimeout(() => {
+                    const cols = board.querySelectorAll('.day-column');
+                    if (!cols.length) return;
+                    const step = cols.length > 1 ? cols[1].offsetLeft - cols[0].offsetLeft : board.clientWidth;
+                    const i = Math.max(0, Math.min(days.length - 1, Math.round(board.scrollLeft / step)));
+                    if (days[i]) { portraitDayKey = days[i].isToday ? null : days[i].key; paintDayNav(i); }
+                }, 120);
+            }, { passive: true });
+            document.getElementById('dayPrev').addEventListener('click', () => stepPortraitDay(-1));
+            document.getElementById('dayNext').addEventListener('click', () => stepPortraitDay(1));
+            document.getElementById('dayToday').addEventListener('click', () => {
+                portraitDayKey = null;
+                showPortraitDay(board, true);
+            });
+            portraitQuery.addEventListener('change', () => { applyPortrait(); renderView(); });
+            applyPortrait();
+        })();
 
         // The board clips vertically (see .board-container.has-expanded), so an
         // open subtask pane only exists as far down as the container's padding
@@ -6736,6 +6864,9 @@
             selectedDayIndex = index;
             hasPickedDay = true;
             renderView();
+            // Portrait shows the one day already; focusing its input on every
+            // tap would throw the phone's keyboard up over it.
+            if (isPortrait()) return;
             setTimeout(() => {
                 const card = document.querySelector(`.day-card[data-day-index="${index}"]`);
                 if (card) card.scrollIntoView({ behavior: 'smooth', block: 'nearest', inline: 'center' });

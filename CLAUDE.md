@@ -355,6 +355,12 @@ Replaced the 1/2/3 priority marks on 2026-08-14. A task's rank is where it sits.
 - `ai.js` `buildPrompt()` branches on the regex: list tasks ask for **7 concrete candidate items** as bare JSON strings; the parser accepts strings or `{description}`. `generateMockSubtasks` has a matching branch.
 - History: v1 was a Family Feud board; Kevin cut it within hours. Playful mechanics are the first thing he trims — ship the minimal interaction first.
 
+### A phone held upright: one day (2026-09-25)
+- **Portrait on a phone shows one day, full width; landscape keeps the row of days** (Kevin). `body.portrait` is set from `matchMedia('(orientation: portrait) and (max-width: 600px)')` (`portraitQuery`, re-rendered on change) — a class, not a bare media query, so the JS that picks the day and the CSS that sizes it can't disagree. The rules are scoped to `#board`; team and completed views are untouched.
+- **The board still renders all thirty days**; each `.day-column` is 100% wide with `scroll-snap-type: x mandatory`, so a swipe is a day. `#dayNav` above the board names it ("Today · Sep 25", Tomorrow, Yesterday, else the weekday — the card's own header row is hidden) with ‹ › and a **Today** pill when off today. **Opens on today**, not the overdue anchor. `portraitDayKey` (null = today) survives re-renders — rebuilding the board resets its scroll, so `showPortraitDay()` runs at the end of every `renderBoard()`; a scroll listener reads the settled snap back into it.
+- The card is a screen tall (`100svh - 150px`) until a pane opens; in portrait the pane is **`position: static`** under the tasks rather than hanging below a screen-tall card. Hidden in portrait: the tip bar (hover-only), focus toggle (one day is focus), the drag-to-series hint (no drag on iOS). The mail strip drops its body column and keeps its own 24px gap for Accept all (`renderMailStrip()` reads a 0-height tip bar there). `selectDay()` doesn't focus the day's input in portrait — it threw the keyboard up on every tap.
+- **Not done:** hover and keyboard gestures have no touch equivalent; 14px circles are small for a thumb; popups position for a desktop pointer. Verified in jsdom (stubbed `matchMedia`) and a 390px WebKit render, not on a phone.
+
 ### Master Project Page
 - Each username has a master page listing all projects (button labelled **"List"** since 2026-08-05; internally still `master`). Tasks grouped by project, one pane per project with all open, unassigned tasks. Assigned tasks are removed from both the day pane and the master page.
 
