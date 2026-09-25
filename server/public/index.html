@@ -3384,6 +3384,40 @@
         body.portrait .app-header { margin: -12px -12px 10px; padding: 4px 12px; gap: 10px; }
         body.portrait .focus-toggle { display: none; }   /* one day is already focus */
         body.portrait .hint-chip { display: none; }       /* there is no drag on a phone */
+        /* Thumb-sized (Kevin, 2026-09-25): text, circles and icons up by at
+           least two points. The day counter and repeat glyph stay small — they
+           are a whisper, not a target. 16px on the inputs also stops iOS
+           zooming the page when one takes focus. */
+        body.portrait #board .task-item { gap: 8px; padding: 7px 0; }
+        body.portrait #board .task-description { font-size: 16px; }
+        body.portrait #board .task-circle { width: 20px; height: 20px; font-size: 11px; }
+        body.portrait #board .task-arrow { width: 22px; height: 22px; font-size: 17px; }
+        body.portrait #board .task-lock,
+        body.portrait #board .task-send,
+        body.portrait #board .task-unlink { width: 22px; height: 22px; font-size: 15px; }
+        body.portrait #board .task-input { font-size: 16px; padding: 9px 10px; }
+        body.portrait #board .list-box-input { font-size: 16px; }
+        body.portrait #board .list-box-toggle { width: 30px; height: 34px; font-size: 15px; }
+        body.portrait #board .list-box .task-arrow,
+        body.portrait #board .list-box .task-lock { width: 20px; height: 20px; }
+        body.portrait #board .ev-line { font-size: 15px; line-height: 26px; gap: 8px; }
+        body.portrait #board .ev-circle { width: 20px; height: 20px; }
+        body.portrait #board .ev-time { font-size: 13px; }
+        body.portrait #board .subtask-pane-title { font-size: 15px; }
+        body.portrait #board .subtask-item { font-size: 15px; gap: 8px; padding: 8px 2px; }
+        body.portrait #board .subtask-desc { font-size: 15px; }
+        /* A phone has the width the 178px pane never had, so the rail lies
+           down: check · assignee · ↑ · 🔎 in a row, and a step is one line tall. */
+        body.portrait #board .subtask-rail { flex-direction: row; width: auto; gap: 8px; padding-top: 0; }
+        body.portrait #board .subtask-item { align-items: center; }
+        body.portrait #board .subtask-check,
+        body.portrait #board .subtask-dismiss { width: 20px; height: 20px; font-size: 12px; }
+        body.portrait #board .subtask-rail .subtask-send { width: 22px; height: 22px; font-size: 15px; }
+        body.portrait #board .subtask-research svg { width: 15px; height: 15px; }
+        body.portrait #board .subtask-cost { font-size: 13px; }
+        body.portrait #board .subtask-pane input[type=text] { font-size: 16px; }
+        body.portrait #board .briefing-item { font-size: 14.5px; }
+        body.portrait #board .briefing-tick { width: 18px; height: 18px; }
         body.portrait .day-nav {
             display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
         }
@@ -3408,7 +3442,7 @@
         body.portrait #board .day-card .day-header-row { display: none; }   /* the nav bar names the day */
         /* The pane flows under the tasks instead of hanging below a card that
            is now a screen tall; the card gives up its height while one is open. */
-        body.portrait .subtask-pane.board-pane { position: static; width: 100%; margin-top: 10px; }
+        body.portrait .subtask-pane.board-pane { position: relative; top: auto; width: 100%; margin-top: 10px; }   /* relative, not static: the pane's own ↺ anchors to it */
         body.portrait #board .day-column:has(.board-pane) .day-card { min-height: 0; }
         /* The tip bar reads hovers, and nothing hovers on a touch screen. */
         body.portrait #tipBar { display: none; }
