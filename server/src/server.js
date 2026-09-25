@@ -82,7 +82,8 @@ app.all('/mcp/:secret', async (req, res) => {
       urlBase: `http://127.0.0.1:${PORT}`,
       team: MCP_TEAM, user: MCP_USER,
       aiKey: process.env.AI_ACCESS_KEY || '',
-      tz: req.get('x-tz') || userTimezone(MCP_TEAM, MCP_USER) || process.env.MCP_TZ || 'UTC'
+      // The phone sends no zone; the last one your Mac reported stands in.
+      tz: req.get('x-tz') || userTimezone(MCP_TEAM, MCP_USER) || 'UTC'
     });
     const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: undefined });
     res.on('close', () => { transport.close().catch(() => {}); server.close().catch(() => {}); });
@@ -1023,8 +1024,9 @@ app.get('/api/companies/:subdomain/users/:slug/completions', (req, res) => {
 });
 
 // ---- Where you are: ZIP + time zone (2026-09-13) ----
-// Facts about the person, not the board — they follow you to every board —
-// but edited from the preferences page because that is where settings live.
+// Facts about the person, not the board — they follow you to every board.
+// The ZIP is edited on the preferences page. The time zone is not edited
+// anywhere since 2026-09-25: it follows the Mac (noteZone below).
 const ZIP_RE = /^\d{5}$/;
 function validZone(tz) {
   if (typeof tz !== 'string' || !tz || tz.length > 64) return false;
@@ -1043,11 +1045,6 @@ app.put('/api/companies/:subdomain/users/:slug/settings', async (req, res) => {
   const user = healthUser(req, res);
   if (!user) return;
   const body = req.body || {};
-  if (body.timezone !== undefined) {
-    const tz = body.timezone === null || body.timezone === '' ? null : String(body.timezone).trim();
-    if (tz !== null && !validZone(tz)) return res.status(400).json({ error: 'timezone must be an IANA zone like America/Chicago' });
-    runSql('UPDATE users SET timezone = ? WHERE id = ?', [tz, user.id]);
-  }
   if (body.zip !== undefined) {
     const zip = body.zip === null || body.zip === '' ? null : String(body.zip).trim();
     if (zip !== null && !ZIP_RE.test(zip)) return res.status(400).json({ error: 'zip must be five digits' });
@@ -1066,6 +1063,22 @@ app.put('/api/companies/:subdomain/users/:slug/settings', async (req, res) => {
   }
   res.json(settingsOf(user));
 });
+
+// The time zone follows the Mac (Kevin, 2026-09-25: no picker, nothing baked
+// in). The board in the browser and Tom through the local MoveIt server both
+// send the Mac's current zone as x-tz; whenever it differs from the stored
+// one, the stored one is replaced, silently. users.timezone is then only a
+// memory of the last zone seen, for callers that have none of their own —
+// the phone app through /mcp, a bare curl, the calendar feed's background
+// sync. Called from the board read and Tom's calendar post only: those are
+// always the person's own board, never a teammate's (the team view reads
+// /shared-board), so one person's zone can't be written onto another.
+function noteZone(req, userId) {
+  const tz = req.get('x-tz');
+  if (!validZone(tz)) return;
+  const u = queryOne('SELECT timezone FROM users WHERE id = ?', [userId]);
+  if (u && u.timezone !== tz) runSql('UPDATE users SET timezone = ? WHERE id = ?', [tz, userId]);
+}
 
 // The user's "today" for a request that may carry no x-tz (the phone app
 // through the MoveIt server sets one from users.timezone; a bare curl won't).
@@ -2049,6 +2062,8 @@ app.get('/api/companies/:subdomain/users/:slug/tasks', (req, res) => {
   if (!user) {
     return res.status(404).json({ error: 'User not found' });
   }
+
+  noteZone(req, user.id);
 
   // Spillover: incomplete past tasks move to today. Series members keep
   // their spacing: an overdue member spills to today and drags its
@@ -4174,8 +4189,8 @@ function applyBriefReport(lines, report, ownerId, projectId, taskId) {
 }
 
 function locationForUser(userId) {
-  const feed = queryOne('SELECT timezone FROM calendar_feeds WHERE user_id = ?', [userId]);
-  return feed && feed.timezone ? { timezone: feed.timezone } : null;
+  const u = queryOne('SELECT timezone FROM users WHERE id = ?', [userId]);
+  return u && u.timezone ? { timezone: u.timezone } : null;
 }
 
 // Phase 2. Fire-and-forget: rewrites this task's provisional rows in place with
@@ -4643,7 +4658,6 @@ function calendarStatus(userId) {
     connected: true,
     enabled: !!feed.enabled,
     url_masked: calendar.maskUrl(feed.url),
-    timezone: feed.timezone,
     last_synced_at: feed.last_synced_at,
     last_status: feed.last_status,
     last_error: feed.last_error,
@@ -4663,7 +4677,7 @@ app.put('/api/companies/:subdomain/users/:slug/calendar', async (req, res) => {
   const user = resolveCalendarUser(req, res);
   if (!user) return;
 
-  const { url, timezone, enabled } = req.body || {};
+  const { url, enabled } = req.body || {};
   const existing = calendar.getFeed(user.id);
   const today = todayKeyFor(req);
 
@@ -4674,15 +4688,16 @@ app.put('/api/companies/:subdomain/users/:slug/calendar', async (req, res) => {
     } catch (err) {
       return res.status(400).json({ error: err.message });
     }
-    const tz = timezone || (existing && existing.timezone) || 'UTC';
+    // No zone is stored on the feed: sync reads users.timezone, which follows the Mac.
+    noteZone(req, user.id);
     if (existing) {
-      runSql('UPDATE calendar_feeds SET url = ?, timezone = ?, enabled = 1 WHERE user_id = ?',
-        [normalized, tz, user.id]);
+      runSql('UPDATE calendar_feeds SET url = ?, enabled = 1 WHERE user_id = ?',
+        [normalized, user.id]);
       // A different calendar means the old calendar's events are no longer ours.
       if (existing.url !== normalized) calendar.deleteAllEvents(user.id);
     } else {
-      runSql('INSERT INTO calendar_feeds (user_id, url, timezone, enabled) VALUES (?, ?, ?, 1)',
-        [user.id, normalized, tz]);
+      runSql('INSERT INTO calendar_feeds (user_id, url, enabled) VALUES (?, ?, 1)',
+        [user.id, normalized]);
     }
     // Connecting should show something immediately, so this one is awaited.
     const result = await calendar.syncFeed(user.id, today);
@@ -4706,10 +4721,6 @@ app.put('/api/companies/:subdomain/users/:slug/calendar', async (req, res) => {
         return res.status(400).json({ error: result.error, ...calendarStatus(user.id) });
       }
     }
-  }
-
-  if (timezone !== undefined) {
-    runSql('UPDATE calendar_feeds SET timezone = ? WHERE user_id = ?', [timezone, user.id]);
   }
 
   res.json(calendarStatus(user.id));
@@ -4743,10 +4754,10 @@ app.put('/api/companies/:subdomain/users/:slug/calendar/events', (req, res) => {
   if (!Array.isArray(list)) return res.status(400).json({ error: 'events must be an array' });
   if (list.length > CAL_POST_MAX) return res.status(400).json({ error: `At most ${CAL_POST_MAX} events` });
 
+  noteZone(req, user.id);
   const row = queryOne('SELECT company_id, timezone FROM users WHERE id = ?', [user.id]);
   const hdr = req.get('x-tz');
-  const zone = (row.timezone && validZone(row.timezone)) ? row.timezone
-    : (typeof hdr === 'string' && hdr.length <= 64 && validZone(hdr)) ? hdr : 'UTC';
+  const zone = validZone(hdr) ? hdr : (row.timezone && validZone(row.timezone)) ? row.timezone : 'UTC';
   const today = todayInZone(zone);
   const endKey = calendar.addDaysKey(today, calendar.WINDOW_DAYS - 1);
 

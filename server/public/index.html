@@ -8318,7 +8318,7 @@
                     showToast('Connecting…');
                     calendarState = await api(base, {
                         method: 'PUT',
-                        body: { url: url.trim(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone }
+                        body: { url: url.trim() }
                     });
                     showToast(`Calendar connected — ${calendarState.event_count || 0} events`);
                 } else if (act === 'sync') {

@@ -376,7 +376,10 @@ async function syncFeed(userId, todayKey) {
 
     let incoming;
     try {
-      incoming = await fetchEvents(feed.url, feed.timezone, today);
+      // The person's zone, which follows their Mac (users.timezone); the
+      // feed's own timezone column is a leftover from before 2026-09-25.
+      const zone = queryOne('SELECT timezone FROM users WHERE id = ?', [userId]);
+      incoming = await fetchEvents(feed.url, (zone && zone.timezone) || feed.timezone, today);
     } catch (err) {
       // Do NOT reconcile. Treating a failed fetch as "no events" would wipe
       // every imported row the moment the feed 404s or the network blips.

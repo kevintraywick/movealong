@@ -9,10 +9,13 @@
 import { McpServer } from '@modelcontextprotocol/sdk/server/mcp.js';
 import { z } from 'zod';
 
+// tz is a zone name (the web endpoint passes the user's stored one) or a
+// function returning one per call (stdio on the Mac reads the Mac's current
+// zone, so a flight changes "today" without a restart).
 export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
   const URL_BASE = String(urlBase || 'http://localhost:3000').replace(/\/$/, '');
   const TEAM = team, USER = user, AI_KEY = aiKey || '';
-  const TZ = tz || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+  const zoneNow = () => (typeof tz === 'function' ? tz() : tz) || Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
   if (!TEAM || !USER) throw new Error('createMoveItServer needs team and user');
 
   const me = `/api/companies/${encodeURIComponent(TEAM)}/users/${encodeURIComponent(USER)}`;
@@ -22,7 +25,7 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
       method,
       headers: {
         'content-type': 'application/json',
-        'x-tz': TZ,
+        'x-tz': zoneNow(),
         ...(AI_KEY ? { 'x-ai-key': AI_KEY } : {})
       },
       body: body === undefined ? undefined : JSON.stringify(body)
@@ -33,7 +36,7 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     return data;
   }
 
-  const todayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: TZ });
+  const todayKey = () => new Date().toLocaleDateString('en-CA', { timeZone: zoneNow() });
 
   // A board by name (case-insensitive) or id; default = the first tab.
   async function resolveBoard(board) {

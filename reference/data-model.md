@@ -208,7 +208,7 @@ The assistant's inbox in reverse: one thing the model wished it had known while 
 
 ## briefing_items
 
-`briefing_items` (id, user_id → users CASCADE, day DATE, kind, text, detail, link, position, done, done_at, created_at; index user_id+day) — the morning briefing (2026-09-13), posted by the user's own Claude through the MoveIt server and replaced wholesale per day. Weather is not stored (fetched per day from the ZIP). `users.zip`, `users.timezone`, and the cached geocode `users.zip_lat / zip_lon / zip_place` live on the user.
+`briefing_items` (id, user_id → users CASCADE, day DATE, kind, text, detail, link, position, done, done_at, created_at; index user_id+day) — the morning briefing (2026-09-13), posted by the user's own Claude through the MoveIt server and replaced wholesale per day. Weather is not stored (fetched per day from the ZIP). `users.zip`, `users.timezone` (not user-edited since 2026-09-25: the last `x-tz` seen on the person's own board read or calendar post; `calendar_feeds.timezone` is unread), and the cached geocode `users.zip_lat / zip_lon / zip_place` live on the user.
 
 ## task_pushes
 

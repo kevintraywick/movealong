@@ -20,7 +20,7 @@ claude mcp add movealong -s user \
 ```
 
 Point `MOVEALONG_URL` at `http://localhost:3000` to work against a local server.
-`MOVEALONG_TZ` defaults to the machine's zone.
+There is no time zone setting: every call reads the Mac's current zone (System Settings sets it from your location), and the board remembers the last one for the phone. An old `MOVEALONG_TZ` is ignored.
 
 ## Over the web — the phone app and remote clients (2026-09-13)
 
@@ -31,8 +31,9 @@ as stateless Streamable HTTP. Set three Railway variables and redeploy:
 MCP_SECRET=<long random string — openssl rand -hex 24>
 MCP_TEAM=kevstuff
 MCP_USER=kev
-MCP_TZ=America/Chicago
 ```
+
+The phone sends no time zone; "today" comes from the last zone your Mac reported to the board.
 
 Then in the Claude app: **Settings › Connectors › Add custom connector**, paste the URL
 (with the secret), no OAuth. "Log 10,000 steps to my MoveIt health dashboard" works from
