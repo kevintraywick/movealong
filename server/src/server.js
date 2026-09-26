@@ -1174,6 +1174,7 @@ async function weatherFor(userId, day) {
   }
   const tz = u.timezone && validZone(u.timezone) ? u.timezone : 'auto';
   const q = `latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max`
+    + `&hourly=weather_code,temperature_2m,precipitation_probability`
     + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=${encodeURIComponent(tz)}&start_date=${day}&end_date=${day}`;
   const d = await fetchJson(`https://api.open-meteo.com/v1/forecast?${q}`);
   const daily = d.daily || {};
@@ -1181,10 +1182,113 @@ async function weatherFor(userId, day) {
     place: name, day,
     high: Math.round(daily.temperature_2m_max[0]), low: Math.round(daily.temperature_2m_min[0]),
     words: wmoWords(daily.weather_code[0]), code: daily.weather_code[0],
-    rain_pct: daily.precipitation_probability_max[0] ?? null, wind_mph: Math.round(daily.wind_speed_10m_max[0])
+    rain_pct: daily.precipitation_probability_max[0] ?? null, wind_mph: Math.round(daily.wind_speed_10m_max[0]),
+    story: weatherStory(d.hourly)
   };
   weatherCache.set(userId, { day, weather });
   return weather;
+}
+
+// The briefing's second weather line (Kevin, 2026-09-26: "a brief
+// description of the day's weather"). Rules, not a model — his pick: the
+// hourly forecast is split into morning / afternoon / evening, each named by
+// its most common sky, then one clause for rain and one for the temperature
+// arc. "Sunny morning, partly cloudy afternoon, clear evening. Rain likely
+// from 2pm. Peaks at 91° around 3pm, 70° by 9pm."
+function skyWord(code, evening) {
+  if (code >= 95) return 'stormy';
+  if ((code >= 71 && code <= 77) || code === 85 || code === 86) return 'snowy';
+  if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return 'rainy';
+  if (code === 45 || code === 48) return 'foggy';
+  if (code === 3) return 'cloudy';
+  if (code === 2) return 'partly cloudy';
+  return evening ? 'clear' : 'sunny';
+}
+function hourWord(h) { return h === 12 ? 'noon' : h === 0 ? 'midnight' : (h % 12) + (h < 12 ? 'am' : 'pm'); }
+function weatherStory(hourly) {
+  if (!hourly || !Array.isArray(hourly.time) || !hourly.time.length) return null;
+  const hours = hourly.time.map((t, i) => ({ h: Number(t.slice(11, 13)), code: hourly.weather_code[i],
+    temp: hourly.temperature_2m[i], rain: hourly.precipitation_probability ? hourly.precipitation_probability[i] : null }))
+    .filter(x => x.h >= 6 && x.h <= 22 && x.code != null && x.temp != null);
+  if (!hours.length) return null;
+  const periods = [['morning', 6, 11], ['afternoon', 12, 17], ['evening', 18, 22]].map(([name, a, b]) => {
+    const tally = new Map();
+    for (const x of hours) if (x.h >= a && x.h <= b) {
+      const w = skyWord(x.code, name === 'evening');
+      tally.set(w, (tally.get(w) || 0) + 1);
+    }
+    const sky = [...tally].sort((p, q) => q[1] - p[1])[0];
+    return sky ? { name, sky: sky[0] } : null;
+  }).filter(Boolean);
+  // Merge neighbours with the same sky: "cloudy morning and afternoon".
+  const runs = [];
+  for (const p of periods) {
+    const last = runs[runs.length - 1];
+    const same = last && (last.sky === p.sky || (last.sky === 'sunny' && p.sky === 'clear'));
+    if (same) last.names.push(p.name); else runs.push({ sky: p.sky, names: [p.name] });
+  }
+  const cap = (t) => t.charAt(0).toUpperCase() + t.slice(1);
+  let sky = runs.length === 1 && runs[0].names.length === periods.length && periods.length > 1
+    ? `${cap(runs[0].sky)} all day`
+    : cap(runs.map(r => `${r.sky} ${r.names.join(' and ')}`).join(', '));
+  const out = [sky + '.'];
+  const wet = hours.find(x => x.rain != null && x.rain >= 40);
+  if (wet) {
+    const peak = Math.max(...hours.map(x => x.rain || 0));
+    out.push(`${peak >= 70 ? 'Rain likely' : 'Chance of rain'} from ${hourWord(wet.h)}.`);
+  }
+  const top = hours.reduce((m, x) => (x.temp > m.temp ? x : m), hours[0]);
+  const late = hours.find(x => x.h === 21) || hours[hours.length - 1];
+  out.push(`Peaks at ${Math.round(top.temp)}° around ${hourWord(top.h)}${late.h > top.h ? `, ${Math.round(late.temp)}° by ${hourWord(late.h)}` : ''}.`);
+  return out.join(' ');
+}
+
+// ---- The market, for the briefing (2026-09-26) ----
+// Kevin's Stocks list on the Lists page is the watch list: a shelved list
+// named "Stocks", one ticker per item. Shown only while the US market is
+// open (his call: hide it when closed). Quotes come from Yahoo's public chart
+// endpoint — keyless and unofficial, so a failure just leaves the section
+// out. Cached five minutes per symbol.
+const MARKET_HOLIDAYS = new Set([
+  '2026-01-01', '2026-01-19', '2026-02-16', '2026-04-03', '2026-05-25', '2026-06-19', '2026-07-03', '2026-09-07', '2026-11-26', '2026-12-25',
+  '2027-01-01', '2027-01-18', '2027-02-15', '2027-03-26', '2027-05-31', '2027-06-18', '2027-07-05', '2027-09-06', '2027-11-25', '2027-12-24'
+]);
+function marketOpen(now = new Date()) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', hourCycle: 'h23',
+    year: 'numeric', month: '2-digit', day: '2-digit', weekday: 'short', hour: '2-digit', minute: '2-digit' })
+    .formatToParts(now).map(x => [x.type, x.value]));
+  if (p.weekday === 'Sat' || p.weekday === 'Sun') return false;
+  if (MARKET_HOLIDAYS.has(`${p.year}-${p.month}-${p.day}`)) return false;
+  const mins = Number(p.hour) * 60 + Number(p.minute);
+  return mins >= 9 * 60 + 30 && mins < 16 * 60;
+}
+const TICKER_RE = /^[A-Z][A-Z0-9.\-]{0,9}$/;
+function watchList(userId) {
+  const list = queryOne(`SELECT id FROM tasks WHERE owner_id = ? AND COALESCE(shelved, 0) = 1 AND LOWER(TRIM(description)) = 'stocks' ORDER BY id LIMIT 1`, [userId]);
+  if (!list) return [];
+  return queryAll('SELECT description FROM subtasks WHERE task_id = ? AND completed = 0 ORDER BY sort_order, id', [list.id])
+    .map(r => String(r.description || '').trim().toUpperCase()).filter(t => TICKER_RE.test(t)).slice(0, 12);
+}
+const quoteCache = new Map();   // symbol -> { at, quote }
+async function quoteFor(symbol) {
+  const c = quoteCache.get(symbol);
+  if (c && Date.now() - c.at < 5 * 60000) return c.quote;
+  const d = await fetchJson(`https://query1.finance.yahoo.com/v8/finance/chart/${encodeURIComponent(symbol)}?range=1d&interval=1d`, 5000);
+  const m = d && d.chart && d.chart.result && d.chart.result[0] && d.chart.result[0].meta;
+  if (!m || typeof m.regularMarketPrice !== 'number') throw new Error('no quote');
+  const prev = m.chartPreviousClose ?? m.previousClose;
+  const pct = typeof m.regularMarketChangePercent === 'number' ? m.regularMarketChangePercent
+    : (prev ? (m.regularMarketPrice - prev) / prev * 100 : null);
+  const quote = { symbol, price: m.regularMarketPrice, change_pct: pct == null ? null : Math.round(pct * 10) / 10 };
+  quoteCache.set(symbol, { at: Date.now(), quote });
+  return quote;
+}
+async function marketFor(userId) {
+  if (!marketOpen()) return null;
+  const symbols = watchList(userId);
+  if (!symbols.length) return null;
+  const quotes = (await Promise.all(symbols.map(s => quoteFor(s).catch(() => null)))).filter(Boolean);
+  return quotes.length ? { quotes } : null;
 }
 
 // ---- Morning briefing (2026-09-13) ----
@@ -1201,10 +1305,14 @@ function briefingItems(userId, day) {
 async function briefingPayload(req, user, day) {
   const items = briefingItems(user.id, day);
   let weather = null, weather_error = null;
-  try { weather = await weatherFor(user.id, day); }
-  catch (err) { weather_error = err.message; }
+  const today = todayKeyForUser(req, user);
+  const [w, market] = await Promise.all([
+    weatherFor(user.id, day).catch(err => { weather_error = err.message; return null; }),
+    day === today ? marketFor(user.id).catch(() => null) : null
+  ]);
+  weather = w;
   const generated_at = items.length ? items.reduce((m, i) => (i.created_at > m ? i.created_at : m), items[0].created_at) : null;
-  return { day, today: todayKeyForUser(req, user), items, weather, weather_error, generated_at };
+  return { day, today, items, weather, weather_error, market, generated_at };
 }
 app.get('/api/companies/:subdomain/users/:slug/briefing', async (req, res) => {
   const user = healthUser(req, res);

@@ -1735,8 +1735,19 @@
         .briefing-when { font-size: 10px; color: #94a3b8; margin-left: auto; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
         .briefing-close { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 13px; line-height: 1; padding: 0 0 0 4px; }
         .briefing-close:hover { color: #0284c7; }
-        .briefing-weather { font-size: 11px; color: #334155; padding: 2px 0 6px; border-bottom: 1px dashed #e2e8f0; margin-bottom: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .briefing-weather { font-size: 11px; color: #334155; padding: 2px 0 6px; border-bottom: 1px dashed #e2e8f0; margin-bottom: 4px; }
         .briefing-weather .temps { font-weight: 600; color: #0f172a; font-variant-numeric: tabular-nums; }
+        .briefing-weather-line { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .briefing-story { white-space: normal; color: #475569; margin-top: 2px; line-height: 1.35; }
+        .briefing-market { display: grid; grid-template-columns: auto 1fr auto; gap: 1px 8px; font-size: 11px; padding: 2px 0 6px; border-bottom: 1px dashed #e2e8f0; margin-bottom: 4px; font-variant-numeric: tabular-nums; }
+        .briefing-quote { display: contents; color: #334155; text-decoration: none; }
+        .briefing-quote .px { text-align: right; }
+        .briefing-quote .chg { text-align: right; }
+        .briefing-quote:hover > span { color: #0284c7; }
+                .briefing-quote .sym { font-weight: 600; color: #0f172a; }
+        .briefing-quote .chg { color: #64748b; }
+        .briefing-quote .chg.up { color: #0284c7; }
+        .briefing-quote .chg.down { color: #b91c1c; }
         .briefing-item { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; font-size: 11.5px; line-height: 1.35; color: #0f172a; }
         .briefing-item + .briefing-item { border-top: 1px solid #f1f5f9; }
         .briefing-tick { width: 13px; height: 13px; border: 1.5px solid #cbd5e1; border-radius: 50%; flex-shrink: 0; margin-top: 2px; cursor: pointer; background: #fff; }
@@ -3150,6 +3161,12 @@
 
         /* Subtask pane */
         body.dark .briefing-weather { color: #cbd5e1; border-color: #334155; }
+        body.dark .briefing-story { color: #94a3b8; }
+        body.dark .briefing-market { border-color: #334155; }
+        body.dark .briefing-quote .px { color: #cbd5e1; }
+        body.dark .briefing-quote .sym { color: #e2e8f0; }
+        body.dark .briefing-quote .chg.up { color: #38bdf8; }
+        body.dark .briefing-quote .chg.down { color: #fca5a5; }
         body.dark .briefing-weather .temps, body.dark .briefing-item { color: #e2e8f0; }
         body.dark .briefing-item + .briefing-item { border-color: #334155; }
         body.dark .briefing-tick { background: #1e293b; border-color: #475569; }
@@ -3412,6 +3429,7 @@
         body.portrait #board .subtask-cost { font-size: 13px; }
         body.portrait #board .subtask-pane input[type=text] { font-size: 16px; }
         body.portrait #board .briefing-item { font-size: 14.5px; }
+        body.portrait #board .briefing-weather, body.portrait #board .briefing-market { font-size: 14px; }
         body.portrait #board .briefing-tick { width: 18px; height: 18px; }
         body.portrait .day-nav {
             display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
@@ -4230,8 +4248,22 @@
                 if (changed && viewMode === 'calendar') renderView();
             } catch (err) { briefing = null; }
         }
+        // Prices move; re-read the briefing every five minutes while visible.
+        setInterval(() => { if (document.visibilityState === 'visible' && briefing && briefing.market) loadBriefing(); }, 300000);
         function briefingHidden() {
             try { return briefing && localStorage.getItem('movealong.briefing.hidden') === briefing.day; } catch (e) { return false; }
+        }
+        // The market while it's open: the tickers on the Stocks list (Lists
+        // page), price and day change. The server leaves it out when closed.
+        function renderBriefingMarket(m) {
+            if (!m || !m.quotes || !m.quotes.length) return '';
+            const cells = m.quotes.map(q => {
+                const pct = q.change_pct;
+                const cls = pct == null ? '' : pct > 0 ? ' up' : pct < 0 ? ' down' : '';
+                const price = q.price >= 100 ? q.price.toFixed(0) : q.price.toFixed(2);
+                return `<a class="briefing-quote" href="https://finance.yahoo.com/quote/${encodeURIComponent(q.symbol)}" target="_blank" rel="noopener noreferrer" title="${escapeHtml(q.symbol)} on Yahoo Finance"><span class="sym">${escapeHtml(q.symbol)}</span><span class="px">${price}</span><span class="chg${cls}">${pct == null ? '' : `${pct > 0 ? '+' : ''}${pct}%`}</span></a>`;
+            }).join('');
+            return `<div class="briefing-market" title="Your Stocks list on the Lists page, while the market is open. Prices can lag a few minutes.">${cells}</div>`;
         }
         function renderBriefingPane() {
             const b = briefing;
@@ -4248,8 +4280,9 @@
             const allDone = b.items.length && b.items.every(i => i.done);
             return `<div class="subtask-pane briefing-pane">
                 <div class="briefing-head"><span class="briefing-title">Good morning</span><span class="briefing-when" title="When your assistant posted this briefing">${escapeHtml(when)}</span><button class="briefing-close" data-act="hidebriefing" title="Put the briefing away for today">×</button></div>
-                ${w ? `<div class="briefing-weather" title="Today's forecast for ${escapeHtml(w.place || 'where you are')}. It follows this device's location."><span class="temps">${w.high}°/${w.low}°</span> ${escapeHtml(w.words)}${w.rain_pct != null && w.rain_pct >= 20 ? ` · ${w.rain_pct}% rain` : ''}${w.wind_mph >= 20 ? ` · wind ${w.wind_mph}` : ''}</div>` : (b.weather_error ? `<div class="briefing-empty">Weather: ${escapeHtml(b.weather_error)}</div>` : '')}
-                ${items || `<div class="briefing-empty">${w ? 'No briefing posted yet — ask your assistant to brief you.' : 'Nothing here yet. Allow location for the weather, and ask your assistant to brief you.'}</div>`}
+                ${w ? `<div class="briefing-weather" title="Today's forecast for ${escapeHtml(w.place || 'where you are')}. It follows this device's location."><div class="briefing-weather-line"><span class="temps">${w.high}°/${w.low}°</span>${w.story ? '' : ' ' + escapeHtml(w.words)}${w.rain_pct != null && w.rain_pct >= 20 ? ` · ${w.rain_pct}% rain` : ''}${w.wind_mph >= 20 ? ` · wind ${w.wind_mph}` : ''}</div>${w.story ? `<div class="briefing-story">${escapeHtml(w.story)}</div>` : ''}</div>` : (b.weather_error ? `<div class="briefing-empty">Weather: ${escapeHtml(b.weather_error)}</div>` : '')}
+                ${renderBriefingMarket(b.market)}
+                ${items}
                 ${allDone ? '<div class="briefing-all">All handled.</div>' : ''}
             </div>`;
         }
@@ -6275,7 +6308,7 @@
                 // the day's pane slot — not a task pane, not the briefing on
                 // today, and not a list the person shut with ▾.
                 const briefingTakesSlot = day.isToday && briefing && !briefingHidden() && isSignedUp
-                    && (briefing.items.length || briefing.weather);
+                    && (briefing.items.length || briefing.weather || briefing.market);
                 if (!dayTasks.some(t => expandedTaskIds.has(t.id)) && !briefingTakesSlot) {
                     const auto = listTasks.find(t => !closedListIds.has(t.id));
                     if (auto) {

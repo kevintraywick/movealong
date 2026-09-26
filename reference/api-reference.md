@@ -726,6 +726,7 @@ tasks
 `PUT /api/inbox-items/:id/finish` — `{ ok, error? }` from Claude; ok → done, not ok → back to shown with `error`.
 - `GET|POST /api/companies/:subdomain/users/:slug/inbox/check` — POST asks for a mail check (the page does it on load; no-op if mail was posted in the last 5 min); GET returns `{wanted, wanted_at, posted_at}` — `heartbeat.sh` polls it each minute and runs a mail-only pass.
 - `PUT /api/companies/:subdomain/users/:slug/location` — `{lat, lon}` from the browser; rounded to 2 decimals, stored only when moved > ~5 km (`{moved, place}`). Drives the briefing's weather.
+- `GET .../briefing` also returns `weather.story` (one sentence about the day) and `market` (`{quotes:[{symbol, price, change_pct}]}` from the Stocks list, or null when the market is closed or the list is empty).
 
 ## Health (dashboard, 2026-09-13)
 
