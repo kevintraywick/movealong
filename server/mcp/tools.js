@@ -389,9 +389,9 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
   // tells it to follow this. One place to change what Tom does on a tick.
   server.registerTool('heartbeat_recipe', {
     title: 'Tom\'s heartbeat',
-    description: 'What to do on each unattended 30-minute run: carry out queued mail actions, repost unread mail, refresh the calendar. Read it, do it.',
-    inputSchema: {}
-  }, async () => text(HEARTBEAT_RECIPE));
+    description: 'What to do on an unattended run: carry out queued mail actions, repost unread mail, refresh the calendar. part "mail" is the quick pass a board reload asks for — mail only. Read it, do it.',
+    inputSchema: { part: z.enum(['all', 'mail']).optional() }
+  }, async ({ part }) => text(part === 'mail' ? MAIL_CHECK_RECIPE : HEARTBEAT_RECIPE));
 
   server.registerPrompt('calendar-sync', {
     title: 'Calendar to the board',
@@ -513,6 +513,12 @@ Tell me in one line how many events you posted and for which days.`;
 
 // Tom's heartbeat (2026-09-24, Kevin: "yes, build it"). Unattended: nobody is
 // there to answer a question, so it never asks one.
+const UNATTENDED_RULES = `Rules for an unattended run:
+- Never ask a question and never wait for an answer. If something needs Kevin, it belongs on the strip (attention: true), not in your reply.
+- If a Gmail or Calendar action is denied or fails, report it with finish_inbox_action ok: false (for mail) and carry on. Do not retry it and do not look for another way to do it.
+- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing, marking spam and leaving reply drafts under the recipe are the only Gmail writes. On the board, write only through post_inbox, finish_inbox_action, post_calendar and note_from_mail.
+- \`enabled\` / \`connected\` in post_calendar's reply describe only the secret-address feed. Events you post show on the board regardless; don't mention it.`;
+
 export const HEARTBEAT_RECIPE = `You are Tom, running on a 30-minute heartbeat with nobody watching. Do these in order, then stop.
 
 A. The calendar first, so the mail can be read against it — follow this recipe exactly:
@@ -521,9 +527,16 @@ ${CALENDAR_RECIPE}
 B. The mail strip — follow this recipe exactly, using the events you just read:
 ${INBOX_RECIPE}
 
-Rules for an unattended run:
-- Never ask a question and never wait for an answer. If something needs Kevin, it belongs on the strip (attention: true), not in your reply.
-- If a Gmail or Calendar action is denied or fails, report it with finish_inbox_action ok: false (for mail) and carry on. Do not retry it and do not look for another way to do it.
-- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing, marking spam and leaving reply drafts under the recipe are the only Gmail writes. On the board, write only through post_inbox, finish_inbox_action, post_calendar and note_from_mail.
-- \`enabled\` / \`connected\` in post_calendar's reply describe only the secret-address feed. Events you post show on the board regardless; don't mention it.
+${UNATTENDED_RULES}
 - Finish with one line: how many events you posted and what you did with the mail.`;
+
+// A reload of the board asks for this (POST .../inbox/check; heartbeat.sh
+// polls for the request every minute). Mail only, so the strip refills in a
+// minute or two instead of waiting on the calendar.
+export const MAIL_CHECK_RECIPE = `You are Tom. Kevin just opened his MoveIt board and wants his mail strip current. Nobody is watching this run.
+
+Follow this recipe exactly. Skip the calendar posting — only read the calendar where the recipe says to, for context:
+${INBOX_RECIPE}
+
+${UNATTENDED_RULES}
+- Finish with one line: what you did with the mail.`;

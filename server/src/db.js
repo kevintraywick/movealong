@@ -570,6 +570,9 @@ async function initDb() {
   // strip shows five and a "+N" for the rest), and when that run was.
   ensureColumn('users', 'inbox_total', 'INTEGER');
   ensureColumn('users', 'inbox_posted_at', 'DATETIME');
+  // A reload of the board asks Tom for a mail check; the Mac's heartbeat polls
+  // for it every minute. Satisfied by the next post (inbox_posted_at later).
+  ensureColumn('users', 'mail_check_wanted_at', 'DATETIME');
   ensureColumn('users', 'calendar_posted_at', 'DATETIME');
   ensureColumn('users', 'brief_style', 'TEXT');
   ensureColumn('users', 'brief_style_rejected', 'TEXT');

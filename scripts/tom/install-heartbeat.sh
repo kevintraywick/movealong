@@ -1,7 +1,9 @@
 #!/bin/bash
 # Installs (or reinstalls) Tom's heartbeat as a launchd agent: heartbeat.sh
-# every 30 minutes while you're logged in. Runs missed while the Mac slept
-# are not made up — the next tick simply does the work.
+# every minute while you're logged in. The script decides what a tick does —
+# a full run every 30 minutes, a mail-only run when a board reload asked for
+# one, otherwise nothing. Runs missed while the Mac slept are not made up —
+# the next tick simply does the work.
 #
 #   scripts/tom/install-heartbeat.sh             install and start
 #   scripts/tom/install-heartbeat.sh --uninstall stop and remove
@@ -25,7 +27,7 @@ cat > "$PLIST" <<EOF
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
   <array><string>/bin/bash</string><string>$SCRIPT</string></array>
-  <key>StartInterval</key><integer>1800</integer>
+  <key>StartInterval</key><integer>60</integer>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key><string>$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>
@@ -37,4 +39,4 @@ cat > "$PLIST" <<EOF
 </plist>
 EOF
 launchctl bootstrap "gui/$(id -u)" "$PLIST"
-echo "Heartbeat installed: every 30 minutes, quiet 11pm–6am. Log: ~/Library/Logs/moveit-heartbeat.log"
+echo "Heartbeat installed: full run every 30 minutes (quiet 11pm–6am), mail check when the board is reloaded. Log: ~/Library/Logs/moveit-heartbeat.log"

@@ -4315,8 +4315,31 @@
             junk: 'Tom marks it as junk on his next run', unsubscribe: 'Tom archives it on his next run',
         };
 
+        // A reload asks Tom to check the mail (Kevin, 2026-09-26). The board
+        // only records the request; the Mac's heartbeat polls for it each
+        // minute and runs a mail-only pass. Until that post lands, re-read the
+        // strip every 20 seconds (for up to 6 minutes) so it refills on its own.
+        let mailCheckAsked = false;
+        async function askForMailCheck() {
+            if (mailCheckAsked || !currentUser) return;
+            mailCheckAsked = true;
+            try {
+                const st = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/inbox/check`, { method: 'POST' });
+                if (!st.wanted) return;
+                const until = Date.now() + 6 * 60000;
+                const poll = setInterval(async () => {
+                    if (Date.now() > until) return clearInterval(poll);
+                    try {
+                        const now = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/inbox/check`);
+                        if (!now.wanted) { clearInterval(poll); loadInbox(); }
+                    } catch (e) { /* keep waiting */ }
+                }, 20000);
+            } catch (e) { /* the board works without the strip */ }
+        }
+
         async function loadInbox() {
             if (!currentUser) return;
+            askForMailCheck();
             try {
                 const fresh = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/inbox`);
                 const changed = JSON.stringify(fresh.items) !== JSON.stringify(inbox && inbox.items) || (inbox && inbox.more) !== fresh.more;

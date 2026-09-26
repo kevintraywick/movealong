@@ -1295,6 +1295,36 @@ app.get('/api/companies/:subdomain/users/:slug/inbox', (req, res) => {
   res.json(inboxPayload(user.id));
 });
 
+// Check my mail now (Kevin, 2026-09-26: "have Tom check for email when the
+// page is reloaded"). The board still never touches Gmail: a reload only
+// stamps a request, and the Mac's heartbeat — which polls this every minute —
+// runs a mail-only pass. The request is answered by the next post_inbox, so
+// nothing has to clear it. Mail posted in the last few minutes is fresh
+// enough; a reload then asks for nothing, which is what keeps a burst of
+// reloads from paying for a burst of runs.
+const MAIL_CHECK_FRESH_MS = 5 * 60 * 1000;
+function mailCheckState(userId) {
+  const u = queryOne('SELECT inbox_posted_at, mail_check_wanted_at FROM users WHERE id = ?', [userId]) || {};
+  const posted = Date.parse(u.inbox_posted_at || '') || 0;
+  const wanted = Date.parse(u.mail_check_wanted_at || '') || 0;
+  return { wanted: wanted > posted, wanted_at: u.mail_check_wanted_at || null, posted_at: u.inbox_posted_at || null, posted };
+}
+app.get('/api/companies/:subdomain/users/:slug/inbox/check', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const { posted, ...state } = mailCheckState(user.id);
+  res.json(state);
+});
+app.post('/api/companies/:subdomain/users/:slug/inbox/check', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const st = mailCheckState(user.id);
+  if (!st.wanted && Date.now() - st.posted < MAIL_CHECK_FRESH_MS) return res.json({ wanted: false, fresh: true, posted_at: st.posted_at });
+  if (!st.wanted) runSql('UPDATE users SET mail_check_wanted_at = ? WHERE id = ?', [new Date().toISOString(), user.id]);
+  const { posted, ...state } = mailCheckState(user.id);
+  res.json(state);
+});
+
 // Replace the strip's unread set. Rows the user already queued are left
 // alone; shown rows missing from this post were read somewhere else and go.
 app.put('/api/companies/:subdomain/users/:slug/inbox', (req, res) => {

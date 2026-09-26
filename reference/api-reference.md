@@ -724,6 +724,7 @@ tasks
 `POST /api/inbox-items/:id/queue` — `{ task_id? }`; shown → queued (409 otherwise).
 
 `PUT /api/inbox-items/:id/finish` — `{ ok, error? }` from Claude; ok → done, not ok → back to shown with `error`.
+- `GET|POST /api/companies/:subdomain/users/:slug/inbox/check` — POST asks for a mail check (the page does it on load; no-op if mail was posted in the last 5 min); GET returns `{wanted, wanted_at, posted_at}` — `heartbeat.sh` polls it each minute and runs a mail-only pass.
 
 ## Health (dashboard, 2026-09-13)
 

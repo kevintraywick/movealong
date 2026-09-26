@@ -216,7 +216,7 @@ The assistant's inbox in reverse: one thing the model wished it had known while 
 
 ## inbox_items
 
-`inbox_items` (id, user_id → users CASCADE, thread_id, sender_name, sender_addr, subject, body, received_at, view_url, reply_link, unsubscribe_link, reason, suggested_action, action, overridden_action, suggested_attention, attention, overridden_attention, status `shown | queued | done`, auto, queued_at, done_at, error, task_id, created_at; indexes user_id+status, user_id+thread_id) — the mail strip (2026-09-23). One row per thread per new message; done rows are kept as the per-sender history the suggestions are learned from. `users.inbox_total` / `users.inbox_posted_at` record the last post.
+`inbox_items` (id, user_id → users CASCADE, thread_id, sender_name, sender_addr, subject, body, received_at, view_url, reply_link, unsubscribe_link, reason, suggested_action, action, overridden_action, suggested_attention, attention, overridden_attention, status `shown | queued | done`, auto, queued_at, done_at, error, task_id, created_at; indexes user_id+status, user_id+thread_id) — the mail strip (2026-09-23). One row per thread per new message; done rows are kept as the per-sender history the suggestions are learned from. `users.inbox_total` / `users.inbox_posted_at` record the last post. `users.mail_check_wanted_at` is a board reload asking for a mail check; pending while later than `inbox_posted_at`.
 
 ## health_entries
 
