@@ -1227,7 +1227,7 @@
         /* Accept all (2026-09-24): sits in the gap between the strip and the
            tip bar, under the action column, so it costs no row. */
         .mail-all {
-            position: fixed; left: 204px; z-index: 100;
+            position: fixed; left: 178px; z-index: 100;
             display: flex; align-items: center; gap: 6px;
             font-size: 11px; color: #cbd5e1;
         }
@@ -1242,7 +1242,7 @@
         .mail-all button:disabled { opacity: 0.5; cursor: default; }
         .mail-row {
             display: grid;
-            grid-template-columns: 150px 14px 92px 150px minmax(0, 1fr) 36px;
+            grid-template-columns: 150px 92px 150px minmax(0, 1fr) 36px;
             align-items: center; column-gap: 12px;
             min-height: 30px; padding: 6px 32px 6px 16px; line-height: 18px;
             font-size: 13px; color: #475569; cursor: pointer;
@@ -1251,8 +1251,6 @@
         .mail-row:hover { background: #f0f9ff; }
         .mail-row > * { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .mail-from { color: #0f172a; }
-        .mail-light { width: 9px; height: 9px; border-radius: 50%; background: #cbd5e1; justify-self: center; }
-        .mail-light.attention { background: #0ea5e9; box-shadow: 0 0 0 3px rgba(14, 165, 233, 0.18); }
         .mail-act {
             justify-self: start; font: inherit; font-size: 11px; line-height: 16px; padding: 0 8px;
             border-radius: 999px; border: 1px solid #cbd5e1; color: #475569; background: transparent; cursor: pointer;
@@ -3263,8 +3261,6 @@
         body.dark .mail-from { color: #f1f5f9; }
         body.dark .mail-subject { color: #cbd5e1; }
         body.dark .mail-body, body.dark .mail-age { color: #64748b; }
-        body.dark .mail-light { background: #475569; }
-        body.dark .mail-light.attention { background: #38bdf8; box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.2); }
         body.dark .mail-act { border-color: #475569; color: #94a3b8; }
         body.dark .mail-row.attention .mail-act { border-color: #0c4a6e; color: #38bdf8; }
         body.dark .mail-act:hover, body.dark .mail-row.attention .mail-act:hover { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
@@ -3446,7 +3442,7 @@
         /* The tip bar reads hovers, and nothing hovers on a touch screen. */
         body.portrait #tipBar { display: none; }
         body.portrait .mail-row {
-            grid-template-columns: minmax(0, 0.8fr) 10px auto minmax(0, 1fr) 30px;
+            grid-template-columns: minmax(0, 0.8fr) auto minmax(0, 1fr) 30px;
             column-gap: 8px; padding: 6px 12px;
         }
         body.portrait .mail-body { display: none; }
@@ -4378,12 +4374,10 @@
                     ? `<a class="mail-more" href="https://mail.google.com/mail/u/0/#search/is%3Aunread" target="_blank" rel="noopener noreferrer" data-tip="${inbox.more} more unread. Click to see them in Gmail.">+${inbox.more}</a>`
                     : escapeHtml(mailAge(m.received_at));
                 const rowTip = [m.sender_addr, m.error ? `Last try failed: ${m.error}` : m.reason].filter(Boolean).join(' · ');
-                const lightTip = (m.attention ? 'Blue: this one needs you.' : 'Grey: nothing here needs you.') + ' Option+Click to change it.';
                 const actTip = (MAIL_TIP[m.action] || '') + ' Option+Click for a different action.';
                 return `
                 <div class="mail-row${m.attention ? ' attention' : ''}${m.error ? ' failed' : ''}" data-mail-id="${m.id}" data-tip="${escapeHtml(rowTip)}">
                     <span class="mail-from">${escapeHtml(m.sender_name || m.sender_addr || '')}</span>
-                    <span class="mail-light${m.attention ? ' attention' : ''}" data-tip="${escapeHtml(lightTip)}"></span>
                     <span><button class="mail-act" type="button" data-tip="${escapeHtml(actTip)}">${escapeHtml(MAIL_LABEL[m.action] || m.action)}</button></span>
                     <span class="mail-subject"${(m.subject || '').length > MAIL_SUBJECT_MAX ? ` data-tip="${escapeHtml(m.subject)}"` : ''}>${escapeHtml(clip(m.subject, MAIL_SUBJECT_MAX))}</span>
                     <span class="mail-body">${escapeHtml(clip(m.body, MAIL_BODY_SHORT.includes(m.action) ? Math.round(MAIL_BODY_MAX * 0.4) : MAIL_BODY_MAX))}</span>
@@ -4501,15 +4495,14 @@
             if (e.target.closest('.mail-act')) {
                 e.preventDefault();
                 if (e.altKey) {
-                    const next = MAIL_ACTIONS[(MAIL_ACTIONS.indexOf(m.action) + 1) % MAIL_ACTIONS.length];
+                    // Tom's suggestion, then Open (Kevin, 2026-09-26: the
+                    // likeliest correction), then the rest, round again.
+                    const order = [...new Set([m.suggested_action, 'open', ...MAIL_ACTIONS])].filter(a => MAIL_ACTIONS.includes(a));
+                    const next = order[(order.indexOf(m.action) + 1) % order.length];
                     correctMail(m, { action: next });
                 } else {
                     runMailAction(m);
                 }
-                return;
-            }
-            if (e.altKey && e.target.closest('.mail-light')) {
-                correctMail(m, { attention: !m.attention });
                 return;
             }
             openMailLink(m.view_url);
@@ -8858,7 +8851,7 @@
             'Press Escape to close any open popup.',
             'A ticked task leaves the board. Click the tab you\u2019re on and open Completed tasks to see everything you\u2019ve finished, with a chart.',
             'Prefer finished tasks to stay on their day? Preferences (from the board tab) has a switch for that.',
-            'In the mail rows above this bar, Option+Click an action to cycle it, or Option+Click the dot to flip it blue (needs you) or grey. Tom learns each sender from what you pick.',
+            'In the mail rows above this bar, Option+Click an action to change it — Open comes first. Tom learns each sender from what you pick.',
         ];
 
         (function wireTipBar() {
