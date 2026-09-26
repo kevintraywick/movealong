@@ -135,26 +135,17 @@
                         <span class="save-state" id="whereState"></span>
                     </div>
                     <div class="pref">
-                        <span>ZIP code</span>
-                        <input type="text" id="zipInput" inputmode="numeric" maxlength="5" placeholder="38237" style="width:70px">
-                        <span id="zipPlace" style="color:#64748b;font-size:12px"></span>
+                        <span>Weather for</span>
+                        <span id="zipPlace" style="color:#64748b;font-size:12px">wherever this device is</span>
                     </div>
-                    <div class="pref-note">This is about <b>you</b>, not this board — it follows you to every board. It's what the morning briefing's weather is for. There's no time zone to set: the board follows your Mac's.</div>
+                    <div class="pref-note">This is about <b>you</b>, not this board — it follows you to every board. There's nothing to set: the weather follows this device's location (the board asks the browser each time it opens), and the time zone follows your Mac's.</div>
                 </div>`;
 
             // ---- Where you are (user-level, autosave) ----
             if (sess && sess.slug) {
-                const zipEl = document.getElementById('zipInput');
-                const wState = document.getElementById('whereState'), placeEl = document.getElementById('zipPlace');
+                const placeEl = document.getElementById('zipPlace');
                 const base = `/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}/settings`;
-                const paint = (s) => { zipEl.value = s.zip || ''; placeEl.textContent = s.place || ''; };
-                api(base).then(paint).catch(() => {});
-                const saveWhere = async (body) => {
-                    wState.className = 'save-state'; wState.textContent = 'saving…';
-                    try { paint(await api(base, { method: 'PUT', body })); wState.className = 'save-state saved'; wState.textContent = 'saved'; }
-                    catch (err) { wState.className = 'save-state error'; wState.textContent = err.message; }
-                };
-                zipEl.addEventListener('change', () => saveWhere({ zip: zipEl.value.trim() }));
+                api(base).then(st => { if (st.place) placeEl.textContent = st.place + ' (last seen)'; }).catch(() => {});
             }
 
             const input = document.getElementById('autolockInput');

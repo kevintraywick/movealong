@@ -275,7 +275,7 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
   // ---- Morning briefing ----
   server.registerTool('get_briefing', {
     title: 'Read the morning briefing',
-    description: 'The briefing items posted for a day (default today) with their ticked state, plus the day\'s weather for the user\'s ZIP (fetched by the board itself — never post a weather item).',
+    description: 'The briefing items posted for a day (default today) with their ticked state, plus the day\'s weather where the user is (fetched by the board itself — never post a weather item).',
     inputSchema: { day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }
   }, async ({ day }) => text(await api(`${me}/briefing${day ? `?day=${day}` : ''}`)));
 
@@ -430,7 +430,7 @@ export const BRIEFING_RECIPE = `Build my morning briefing and post it to the Mov
    - No yoga in more than 3 days.
    Nudge, do not lecture.
 
-9. Do NOT post weather; the board fetches it from my ZIP itself.
+9. Do NOT post weather; the board fetches it for wherever I am itself.
 
 At most 12 items total, in this order: calendar, mail, market, texts, nudges, health. Then call post_briefing once with the whole list. Tell me in one line what you posted.`;
 

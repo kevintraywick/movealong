@@ -1025,8 +1025,9 @@ app.get('/api/companies/:subdomain/users/:slug/completions', (req, res) => {
 
 // ---- Where you are: ZIP + time zone (2026-09-13) ----
 // Facts about the person, not the board — they follow you to every board.
-// The ZIP is edited on the preferences page. The time zone is not edited
-// anywhere since 2026-09-25: it follows the Mac (noteZone below).
+// Neither is edited anywhere any more. The time zone follows the Mac
+// (2026-09-25, noteZone below); where you are follows the device (2026-09-26,
+// PUT .../location below). The ZIP route stays for the API, unused by the UI.
 const ZIP_RE = /^\d{5}$/;
 function validZone(tz) {
   if (typeof tz !== 'string' || !tz || tz.length > 64) return false;
@@ -1062,6 +1063,42 @@ app.put('/api/companies/:subdomain/users/:slug/settings', async (req, res) => {
     }
   }
   res.json(settingsOf(user));
+});
+
+// Where you are follows the device (Kevin, 2026-09-26: "always be where I am
+// at the moment"). The board asks the browser for its position once per load
+// and sends it here, rounded to two decimals (about a kilometre — enough for a
+// forecast, and no more precise than a board with no sign-in should keep).
+// It replaces the ZIP's coordinates only when it has moved more than ~5 km,
+// so the day's cached forecast isn't thrown away for GPS jitter. The place
+// name is a reverse lookup on a fixed keyless host; failing it costs only the
+// tooltip.
+const LOCATION_MOVE_DEG = 0.05;
+async function placeName(lat, lon) {
+  try {
+    const d = await fetchJson(`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=en`, 4000);
+    const town = d.city || d.locality;
+    const region = (d.principalSubdivisionCode || '').replace(/^US-/, '') || d.principalSubdivision || d.countryName;
+    return [town, region].filter(Boolean).join(', ') || null;
+  } catch (e) { return null; }
+}
+app.put('/api/companies/:subdomain/users/:slug/location', async (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const lat = Number((req.body || {}).lat), lon = Number((req.body || {}).lon);
+  if (!Number.isFinite(lat) || !Number.isFinite(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
+    return res.status(400).json({ error: 'lat and lon must be coordinates' });
+  }
+  const r2 = (v) => Math.round(v * 100) / 100;
+  const prev = queryOne('SELECT zip_lat, zip_lon, zip_place FROM users WHERE id = ?', [user.id]);
+  const moved = prev.zip_lat == null || prev.zip_lon == null
+    || Math.abs(prev.zip_lat - lat) > LOCATION_MOVE_DEG || Math.abs(prev.zip_lon - lon) > LOCATION_MOVE_DEG;
+  if (moved) {
+    const name = await placeName(r2(lat), r2(lon));
+    runSql('UPDATE users SET zip = NULL, zip_lat = ?, zip_lon = ?, zip_place = ? WHERE id = ?', [r2(lat), r2(lon), name, user.id]);
+    weatherCache.delete(user.id);
+  }
+  res.json({ moved, place: moved ? queryOne('SELECT zip_place FROM users WHERE id = ?', [user.id]).zip_place : prev.zip_place });
 });
 
 // The time zone follows the Mac (Kevin, 2026-09-25: no picker, nothing baked
@@ -1129,9 +1166,12 @@ async function weatherFor(userId, day) {
   const cached = weatherCache.get(userId);
   if (cached && cached.day === day) return cached.weather;
   const u = queryOne('SELECT zip, zip_lat, zip_lon, zip_place, timezone FROM users WHERE id = ?', [userId]);
-  if (!u || !u.zip) return null;
+  if (!u) return null;
   let { zip_lat: lat, zip_lon: lon, zip_place: name } = u;
-  if (lat == null || lon == null) ({ lat, lon, name } = await geocodeZip(userId, u.zip));
+  if (lat == null || lon == null) {
+    if (!u.zip) return null;
+    ({ lat, lon, name } = await geocodeZip(userId, u.zip));
+  }
   const tz = u.timezone && validZone(u.timezone) ? u.timezone : 'auto';
   const q = `latitude=${lat}&longitude=${lon}&daily=weather_code,temperature_2m_max,temperature_2m_min,precipitation_probability_max,wind_speed_10m_max`
     + `&temperature_unit=fahrenheit&wind_speed_unit=mph&timezone=${encodeURIComponent(tz)}&start_date=${day}&end_date=${day}`;

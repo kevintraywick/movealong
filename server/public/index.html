@@ -4196,6 +4196,27 @@
             loadBriefing();
             refreshNotesBadge();
             loadInbox();
+            reportLocation();
+        }
+
+        // ---- Where you are ----
+        // The weather follows the device (Kevin, 2026-09-26). Once per load,
+        // ask the browser where it is (Safari asks permission the first time)
+        // and tell the board; if that's a new place, re-read the briefing so
+        // the forecast is for here. Denied or unavailable: the weather stays
+        // wherever it last was.
+        let locationAsked = false;
+        function reportLocation() {
+            if (locationAsked || !currentUser || !navigator.geolocation) return;
+            locationAsked = true;
+            navigator.geolocation.getCurrentPosition(async (pos) => {
+                try {
+                    const r = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/location`, {
+                        method: 'PUT', body: { lat: pos.coords.latitude, lon: pos.coords.longitude }
+                    });
+                    if (r.moved) loadBriefing();
+                } catch (e) { /* the board works without the weather */ }
+            }, () => {}, { enableHighAccuracy: false, maximumAge: 10 * 60000, timeout: 15000 });
         }
 
         // ---- Morning briefing ----
@@ -4227,8 +4248,8 @@
             const allDone = b.items.length && b.items.every(i => i.done);
             return `<div class="subtask-pane briefing-pane">
                 <div class="briefing-head"><span class="briefing-title">Good morning</span><span class="briefing-when" title="When your assistant posted this briefing">${escapeHtml(when)}</span><button class="briefing-close" data-act="hidebriefing" title="Put the briefing away for today">×</button></div>
-                ${w ? `<div class="briefing-weather" title="Today's forecast for ${escapeHtml(w.place || 'your ZIP code')} — change the ZIP on the preferences page"><span class="temps">${w.high}°/${w.low}°</span> ${escapeHtml(w.words)}${w.rain_pct != null && w.rain_pct >= 20 ? ` · ${w.rain_pct}% rain` : ''}${w.wind_mph >= 20 ? ` · wind ${w.wind_mph}` : ''}</div>` : (b.weather_error ? `<div class="briefing-empty">Weather: ${escapeHtml(b.weather_error)}</div>` : '')}
-                ${items || `<div class="briefing-empty">${w ? 'No briefing posted yet — ask your assistant to brief you.' : 'Nothing here yet. Set your ZIP on the preferences page for the weather, and ask your assistant to brief you.'}</div>`}
+                ${w ? `<div class="briefing-weather" title="Today's forecast for ${escapeHtml(w.place || 'where you are')}. It follows this device's location."><span class="temps">${w.high}°/${w.low}°</span> ${escapeHtml(w.words)}${w.rain_pct != null && w.rain_pct >= 20 ? ` · ${w.rain_pct}% rain` : ''}${w.wind_mph >= 20 ? ` · wind ${w.wind_mph}` : ''}</div>` : (b.weather_error ? `<div class="briefing-empty">Weather: ${escapeHtml(b.weather_error)}</div>` : '')}
+                ${items || `<div class="briefing-empty">${w ? 'No briefing posted yet — ask your assistant to brief you.' : 'Nothing here yet. Allow location for the weather, and ask your assistant to brief you.'}</div>`}
                 ${allDone ? '<div class="briefing-all">All handled.</div>' : ''}
             </div>`;
         }
