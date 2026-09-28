@@ -935,13 +935,15 @@
         }
 
         /* Ticking an event off keeps the board clean and puts it in the
-           completion count. Same size as a task's circle (Kevin, 2026-09-24). */
+           completion count. A rounded rectangle, not a task's circle (Kevin,
+           2026-09-28: "a diff visual for cal events"), so an event reads as a
+           slot in the day rather than a thing to do. */
         .ev-circle {
             flex-shrink: 0;
-            width: 14px;
-            height: 14px;
+            width: 18px;
+            height: 12px;
             border: 2px solid #cbd5e1;
-            border-radius: 50%;
+            border-radius: 4px;
             box-sizing: border-box;
         }
 
@@ -3413,7 +3415,7 @@
         body.portrait #board .list-box .task-arrow,
         body.portrait #board .list-box .task-lock { width: 20px; height: 20px; }
         body.portrait #board .ev-line { font-size: 15px; line-height: 26px; gap: 8px; }
-        body.portrait #board .ev-circle { width: 20px; height: 20px; }
+        body.portrait #board .ev-circle { width: 26px; height: 17px; border-radius: 5px; }
         body.portrait #board .ev-time { font-size: 13px; }
         body.portrait #board .subtask-pane-title { font-size: 15px; }
         body.portrait #board .subtask-item { font-size: 15px; gap: 8px; padding: 8px 2px; }
