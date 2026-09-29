@@ -272,6 +272,49 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
   });
 
 
+  // ---- Goals and sprints (2026-09-29) ----
+  server.registerTool('get_goals', {
+    title: 'Goals and the current sprint',
+    description: 'The user\'s goals in rank order (the first is the anchor), every sprint with its daily touch log and Friday reviews, and `sprint`: the active one with day N of M, whether yesterday was touched, streak, this week\'s deliverable and whether a Friday review is due. Read this before any nudge about long-term work.',
+    inputSchema: {}
+  }, async () => text(await api(`${me}/goals`)));
+
+  server.registerTool('log_sprint_day', {
+    title: 'Log a sprint day',
+    description: 'Record whether the user touched the active sprint on a day (default yesterday). touched true/false; null clears the day. Only when the user says so — never guess from the board.',
+    inputSchema: {
+      day: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      touched: z.boolean().nullable(),
+      note: z.string().max(300).optional()
+    }
+  }, async ({ day, touched, note }) => {
+    const g = await api(`${me}/goals`);
+    if (!g.sprint) throw new Error('No active sprint — start one on the goals page');
+    const target = day || g.sprint.yesterday;
+    return text(await api(`/api/sprints/${g.sprint.id}/days/${target}`, { method: 'PUT', body: { touched, note } }));
+  });
+
+  server.registerTool('add_sprint_review', {
+    title: 'Write the Friday review',
+    description: 'Save the week\'s review on the active sprint: what shipped and next week\'s deliverable (which the board shows every morning). week_ending defaults to this week\'s Friday. Replaces that week\'s review wholesale.',
+    inputSchema: {
+      week_ending: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
+      shipped: z.string().max(1000).optional(),
+      next_week: z.string().max(1000).optional()
+    }
+  }, async ({ week_ending, shipped, next_week }) => {
+    const g = await api(`${me}/goals`);
+    if (!g.sprint) throw new Error('No active sprint — start one on the goals page');
+    let wk = week_ending;
+    if (!wk) {
+      const d = new Date(todayKey() + 'T00:00:00Z');
+      const dow = d.getUTCDay();                       // Friday of this Mon–Sun week
+      d.setUTCDate(d.getUTCDate() - ((dow + 6) % 7) + 4);
+      wk = d.toISOString().slice(0, 10);
+    }
+    return text(await api(`/api/sprints/${g.sprint.id}/reviews/${wk}`, { method: 'PUT', body: { shipped, next_week } }));
+  });
+
   // ---- Morning briefing ----
   server.registerTool('get_briefing', {
     title: 'Read the morning briefing',
@@ -406,7 +449,7 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
 // brief, not here: this file is in a public repo. The recipe points at the brief for them.
 export const BRIEFING_RECIPE = `Build my morning briefing and post it to the MoveIt board with post_briefing. Today is the board's today (list_tasks tells you). Work in this order and keep every item to one line a person can act on.
 
-1. Context: get_brief (who I am, how I like things), list_tasks for today, get_health with weeks=2.
+1. Context: get_brief (who I am, how I like things), list_tasks for today, get_health with weeks=2, get_goals (my goals and the sprint I'm on).
 
 2. Calendar (kind "calendar"): today's events with start times, earliest first, e.g. "2:30 Dentist - leave by 2". Include a location if there is one. If nothing is on, one item: "Nothing on the calendar".
 
@@ -422,7 +465,7 @@ export const BRIEFING_RECIPE = `Build my morning briefing and post it to the Mov
    - Oldest unanswered open question from get_brief. One line, the question itself.
    - A money deadline coming up in the next few days (bills, payment plans) - surface it ahead of time, not on the day.
    - Trip countdown with prep status for any trip named in my brief or on my calendar, e.g. "<city> in 4 days - packing list not started".
-   - Whether I touched my current sprint project (named in my brief) yesterday. Long-term work is the thing that slips; one honest line.
+   - The sprint: the board shows its own check-in (day N of M, yesterday yes/no, this week's deliverable) — do NOT repeat it. Post a sprint nudge only when get_goals shows something the check-in can't say: yesterday is still unanswered by the time you run AND the streak just broke; the deliverable is due this week and the last three days were "no"; the sprint has ended and nobody closed it; or it's Friday and review_due is true ("Friday review — 20 minutes, /goals"). One honest line, kind "board".
 
 8. Health (kind "health") - at most 2, only when triggered:
    - Steps under my daily step target (from my brief; 8,000 if it doesn't say), or a gap in the step log ("no steps logged for yesterday - say the number and I'll log it").

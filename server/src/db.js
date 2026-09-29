@@ -385,6 +385,61 @@ async function initDb() {
     CREATE INDEX IF NOT EXISTS idx_inbox_user_status ON inbox_items(user_id, status);
     CREATE INDEX IF NOT EXISTS idx_inbox_user_thread ON inbox_items(user_id, thread_id);
 
+    -- Goals and sprints (2026-09-29). Goals are the standing ordering —
+    -- what everything else is subordinate to, in position order. A sprint is
+    -- six weeks on ONE goal with a named deliverable and someone waiting on
+    -- it; at most one is active. sprint_days is the daily check-in: did he
+    -- touch it the day before (touched 1/0, unlogged = not asked yet).
+    -- sprint_reviews is the Friday review: what shipped, what's next week.
+    CREATE TABLE IF NOT EXISTS goals (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      position INTEGER DEFAULT 0,
+      title TEXT NOT NULL,
+      detail TEXT,
+      horizon TEXT,
+      status TEXT DEFAULT 'active',
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_goals_user ON goals(user_id, position);
+
+    CREATE TABLE IF NOT EXISTS sprints (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      goal_id INTEGER REFERENCES goals(id) ON DELETE SET NULL,
+      title TEXT NOT NULL,
+      deliverable TEXT,
+      waiting_on TEXT,
+      start_day DATE NOT NULL,
+      end_day DATE NOT NULL,
+      status TEXT DEFAULT 'active',
+      outcome TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE INDEX IF NOT EXISTS idx_sprints_user ON sprints(user_id, start_day);
+
+    CREATE TABLE IF NOT EXISTS sprint_days (
+      sprint_id INTEGER NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+      day DATE NOT NULL,
+      touched INTEGER NOT NULL,
+      note TEXT,
+      logged_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(sprint_id, day)
+    );
+
+    CREATE TABLE IF NOT EXISTS sprint_reviews (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      sprint_id INTEGER NOT NULL REFERENCES sprints(id) ON DELETE CASCADE,
+      week_ending DATE NOT NULL,
+      shipped TEXT,
+      next_week TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(sprint_id, week_ending)
+    );
+
     CREATE TABLE IF NOT EXISTS brief_usage (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       scope TEXT NOT NULL,

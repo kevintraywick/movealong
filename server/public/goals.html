@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Goals · MoveIt</title>
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="mask-icon" href="/favicon-mask.svg" color="#0ea5e9">
+    <style>
+        @font-face {
+            font-family: 'Bricolage Grotesque';
+            src: url('/fonts/bricolage-grotesque-800.woff2') format('woff2');
+            font-weight: 800;
+            font-display: swap;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; background: #f8fafc; color: #0f172a; padding: 20px; }
+        .page { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+        .page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+        .wordmark { font-family: 'Bricolage Grotesque', -apple-system, sans-serif; font-weight: 800; font-size: 17px; color: #0f172a; text-decoration: none; letter-spacing: -0.02em; }
+        .wordmark span { color: #0ea5e9; }
+        .back-link { font-size: 12px; color: #0284c7; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+        .page-meta { font-size: 12px; color: #64748b; margin-left: auto; }
+        .theme-toggle { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #e2e8f0; background: #fff; color: #0284c7; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        .theme-toggle:hover { border-color: #bae6fd; }
+
+        .pane { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px 12px; }
+        .pane-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; flex-wrap: wrap; }
+        .pane-title { font-size: 15px; font-weight: 600; }
+        .pane-lede { font-size: 12px; color: #64748b; }
+        .pane-right { margin-left: auto; font-size: 12px; color: #64748b; display: flex; align-items: center; gap: 8px; }
+        .empty { color: #94a3b8; font-size: 12px; padding: 12px 0; }
+        .page-error { color: #94a3b8; font-size: 12px; }
+
+        /* Fields: label over field, autosave on focusout — the brief page's idiom. */
+        .field { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+        .field label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: .04em; }
+        .field input, .field textarea, .field select {
+            font: inherit; font-size: 13px; color: #0f172a; background: #fff; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; width: 100%;
+        }
+        .field textarea { resize: vertical; min-height: 54px; line-height: 1.4; }
+        .field input:focus, .field textarea:focus, .field select:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 3px #e0f2fe; }
+        .field select { appearance: none; -webkit-appearance: none; padding-right: 24px;
+            background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='6' viewBox='0 0 10 6'><path d='M1 1l4 4 4-4' fill='none' stroke='%2364748b' stroke-width='1.5'/></svg>");
+            background-repeat: no-repeat; background-position: right 8px center; }
+        .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px 14px; }
+        .grid3 { display: grid; grid-template-columns: 2fr 1fr 1fr; gap: 10px 14px; }
+        @media (max-width: 600px) { .grid2, .grid3 { grid-template-columns: 1fr; } }
+        .state { font-size: 11px; color: #94a3b8; min-width: 44px; text-align: right; }
+        .state.saved { color: #0284c7; }
+        .state.err { color: #b91c1c; }
+
+        .btn { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; background: #fff; color: #0284c7; border-radius: 999px; padding: 4px 12px; cursor: pointer; line-height: 1.4; white-space: nowrap; }
+        .btn:hover { border-color: #bae6fd; background: #f0f9ff; }
+        .btn.primary { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        .btn.primary:hover { background: #0284c7; border-color: #0284c7; }
+        .btn.quiet { color: #64748b; border-color: transparent; padding: 4px 6px; }
+        .btn.quiet:hover { color: #0284c7; background: none; }
+        .btn.danger { color: #b91c1c; }
+        .btn.danger:hover { background: #fef2f2; border-color: #fecaca; }
+        .btn:disabled { opacity: .5; cursor: default; }
+        .row-actions { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; margin-top: 10px; }
+
+        /* ---- Sprint ---- */
+        .sprint-title { font-size: 20px; font-weight: 700; color: #ea580c; letter-spacing: -0.01em; line-height: 1.2; }
+        .sprint-title input { font: inherit; font-size: 20px; font-weight: 700; color: #ea580c; border: 1px solid transparent; border-radius: 8px; padding: 2px 6px; margin-left: -6px; width: 100%; background: transparent; }
+        .sprint-title input:hover { border-color: #e2e8f0; }
+        .sprint-title input:focus { outline: none; border-color: #0ea5e9; background: #fff; }
+        .sprint-sub { font-size: 12px; color: #64748b; margin-top: 2px; display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+        .sprint-sub b { color: #0f172a; font-weight: 600; font-variant-numeric: tabular-nums; }
+        .goal-chip { display: inline-block; font-size: 11px; color: #0284c7; background: #f0f9ff; border: 1px solid #bae6fd; border-radius: 999px; padding: 1px 8px; }
+        .progress { height: 6px; background: #f1f5f9; border-radius: 3px; margin: 10px 0 12px; overflow: hidden; }
+        .progress > div { height: 100%; background: #ea580c; border-radius: 3px; transition: width .3s; }
+
+        .checkin { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; margin: 12px 0; }
+        .checkin .q { font-weight: 600; }
+        .checkin .q.answered { font-weight: 400; color: #64748b; }
+        .pill { font: inherit; font-size: 12px; border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 999px; padding: 3px 12px; cursor: pointer; line-height: 1.4; }
+        .pill:hover { border-color: #0ea5e9; color: #0284c7; }
+        .pill.on { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        .pill.on.no { background: #94a3b8; border-color: #94a3b8; }
+        .checkin .stat { margin-left: auto; font-size: 12px; color: #64748b; font-variant-numeric: tabular-nums; }
+        .checkin .stat b { color: #0f172a; font-weight: 600; }
+
+        /* Touch grid: a cell a day, Monday first, like the health streak grid. */
+        .touch-grid { display: flex; flex-direction: column; gap: 3px; margin: 8px 0 4px; }
+        .touch-head { display: grid; grid-template-columns: 56px repeat(7, 1fr) 40px; gap: 3px; font-size: 11px; color: #94a3b8; text-align: center; }
+        .touch-head span:first-child, .touch-week .wk { text-align: left; }
+        .touch-week { display: grid; grid-template-columns: 56px repeat(7, 1fr) 40px; gap: 3px; align-items: center; }
+        .touch-week .wk { font-size: 11px; color: #64748b; white-space: nowrap; }
+        .touch-week .n { font-size: 11px; color: #64748b; text-align: center; font-variant-numeric: tabular-nums; }
+        .cell { height: 22px; border-radius: 5px; background: #f1f5f9; cursor: pointer; border: 1px solid transparent; position: relative; }
+        .cell:hover { border-color: #0ea5e9; }
+        .cell.yes { background: #ea580c; }
+        .cell.no { background: #cbd5e1; }
+        .cell.out { background: transparent; border: 1px dashed #e2e8f0; cursor: default; }
+        .cell.out:hover { border-color: #e2e8f0; }
+        .cell.future { background: #f8fafc; cursor: default; }
+        .cell.future:hover { border-color: transparent; }
+        .cell.today::after { content: ''; position: absolute; inset: 2px; border-radius: 3px; border: 1.5px solid #0ea5e9; }
+        .touch-key { font-size: 11px; color: #94a3b8; margin-top: 4px; }
+
+        details { margin-top: 10px; font-size: 12px; color: #64748b; }
+        summary { cursor: pointer; }
+        .closed-sprint { padding: 8px 0; border-top: 1px solid #f1f5f9; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+        .closed-sprint b { color: #0f172a; font-weight: 600; }
+        .closed-sprint .st { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+        .closed-sprint .st.done { color: #0284c7; }
+        .closed-sprint .st.abandoned { color: #b91c1c; }
+
+        /* ---- Goals ---- */
+        .goal-list { display: flex; flex-direction: column; }
+        .goal { display: grid; grid-template-columns: 28px 1fr auto; gap: 4px 10px; align-items: start; padding: 10px 0; border-top: 1px solid #f1f5f9; }
+        .goal:first-child { border-top: none; }
+        .goal .rank { font-size: 15px; font-weight: 700; color: #0ea5e9; padding-top: 4px; font-variant-numeric: tabular-nums; }
+        .goal.parked .rank, .goal.done .rank { color: #cbd5e1; }
+        .goal .main { min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+        .goal .title { font: inherit; font-size: 14px; font-weight: 600; color: #0f172a; border: 1px solid transparent; border-radius: 6px; padding: 3px 6px; margin-left: -6px; width: calc(100% + 6px); background: transparent; }
+        .goal .title:hover { border-color: #e2e8f0; }
+        .goal .title:focus { outline: none; border-color: #0ea5e9; background: #fff; }
+        .goal.parked .title, .goal.done .title { color: #94a3b8; font-weight: 500; }
+        .goal.done .title { text-decoration: line-through; }
+        .goal .detail { font: inherit; font-size: 12px; color: #475569; border: 1px solid transparent; border-radius: 6px; padding: 3px 6px; margin-left: -6px; width: calc(100% + 6px); background: transparent; resize: vertical; min-height: 24px; line-height: 1.4; }
+        .goal .detail:hover { border-color: #e2e8f0; }
+        .goal .detail:focus { outline: none; border-color: #0ea5e9; background: #fff; }
+        .goal .detail::placeholder, .goal .horizon::placeholder { color: #cbd5e1; }
+        .goal .meta { display: flex; align-items: center; gap: 8px; font-size: 11px; color: #94a3b8; }
+        .goal .horizon { font: inherit; font-size: 11px; color: #64748b; border: 1px solid transparent; border-radius: 6px; padding: 1px 6px; margin-left: -6px; width: 180px; background: transparent; }
+        .goal .horizon:hover { border-color: #e2e8f0; }
+        .goal .horizon:focus { outline: none; border-color: #0ea5e9; background: #fff; }
+        .goal .tools { display: flex; align-items: center; gap: 2px; opacity: 0; transition: opacity .12s; padding-top: 2px; }
+        .goal:hover .tools, .goal:focus-within .tools { opacity: 1; }
+        .icon-btn { width: 24px; height: 24px; border-radius: 50%; border: 1px solid transparent; background: none; color: #94a3b8; cursor: pointer; font-size: 12px; line-height: 1; display: flex; align-items: center; justify-content: center; }
+        .icon-btn:hover { color: #0284c7; border-color: #bae6fd; }
+        .icon-btn:disabled { opacity: .3; cursor: default; }
+        .icon-btn.danger:hover { color: #b91c1c; border-color: #fecaca; }
+        .goal-add { display: flex; gap: 8px; align-items: center; margin-top: 10px; padding-top: 10px; border-top: 1px dashed #e2e8f0; }
+        .goal-add input { flex: 1; font: inherit; font-size: 13px; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px 8px; background: #fff; color: #0f172a; }
+        .goal-add input:focus { outline: none; border-color: #0ea5e9; box-shadow: 0 0 0 3px #e0f2fe; }
+        .anchor-note { font-size: 12px; color: #64748b; margin-bottom: 8px; line-height: 1.4; }
+        .anchor-note b { color: #0f172a; font-weight: 600; }
+
+        /* ---- Review ---- */
+        .review-week { padding: 10px 0; border-top: 1px solid #f1f5f9; }
+        .review-week:first-child { border-top: none; padding-top: 0; }
+        .review-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 6px; }
+        .review-head b { font-weight: 600; }
+        .review-head .due { font-size: 11px; color: #ea580c; }
+        .review-head .when { font-size: 11px; color: #94a3b8; margin-left: auto; }
+        .review-text { font-size: 12.5px; color: #334155; line-height: 1.45; white-space: pre-wrap; }
+        .review-text b { color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; display: block; margin-top: 4px; }
+
+        /* Start-a-sprint form */
+        .start-form { display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e2e8f0; flex-direction: column; gap: 10px; }
+        .start-form.open { display: flex; }
+
+        body.dark { background: #0f172a; color: #e2e8f0; }
+        body.dark .wordmark { color: #f1f5f9; }
+        body.dark .pane { background: #1e293b; border-color: #334155; }
+        body.dark .pane-title { color: #f1f5f9; }
+        body.dark .theme-toggle { background: #1e293b; border-color: #334155; color: #38bdf8; }
+        body.dark .field input, body.dark .field textarea, body.dark .field select, body.dark .goal-add input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+        body.dark .field input:focus, body.dark .field textarea:focus, body.dark .field select:focus, body.dark .goal-add input:focus { border-color: #0ea5e9; box-shadow: 0 0 0 3px rgba(14,165,233,.2); }
+        body.dark .field label { color: #94a3b8; }
+        body.dark .btn { background: #1e293b; border-color: #334155; color: #38bdf8; }
+        body.dark .btn:hover { background: #0f172a; border-color: #0ea5e9; }
+        body.dark .btn.primary { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        body.dark .btn.quiet { border-color: transparent; color: #94a3b8; background: none; }
+        body.dark .btn.danger { color: #fca5a5; }
+        body.dark .btn.danger:hover { background: #1e293b; border-color: #7f1d1d; }
+        body.dark .sprint-title, body.dark .sprint-title input { color: #fb923c; }
+        body.dark .sprint-title input:hover { border-color: #334155; }
+        body.dark .sprint-title input:focus { background: #0f172a; border-color: #0ea5e9; }
+        body.dark .sprint-sub b, body.dark .checkin .stat b, body.dark .closed-sprint b, body.dark .anchor-note b, body.dark .review-head b { color: #f1f5f9; }
+        body.dark .goal-chip { background: #0f172a; border-color: #075985; color: #38bdf8; }
+        body.dark .progress { background: #0f172a; }
+        body.dark .progress > div { background: #fb923c; }
+        body.dark .checkin { background: #0f172a; border-color: #334155; }
+        body.dark .checkin .q { color: #e2e8f0; }
+        body.dark .pill { background: #1e293b; border-color: #475569; color: #cbd5e1; }
+        body.dark .pill.on { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        body.dark .pill.on.no { background: #475569; border-color: #475569; }
+        body.dark .cell { background: #0f172a; }
+        body.dark .cell.yes { background: #fb923c; }
+        body.dark .cell.no { background: #475569; }
+        body.dark .cell.out { background: transparent; border-color: #334155; }
+        body.dark .cell.future { background: #26334a; }
+        body.dark .goal, body.dark .closed-sprint, body.dark .review-week { border-color: #334155; }
+        body.dark .goal .title { color: #f1f5f9; }
+        body.dark .goal .title:hover, body.dark .goal .detail:hover, body.dark .goal .horizon:hover { border-color: #334155; }
+        body.dark .goal .title:focus, body.dark .goal .detail:focus, body.dark .goal .horizon:focus { background: #0f172a; border-color: #0ea5e9; }
+        body.dark .goal.parked .title, body.dark .goal.done .title { color: #64748b; }
+        body.dark .goal .detail { color: #cbd5e1; }
+        body.dark .goal .horizon { color: #94a3b8; }
+        body.dark .goal .detail::placeholder, body.dark .goal .horizon::placeholder { color: #475569; }
+        body.dark .goal-add, body.dark .start-form { border-color: #334155; }
+        body.dark .review-text { color: #cbd5e1; }
+        body.dark .review-text b { color: #94a3b8; }
+        body.dark .icon-btn:hover { border-color: #075985; color: #38bdf8; }
+        body.dark .state.saved { color: #38bdf8; }
+    </style>
+</head>
+<body>
+    <div class="page">
+        <div class="page-header">
+            <a class="wordmark" href="/">Move<span>It</span></a>
+            <a class="back-link" href="/">&larr; Back to your board</a>
+            <span class="page-meta" id="meta"></span>
+            <button class="theme-toggle" id="themeToggle" title="Switch theme">🌙</button>
+        </div>
+
+        <div class="pane" id="sprintPane">
+            <div class="pane-head">
+                <span class="pane-title">Sprint</span>
+                <span class="pane-lede">six weeks, one goal, one deliverable, someone waiting on it</span>
+                <span class="pane-right"><span class="state" id="sprintState"></span></span>
+            </div>
+            <div id="sprintBody"><div class="empty">Loading…</div></div>
+        </div>
+
+        <div class="pane" id="goalsPane">
+            <div class="pane-head">
+                <span class="pane-title">Goals</span>
+                <span class="pane-lede">in order — the first is the anchor everything else serves</span>
+                <span class="pane-right"><span class="state" id="goalsState"></span></span>
+            </div>
+            <div id="goalsBody"><div class="empty">Loading…</div></div>
+        </div>
+
+        <div class="pane" id="reviewPane">
+            <a id="review"></a>
+            <div class="pane-head">
+                <span class="pane-title">Friday review</span>
+                <span class="pane-lede">twenty minutes: what shipped, what's next week</span>
+                <span class="pane-right"><span class="state" id="reviewState"></span></span>
+            </div>
+            <div id="reviewBody"><div class="empty">Loading…</div></div>
+        </div>
+    </div>
+
+    <script>
+        const THEME_KEY = 'movealong.theme';
+        function applyTheme() {
+            const dark = localStorage.getItem(THEME_KEY) === 'dark';
+            document.body.classList.toggle('dark', dark);
+            document.getElementById('themeToggle').textContent = dark ? '☀️' : '🌙';
+        }
+        document.getElementById('themeToggle').addEventListener('click', () => {
+            localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'light' : 'dark');
+            applyTheme();
+        });
+        applyTheme();
+
+        function session() {
+            try { return JSON.parse(localStorage.getItem('movealong.session') || 'null'); }
+            catch (e) { return null; }
+        }
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML.replace(/"/g, '&quot;');   // used inside value="…" too
+        }
+        function headers() {
+            const h = { 'Content-Type': 'application/json' };
+            try { h['x-tz'] = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { /* UTC */ }
+            return h;
+        }
+        async function api(path, { method = 'GET', body } = {}) {
+            const res = await fetch('/api' + path, { method, headers: headers(), body: body === undefined ? undefined : JSON.stringify(body) });
+            if (res.status === 204) return null;
+            const out = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(out.error || ('HTTP ' + res.status));
+            return out;
+        }
+        const sess = session();
+        const base = () => `/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}`;
+        const shift = (key, n) => { const d = new Date(key + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+        const fmtDay = (key, opts) => new Date(key + 'T00:00:00Z').toLocaleDateString(undefined, Object.assign({ timeZone: 'UTC' }, opts));
+        const dow = key => new Date(key + 'T00:00:00Z').getUTCDay();   // 0 Sun … 6 Sat
+        const mondayOf = key => shift(key, -((dow(key) + 6) % 7));
+        const fridayOf = key => shift(mondayOf(key), 4);
+        const daysBetween = (a, b) => Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000);
+
+        let data = null;
+        // Serialized autosave with a state word, per pane.
+        const chains = {};
+        function save(stateId, fn) {
+            const el = document.getElementById(stateId);
+            chains[stateId] = (chains[stateId] || Promise.resolve()).then(async () => {
+                el.textContent = 'saving…'; el.className = 'state';
+                try { await fn(); el.textContent = 'saved'; el.className = 'state saved'; setTimeout(() => { if (el.textContent === 'saved') el.textContent = ''; }, 1800); }
+                catch (err) { el.textContent = err.message || 'not saved'; el.className = 'state err'; }
+            });
+            return chains[stateId];
+        }
+
+        function activeSprint() { return data.sprints.find(s => s.status === 'active') || null; }
+        function goalTitle(id) { const g = data.goals.find(g => g.id === id); return g ? g.title : null; }
+
+        // ---- Sprint ----
+        function renderSprint() {
+            const body = document.getElementById('sprintBody');
+            const s = activeSprint();
+            const closed = data.sprints.filter(x => x.status === 'done' || x.status === 'abandoned');
+            const planned = data.sprints.filter(x => x.status === 'planned');
+            const plannedHtml = planned.map(x => `<div class="closed-sprint"><b>${escapeHtml(x.title)}</b><span>starts ${escapeHtml(fmtDay(x.start_day, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${x.total_days} days</span><span class="st" style="color:#ea580c">planned — begins when this one is closed</span></div>`).join('');
+            const closedHtml = closed.length ? `<details><summary>${closed.length} earlier sprint${closed.length === 1 ? '' : 's'}</summary>${closed.map(x => `
+                <div class="closed-sprint"><b>${escapeHtml(x.title)}</b><span>${escapeHtml(fmtDay(x.start_day, { month: 'short', day: 'numeric' }))} – ${escapeHtml(fmtDay(x.end_day, { month: 'short', day: 'numeric' }))}</span><span>${x.touched}/${x.asked} days touched</span><span class="st ${x.status}">${x.status}</span>${x.outcome ? `<span>— ${escapeHtml(x.outcome)}</span>` : ''}</div>`).join('')}</details>` : '';
+            const startForm = `
+                <div class="start-form" id="startForm">
+                    <div class="grid3">
+                        <div class="field"><label for="nsTitle">Sprint</label><input id="nsTitle" placeholder="One thing, named so you'd know if it shipped"></div>
+                        <div class="field"><label for="nsStart">Starts</label><input id="nsStart" type="date"></div>
+                        <div class="field"><label for="nsEnd">Ends</label><input id="nsEnd" type="date"></div>
+                    </div>
+                    <div class="grid2">
+                        <div class="field"><label for="nsGoal">Serves which goal</label><select id="nsGoal"><option value="">—</option>${data.goals.filter(g => g.status === 'active').map(g => `<option value="${g.id}">${escapeHtml(g.title)}</option>`).join('')}</select></div>
+                        <div class="field"><label for="nsWaiting">Who's waiting on it</label><input id="nsWaiting" placeholder="A person, a festival deadline, a lender"></div>
+                    </div>
+                    <div class="field"><label for="nsDeliv">Deliverable — done means</label><textarea id="nsDeliv" placeholder="What exists at the end that doesn't exist now"></textarea></div>
+                    <div class="row-actions"><button class="btn primary" id="nsGo">Start the sprint</button><button class="btn quiet" id="nsCancel">Cancel</button></div>
+                </div>`;
+            if (!s) {
+                body.innerHTML = `<div class="empty">No sprint running. Pick one goal, give it six weeks and a deliverable someone is waiting on.</div>
+                    <div class="row-actions"><button class="btn primary" id="startBtn">Start a sprint</button></div>${plannedHtml}${startForm}${closedHtml}`;
+                wireStart(null);
+                return;
+            }
+            const pct = Math.round(Math.min(Math.max(s.day_no / s.total_days, 0), 1) * 100);
+            const yd = s.yesterday_touched;
+            const ended = !!s.ended;
+            body.innerHTML = `
+                <div class="sprint-title"><input id="spTitle" value="${escapeHtml(s.title)}" title="The sprint's name — click to edit"></div>
+                <div class="sprint-sub">
+                    ${s.goal_id && goalTitle(s.goal_id) ? `<span class="goal-chip" title="The goal this sprint serves">${escapeHtml(goalTitle(s.goal_id))}</span>` : ''}
+                    <span>${escapeHtml(fmtDay(s.start_day, { weekday: 'short', month: 'short', day: 'numeric' }))} → ${escapeHtml(fmtDay(s.end_day, { weekday: 'short', month: 'short', day: 'numeric' }))}</span>
+                    <span>${ended ? '<b>ended</b> — close it below' : s.starts_in ? `starts in <b>${s.starts_in}</b> day${s.starts_in === 1 ? '' : 's'}` : `day <b>${s.day_no}</b> of ${s.total_days} · <b>${s.days_left}</b> left`}</span>
+                </div>
+                <div class="progress" title="${pct}% of the sprint's days have passed"><div style="width:${pct}%"></div></div>
+                <div class="checkin" id="checkin">
+                    <span class="q${yd == null ? '' : ' answered'}">${yd == null ? `Did you touch it ${s.yesterday === shift(data.today, -1) ? 'yesterday' : 'on ' + fmtDay(s.yesterday, { weekday: 'long' })}?` : 'Yesterday:'}</span>
+                    <button class="pill${yd === true ? ' on' : ''}" data-touched="1">yes</button>
+                    <button class="pill no${yd === false ? ' on' : ''}" data-touched="0">no</button>
+                    <span class="stat">${s.streak ? `<b>${s.streak}</b> in a row · ` : ''}<b>${s.touched}</b> of ${s.asked} logged days touched</span>
+                </div>
+                ${touchGrid(s)}
+                <div class="touch-key">Click a day to change its answer. Orange is a day you touched it; grey is an honest no; blank is unasked.</div>
+                <div class="grid2" style="margin-top:12px">
+                    <div class="field"><label for="spDeliv">Deliverable — done means</label><textarea id="spDeliv" placeholder="What exists at the end that doesn't exist now">${escapeHtml(s.deliverable || '')}</textarea></div>
+                    <div class="field"><label for="spWaiting">Who's waiting on it</label><input id="spWaiting" value="${escapeHtml(s.waiting_on || '')}" placeholder="A person, a festival deadline, a lender"></div>
+                </div>
+                <div class="row-actions">
+                    <button class="btn" id="closeDone" title="Close this sprint as shipped">Close as done</button>
+                    <button class="btn danger" id="closeAbandon" title="Close this sprint without shipping — the log stays">Abandon</button>
+                    <button class="btn quiet" id="startBtn" title="Plan the next sprint — it begins once this one is closed">Plan the next sprint →</button>
+                </div>${plannedHtml}${startForm}${closedHtml}`;
+            const put = body => save('sprintState', async () => { const out = await api(`/sprints/${s.id}`, { method: 'PUT', body }); Object.assign(s, out); });
+            document.getElementById('spTitle').addEventListener('focusout', e => { const v = e.target.value.trim(); if (v && v !== s.title) put({ title: v }); else e.target.value = s.title; });
+            document.getElementById('spTitle').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
+            document.getElementById('spDeliv').addEventListener('focusout', e => { if ((e.target.value.trim() || null) !== (s.deliverable || null)) put({ deliverable: e.target.value }); });
+            document.getElementById('spWaiting').addEventListener('focusout', e => { if ((e.target.value.trim() || null) !== (s.waiting_on || null)) put({ waiting_on: e.target.value }); });
+            document.getElementById('checkin').addEventListener('click', e => {
+                const b = e.target.closest('.pill'); if (!b) return;
+                logDay(s, s.yesterday, b.dataset.touched === '1');
+            });
+            body.querySelectorAll('.cell[data-day]').forEach(c => c.addEventListener('click', () => {
+                const d = c.dataset.day;
+                const cur = (s.days.find(x => x.day === d) || {}).touched;
+                // cycle: unasked → yes → no → unasked
+                logDay(s, d, cur === undefined || cur === null ? true : cur === true ? false : null);
+            }));
+            document.getElementById('closeDone').addEventListener('click', () => closeSprint(s, 'done'));
+            document.getElementById('closeAbandon').addEventListener('click', () => closeSprint(s, 'abandoned'));
+            wireStart(s);
+        }
+        function touchGrid(s) {
+            const first = mondayOf(s.start_day);
+            const last = shift(mondayOf(s.end_day), 6);
+            const byDay = new Map(s.days.map(d => [d.day, d.touched]));
+            const weeks = [];
+            for (let w = first; w <= last; w = shift(w, 7)) weeks.push(w);
+            const head = `<div class="touch-head"><span></span>${['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map(d => `<span>${d}</span>`).join('')}<span></span></div>`;
+            const rows = weeks.map((w, i) => {
+                let n = 0;
+                const cells = [];
+                for (let k = 0; k < 7; k++) {
+                    const d = shift(w, k);
+                    const inSprint = d >= s.start_day && d <= s.end_day;
+                    const t = byDay.get(d);
+                    if (t === true) n++;
+                    const future = d >= data.today;
+                    const cls = !inSprint ? ' out' : future ? ' future' : t === true ? ' yes' : t === false ? ' no' : '';
+                    const label = fmtDay(d, { weekday: 'short', month: 'short', day: 'numeric' });
+                    const tip = !inSprint ? `${label} — outside the sprint` : future ? `${label} — not yet` : t === true ? `${label} — touched it` : t === false ? `${label} — didn't` : `${label} — not logged`;
+                    cells.push(`<div class="cell${cls}${d === data.today ? ' today' : ''}" ${inSprint && !future ? `data-day="${d}"` : ''} title="${escapeHtml(tip)}"></div>`);
+                }
+                return `<div class="touch-week"><span class="wk">week ${i + 1}</span>${cells.join('')}<span class="n">${n || ''}</span></div>`;
+            }).join('');
+            return `<div class="touch-grid">${head}${rows}</div>`;
+        }
+        async function logDay(s, day, touched) {
+            await save('sprintState', async () => {
+                const out = await api(`/sprints/${s.id}/days/${day}`, { method: 'PUT', body: { touched } });
+                Object.assign(s, out);
+            });
+            renderSprint();
+        }
+        async function closeSprint(s, status) {
+            const outcome = status === 'done' ? prompt('One line on what shipped (optional):', '') : prompt('One line on why (optional):', '');
+            if (outcome === null) return;
+            await save('sprintState', async () => { const out = await api(`/sprints/${s.id}`, { method: 'PUT', body: { status, outcome } }); Object.assign(s, out); });
+            await load();   // a planned sprint is promoted on the next read
+        }
+        function wireStart(current) {
+            const form = document.getElementById('startForm');
+            const btn = document.getElementById('startBtn');
+            btn.addEventListener('click', () => {
+                form.classList.add('open');
+                const start = current ? shift(current.end_day, 1) : data.today;
+                document.getElementById('nsStart').value = start;
+                document.getElementById('nsEnd').value = shift(start, 41);   // six weeks
+                document.getElementById('nsTitle').focus();
+            });
+            document.getElementById('nsCancel').addEventListener('click', () => form.classList.remove('open'));
+            document.getElementById('nsGo').addEventListener('click', async () => {
+                const body = {
+                    title: document.getElementById('nsTitle').value,
+                    start_day: document.getElementById('nsStart').value,
+                    end_day: document.getElementById('nsEnd').value,
+                    goal_id: document.getElementById('nsGoal').value ? parseInt(document.getElementById('nsGoal').value, 10) : null,
+                    waiting_on: document.getElementById('nsWaiting').value,
+                    deliverable: document.getElementById('nsDeliv').value,
+                    close_active: 'done'   // starting now closes the current one as shipped; a future start only plans it
+                };
+                let ok = false;
+                await save('sprintState', async () => { await api(`${base()}/sprints`, { method: 'POST', body }); ok = true; });
+                if (ok) await load();
+            });
+        }
+
+        // ---- Goals ----
+        function renderGoals() {
+            const body = document.getElementById('goalsBody');
+            const gs = data.goals;
+            let rank = 0;
+            const rows = gs.map((g, i) => `
+                <div class="goal ${g.status}" data-id="${g.id}">
+                    <div class="rank">${g.status === 'active' ? ++rank : '·'}</div>
+                    <div class="main">
+                        <input class="title" value="${escapeHtml(g.title)}" title="The goal — click to edit">
+                        <textarea class="detail" rows="1" placeholder="Why it's here, what it's subordinate to, what done looks like">${escapeHtml(g.detail || '')}</textarea>
+                        <div class="meta"><input class="horizon" value="${escapeHtml(g.horizon || '')}" placeholder="horizon — 12 months, 5 years, ongoing">${g.status !== 'active' ? `<span>${g.status}</span>` : ''}</div>
+                    </div>
+                    <div class="tools">
+                        <button class="icon-btn" data-act="up" title="Move up" ${i === 0 ? 'disabled' : ''}>↑</button>
+                        <button class="icon-btn" data-act="down" title="Move down" ${i === gs.length - 1 ? 'disabled' : ''}>↓</button>
+                        <button class="icon-btn" data-act="park" title="${g.status === 'active' ? 'Park it — keeps it, drops it out of the order' : 'Bring it back into the order'}">${g.status === 'active' ? '⏸' : '▶'}</button>
+                        <button class="icon-btn" data-act="done" title="${g.status === 'done' ? 'Reopen' : 'Mark it reached'}">✓</button>
+                        <button class="icon-btn danger" data-act="delete" title="Delete this goal">×</button>
+                    </div>
+                </div>`).join('');
+            body.innerHTML = `${gs.length ? '' : '<div class="empty">No goals yet. Write the anchor first — the one everything else is subordinate to.</div>'}
+                <div class="goal-list">${rows}</div>
+                <div class="goal-add"><input id="newGoal" placeholder="Add a goal and press Enter"><button class="btn" id="addGoal">Add</button></div>`;
+            body.querySelectorAll('.goal').forEach(row => {
+                const id = parseInt(row.dataset.id, 10);
+                const g = gs.find(x => x.id === id);
+                const put = b => save('goalsState', async () => { const out = await api(`/goals/${id}`, { method: 'PUT', body: b }); Object.assign(g, out); });
+                const t = row.querySelector('.title');
+                t.addEventListener('focusout', () => { const v = t.value.trim(); if (v && v !== g.title) put({ title: v }); else t.value = g.title; });
+                t.addEventListener('keydown', e => { if (e.key === 'Enter') t.blur(); });
+                const d = row.querySelector('.detail');
+                const grow = () => { d.style.height = 'auto'; d.style.height = d.scrollHeight + 'px'; };
+                grow(); d.addEventListener('input', grow);
+                d.addEventListener('focusout', () => { if ((d.value.trim() || null) !== (g.detail || null)) put({ detail: d.value }); });
+                const h = row.querySelector('.horizon');
+                h.addEventListener('focusout', () => { if ((h.value.trim() || null) !== (g.horizon || null)) put({ horizon: h.value }); });
+                h.addEventListener('keydown', e => { if (e.key === 'Enter') h.blur(); });
+                row.querySelector('.tools').addEventListener('click', async e => {
+                    const b = e.target.closest('[data-act]'); if (!b) return;
+                    const act = b.dataset.act;
+                    const i = gs.indexOf(g);
+                    if (act === 'up' || act === 'down') {
+                        const j = act === 'up' ? i - 1 : i + 1;
+                        if (j < 0 || j >= gs.length) return;
+                        const order = gs.map(x => x.id); [order[i], order[j]] = [order[j], order[i]];
+                        await save('goalsState', async () => { data.goals = await api(`${base()}/goals/order`, { method: 'PUT', body: { order } }); });
+                    } else if (act === 'park') {
+                        await put({ status: g.status === 'active' ? 'parked' : 'active' });
+                    } else if (act === 'done') {
+                        await put({ status: g.status === 'done' ? 'active' : 'done' });
+                    } else if (act === 'delete') {
+                        if (!confirm(`Delete “${g.title}”? The sprints that served it stay.`)) return;
+                        await save('goalsState', async () => { await api(`/goals/${id}`, { method: 'DELETE' }); data.goals = data.goals.filter(x => x.id !== id); });
+                    }
+                    renderGoals(); renderSprint();
+                });
+            });
+            const add = async () => {
+                const inp = document.getElementById('newGoal');
+                const v = inp.value.trim(); if (!v) return;
+                await save('goalsState', async () => { const g = await api(`${base()}/goals`, { method: 'POST', body: { title: v } }); data.goals.push(g); });
+                renderGoals(); renderSprint();
+                document.getElementById('newGoal').focus();
+            };
+            document.getElementById('addGoal').addEventListener('click', add);
+            document.getElementById('newGoal').addEventListener('keydown', e => { if (e.key === 'Enter') add(); });
+        }
+
+        // ---- Friday review ----
+        function renderReview() {
+            const body = document.getElementById('reviewBody');
+            const s = activeSprint();
+            if (!s) { body.innerHTML = '<div class="empty">Reviews belong to a sprint. Start one above.</div>'; return; }
+            // This week's review is due Friday; a week ends on its Friday.
+            // Before Friday the form is for the coming Friday; on or after,
+            // for the one just passed (Sat/Sun still write Friday's).
+            const d = dow(data.today);
+            const wk = d === 6 || d === 0 ? fridayOf(shift(data.today, -2)) : fridayOf(data.today);
+            const cur = s.reviews.find(r => r.week_ending === wk);
+            const due = data.today >= wk && !cur;
+            const past = s.reviews.filter(r => r.week_ending !== wk).slice().reverse();
+            body.innerHTML = `
+                <div class="review-week">
+                    <div class="review-head"><b>Week ending ${escapeHtml(fmtDay(wk, { weekday: 'short', month: 'short', day: 'numeric' }))}</b>${due ? '<span class="due">due — twenty minutes</span>' : ''}${cur ? `<span class="when">saved ${escapeHtml(new Date(cur.updated_at.includes('T') ? cur.updated_at : cur.updated_at.replace(' ', 'T') + 'Z').toLocaleDateString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }))}</span>` : ''}</div>
+                    <div class="grid2">
+                        <div class="field"><label for="rvShipped">What shipped</label><textarea id="rvShipped" placeholder="Only things that exist now and didn't on Monday">${escapeHtml(cur ? cur.shipped || '' : '')}</textarea></div>
+                        <div class="field"><label for="rvNext">Next week's deliverable</label><textarea id="rvNext" placeholder="One thing. It shows on the board every morning.">${escapeHtml(cur ? cur.next_week || '' : '')}</textarea></div>
+                    </div>
+                </div>
+                ${past.map(r => `<div class="review-week"><div class="review-head"><b>Week ending ${escapeHtml(fmtDay(r.week_ending, { month: 'short', day: 'numeric' }))}</b></div><div class="review-text">${r.shipped ? `<b>Shipped</b>${escapeHtml(r.shipped)}` : ''}${r.next_week ? `<b>Next</b>${escapeHtml(r.next_week)}` : ''}</div></div>`).join('')}`;
+            // Saves in place; a re-render would replace the textarea the
+            // person just tabbed into. The page re-renders when focus leaves both.
+            let saved = cur;
+            const put = () => save('reviewState', async () => {
+                const out = await api(`/sprints/${s.id}/reviews/${wk}`, { method: 'PUT', body: { shipped: document.getElementById('rvShipped').value, next_week: document.getElementById('rvNext').value } });
+                s.reviews = out.reviews;
+                saved = s.reviews.find(r => r.week_ending === wk) || null;
+                s.this_week = saved ? saved.next_week : null;
+            });
+            ['rvShipped', 'rvNext'].forEach(id => document.getElementById(id).addEventListener('focusout', async () => {
+                const was = saved || {};
+                const changed = (document.getElementById('rvShipped').value.trim() || null) !== (was.shipped || null) || (document.getElementById('rvNext').value.trim() || null) !== (was.next_week || null);
+                if (changed) await put();
+                setTimeout(() => { const a = document.activeElement; if (a && (a.id === 'rvShipped' || a.id === 'rvNext')) return; if (changed) renderReview(); }, 0);
+            }));
+            if (location.hash === '#review' && due) document.getElementById('rvShipped').focus();
+        }
+
+        async function load() {
+            if (!sess || !sess.subdomain || !sess.slug) {
+                document.getElementById('sprintBody').innerHTML = '<div class="page-error">Open your board first, then come back — this page reads who you are from it.</div>';
+                document.getElementById('goalsBody').innerHTML = ''; document.getElementById('reviewBody').innerHTML = '';
+                return;
+            }
+            try {
+                data = await api(`${base()}/goals`);
+                document.getElementById('meta').textContent = fmtDay(data.today, { weekday: 'long', month: 'long', day: 'numeric' });
+                renderGoals(); renderSprint(); renderReview();
+            } catch (err) {
+                document.getElementById('sprintBody').innerHTML = `<div class="page-error">${escapeHtml(err.message)}</div>`;
+            }
+        }
+        load();
+    </script>
+</body>
+</html>

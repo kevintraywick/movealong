@@ -1760,6 +1760,33 @@
         .briefing-quote .chg { color: #64748b; }
         .briefing-quote .chg.up { color: #0284c7; }
         .briefing-quote .chg.down { color: #b91c1c; }
+        /* The sprint check-in (2026-09-29): the board's own section, first
+           under the weather. Orange is the goal colour on the board, and a
+           sprint is the goal for six weeks. */
+        .briefing-sprint { font-size: 11px; color: #334155; padding: 2px 0 6px; border-bottom: 1px dashed #e2e8f0; margin-bottom: 4px; }
+        .briefing-sprint-head { display: flex; align-items: baseline; gap: 6px; white-space: nowrap; }
+        .briefing-sprint-kind { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #ea580c; font-weight: 600; }
+        .briefing-sprint-day { color: #64748b; font-variant-numeric: tabular-nums; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        .briefing-sprint-goals { margin-left: auto; font-size: 10.5px; color: #0284c7; text-decoration: none; }
+        .briefing-sprint-goals:hover { text-decoration: underline; }
+        .briefing-sprint-title { font-weight: 600; color: #ea580c; white-space: normal; line-height: 1.3; margin-top: 1px; }
+        .briefing-sprint-ask { display: flex; align-items: center; gap: 5px; margin-top: 4px; white-space: nowrap; }
+        .briefing-sprint-ask .q { color: #0f172a; }
+        .briefing-sprint-ask .q.answered { color: #64748b; }
+        .briefing-sprint-btn { border: 1px solid #cbd5e1; background: #fff; color: #334155; border-radius: 999px; padding: 1px 8px; font-size: 10.5px; cursor: pointer; line-height: 1.4; }
+        .briefing-sprint-btn:hover { border-color: #0ea5e9; color: #0284c7; }
+        .briefing-sprint-btn.on { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        .briefing-sprint-btn.on.no { background: #94a3b8; border-color: #94a3b8; }
+        .briefing-sprint-week { display: flex; align-items: center; gap: 3px; margin-top: 5px; }
+        .briefing-sprint-dot { flex: 0 0 9px; width: 9px; height: 9px; border-radius: 50%; border: 1.5px solid #cbd5e1; background: #fff; }
+        .briefing-sprint-dot.yes { background: #ea580c; border-color: #ea580c; }
+        .briefing-sprint-dot.no { background: #e2e8f0; border-color: #e2e8f0; }
+        .briefing-sprint-dot.out { opacity: .35; }
+        .briefing-sprint-stat { margin-left: 6px; color: #64748b; font-size: 10.5px; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        .briefing-sprint-line { margin-top: 3px; color: #475569; line-height: 1.35; }
+        .briefing-sprint-line b { font-weight: 600; color: #0f172a; }
+        .briefing-sprint-line a { color: #0284c7; text-decoration: none; }
+        .briefing-sprint-line a:hover { text-decoration: underline; }
         .briefing-item { display: flex; align-items: flex-start; gap: 6px; padding: 4px 0; font-size: 11.5px; line-height: 1.35; color: #0f172a; }
         .briefing-item + .briefing-item { border-top: 1px solid #f1f5f9; }
         .briefing-tick { width: 13px; height: 13px; border: 1.5px solid #cbd5e1; border-radius: 50%; flex-shrink: 0; margin-top: 2px; cursor: pointer; background: #fff; }
@@ -3175,6 +3202,18 @@
         body.dark .briefing-weather { color: #cbd5e1; border-color: #334155; }
         body.dark .briefing-story { color: #94a3b8; }
         body.dark .briefing-market { border-color: #334155; }
+        body.dark .briefing-sprint { color: #cbd5e1; border-color: #334155; }
+        body.dark .briefing-sprint-kind, body.dark .briefing-sprint-title { color: #fb923c; }
+        body.dark .briefing-sprint-ask .q { color: #e2e8f0; }
+        body.dark .briefing-sprint-btn { background: #1e293b; border-color: #475569; color: #cbd5e1; }
+        body.dark .briefing-sprint-btn.on { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+        body.dark .briefing-sprint-btn.on.no { background: #475569; border-color: #475569; }
+        body.dark .briefing-sprint-dot { background: #1e293b; border-color: #475569; }
+        body.dark .briefing-sprint-dot.yes { background: #fb923c; border-color: #fb923c; }
+        body.dark .briefing-sprint-dot.no { background: #334155; border-color: #334155; }
+        body.dark .briefing-sprint-line { color: #94a3b8; }
+        body.dark .briefing-sprint-line b { color: #e2e8f0; }
+        body.dark .briefing-sprint-goals, body.dark .briefing-sprint-line a { color: #38bdf8; }
         body.dark .briefing-quote .px { color: #cbd5e1; }
         body.dark .briefing-quote .sym { color: #e2e8f0; }
         body.dark .briefing-quote .chg.up { color: #38bdf8; }
@@ -3527,6 +3566,8 @@
                title="Notes — quotes, ideas and feature requests you sent yourself" aria-label="Notes"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 3h10l4 4v14H5z"/><path d="M15 3v4h4"/><path d="M9 12h6"/><path d="M9 16h4"/></svg></a>
             <a class="icon-toggle dashboard-link" id="dashboardLink" href="/dashboard"
                title="Dashboard — what you've completed this month" aria-label="Dashboard"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 20V10"/><path d="M10 20V4"/><path d="M16 20v-7"/><path d="M22 20H2"/></svg></a>
+            <a class="icon-toggle dashboard-link" id="goalsLink" href="/goals"
+               title="Goals — what matters, in order, and the sprint you're on" aria-label="Goals"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.2" fill="currentColor" stroke="none"/></svg></a>
             <a class="icon-toggle dashboard-link" id="listsLink" href="/lists"
                title="Lists — the lists you keep, ready to drop onto any day" aria-label="Lists"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 6h11"/><path d="M9 12h11"/><path d="M9 18h11"/><circle cx="4.6" cy="6" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="12" r="1.1" fill="currentColor" stroke="none"/><circle cx="4.6" cy="18" r="1.1" fill="currentColor" stroke="none"/></svg></a>
 
@@ -4278,6 +4319,39 @@
             }).join('');
             return `<div class="briefing-market" title="Your Stocks list on the Lists page, while the market is open. Prices can lag a few minutes.">${cells}</div>`;
         }
+        // The sprint check-in: day N of M, one question about yesterday, the
+        // last seven days as dots, this week's deliverable. Board data, no
+        // assistant. Answering writes sprint_days through PUT .../days/:day.
+        function renderBriefingSprint(sp) {
+            if (!sp) return '';
+            const yd = sp.yesterday_touched;
+            const dots = sp.week.map(d => {
+                const cls = d.touched === true ? ' yes' : d.touched === false ? ' no' : '';
+                const label = new Date(d.day + 'T12:00:00Z').toLocaleDateString(undefined, { weekday: 'short' });
+                return `<span class="briefing-sprint-dot${cls}${d.in_sprint ? '' : ' out'}" title="${escapeHtml(label)}: ${d.touched === true ? 'touched it' : d.touched === false ? 'did not touch it' : 'not logged'}"></span>`;
+            }).join('');
+            const ended = !!sp.ended;
+            return `<div class="briefing-sprint" data-sprint-id="${sp.id}">
+                <div class="briefing-sprint-head"><span class="briefing-sprint-kind">Sprint</span><span class="briefing-sprint-day" title="${escapeHtml(sp.start_day)} → ${escapeHtml(sp.end_day)}">${ended ? 'ended — close it ↗' : sp.starts_in ? `starts in ${sp.starts_in} day${sp.starts_in === 1 ? '' : 's'}` : `day ${sp.day_no} of ${sp.total_days}`}</span><a class="briefing-sprint-goals" href="/goals" title="Your goals, the sprint and the Friday review">goals ↗</a></div>
+                <div class="briefing-sprint-title">${escapeHtml(sp.title)}</div>
+                <div class="briefing-sprint-ask"><span class="q${yd == null ? '' : ' answered'}">${yd == null ? 'Touched it yesterday?' : 'Yesterday:'}</span><button class="briefing-sprint-btn${yd === true ? ' on' : ''}" data-touched="1" title="Yes — I worked on the sprint yesterday">yes</button><button class="briefing-sprint-btn no${yd === false ? ' on' : ''}" data-touched="0" title="No — an honest no beats a quiet slip">no</button></div>
+                <div class="briefing-sprint-week" title="The last seven days — orange is a day you touched it">${dots}<span class="briefing-sprint-stat" title="${sp.streak ? `${sp.streak} days in a row · ` : ''}${sp.touched} of ${sp.asked} logged days touched">${sp.streak ? `${sp.streak} in a row · ` : ''}${sp.touched}/${sp.asked}</span></div>
+                ${sp.this_week ? `<div class="briefing-sprint-line"><b>This week:</b> ${linkifyText(sp.this_week)}</div>` : (sp.deliverable ? `<div class="briefing-sprint-line"><b>Deliverable:</b> ${linkifyText(sp.deliverable)}</div>` : '')}
+                ${sp.review_due ? `<div class="briefing-sprint-line"><b>Friday:</b> <a href="/goals#review">write the week's review ↗</a></div>` : ''}
+            </div>`;
+        }
+        async function logSprintDay(sprintId, day, touched) {
+            const sp = briefing && briefing.sprint;
+            if (!sp || sp.id !== sprintId) return;
+            const before = sp.yesterday_touched;
+            sp.yesterday_touched = touched;
+            renderView();
+            try {
+                const out = await api(`/sprints/${sprintId}/days/${day}`, { method: 'PUT', body: { touched } });
+                Object.assign(sp, { streak: out.streak, touched: out.touched, asked: out.asked, week: out.week, yesterday_touched: out.yesterday_touched });
+                renderView();
+            } catch (err) { sp.yesterday_touched = before; renderView(); showToast(err.message || 'Could not log that'); }
+        }
         function renderBriefingPane() {
             const b = briefing;
             const w = b.weather;
@@ -4294,6 +4368,7 @@
             return `<div class="subtask-pane briefing-pane">
                 <div class="briefing-head"><span class="briefing-title">Good morning</span><span class="briefing-when" title="When your assistant posted this briefing">${escapeHtml(when)}</span><button class="briefing-close" data-act="hidebriefing" title="Put the briefing away for today">×</button></div>
                 ${w ? `<div class="briefing-weather" title="Today's forecast for ${escapeHtml(w.place || 'where you are')}. It follows this device's location."><div class="briefing-weather-line"><span class="temps">${w.high}°/${w.low}°</span>${w.story ? '' : ' ' + escapeHtml(w.words)}${w.rain_pct != null && w.rain_pct >= 20 ? ` · ${w.rain_pct}% rain` : ''}${w.wind_mph >= 20 ? ` · wind ${w.wind_mph}` : ''}</div>${w.story ? `<div class="briefing-story">${escapeHtml(w.story)}</div>` : ''}</div>` : (b.weather_error ? `<div class="briefing-empty">Weather: ${escapeHtml(b.weather_error)}</div>` : '')}
+                ${renderBriefingSprint(b.sprint)}
                 ${renderBriefingMarket(b.market)}
                 ${items}
                 ${allDone ? '<div class="briefing-all">All handled.</div>' : ''}
@@ -6336,7 +6411,7 @@
                 // the day's pane slot — not a task pane, not the briefing on
                 // today, and not a list the person shut with ▾.
                 const briefingTakesSlot = day.isToday && briefing && !briefingHidden() && isSignedUp
-                    && (briefing.items.length || briefing.weather || briefing.market);
+                    && (briefing.items.length || briefing.weather || briefing.market || briefing.sprint);
                 if (!dayTasks.some(t => expandedTaskIds.has(t.id)) && !briefingTakesSlot) {
                     const auto = listTasks.find(t => !closedListIds.has(t.id));
                     if (auto) {
@@ -6441,7 +6516,7 @@
                 // The briefing takes today's pane slot when no task pane has it
                 // (single-pane rule: a task you open replaces it, closing brings it back).
                 if (day.isToday && briefing && !briefingHidden() && !expandedDayTasks.length && isSignedUp
-                    && (briefing.items.length || briefing.weather)) {
+                    && (briefing.items.length || briefing.weather || briefing.market || briefing.sprint)) {
                     const wrap = document.createElement('div');
                     wrap.innerHTML = renderBriefingPane();
                     const pane = wrap.firstElementChild;
@@ -6591,6 +6666,13 @@
                     if (e.target.closest('a')) return;
                     const close = e.target.closest('[data-act="hidebriefing"]');
                     if (close) { try { localStorage.setItem('movealong.briefing.hidden', briefing.day); } catch (err) {} renderView(); return; }
+                    const sbtn = e.target.closest('.briefing-sprint-btn');
+                    if (sbtn) {
+                        const box = sbtn.closest('.briefing-sprint');
+                        const sp = briefing.sprint;
+                        if (sp && box && String(sp.id) === box.dataset.sprintId) logSprintDay(sp.id, sp.yesterday, sbtn.dataset.touched === '1');
+                        return;
+                    }
                     const row = e.target.closest('.briefing-item');
                     if (!row) return;
                     const id = parseInt(row.dataset.briefingId, 10);

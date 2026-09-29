@@ -734,6 +734,18 @@ tasks
 
 `PUT /api/companies/:subdomain/users/:slug/health/:day` — upsert any subset of the measures for one day: `{ steps: 8412, weight: "182.5", gym: true, yoga: null }`. `null`/`''` clears that measure (absence is the honest value for a day you didn't log — never 0). Counts are rounded, weights to one decimal, checks accept true/false/1/0/"yes"/"no". 400 on a day after the caller's today, a non-number, or a body with none of the measures. Returns `{ day, entry }` with the day's full row after the write.
 
+## Goals and sprints (2026-09-29)
+
+`GET /api/companies/:subdomain/users/:slug/goals` — `{ today, goals: [...], sprints: [...], sprint }`. `goals` in position order (id, position, title, detail, horizon, status). Each sprint carries its row plus stats for the caller's today (`day_no`, `total_days`, `days_left`, `starts_in`, `yesterday`, `yesterday_touched` true/false/null, `streak`, `touched`, `asked`, `week` — the last seven days ending yesterday), its `days` and `reviews`. `sprint` is the active one with `goal {id, title}`, `this_week` (the latest review's next_week) and `review_due` (Friday, no review for the week ending today); null when none is active. Reading may promote a planned sprint whose start day has arrived.
+
+`POST .../goals` `{ title, detail?, horizon?, status?, position? }` → 201 the goal (position defaults to last). `PUT .../goals/order` `{ order: [ids] }` → the goals in the new order. `PUT /api/goals/:id` any of title, detail, horizon, status (`active|parked|done`), position. `DELETE /api/goals/:id` → 204 (sprints keep running, `goal_id` set NULL).
+
+`POST .../sprints` `{ title, start_day, end_day, goal_id?, deliverable?, waiting_on?, close_active? }` → 201. A start day after today makes it `planned` and leaves the active sprint alone; otherwise the active sprint is closed (`close_active: 'done'`, else `abandoned`) and the new one is active. At most 120 days. `PUT /api/sprints/:id` any of title, deliverable, waiting_on, outcome, start_day/end_day, goal_id (null allowed), status (`planned|active|done|abandoned`; setting active abandons any other active sprint).
+
+`PUT /api/sprints/:id/days/:day` `{ touched: true|false|null, note? }` — the daily check-in; null deletes the row (unasked). 400 on a future day. Returns the sprint's stats and `days` after the write. `PUT /api/sprints/:id/reviews/:week_ending` `{ shipped?, next_week? }` — upsert the week's review; both empty deletes it. Returns `{ sprint_id, reviews }`.
+
+The briefing payload (`GET .../briefing`) carries `sprint` (same shape as above) for today only.
+
 ## Notes (2026-09-16)
 
 Free-standing notes a person sends themself — a quote, an idea, a feature request — from the phone through the MoveIt server's `send_note` or typed on `/notes`. Per user, not per board. Timestamps are ISO strings.

@@ -222,6 +222,16 @@ The assistant's inbox in reverse: one thing the model wished it had known while 
 
 `health_entries` (id, user_id → users CASCADE, day DATE, measure TEXT, value REAL, created_at, updated_at; UNIQUE(user_id, day, measure); index user_id+day) — the health dashboard's hand-entered rows (2026-09-13). **Long form on purpose**: one row per day per measure, so adding a measure is a new entry in `HEALTH_MEASURES` in `server.js`, not a column. Measures today: `steps`, `weight` (lb), `gym`, `yoga` (checks stored 1/0). A day with no row for a measure is *unlogged*, which is different from 0 — the PUT deletes the row on `null` rather than writing a zero. A Health Auto Export webhook later writes the same rows.
 
+## goals, sprints, sprint_days, sprint_reviews (2026-09-29)
+
+`goals` (id, user_id → users CASCADE, position, title, detail, horizon, status `'active'|'parked'|'done'`, created_at, updated_at; index user_id+position) — the standing ordering of what matters. Position is the rank; the first active goal is the anchor. Per user, not per board.
+
+`sprints` (id, user_id → users CASCADE, goal_id → goals SET NULL, title, deliverable, waiting_on, start_day, end_day, status `'planned'|'active'|'done'|'abandoned'`, outcome, created_at, updated_at; index user_id+start_day) — six weeks on one goal. At most one `active`; a `planned` one (start day ahead when written) is promoted to active by `activeSprint()` on its start day once no active sprint remains. An ended sprint stays active until closed so it gets seen.
+
+`sprint_days` (sprint_id → sprints CASCADE, day, touched 1/0, note, logged_at; UNIQUE(sprint_id, day)) — the daily check-in: did he touch the sprint on that day. No row = not asked (distinct from `0`, an honest no). Days after the user's today are refused.
+
+`sprint_reviews` (id, sprint_id → sprints CASCADE, week_ending DATE (the Friday), shipped, next_week, created_at, updated_at; UNIQUE(sprint_id, week_ending)) — the Friday review. The latest `next_week` is what the briefing shows as "This week".
+
 ## brief_usage
 Which brief lines the model actually applied. Keyed by line text, so an edited line starts fresh and a deleted one simply stops being shown — the page matches rows against the current text and lists what earned its keep first, never-read lines greyed last.
 

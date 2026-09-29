@@ -146,6 +146,12 @@ app.get('/lists', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'lists.html'));
 });
 
+// Goals (2026-09-29): the standing ordering of what matters, the current
+// six-week sprint with its daily touch log, and the Friday review.
+app.get('/goals', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'goals.html'));
+});
+
 // Static assets (wordmark font, any future images)
 app.use(express.static(path.join(__dirname, '..', 'public')));
 
@@ -1312,7 +1318,10 @@ async function briefingPayload(req, user, day) {
   ]);
   weather = w;
   const generated_at = items.length ? items.reduce((m, i) => (i.created_at > m ? i.created_at : m), items[0].created_at) : null;
-  return { day, today, items, weather, weather_error, market, generated_at };
+  // The sprint check-in is the board's own section (2026-09-29): it needs
+  // no assistant, so it shows every morning whether or not Tom ran.
+  const sprint = day === today ? sprintFor(user.id, today) : null;
+  return { day, today, items, weather, weather_error, market, sprint, generated_at };
 }
 app.get('/api/companies/:subdomain/users/:slug/briefing', async (req, res) => {
   const user = healthUser(req, res);
@@ -1669,6 +1678,278 @@ app.put('/api/companies/:subdomain/users/:slug/health/:day', (req, res) => {
   const entry = {};
   for (const r of rows) entry[r.measure] = r.value;
   res.json({ day, entry });
+});
+
+// ---- Goals and sprints (2026-09-29) ----
+// Goals are the standing order of what matters (position = rank; the first
+// is the anchor everything else serves). A sprint is one goal, six weeks,
+// one named deliverable, one person waiting on it; only one is active at a
+// time. sprint_days holds the daily check-in — did he touch it the day
+// before — which the briefing asks for itself (sprintFor). Long-term work
+// is the thing that slips; the log is how it stops slipping quietly.
+const GOAL_STATUSES = ['active', 'parked', 'done'];
+const SPRINT_STATUSES = ['planned', 'active', 'done', 'abandoned'];
+const GOAL_TEXT_MAX = 200;
+const GOAL_DETAIL_MAX = 1000;
+const SPRINT_MAX_DAYS = 120;
+const dayRe = /^\d{4}-\d{2}-\d{2}$/;
+function daysBetween(a, b) { return Math.round((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000); }
+function goalRows(userId) {
+  return queryAll('SELECT id, position, title, detail, horizon, status, created_at, updated_at FROM goals WHERE user_id = ? ORDER BY position, id', [userId]);
+}
+function sprintRow(id) {
+  return queryOne('SELECT id, user_id, goal_id, title, deliverable, waiting_on, start_day, end_day, status, outcome, created_at, updated_at FROM sprints WHERE id = ?', [id]);
+}
+function sprintDays(sprintId) {
+  return queryAll('SELECT day, touched, note, logged_at FROM sprint_days WHERE sprint_id = ? ORDER BY day', [sprintId])
+    .map(r => ({ ...r, touched: !!r.touched }));
+}
+function sprintReviews(sprintId) {
+  return queryAll('SELECT id, week_ending, shipped, next_week, created_at, updated_at FROM sprint_reviews WHERE sprint_id = ? ORDER BY week_ending', [sprintId]);
+}
+// Yesterday's answer, the streak of touched days ending yesterday, and the
+// count over the sprint so far. "today" is the user's day; the check-in is
+// always about the day that ended.
+function sprintStats(sprint, today) {
+  const days = sprintDays(sprint.id);
+  const byDay = new Map(days.map(d => [d.day, d]));
+  const yesterday = addDays(today, -1);
+  const total = daysBetween(sprint.start_day, sprint.end_day) + 1;
+  const dayNo = Math.min(Math.max(daysBetween(sprint.start_day, today) + 1, 0), total);
+  const daysLeft = Math.max(daysBetween(today, sprint.end_day), 0);
+  let streak = 0;
+  for (let d = yesterday; d >= sprint.start_day; d = addDays(d, -1)) {
+    const row = byDay.get(d);
+    if (!row || !row.touched) break;
+    streak++;
+  }
+  const touched = days.filter(d => d.touched && d.day >= sprint.start_day && d.day <= sprint.end_day).length;
+  const asked = days.filter(d => d.day >= sprint.start_day && d.day <= sprint.end_day).length;
+  const y = byDay.get(yesterday);
+  const week = [];   // the last 7 days ending yesterday, for the pane's dots
+  for (let i = 6; i >= 0; i--) {
+    const d = addDays(yesterday, -i);
+    const r = byDay.get(d);
+    week.push({ day: d, touched: r ? r.touched : null, in_sprint: d >= sprint.start_day && d <= sprint.end_day });
+  }
+  return {
+    day_no: dayNo, total_days: total, days_left: daysLeft,
+    starts_in: today < sprint.start_day ? daysBetween(today, sprint.start_day) : 0,
+    ended: today > sprint.end_day,
+    yesterday, yesterday_touched: y ? y.touched : null,
+    streak, touched, asked, week
+  };
+}
+// A planned sprint (start day still ahead when it was written) becomes the
+// active one on its start day — but only once the previous one is closed;
+// an ended sprint nobody closed keeps the slot so it gets seen.
+function activeSprint(userId, today) {
+  let s = queryOne('SELECT * FROM sprints WHERE user_id = ? AND status = ? ORDER BY start_day DESC, id DESC LIMIT 1', [userId, 'active']);
+  if (s) return s;
+  const planned = queryOne('SELECT * FROM sprints WHERE user_id = ? AND status = ? AND start_day <= ? ORDER BY start_day, id LIMIT 1', [userId, 'planned', today]);
+  if (planned) {
+    runSql('UPDATE sprints SET status = ?, updated_at = ? WHERE id = ?', ['active', new Date().toISOString(), planned.id]);
+    s = sprintRow(planned.id);
+  }
+  return s;
+}
+// The briefing's sprint section. Null when no sprint is active. A sprint
+// whose end has passed still shows (with days_left 0) until it is closed —
+// an ended sprint that nobody closed is exactly the thing to see.
+function sprintFor(userId, today) {
+  const s = activeSprint(userId, today);
+  if (!s) return null;
+  const goal = s.goal_id ? queryOne('SELECT id, title FROM goals WHERE id = ?', [s.goal_id]) : null;
+  const latestReview = queryOne('SELECT week_ending, shipped, next_week FROM sprint_reviews WHERE sprint_id = ? ORDER BY week_ending DESC LIMIT 1', [s.id]);
+  return {
+    id: s.id, title: s.title, deliverable: s.deliverable, waiting_on: s.waiting_on,
+    start_day: s.start_day, end_day: s.end_day, goal,
+    this_week: latestReview ? latestReview.next_week : null,
+    review_due: (() => { // Friday, and no review yet for the week ending today
+      const dow = new Date(today + 'T00:00:00Z').getUTCDay();
+      if (dow !== 5) return false;
+      return !queryOne('SELECT 1 FROM sprint_reviews WHERE sprint_id = ? AND week_ending = ?', [s.id, today]);
+    })(),
+    ...sprintStats(s, today)
+  };
+}
+function cleanText(v, max) { return v == null ? null : (String(v).trim().slice(0, max) || null); }
+
+app.get('/api/companies/:subdomain/users/:slug/goals', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const today = todayKeyForUser(req, user);
+  const goals = goalRows(user.id);
+  const sprint = sprintFor(user.id, today);   // first: may promote a planned sprint
+  const sprints = queryAll('SELECT * FROM sprints WHERE user_id = ? ORDER BY start_day DESC, id DESC', [user.id])
+    .map(s => ({ ...s, user_id: undefined, ...sprintStats(s, today), days: sprintDays(s.id), reviews: sprintReviews(s.id) }));
+  res.json({ today, goals, sprints, sprint });
+});
+
+app.post('/api/companies/:subdomain/users/:slug/goals', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const b = req.body || {};
+  const title = cleanText(b.title, GOAL_TEXT_MAX);
+  if (!title) return res.status(400).json({ error: 'title is required' });
+  const status = GOAL_STATUSES.includes(b.status) ? b.status : 'active';
+  const last = queryOne('SELECT MAX(position) AS p FROM goals WHERE user_id = ?', [user.id]);
+  const position = Number.isInteger(b.position) ? b.position : ((last && last.p != null ? last.p : -1) + 1);
+  runSql('INSERT INTO goals (user_id, position, title, detail, horizon, status) VALUES (?, ?, ?, ?, ?, ?)',
+    [user.id, position, title, cleanText(b.detail, GOAL_DETAIL_MAX), cleanText(b.horizon, 60), status]);
+  const row = queryOne('SELECT last_insert_rowid() AS id');
+  res.status(201).json(goalRows(user.id).find(g => g.id === row.id));
+});
+
+// Reorder: body { order: [ids] } sets positions in that order.
+app.put('/api/companies/:subdomain/users/:slug/goals/order', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const order = (req.body || {}).order;
+  if (!Array.isArray(order) || !order.every(Number.isInteger)) return res.status(400).json({ error: 'order must be an array of goal ids' });
+  const mine = new Set(goalRows(user.id).map(g => g.id));
+  order.forEach((id, i) => { if (mine.has(id)) runSql('UPDATE goals SET position = ?, updated_at = ? WHERE id = ?', [i, new Date().toISOString(), id]); });
+  res.json(goalRows(user.id));
+});
+
+app.put('/api/goals/:id', (req, res) => {
+  const row = queryOne('SELECT * FROM goals WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Goal not found' });
+  const b = req.body || {};
+  const sets = [], params = [];
+  if ('title' in b) { const t = cleanText(b.title, GOAL_TEXT_MAX); if (!t) return res.status(400).json({ error: 'title cannot be empty' }); sets.push('title = ?'); params.push(t); }
+  if ('detail' in b) { sets.push('detail = ?'); params.push(cleanText(b.detail, GOAL_DETAIL_MAX)); }
+  if ('horizon' in b) { sets.push('horizon = ?'); params.push(cleanText(b.horizon, 60)); }
+  if ('status' in b) { if (!GOAL_STATUSES.includes(b.status)) return res.status(400).json({ error: `status must be one of ${GOAL_STATUSES.join(', ')}` }); sets.push('status = ?'); params.push(b.status); }
+  if ('position' in b) { if (!Number.isInteger(b.position)) return res.status(400).json({ error: 'position must be an integer' }); sets.push('position = ?'); params.push(b.position); }
+  if (!sets.length) return res.status(400).json({ error: 'Nothing to change' });
+  sets.push('updated_at = ?'); params.push(new Date().toISOString());
+  params.push(row.id);
+  runSql(`UPDATE goals SET ${sets.join(', ')} WHERE id = ?`, params);
+  res.json(goalRows(row.user_id).find(g => g.id === row.id));
+});
+
+app.delete('/api/goals/:id', (req, res) => {
+  const row = queryOne('SELECT id FROM goals WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Goal not found' });
+  runSql('DELETE FROM goals WHERE id = ?', [row.id]);
+  res.status(204).end();
+});
+
+// Starting a sprint closes any active one as 'abandoned' unless the caller
+// passes close_active: 'done'. One sprint at a time is the whole idea.
+app.post('/api/companies/:subdomain/users/:slug/sprints', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const b = req.body || {};
+  const title = cleanText(b.title, GOAL_TEXT_MAX);
+  if (!title) return res.status(400).json({ error: 'title is required' });
+  const realDay = d => dayRe.test(String(d || '')) && !isNaN(new Date(d + 'T00:00:00Z')) && new Date(d + 'T00:00:00Z').toISOString().slice(0, 10) === d;
+  if (!realDay(b.start_day) || !realDay(b.end_day)) return res.status(400).json({ error: 'start_day and end_day must be real YYYY-MM-DD dates' });
+  const span = daysBetween(b.start_day, b.end_day);
+  if (span < 0) return res.status(400).json({ error: 'end_day is before start_day' });
+  if (span > SPRINT_MAX_DAYS) return res.status(400).json({ error: `A sprint is weeks, not seasons — at most ${SPRINT_MAX_DAYS} days` });
+  let goalId = null;
+  if (b.goal_id != null) {
+    const g = queryOne('SELECT id FROM goals WHERE id = ? AND user_id = ?', [b.goal_id, user.id]);
+    if (!g) return res.status(400).json({ error: 'goal_id is not one of your goals' });
+    goalId = g.id;
+  }
+  const today = todayKeyForUser(req, user);
+  // Starting ahead of time plans it; the active one keeps running until it
+  // is closed. Starting now closes the active one (done, or abandoned).
+  let status = SPRINT_STATUSES.includes(b.status) ? b.status : (b.start_day > today ? 'planned' : 'active');
+  if (status === 'active') {
+    const closeAs = b.close_active === 'done' ? 'done' : 'abandoned';
+    runSql('UPDATE sprints SET status = ?, updated_at = ? WHERE user_id = ? AND status = ?', [closeAs, new Date().toISOString(), user.id, 'active']);
+  }
+  runSql('INSERT INTO sprints (user_id, goal_id, title, deliverable, waiting_on, start_day, end_day, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+    [user.id, goalId, title, cleanText(b.deliverable, GOAL_DETAIL_MAX), cleanText(b.waiting_on, GOAL_TEXT_MAX), b.start_day, b.end_day, status]);
+  const row = queryOne('SELECT last_insert_rowid() AS id');
+  const s = sprintRow(row.id);
+  res.status(201).json({ ...s, user_id: undefined, ...sprintStats(s, today), days: [], reviews: [] });
+});
+
+app.put('/api/sprints/:id', (req, res) => {
+  const row = sprintRow(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Sprint not found' });
+  const b = req.body || {};
+  const sets = [], params = [];
+  if ('title' in b) { const t = cleanText(b.title, GOAL_TEXT_MAX); if (!t) return res.status(400).json({ error: 'title cannot be empty' }); sets.push('title = ?'); params.push(t); }
+  for (const k of ['deliverable', 'outcome']) if (k in b) { sets.push(`${k} = ?`); params.push(cleanText(b[k], GOAL_DETAIL_MAX)); }
+  if ('waiting_on' in b) { sets.push('waiting_on = ?'); params.push(cleanText(b.waiting_on, GOAL_TEXT_MAX)); }
+  const start = 'start_day' in b ? b.start_day : row.start_day;
+  const end = 'end_day' in b ? b.end_day : row.end_day;
+  if ('start_day' in b || 'end_day' in b) {
+    const realDay = d => dayRe.test(String(d || '')) && !isNaN(new Date(d + 'T00:00:00Z')) && new Date(d + 'T00:00:00Z').toISOString().slice(0, 10) === d;
+    if (!realDay(start) || !realDay(end)) return res.status(400).json({ error: 'days must be real YYYY-MM-DD dates' });
+    const span = daysBetween(start, end);
+    if (span < 0 || span > SPRINT_MAX_DAYS) return res.status(400).json({ error: `end_day must be 0–${SPRINT_MAX_DAYS} days after start_day` });
+    sets.push('start_day = ?', 'end_day = ?'); params.push(start, end);
+  }
+  if ('goal_id' in b) {
+    if (b.goal_id === null) { sets.push('goal_id = NULL'); }
+    else {
+      const g = queryOne('SELECT id FROM goals WHERE id = ? AND user_id = ?', [b.goal_id, row.user_id]);
+      if (!g) return res.status(400).json({ error: 'goal_id is not one of your goals' });
+      sets.push('goal_id = ?'); params.push(g.id);
+    }
+  }
+  if ('status' in b) {
+    if (!SPRINT_STATUSES.includes(b.status)) return res.status(400).json({ error: `status must be one of ${SPRINT_STATUSES.join(', ')}` });
+    if (b.status === 'active') runSql('UPDATE sprints SET status = ?, updated_at = ? WHERE user_id = ? AND status = ? AND id != ?', ['abandoned', new Date().toISOString(), row.user_id, 'active', row.id]);
+    sets.push('status = ?'); params.push(b.status);
+  }
+  if (!sets.length) return res.status(400).json({ error: 'Nothing to change' });
+  sets.push('updated_at = ?'); params.push(new Date().toISOString());
+  params.push(row.id);
+  runSql(`UPDATE sprints SET ${sets.join(', ')} WHERE id = ?`, params);
+  const s = sprintRow(row.id);
+  const user = { id: s.user_id };
+  res.json({ ...s, user_id: undefined, ...sprintStats(s, todayKeyForUser(req, user)), days: sprintDays(s.id), reviews: sprintReviews(s.id) });
+});
+
+// The daily check-in. Body { touched: true|false|null, note? }; null clears
+// the day (unasked, not "no"). Days after today are refused; a day outside
+// the sprint is fine — the log is the truth, the window is the plan.
+app.put('/api/sprints/:id/days/:day', (req, res) => {
+  const row = sprintRow(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Sprint not found' });
+  const { day } = req.params;
+  if (!dayRe.test(day) || isNaN(new Date(day + 'T00:00:00Z'))) return res.status(400).json({ error: 'day must be YYYY-MM-DD' });
+  const today = todayKeyForUser(req, { id: row.user_id });
+  if (day > today) return res.status(400).json({ error: 'That day has not happened yet' });
+  const b = req.body || {};
+  const now = new Date().toISOString();
+  if (b.touched === null || b.touched === undefined) {
+    runSql('DELETE FROM sprint_days WHERE sprint_id = ? AND day = ?', [row.id, day]);
+  } else {
+    const t = b.touched === true || b.touched === 1 || b.touched === 'yes' ? 1 : b.touched === false || b.touched === 0 || b.touched === 'no' ? 0 : NaN;
+    if (Number.isNaN(t)) return res.status(400).json({ error: 'touched must be true, false or null' });
+    runSql(`INSERT INTO sprint_days (sprint_id, day, touched, note, logged_at) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(sprint_id, day) DO UPDATE SET touched = excluded.touched, note = COALESCE(excluded.note, sprint_days.note), logged_at = excluded.logged_at`,
+      [row.id, day, t, cleanText(b.note, 300), now]);
+  }
+  res.json({ sprint_id: row.id, day, ...sprintStats(row, today), days: sprintDays(row.id) });
+});
+
+// The Friday review: one per sprint per week_ending, upserted.
+app.put('/api/sprints/:id/reviews/:week_ending', (req, res) => {
+  const row = sprintRow(req.params.id);
+  if (!row) return res.status(404).json({ error: 'Sprint not found' });
+  const wk = req.params.week_ending;
+  if (!dayRe.test(wk) || isNaN(new Date(wk + 'T00:00:00Z'))) return res.status(400).json({ error: 'week_ending must be YYYY-MM-DD' });
+  const b = req.body || {};
+  const shipped = cleanText(b.shipped, GOAL_DETAIL_MAX), next = cleanText(b.next_week, GOAL_DETAIL_MAX);
+  if (!shipped && !next) {
+    runSql('DELETE FROM sprint_reviews WHERE sprint_id = ? AND week_ending = ?', [row.id, wk]);
+    return res.json({ sprint_id: row.id, reviews: sprintReviews(row.id) });
+  }
+  const now = new Date().toISOString();
+  runSql(`INSERT INTO sprint_reviews (sprint_id, week_ending, shipped, next_week, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)
+          ON CONFLICT(sprint_id, week_ending) DO UPDATE SET shipped = excluded.shipped, next_week = excluded.next_week, updated_at = excluded.updated_at`,
+    [row.id, wk, shipped, next, now, now]);
+  res.json({ sprint_id: row.id, reviews: sprintReviews(row.id) });
 });
 
 // ---- Notes (2026-09-16) ----

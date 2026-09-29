@@ -64,6 +64,7 @@
 ## Next
 - [ ] **Subtasks v2** (direction settled 2026-09-06, mockups under review): decision rows with chips, branch generated on click as dependents, one open decision per pane; `agent_runs` + dot strip that expands into a named list; path-so-far tree on the task page; then real fan-out. See `reference/subtasks-v2-brainstorm.md`.
 - [ ] **Feedback loop on any task** (very soon, Kevin 2026-09-02) — a way to say how a task or its steps went, feeding the brief
+- [x] **Goals and sprints (2026-09-29)** — `/goals`: goals in rank order, one six-week sprint with a daily touch log and the Friday review; the board's briefing pane asks about yesterday itself
 - [ ] History: a page per day — a dashboard of what got done, visually interesting enough to gamify completion; most days simple, with links out to richer task outputs. **First pane shipped 2026-09-08** (`/dashboard`: completed per day by board); the per-day page and the links out are still open
 - [ ] Task outputs beyond text — a recipe page (with a later rating), a trip map (drive to BNA, fly to NYC, back), images, video, reports, dashboards; decide how completion is recorded and where outputs live
 - [ ] The board as "Alfred": an ongoing loop whose goal is to get better at helping this person — a frequent flyer's board starts hunting fares and points; a cook's offers to keep the recipe book. The brief is the memory this writes to
