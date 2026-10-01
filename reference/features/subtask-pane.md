@@ -35,3 +35,5 @@
 
 ### Mockup lesson
 - **When the constraint is width, one mockup must spend it differently.** The 2026-08-16 subtask-row set put controls on their own *line* in three of four variants; the winner was reversed to a vertical rail within hours. Include at least one variant reclaiming space along the other axis.
+
+- **Click away closes the pane (2026-10-01).** A capture-phase document click on `#board` clears `expandedTaskIds` unless the target is in a pane, task row, list box, add-task input, popup, or any input/button/link/label. Capture because a day-card click re-renders and detaches its own target before a bubble listener could test it. Escape still closes too. Verified in jsdom: stays open on a pane or input click, closes on a day card or empty board.

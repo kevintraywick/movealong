@@ -8862,6 +8862,19 @@
         // only real pointer movement releases it. Re-rendering slides rows under
         // a stationary cursor and fires mouseover, but never mousemove, so the
         // hold survives exactly as long as the user hasn't moved.
+        // A click on the board anywhere but the open pane puts the pane away
+        // (Kevin, 2026-10-01), like Escape. Anything that has a job of its own
+        // is left to do it: task rows and list boxes open or swap a pane, and
+        // inputs, buttons, links and popups are working controls.
+        document.addEventListener('click', (e) => {
+            if (!isSignedUp || expandedTaskIds.size === 0) return;
+            const t = e.target;
+            if (!t.closest || !t.closest('#board')) return;
+            if (t.closest('[class*="pane"], .task-item, .list-box, .task-input, .team-popup, .lock-popup-menu, input, textarea, select, button, a, label, [data-task-id], [data-subtask-id]')) return;
+            expandedTaskIds.clear();
+            renderView();
+        }, true);   // capture: a day-card click re-renders and detaches its own target
+
         document.addEventListener('mousemove', () => { stickyTaskId = null; stickyArrowTaskId = null; }, { passive: true });
 
         document.addEventListener('keydown', (e) => {

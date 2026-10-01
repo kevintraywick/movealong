@@ -163,6 +163,44 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     inputSchema: { include_archived: z.boolean().optional() }
   }, async ({ include_archived }) => text(await api(`${me}/notes${include_archived ? '?archived=1' : ''}`)));
 
+  // The Lists page (2026-10-01), so a list can be made from the phone. A list
+  // is a shelved task whose items are its subtasks; these four tools are the
+  // same REST routes /lists uses.
+  server.registerTool('get_lists', {
+    title: 'Read the Lists page',
+    description: 'The reusable lists the user keeps on their Lists page (/lists), newest first, each with its items. Use the id with add_list_items or put_list_on_board.',
+    inputSchema: {}
+  }, async () => text((await api(`${me}/lists`)).map(l => ({ id: l.id, name: l.description, items: l.items.map(i => ({ id: i.id, description: i.description })) }))));
+
+  server.registerTool('create_list', {
+    title: 'Create a list',
+    description: 'Create a reusable list on the Lists page (e.g. "Travel" with passport, charger, …). Give the name and, optionally, its items. It belongs to no day; use put_list_on_board to drop a copy onto one.',
+    inputSchema: { name: z.string().min(1), items: z.array(z.string().min(1)).optional() }
+  }, async ({ name, items }) => {
+    const list = await api(`${me}/lists`, { method: 'POST', body: { name } });
+    for (const description of items || []) await api(`/api/tasks/${list.id}/subtasks`, { method: 'POST', body: { description, assignee_type: 'human' } });
+    return text({ ok: true, id: list.id, name: list.description, items: items || [], page: `${URL_BASE}/lists` });
+  });
+
+  server.registerTool('add_list_items', {
+    title: 'Add items to a list',
+    description: 'Append items to a list on the Lists page, by the list id from get_lists or create_list.',
+    inputSchema: { list_id: z.number().int(), items: z.array(z.string().min(1)).min(1) }
+  }, async ({ list_id, items }) => {
+    for (const description of items) await api(`/api/tasks/${list_id}/subtasks`, { method: 'POST', body: { description, assignee_type: 'human' } });
+    return text({ ok: true, added: items.length, page: `${URL_BASE}/lists` });
+  });
+
+  server.registerTool('put_list_on_board', {
+    title: 'Put a list on the board',
+    description: 'Drop a fresh copy of a Lists-page list onto a day of a board (today and the first board by default). The list stays on the Lists page; the copy starts with nothing ticked.',
+    inputSchema: { list_id: z.number().int(), date: z.string().optional().describe('YYYY-MM-DD, today or later'), board: z.string().optional() }
+  }, async ({ list_id, date, board }) => {
+    const b = await resolveBoard(board);
+    const task = await api(`/api/tasks/${list_id}/unshelve`, { method: 'POST', body: { scheduled_date: date || todayKey(), project_id: b.id } });
+    return text({ task: slimTask(task), board: b.name });
+  });
+
   server.registerTool('set_results', {
     title: 'Write a task\'s results',
     description: 'Set the Results pane on the task page (replaces). Optionally the Background too. Markdown-ish plain text; URLs and image URLs render.',
