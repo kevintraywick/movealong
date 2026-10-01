@@ -1,0 +1,35 @@
+# Testing recipes
+
+> Read before verifying anything headlessly: throwaway servers, jsdom E2E, qlmanage renders, AI stubs, migrations, timezones. Moved out of CLAUDE.md verbatim on 2026-09-30; keep adding here, not there.
+
+### Recipes and traps
+- **Killing a test server: `lsof -ti :PORT | xargs kill`, never `pkill -f` on an env var.** `DB_PATH=x PORT=y node server.js` puts neither in the command line, so the old server survives and silently serves **stale code and a stale DB**. Burned a full test cycle.
+- **Test suites must fetch entity ids from their own setup responses, never hard-code them** — ids depend on how many suites ran before on the shared DB.
+- **jsdom's `getComputedStyle` is unreliable through multi-class compound selectors** — it resolved `text-decoration` for `.task-item.completed.done-elsewhere .task-description` but returned the base color. Assert cascade-dependent styling **structurally** (rule text exists) and verify the look through WebKit.
+- **Rendering a fetch-dependent page through qlmanage:** load it in jsdom against the live test server, wait, then serialize — copy each `textarea.value` into its `textContent` (and each `input.value` into its `value` attribute), strip `<script>`, write `document.documentElement.outerHTML`, qlmanage that.
+  - **Strip every entry animation in the serialized copy, always.** qlmanage snapshots before an `animation: rise`/`slideDown` finishes, so cards that start at `opacity: 0` photograph as an empty page and read as a broken render (cost a debugging round on `/lists`, after the same trap on the briefing pane). `sed 's/animation: <name> …;/animation: none;/'` or append `.thing, .thing * { animation: none !important; opacity: 1 !important; }`.
+  - **To photograph an absolutely-positioned board child** (the subtask pane, the briefing pane) **extract it instead of shooting the board.** jsdom has no layout, so the pane sits where nothing reserves room for it and the shot comes back blank. Pull `pane.outerHTML` plus the page's whole `<style>` into a scratch file, add `position: static; width: 200px`, and qlmanage that — it also puts the component at its REAL width, which is the question being asked.
+- **Testing timezone without mocking the clock:** drive requests with `x-tz: Pacific/Kiritimati` (UTC+14) and `x-tz: Pacific/Niue` (UTC-11) — **25 hours apart, so their dates always differ**. Assert `due_today` counts a deadline in the zone where the day has arrived and an overdue task spills to the *caller's* today. Frontend: run jsdom under `TZ=America/Chicago` (`process.env.TZ` is what jsdom's `toLocaleDateString` reads).
+- **The schema in `db.js` is one big SQL template literal — a backtick in a `--` comment ends it.** `node --check src/server.js` does not parse `db.js`; run `node --check src/db.js` after touching the schema (a comment quoting `` `day` `` stopped the server booting on 2026-09-23, caught by the headless test before push).
+- **`node -e "require('./src/server.js')"` is not a syntax check** — it boots a server and grabs port 3000. Use `node --check src/server.js`.
+- **Local API testing:** `DB_PATH=<tmp> PORT=<free> ANTHROPIC_API_KEY=dummy node src/server.js` and curl. Port 3000 is often taken. The frontend calls a relative `/api`.
+- **Quick frontend syntax check:** extract the inline `<script>` and run it through `vm.Script` in Node.
+- **jsdom computes styles but renders nothing, so it cannot tell you a control is invisible.** The focus toggle passed every structural assertion while unseeable. **For "can you see it / does it read at size", render through WebKit:** a scratch HTML with the element at real size beside real neighbours, `qlmanage -t -s 900 -o /tmp scratch.html`, look at the PNG.
+- **Headless frontend E2E:** `JSDOM.fromURL` against a throwaway server with `runScripts: 'dangerously'`. jsdom has no `window.fetch` — bridge to Node's fetch resolving relative URLs; use a unique company name per run (subdomain UNIQUE).
+  - **jsdom has no pointer, so `:hover` never matches.** Anything reading `document.querySelector('…:hover')` (`hoveredTaskRow()`) needs `document.querySelector` temporarily swapped. Restore immediately.
+  - **An open inline-edit field kills every hover/keyboard gesture in the same test.** The digit branches early-return when focus is in an `INPUT`, so a headless run that renames something and then presses `3` silently does nothing and reads as a broken feature. Order the assertions so any test that opens a field comes last.
+  - **The `:hover` stub must answer for both targets.** A row-hover stub must explicitly return `null` for `.task-arrow:hover`, or the arrow branch (checked first) swallows the digit.
+  - **Top-level `let`/`const` in the page are NOT on `window`** — `w.tasks` is `undefined`. Function *declarations* are (`w.restoreSession()`, `w.getTodayKey()`). Re-fetch task state from the API.
+  - **jsdom has no `Element.scrollIntoView`**; `selectDay()` calls it on a 0ms timeout, so clicking a day card prints a `TypeError` after assertions pass. Stub it (`w.HTMLElement.prototype.scrollIntoView = () => {}`).
+  - **A task row's `textContent` starts with the circle and → arrow**, never the name. Find rows via `.task-description` and `.closest('.task-item')`.
+- **Testing anything that calls Anthropic:** copy `src/` and `public/` to a scratch dir, symlink `node_modules`, replace `src/ai.js` with a stub exporting the same surface (`generateSubtasks`, `researchSubtasks`, `triageCosts`, `takeUsage`, `COST_MIN_CONFIDENCE`). The server picks it up because it only `require('./ai')` lazily. This is how the two-phase research path was verified free, and a stub with a deliberate delay is the only way to test what happens *while* research runs.
+  - Keep the stub's fixture text stable across runs — four "failures" once were a stub that had renamed its tasks.
+- **Testing a schema migration:** build a DB with current code, `ALTER TABLE … DROP COLUMN` the new column, boot against it — a genuine pre-migration DB, the only way to prove a backfill produces the order users *see*. Boot twice to prove one-shot.
+  - To reach a signed-in board without the signup form: seed via fetch, set `localStorage['movealong.session'] = JSON.stringify({subdomain, slug, projectId})` (exact keys — `slug`, not `userSlug`), call `restoreSession()`, wait for render.
+
+### Seeding and page renders
+- **`POST /api/companies` does not create the first project** — the signup form does. A test seed must `POST .../projects` explicitly (body fields `companyName`/`userName`, not `name`/`user_name`), then read ids from `GET .../projects`.
+- **Rendering a fetch-dependent page for a look (dashboard, task page):** jsdom `fromURL` with `beforeParse` seeding `localStorage['movealong.session']` and bridging `w.fetch`, wait ~1.2s, strip `<script>`, write `outerHTML`, `qlmanage`. `DARK=1` seeding `movealong.theme` gives the dark render. `sips -c H W --cropOffset Y X` crops to the board.
+
+### XSS render test
+- A headless XSS render test recipe exists (jsdom, hostile payloads via API, assert inert render) — rerun it when touching render functions.

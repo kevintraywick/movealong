@@ -4432,7 +4432,7 @@
         const MAIL_ACTIONS = ['open', 'reply', 'forward', 'archive', 'delete', 'junk', 'unsubscribe', 'task'];
         const MAIL_LABEL = { open: 'Open', reply: 'Reply', forward: 'Forward', archive: 'Archive', delete: 'Delete', junk: 'Junk', unsubscribe: 'Unsubscribe', task: 'Make task' };
         const MAIL_TIP = {
-            open: 'Click to open the thread in Gmail.',
+            open: 'Click to open the email in Apple Mail (in Gmail on a phone, or before Tom has found it in Mail).',
             reply: 'Click to open Tom\u2019s reply draft. Nothing is sent until you send it.',
             forward: 'Click to open the thread in Gmail and forward it.',
             archive: 'Click to archive it. Tom does it on his next run.',
@@ -4538,10 +4538,11 @@
             if (all) {
                 const batch = items.filter(m => MAIL_BATCH.includes(m.action));
                 const left = items.length - batch.length;
+                const opens = batch.filter(m => m.action === 'open').length;
                 all.hidden = !batch.length;
                 all.style.bottom = barH + 'px';
                 all.style.height = gap + 'px';
-                all.innerHTML = `<button type="button" id="mailAllBtn" data-tip="${escapeHtml(`Take Tom’s suggestion on ${batch.length === 1 ? 'the' : 'all ' + batch.length} ${batch.length === 1 ? 'row' : 'rows'} marked ${[...new Set(batch.map(m => MAIL_LABEL[m.action] || m.action))].join(', ')}. Tom does them on his next run.`)}">accept ${batch.length === items.length && batch.length > 1 ? 'all ' : ''}${batch.length}</button>`
+                all.innerHTML = `<button type="button" id="mailAllBtn" data-tip="${escapeHtml(`Take Tom’s suggestion on ${batch.length === 1 ? 'the' : 'all ' + batch.length} ${batch.length === 1 ? 'row' : 'rows'} marked ${[...new Set(batch.map(m => MAIL_LABEL[m.action] || m.action))].join(', ')}.${opens > 1 ? ` The ${opens} to open come up together in one Gmail tab.` : ''} Tom does the rest on his next run.`)}">accept ${batch.length === items.length && batch.length > 1 ? 'all ' : ''}${batch.length}</button>`
                     + (left ? `<span>· ${left} to open yourself</span>` : '');
             }
             // The page scrolls far enough that nothing hides under the strip.
@@ -4553,19 +4554,41 @@
         // the popup blocker sees a user gesture.
         function openMailLink(link) {
             if (!link) return;
-            if (/^mailto:/i.test(link)) window.location.href = link;
+            if (/^(mailto|message):/i.test(link)) window.location.href = link;
             else window.open(link, '_blank', 'noopener');
         }
 
-        // What Accept all takes: the actions that need no page opened. Open,
-        // reply, forward and unsubscribe each open a tab, and a browser lets
-        // one click open one tab, so those rows stay for a click of their own.
-        const MAIL_BATCH = ['archive', 'delete', 'junk', 'task'];
+        // Open goes to Apple Mail when the row has its Message-ID (Kevin,
+        // 2026-10-01: his Gmail is in Mail). The Mac fills that in after each
+        // heartbeat (scripts/tom/mail-ids.mjs). A phone or iPad keeps Gmail:
+        // message:// is a Mac thing.
+        const onMac = /Macintosh/.test(navigator.userAgent) && !('ontouchend' in document);
+        const mailAppLink = (m) => onMac && m.message_id ? 'message://' + encodeURIComponent('<' + m.message_id + '>') : null;
+
+        // Several Open rows at once: one Gmail tab that lists just those
+        // emails, since a click may open only one tab. By Message-ID when the
+        // Mac has found it, else by sender and subject.
+        function gmailSearchLink(rows) {
+            const q = rows.map(m => m.message_id ? `rfc822msgid:${m.message_id}`
+                : `(from:${(m.sender_addr || '').replace(/[\s()"]/g, '')} subject:"${(m.subject || '').replace(/"/g, '').slice(0, 60)}")`).join(' OR ');
+            return 'https://mail.google.com/mail/u/0/#search/' + encodeURIComponent(q);
+        }
+
+        // What Accept all takes: the actions that need no page of their own.
+        // Open rows go too (2026-10-01): one Mail window for one, one Gmail
+        // search tab for several. Reply, forward and unsubscribe each open
+        // their own page, and a click may open only one, so those rows stay
+        // for a click of their own.
+        const MAIL_BATCH = ['archive', 'delete', 'junk', 'task', 'open'];
 
         async function acceptAllMail() {
             const btn = document.getElementById('mailAllBtn');
             const batch = ((inbox && inbox.items) || []).filter(m => MAIL_BATCH.includes(m.action));
             if (!batch.length) return;
+            // Opened first, while the click still counts as the user's.
+            const opens = batch.filter(m => m.action === 'open');
+            if (opens.length === 1) openMailLink(mailAppLink(opens[0]) || opens[0].view_url);
+            else if (opens.length) openMailLink(gmailSearchLink(opens));
             if (btn) btn.disabled = true;
             let done = 0, failed = 0;
             for (const m of batch) {
@@ -4593,7 +4616,8 @@
 
         async function runMailAction(m) {
             const a = m.action;
-            if (a === 'open' || a === 'forward') openMailLink(m.view_url);
+            if (a === 'open') openMailLink(mailAppLink(m) || m.view_url);
+            else if (a === 'forward') openMailLink(m.view_url);
             else if (a === 'reply') openMailLink(m.reply_link || m.view_url);
             else if (a === 'unsubscribe') openMailLink(m.unsubscribe_link || m.view_url);
             let taskId = null;

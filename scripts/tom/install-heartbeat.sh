@@ -27,7 +27,8 @@ cat > "$PLIST" <<EOF
   <key>Label</key><string>$LABEL</string>
   <key>ProgramArguments</key>
   <array><string>/bin/bash</string><string>$SCRIPT</string></array>
-  <key>StartInterval</key><integer>60</integer>
+  <!-- An empty calendar interval fires every minute, by the wall clock. StartInterval (60) stalled for good after the Mac slept on 2026-09-29: the job sat "pended" and never ran again, even after a reinstall. -->
+  <key>StartCalendarInterval</key><dict/>
   <key>EnvironmentVariables</key>
   <dict>
     <key>PATH</key><string>$HOME/.local/bin:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin</string>

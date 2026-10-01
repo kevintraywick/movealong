@@ -109,4 +109,6 @@ out=$("$CLAUDE" -p "$prompt" \
 code=$?
 # The reply is one summary line; keep the tail in case it rambled or failed.
 log "done ($code): $(printf '%s' "$out" | tail -n 5 | tr '\n' ' ' | cut -c1-600)"
+# Give the new rows their Message-IDs from Apple Mail, so Open opens in Mail.
+log "$(node "$(dirname "$0")/mail-ids.mjs" 2>&1 | tail -n 1 | cut -c1-300)"
 exit $code

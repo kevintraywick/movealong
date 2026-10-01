@@ -1375,7 +1375,7 @@ const INBOX_MAX_POST = 20;      // Claude may post more, so a handled row's slot
 const INBOX_SUGGEST_STREAK = 2; // same final action twice for a sender → suggest it
 const INBOX_AUTO_STREAK = 3;    // three times running, never corrected → Tom just does it
 const INBOX_AUTO_ACTIONS = ['archive', 'delete', 'junk'];   // never auto-reply, auto-forward
-const INBOX_COLS = 'id, thread_id, sender_name, sender_addr, subject, body, received_at, view_url, reply_link, unsubscribe_link, reason, suggested_action, action, overridden_action, suggested_attention, attention, overridden_attention, status, auto, queued_at, done_at, error, task_id, created_at';
+const INBOX_COLS = 'id, thread_id, sender_name, sender_addr, subject, body, received_at, view_url, reply_link, message_id, unsubscribe_link, reason, suggested_action, action, overridden_action, suggested_attention, attention, overridden_attention, status, auto, queued_at, done_at, error, task_id, created_at';
 const inboxRow = (r) => r && ({ ...r, attention: !!r.attention, suggested_attention: !!r.suggested_attention,
   overridden_action: !!r.overridden_action, overridden_attention: !!r.overridden_attention, auto: !!r.auto });
 
@@ -1509,7 +1509,8 @@ app.put('/api/companies/:subdomain/users/:slug/inbox', (req, res) => {
       received_at: str(it.received_at, 40),
       reason: str(it.reason, 300),
       view_url: cleanInboxLink(it.view_url, /^https:\/\//i),
-      reply_link: cleanInboxLink(it.reply_link, /^mailto:/i),
+      // Tom's Gmail draft (https) or, when he couldn't make one, a mailto:.
+      reply_link: cleanInboxLink(it.reply_link, /^(https:\/\/|mailto:)/i),
       unsubscribe_link: cleanInboxLink(it.unsubscribe_link, /^(https:\/\/|mailto:)/i)
     });
   }
@@ -1546,6 +1547,14 @@ app.put('/api/inbox-items/:id', (req, res) => {
   const row = queryOne('SELECT * FROM inbox_items WHERE id = ?', [req.params.id]);
   if (!row) return res.status(404).json({ error: 'Mail row not found' });
   const { action, attention } = req.body || {};
+  // The Message-ID header, filled in from the Mac by scripts/tom/mail-ids.mjs
+  // (the Gmail connector never shows it). The board's Open uses it to open
+  // the email in Apple Mail with a message:// link (Kevin, 2026-10-01).
+  if (req.body && req.body.message_id !== undefined) {
+    const mid = String(req.body.message_id || '').trim().replace(/^<|>$/g, '');
+    if (!/^[^<>\s]{3,400}$/.test(mid)) return res.status(400).json({ error: 'message_id must be a Message-ID header' });
+    runSql('UPDATE inbox_items SET message_id = ? WHERE id = ?', [mid, row.id]);
+  }
   if (action !== undefined) {
     if (!INBOX_ACTIONS.includes(action)) return res.status(400).json({ error: `action must be one of ${INBOX_ACTIONS.join(', ')}` });
     runSql('UPDATE inbox_items SET action = ?, overridden_action = ? WHERE id = ?', [action, action !== row.suggested_action ? 1 : 0, row.id]);

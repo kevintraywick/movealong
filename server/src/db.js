@@ -366,6 +366,7 @@ async function initDb() {
       received_at TEXT,
       view_url TEXT,
       reply_link TEXT,
+      message_id TEXT,
       unsubscribe_link TEXT,
       reason TEXT,
       suggested_action TEXT NOT NULL,
@@ -654,6 +655,8 @@ async function initDb() {
   // It is what lets the sender's pane say "Margo has it, not yet accepted"
   // without hunting for a task by matching description text.
   ensureColumn('subtasks', 'assigned_task_id', 'INTEGER REFERENCES tasks(id) ON DELETE SET NULL');
+  // The Message-ID header, so the mail strip's Open can use Apple Mail (2026-10-01).
+  ensureColumn('inbox_items', 'message_id', 'TEXT');
 
   // Pre-migration tasks never recorded their origin; the best available
   // approximation is wherever they sit now (their true origin is lost).
