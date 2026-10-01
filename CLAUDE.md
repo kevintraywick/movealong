@@ -35,7 +35,7 @@ Also: `reference/api-reference.md` (routes), `reference/data-model.md` (schema),
 ## Project Structure
 
 ```
-server/public/index.html     - Single-page frontend (vanilla JS); lists/goals/notes/help/task/brief/dashboard/preferences .html are one static file each
+server/public/index.html     - Single-page frontend (vanilla JS); lists/goals/notes/help/task/brief/dashboard/preferences .html are one static file each; nav.js is the header notes, dashboard, goals and lists share
 server/src/server.js         - Express API server
 server/src/db.js             - SQLite layer (sql.js, pure JS)
 server/src/ai.js             - Anthropic API client; drafts and researches subtasks

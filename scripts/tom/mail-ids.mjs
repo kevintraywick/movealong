@@ -25,7 +25,16 @@ const { MOVEALONG_URL: url, MOVEALONG_TEAM: team, MOVEALONG_USER: user, MOVEALON
 if (!url || !team || !user) { console.log('mail-ids: no board address in ~/.claude.json'); process.exit(0); }
 const headers = { 'content-type': 'application/json', ...(key ? { 'x-ai-key': key } : {}) };
 
-const version = existsSync(MAIL) ? readdirSync(MAIL).filter(d => /^V\d+$/.test(d)).sort((a, b) => a.slice(1) - b.slice(1)).pop() : null;
+// Under launchd, macOS privacy (TCC) blocks ~/Library/Mail until the node
+// binary has Full Disk Access; say so in the log instead of crashing.
+let version = null;
+try {
+  version = existsSync(MAIL) ? readdirSync(MAIL).filter(d => /^V\d+$/.test(d)).sort((a, b) => a.slice(1) - b.slice(1)).pop() : null;
+} catch (e) {
+  if (e.code !== 'EPERM') throw e;
+  console.log(`mail-ids: macOS blocks reading Apple Mail — give ${process.execPath} Full Disk Access (System Settings › Privacy & Security)`);
+  process.exit(0);
+}
 const index = version && join(MAIL, version, 'MailData/Envelope Index');
 if (!index || !existsSync(index)) { console.log('mail-ids: no Apple Mail index'); process.exit(0); }
 

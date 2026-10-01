@@ -37,9 +37,6 @@
             letter-spacing: -0.02em;
         }
         .wordmark span { color: #0ea5e9; }
-
-        .back-link { font-size: 12px; color: #0284c7; text-decoration: none; }
-        .back-link:hover { text-decoration: underline; }
         .page-meta { font-size: 12px; color: #64748b; margin-left: auto; }
         .page-meta b { color: #475569; font-weight: 600; }
 
@@ -244,13 +241,8 @@
     </style>
 </head>
 <body>
+    <script src="/nav.js"></script>
     <div class="page">
-        <div class="page-header">
-            <a class="wordmark" href="/">Move<span>It</span></a>
-            <a class="back-link" href="/">&larr; Back to your board</a>
-            <span class="page-meta" id="meta"></span>
-            <button class="theme-toggle" id="themeToggle" title="Switch theme">🌙</button>
-        </div>
 
         <p class="lede">Lists you keep. A list on the board can be moved here from its pane — it leaves the day it was written on. Send one to a day and you get a fresh copy; the list itself stays here for next time. Add something to a copy while you're using it and <b>Update “…”</b> at the bottom of its pane brings it back up here.</p>
 
@@ -522,7 +514,6 @@
         });
 
         load().then(() => {
-            document.getElementById('meta').innerHTML = sess ? `<b>${escapeHtml(sess.slug)}</b> · lists` : '';
         }).catch(err => showToast('Error: ' + err.message));
     </script>
 </body>

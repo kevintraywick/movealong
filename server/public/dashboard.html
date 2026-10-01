@@ -38,9 +38,6 @@
             letter-spacing: -0.02em;
         }
         .wordmark span { color: #0ea5e9; }
-
-        .back-link { font-size: 12px; color: #0284c7; text-decoration: none; }
-        .back-link:hover { text-decoration: underline; }
         .page-meta { font-size: 12px; color: #64748b; margin-left: auto; }
         .page-meta b { color: #475569; font-weight: 600; }
 
@@ -63,6 +60,8 @@
         .pane-total { font-size: 12px; color: #64748b; }
         .pane-total b { color: #0f172a; font-weight: 600; font-size: 13px; }
 
+        .pane-ratio { margin-left: auto; font-size: 12px; color: #64748b; }
+        .pane-ratio b { color: #0f172a; font-weight: 600; font-size: 13px; }
         .month-nav { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; }
         .month-nav button {
             width: 22px; height: 22px; border-radius: 50%; border: 1px solid #e2e8f0; background: #fff;
@@ -196,7 +195,7 @@
         body.dark { background: #0f172a; color: #e2e8f0; }
         body.dark .wordmark { color: #f1f5f9; }
         body.dark .pane { background: #1e293b; border-color: #334155; }
-        body.dark .pane-total b, body.dark .month-name, body.dark .pane-title { color: #f1f5f9; }
+        body.dark .pane-total b, body.dark .pane-ratio b, body.dark .month-name, body.dark .pane-title { color: #f1f5f9; }
         body.dark .theme-toggle, body.dark .month-nav button { background: #1e293b; border-color: #334155; color: #38bdf8; }
         body.dark .month-nav button:disabled { color: #475569; }
         body.dark .chart .grid { stroke: #334155; }
@@ -212,13 +211,8 @@
     </style>
 </head>
 <body>
+    <script src="/nav.js"></script>
     <div class="page">
-        <div class="page-header">
-            <a class="wordmark" href="/">Move<span>It</span></a>
-            <a class="back-link" href="/">&larr; Back to your board</a>
-            <span class="page-meta" id="meta"></span>
-            <button class="theme-toggle" id="themeToggle" title="Switch theme">🌙</button>
-        </div>
 
         <div class="pane" id="healthPane">
             <div class="pane-head">
@@ -255,6 +249,7 @@
             <div class="pane-head">
                 <span class="pane-title">Completed this month</span>
                 <span class="pane-total" id="total"></span>
+                <span class="pane-ratio" id="ratio"></span>
                 <div class="month-nav">
                     <button id="prevMonth" title="Previous month">&lsaquo;</button>
                     <span class="month-name" id="monthName"></span>
@@ -372,6 +367,13 @@
                 grand ? `<b>${grand}</b> ${grand === 1 ? 'task' : 'tasks'}` : '',
                 pushedTotal ? `<b>${pushedTotal}</b> pushed` : ''
             ].filter(Boolean).join(' · ');
+            // The month's score, centred in the bar: points earned out of 100 per
+            // task that came due (10 off per day late, nothing after 10).
+            const sc = d.score, ratio = document.getElementById('ratio');
+            ratio.innerHTML = sc && sc.due ? `<b>${sc.pct}</b> score` : '';
+            ratio.title = sc && sc.due
+                ? `Of ${sc.due} tasks due in ${monthLabel(d.month)}: ${sc.on_time} on time, ${sc.late} late, ${sc.expired} past 10 days late, ${sc.open} not done. Each is worth 100, minus 10 for every day it slipped.`
+                : '';
 
             const wrap = document.getElementById('chartWrap');
             const tip = document.getElementById('tip');
@@ -472,7 +474,6 @@
                 document.getElementById('pane').innerHTML = '<div class="page-error">No board is signed in on this browser. <a href="/">Open your board first.</a></div>';
                 return;
             }
-            document.getElementById('meta').innerHTML = `<b>${escapeHtml(sess.slug)}</b> · ${escapeHtml(sess.subdomain)}`;
             try {
                 data = await api(`/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}/completions${month ? '?month=' + month : ''}`);
                 month = data.month;

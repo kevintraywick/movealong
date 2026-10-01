@@ -1025,8 +1025,29 @@ app.get('/api/companies/:subdomain/users/:slug/completions', (req, res) => {
     pushed[r.day] = r.n;
   }
 
+  // Score (2026-10-01): of the tasks that came due this month (by origin_date,
+  // which never moves), each earns 100 points when done on its day, 10 fewer
+  // for every day it slipped, nothing after 10 days or while still open. Early
+  // doesn't earn extra. Shelved list masters don't count; calendar events do.
+  const dueRows = queryAll(`
+    SELECT completed, completed_at, origin_date FROM tasks
+    WHERE owner_id = ? AND COALESCE(shelved, 0) = 0
+      AND origin_date >= ? AND origin_date < ?
+      AND (origin_date <= ? OR completed = 1)
+  `, [user.id, month + '-01', addMonths(month + '-01', 1), today]);
+  const score = { due: dueRows.length, on_time: 0, late: 0, expired: 0, open: 0, points: 0, pct: null };
+  for (const r of dueRows) {
+    const doneDay = r.completed ? (r.completed_at ? dayOf(r.completed_at) : r.origin_date) : null;
+    if (!doneDay) { score.open++; continue; }
+    const late = Math.max(0, Math.round((Date.parse(doneDay) - Date.parse(r.origin_date)) / 86400000));
+    const pts = Math.max(0, 100 - 10 * late);
+    score.points += pts;
+    if (late === 0) score.on_time++; else if (pts > 0) score.late++; else score.expired++;
+  }
+  if (score.due) score.pct = Math.round(score.points / score.due);
+
   const daysInMonth = new Date(Date.UTC(+month.slice(0, 4), +month.slice(5, 7), 0)).getUTCDate();
-  res.json({ month, today, days_in_month: daysInMonth, projects: projectList, counts, pushed });
+  res.json({ month, today, days_in_month: daysInMonth, projects: projectList, counts, pushed, score });
 });
 
 // ---- Where you are: ZIP + time zone (2026-09-13) ----

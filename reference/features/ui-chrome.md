@@ -23,3 +23,10 @@
   - **The icon is an inline SVG, not 👻** — 👻 is white, so greying it was invisible in light mode. Stroke chrome icons in `currentColor`.
 - **Chain hint chip:** a dashed dismissible whisper ("Drag a task onto another…") in today's card when the board has 2+ pending tasks and no series (`shouldShowChainHint()`). `localStorage['movealong.hint.chain']` counts session appearances (once per session); retires after **3 sessions**, on dismiss (`'dismissed'`), or once a chain exists.
 - Accent is a **sky-blue ramp** (`#38bdf8` bright / `#0ea5e9` fills / `#0284c7` hover), tints `#f0f9ff`/`#bae6fd`. Replaced emerald green — never green. **Red (`#ef4444`) is reserved for semantic warning/overdue**, the one sanctioned exception.
+
+### The header on every page of your own (2026-10-01)
+- **Notes, Dashboard, Goals and Lists carry the board's header** (Kevin: "keep the nav bar on all sub pages … the way to get back to your board would be to click on the board at the top"). The "← Back to your board" links are gone.
+- **`public/nav.js`** is the one shared file: loaded as the first thing in `<body>`, it writes the header synchronously and injects its own CSS. Everything is namespaced `.mi-nav` so each page's leftover `.theme-toggle`/`.btn` rules can't bleed in. Its theme button keeps **`id="themeToggle"`**, so each page's existing theme script wires it unchanged.
+- It holds the wordmark (→ `/`), the four page icons (the current one lit like an active board tab; the notes dot works here too), the board tabs, the theme toggle, `you · team`, and `?`. **A tab sets `movealong.session.projectId` and goes to `/`**, so the board opens on that board.
+- **Board-only controls stay on the board**: `+`, the 🧠 🔎 📅 switches, focus, the view toggle, the account popup. `#notesLink { margin-left: auto }` floats the middle group, as on the board.
+- **The header CSS is a copy of `index.html`'s `.app-header` rules.** Change one, change the other. `brief.html`, `preferences.html`, `task.html` and `help.html` don't carry it.
