@@ -5841,8 +5841,35 @@
         // The preferences page saves from its own tab. Coming back to this
         // one re-reads the board flags, so a flipped switch shows at once.
         document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible' && currentUser) refreshProjectDueFlags();
+            if (document.visibilityState === 'visible' && currentUser) { refreshProjectDueFlags(); syncBoard(); }
         });
+
+        // Phone and Mac share one server but not a live link (Kevin, 2026-10-02).
+        // Coming back to the tab, and once a minute while it's showing, the board
+        // re-reads its tasks quietly and repaints only if they changed. It never
+        // repaints under your hands: not while you're typing, dragging, or a
+        // draft is being written, and not on the other views.
+        async function syncBoard() {
+            if (!currentUser || document.visibilityState !== 'visible' || viewMode !== 'calendar') return;
+            const a = document.activeElement, tag = a && a.tagName;
+            if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || (a && a.isContentEditable)) return;
+            if (draggedTaskId !== null || generatingSubtasksFor) return;
+            const asked = currentProject && currentProject.id;
+            try {
+                let endpoint = `/companies/${company.subdomain}/users/${currentUser.slug}/tasks`;
+                if (currentProject) endpoint += `?project_id=${currentProject.id}`;
+                const fresh = await api(endpoint);
+                // The board moved on while the read was out: drop it.
+                if ((currentProject && currentProject.id) !== asked || viewMode !== 'calendar') return;
+                const active = document.activeElement, atag = active && active.tagName;
+                if (atag === 'INPUT' || atag === 'TEXTAREA' || draggedTaskId !== null) return;
+                if (JSON.stringify(fresh) === JSON.stringify(tasks)) return;
+                tasks = fresh;
+                noteListMasters(tasks);
+                renderView();
+            } catch (e) { /* the next visit tries again */ }
+        }
+        setInterval(syncBoard, 60000);
 
         function renderDoneRow(task) {
             const by = task.completed_by_name && task.completed_by !== currentUser.id

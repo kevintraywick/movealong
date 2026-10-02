@@ -22,3 +22,5 @@
 
 ### Master Project Page
 - Each username has a master page listing all projects (button labelled **"List"** since 2026-08-05; internally still `master`). Tasks grouped by project, one pane per project with all open, unassigned tasks. Assigned tasks are removed from both the day pane and the master page.
+
+- **Phone/Mac sync (2026-10-02).** `syncBoard()` in `index.html` re-reads the board's tasks when the tab becomes visible and every 60s while visible, and repaints only if the JSON changed. It skips (and drops a read that returns late) when you're typing in a field, dragging, a draft is generating, the board switched, or the view isn't the day calendar. It does **not** reload an open pane's subtasks, and it isn't live push — a minute's lag at worst. Verified in jsdom: a task added over the API stayed hidden while the add-task input had focus and appeared on the next visibility event after blur.
