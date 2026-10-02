@@ -4320,7 +4320,7 @@
             return `<div class="briefing-market" title="Your Stocks list on the Lists page, while the market is open. Prices can lag a few minutes.">${cells}</div>`;
         }
         // The sprint check-in: day N of M, one question about yesterday, the
-        // last seven days as dots, this week's deliverable. Board data, no
+        // last seven days as dots (the deliverable stays on /goals). Board data, no
         // assistant. Answering writes sprint_days through PUT .../days/:day.
         function renderBriefingSprint(sp) {
             if (!sp) return '';
@@ -4336,7 +4336,6 @@
                 <div class="briefing-sprint-title">${escapeHtml(sp.title)}</div>
                 <div class="briefing-sprint-ask"><span class="q${yd == null ? '' : ' answered'}">${yd == null ? 'Touched it yesterday?' : 'Yesterday:'}</span><button class="briefing-sprint-btn${yd === true ? ' on' : ''}" data-touched="1" title="Yes — I worked on the sprint yesterday">yes</button><button class="briefing-sprint-btn no${yd === false ? ' on' : ''}" data-touched="0" title="No — an honest no beats a quiet slip">no</button></div>
                 <div class="briefing-sprint-week" title="The last seven days — orange is a day you touched it">${dots}<span class="briefing-sprint-stat" title="${sp.streak ? `${sp.streak} days in a row · ` : ''}${sp.touched} of ${sp.asked} logged days touched">${sp.streak ? `${sp.streak} in a row · ` : ''}${sp.touched}/${sp.asked}</span></div>
-                ${sp.this_week ? `<div class="briefing-sprint-line"><b>This week:</b> ${linkifyText(sp.this_week)}</div>` : (sp.deliverable ? `<div class="briefing-sprint-line"><b>Deliverable:</b> ${linkifyText(sp.deliverable)}</div>` : '')}
                 ${sp.review_due ? `<div class="briefing-sprint-line"><b>Friday:</b> <a href="/goals#review">write the week's review ↗</a></div>` : ''}
             </div>`;
         }

@@ -334,7 +334,7 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
 
   server.registerTool('add_sprint_review', {
     title: 'Write the Friday review',
-    description: 'Save the week\'s review on the active sprint: what shipped and next week\'s deliverable (which the board shows every morning). week_ending defaults to this week\'s Friday. Replaces that week\'s review wholesale.',
+    description: 'Save the week\'s review on the active sprint: what shipped and next week\'s deliverable (kept on /goals; the morning brief no longer shows it). week_ending defaults to this week\'s Friday. Replaces that week\'s review wholesale.',
     inputSchema: {
       week_ending: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
       shipped: z.string().max(1000).optional(),
@@ -503,7 +503,7 @@ export const BRIEFING_RECIPE = `Build my morning briefing and post it to the Mov
    - Oldest unanswered open question from get_brief. One line, the question itself.
    - A money deadline coming up in the next few days (bills, payment plans) - surface it ahead of time, not on the day.
    - Trip countdown with prep status for any trip named in my brief or on my calendar, e.g. "<city> in 4 days - packing list not started".
-   - The sprint: the board shows its own check-in (day N of M, yesterday yes/no, this week's deliverable) — do NOT repeat it. Post a sprint nudge only when get_goals shows something the check-in can't say: yesterday is still unanswered by the time you run AND the streak just broke; the deliverable is due this week and the last three days were "no"; the sprint has ended and nobody closed it; or it's Friday and review_due is true ("Friday review — 20 minutes, /goals"). One honest line, kind "board".
+   - The sprint: the board shows its own check-in (day N of M, yesterday yes/no) — do NOT repeat it. Post a sprint nudge only when get_goals shows something the check-in can't say: yesterday is still unanswered by the time you run AND the streak just broke; the last three days were "no"; the sprint has ended and nobody closed it; or it's Friday and review_due is true ("Friday review — 20 minutes, /goals"). One honest line, kind "board".
 
 8. Health (kind "health") - at most 2, only when triggered:
    - Steps under my daily step target (from my brief; 8,000 if it doesn't say), or a gap in the step log ("no steps logged for yesterday - say the number and I'll log it").

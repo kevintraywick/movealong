@@ -521,7 +521,7 @@
                     <div class="review-head"><b>Week ending ${escapeHtml(fmtDay(wk, { weekday: 'short', month: 'short', day: 'numeric' }))}</b>${due ? '<span class="due">due — twenty minutes</span>' : ''}${cur ? `<span class="when">saved ${escapeHtml(new Date(cur.updated_at.includes('T') ? cur.updated_at : cur.updated_at.replace(' ', 'T') + 'Z').toLocaleDateString(undefined, { weekday: 'short', hour: 'numeric', minute: '2-digit' }))}</span>` : ''}</div>
                     <div class="grid2">
                         <div class="field"><label for="rvShipped">What shipped</label><textarea id="rvShipped" placeholder="Only things that exist now and didn't on Monday">${escapeHtml(cur ? cur.shipped || '' : '')}</textarea></div>
-                        <div class="field"><label for="rvNext">Next week's deliverable</label><textarea id="rvNext" placeholder="One thing. It shows on the board every morning.">${escapeHtml(cur ? cur.next_week || '' : '')}</textarea></div>
+                        <div class="field"><label for="rvNext">Next week's deliverable</label><textarea id="rvNext" placeholder="One thing for next week.">${escapeHtml(cur ? cur.next_week || '' : '')}</textarea></div>
                     </div>
                 </div>
                 ${past.map(r => `<div class="review-week"><div class="review-head"><b>Week ending ${escapeHtml(fmtDay(r.week_ending, { month: 'short', day: 'numeric' }))}</b></div><div class="review-text">${r.shipped ? `<b>Shipped</b>${escapeHtml(r.shipped)}` : ''}${r.next_week ? `<b>Next</b>${escapeHtml(r.next_week)}` : ''}</div></div>`).join('')}`;
