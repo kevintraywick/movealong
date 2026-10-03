@@ -30,3 +30,5 @@
 - It holds the wordmark (→ `/`), the four page icons (the current one lit like an active board tab; the notes dot works here too), the board tabs, the theme toggle, `you · team`, and `?`. **A tab sets `movealong.session.projectId` and goes to `/`**, so the board opens on that board.
 - **Board-only controls stay on the board**: `+`, the 🧠 🔎 switches, focus, the view toggle, the account popup. `#notesLink { margin-left: auto }` floats the middle group, as on the board.
 - **The header CSS is a copy of `index.html`'s `.app-header` rules.** Change one, change the other. `brief.html`, `preferences.html`, `task.html` and `help.html` don't carry it.
+
+- **Boards, a grey dot, then the pages (2026-10-02, Kevin).** The middle group of the header now reads `boards · dot · notes dashboard goals lists`, on the board (`#projectTabs`, `.nav-dot`) and in `nav.js` (`#miTabs`, `.mi-dot`). The float is the boards' `margin-left: auto` plus `#listsLink`'s `margin-right: auto` (it used to be `#notesLink`'s left margin and the tabs' right one). Dot: 4px, `#cbd5e1` / `#475569` dark. Verified through WebKit on the board.

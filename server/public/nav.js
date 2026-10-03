@@ -45,7 +45,8 @@
             display: flex; align-items: center; justify-content: center; text-decoration: none;
             transition: all 0.2s; position: relative; margin-right: 4px;
         }
-        .mi-nav #notesLink { margin-left: auto; }   /* floats the middle group, as on the board */
+        .mi-nav .mi-dot { width: 4px; height: 4px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; margin: 0 4px; }
+        .mi-nav #listsLink { margin-right: auto; }   /* the boards' margin-left:auto and this float the middle group, as on the board */
         .mi-nav .mi-icon:hover { background: #f0f9ff; color: #0ea5e9; border-color: #bae6fd; }
         /* The page you're on, lit the way the board's own tab is. */
         .mi-nav .mi-icon.here { background: #f0f9ff; border-color: #38bdf8; }
@@ -57,7 +58,7 @@
             content: ''; position: absolute; top: 3px; right: 3px;
             width: 6px; height: 6px; border-radius: 50%; background: #0ea5e9;
         }
-        .mi-nav .mi-tabs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-right: auto; margin-left: 10px; }
+        .mi-nav .mi-tabs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-left: auto; }
         .mi-nav .mi-tab {
             padding: 3px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; text-decoration: none;
             border: 1px solid #e2e8f0; background: #ffffff; color: #475569; cursor: pointer;
@@ -80,6 +81,7 @@
         .mi-nav .mi-help:hover { background: #0284c7; box-shadow: 0 1px 4px rgba(14, 165, 233, 0.4); }
         body.dark .mi-nav { background: rgba(15, 23, 42, 0.85); border-bottom-color: #1e293b; }
         body.dark .mi-nav .mi-logo { color: #f1f5f9; }
+        body.dark .mi-nav .mi-dot { background: #475569; }
         body.dark .mi-nav .mi-icon { color: #38bdf8; border-color: #334155; }
         body.dark .mi-nav .mi-icon:hover { background: rgba(14, 165, 233, 0.12); border-color: #0284c7; }
         body.dark .mi-nav .mi-icon.here { background: rgba(14, 165, 233, 0.15); border-color: #38bdf8; }
@@ -100,8 +102,9 @@
     document.currentScript.insertAdjacentHTML('beforebegin', `
         <header class="app-header mi-nav">
             <a class="mi-logo" href="/" title="Back to your board">Move<span>It</span></a>
-            ${icons}
             <div class="mi-tabs" id="miTabs"></div>
+            <span class="mi-dot" aria-hidden="true"></span>
+            ${icons}
             <button class="mi-theme" id="themeToggle" title="Switch theme" aria-label="Switch between light and dark mode">🌙</button>
             <span class="mi-who" id="miWho"></span>
             <a class="mi-help" href="/help" target="_blank" rel="noopener" title="Help — features, gestures, and running your own copy" aria-label="Help">?</a>
