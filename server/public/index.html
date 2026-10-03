@@ -971,46 +971,6 @@
             color: #94a3b8;
         }
 
-        /* Connect form inside the shared popup box. */
-        .cal-popup-form {
-            padding: 8px 10px 4px;
-            max-width: 250px;
-        }
-
-        .cal-popup-form input {
-            width: 100%;
-            box-sizing: border-box;
-            padding: 6px 8px;
-            border: 1px solid #e2e8f0;
-            border-radius: 5px;
-            font-size: 12px;
-            font-family: inherit;
-            color: #0f172a;
-            background: #fff;
-        }
-
-        .cal-note {
-            margin-top: 6px;
-            font-size: 11px;
-            line-height: 1.35;
-            color: #94a3b8;
-        }
-
-        .cal-note.warn {
-            color: #b45309;
-        }
-
-        .cal-status {
-            padding: 2px 10px 6px;
-            font-size: 11px;
-            color: #94a3b8;
-            max-width: 250px;
-        }
-
-        .cal-status.error {
-            color: #ef4444;
-        }
-
         /* Series: drag a task onto another to chain them. */
         .task-item.drop-target {
             outline: 2px dashed #38bdf8;
@@ -3187,10 +3147,6 @@
         body.dark .ev-line.done .ev-title { color: #64748b; }
         /* Beats the light .task-item.calendar .task-description compound (0,3,0). */
         body.dark .task-item.calendar .task-description { color: #cbd5e1; }
-        body.dark .cal-popup-form input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
-        body.dark .cal-note { color: #64748b; }
-        body.dark .cal-note.warn { color: #fbbf24; }
-        body.dark .cal-status { color: #64748b; }
         body.dark .hint-chip {
             background: rgba(14, 165, 233, 0.08);
             border-color: rgba(14, 165, 233, 0.3);
@@ -3554,10 +3510,6 @@
                 <button class="assistant-toggle" id="researchToggleBtn" role="switch" aria-checked="false" aria-label="Toggle AI research">&#128269;</button>
             </div>
 
-            <div class="assistant-switch" id="calendarSwitch" title="Calendar — import the next two weeks of events from your calendar onto the board">
-                <button class="assistant-toggle" id="calendarToggleBtn" role="switch" aria-checked="false" aria-label="Toggle calendar import">&#128197;</button>
-            </div>
-
             <!-- Three pages of your own: the notes you sent yourself, what
                  you've completed this month, and the lists you keep. They sit just
                  left of the boards (2026-09-16); #notesLink's margin-left:auto
@@ -3630,7 +3582,6 @@
         </div>
 
         <div class="team-popup lock-popup" id="accountPopup"></div>
-        <div class="team-popup lock-popup" id="calendarPopup"></div>
         <div class="team-popup lock-popup" id="lockPopup">
         </div>
 
@@ -8604,152 +8555,6 @@
         renderAssistantToggle();
 
         // ============================================
-        // CALENDAR IMPORT (📅 toggle)
-        // ============================================
-        // Unlike the assistant switch, this state lives server-side on
-        // calendar_feeds — the sync is server work, and the feed URL must never
-        // touch localStorage (it is a bearer credential for the whole calendar).
-        let calendarState = { connected: false, enabled: false };
-
-        function calendarBase() {
-            return `/companies/${company.subdomain}/users/${currentUser.slug}/calendar`;
-        }
-
-        function renderCalendarToggle() {
-            const btn = document.getElementById('calendarToggleBtn');
-            if (!btn) return;
-            // On when the feed is on, or when Claude has posted events through
-            // the Google Calendar connector (the second path, no feed needed).
-            const on = !!((calendarState.connected && calendarState.enabled) || calendarState.connector_count);
-            btn.classList.toggle('on', on);
-            btn.setAttribute('aria-checked', on ? 'true' : 'false');
-        }
-
-        async function loadCalendarStatus() {
-            if (!isSignedUp) return;
-            try {
-                calendarState = await api(calendarBase());
-            } catch (err) {
-                calendarState = { connected: false, enabled: false };
-            }
-            renderCalendarToggle();
-        }
-
-        function relativeSince(iso) {
-            if (!iso) return 'never';
-            const mins = Math.floor((Date.now() - Date.parse(iso)) / 60000);
-            if (!isFinite(mins) || mins < 0) return 'just now';
-            if (mins < 1) return 'just now';
-            if (mins < 60) return `${mins} min ago`;
-            const hrs = Math.floor(mins / 60);
-            if (hrs < 24) return `${hrs} hr ago`;
-            return `${Math.floor(hrs / 24)} d ago`;
-        }
-
-        function showCalendarPopup() {
-            if (!isSignedUp) return;
-            const popup = document.getElementById('calendarPopup');
-            const anchor = document.getElementById('calendarSwitch');
-
-            const viaClaude = calendarState.connector_count
-                ? `<div class="cal-status">${calendarState.connector_count} events from your Claude (Google Calendar connector) · posted ${relativeSince(calendarState.connector_posted_at)}. Say “put my calendar on the board” to refresh them.</div>`
-                : '';
-            if (!calendarState.connected) {
-                popup.innerHTML = `
-                    <div class="lock-popup-menu">
-                        <div class="lock-popup-title">Connect a calendar <span class="beta-tag">Beta</span></div>
-                        ${viaClaude}
-                        <div class="cal-popup-form">
-                            <input type="text" id="calUrlInput" placeholder="Paste your secret iCal URL" autocomplete="off" spellcheck="false">
-                            <div class="cal-note">Google, Proton, iCloud and Outlook each publish a private iCal address in their calendar settings.</div>
-                            <div class="cal-note warn">Anyone who can open your board will see these event titles — this app has no password.</div>
-                        </div>
-                        <div class="lock-opt" data-act="connect">Connect</div>
-                    </div>`;
-            } else {
-                const err = calendarState.last_status === 'error'
-                    ? `<div class="cal-status error">Last sync failed: ${escapeHtml(calendarState.last_error || 'unknown error')}</div>`
-                    : '';
-                popup.innerHTML = `
-                    <div class="lock-popup-menu">
-                        <div class="lock-popup-title">Calendar <span class="beta-tag">Beta</span></div>
-                        <div class="cal-status">${escapeHtml(calendarState.url_masked || '')}<br>
-                            ${calendarState.event_count || 0} events · synced ${relativeSince(calendarState.last_synced_at)}</div>
-                        ${err}
-                        ${viaClaude}
-                        <div class="lock-opt" data-act="sync">Sync now</div>
-                        <div class="lock-opt" data-act="toggle">${calendarState.enabled ? 'Turn off' : 'Turn on'}</div>
-                        <div class="lock-opt danger" data-act="disconnect">Disconnect</div>
-                    </div>`;
-            }
-
-            const rect = anchor.getBoundingClientRect();
-            popup.style.left = 'auto';
-            popup.style.right = Math.max(8, window.innerWidth - rect.right) + 'px';
-            popup.style.top = (rect.bottom + 5) + 'px';
-            popup.classList.add('visible');
-            document.addEventListener('click', hidePopupsOnClickOutside);
-
-            const input = popup.querySelector('#calUrlInput');
-            // Safari ignores focus() inside a visibility:hidden subtree, so defer it.
-            if (input) setTimeout(() => input.focus(), 50);
-
-            popup.querySelectorAll('.lock-opt').forEach(opt => {
-                opt.addEventListener('click', () => handleCalendarAction(opt.dataset.act, popup));
-            });
-            if (input) {
-                input.addEventListener('keypress', (e) => {
-                    if (e.key === 'Enter') { e.preventDefault(); handleCalendarAction('connect', popup); }
-                });
-            }
-        }
-
-        async function handleCalendarAction(act, popup) {
-            const base = calendarBase();
-            try {
-                if (act === 'connect') {
-                    const url = (popup.querySelector('#calUrlInput') || {}).value || '';
-                    if (!url.trim()) { showToast('Paste your calendar URL first'); return; }
-                    showToast('Connecting…');
-                    calendarState = await api(base, {
-                        method: 'PUT',
-                        body: { url: url.trim() }
-                    });
-                    showToast(`Calendar connected — ${calendarState.event_count || 0} events`);
-                } else if (act === 'sync') {
-                    showToast('Syncing…');
-                    calendarState = await api(base + '/sync', { method: 'POST' });
-                    showToast(`Synced — ${calendarState.event_count || 0} events`);
-                } else if (act === 'toggle') {
-                    calendarState = await api(base, { method: 'PUT', body: { enabled: !calendarState.enabled } });
-                    showToast(calendarState.enabled ? 'Calendar on' : 'Calendar off');
-                } else if (act === 'disconnect') {
-                    if (!confirm('Disconnect your calendar? Imported events will be removed from the board.')) return;
-                    calendarState = await api(base, { method: 'DELETE' });
-                    showToast('Calendar disconnected');
-                }
-            } catch (err) {
-                showToast(err.message || 'Calendar action failed');
-                await loadCalendarStatus();
-                return;
-            }
-            hidePopups();
-            renderCalendarToggle();
-            await loadTasks();
-            renderView();
-        }
-
-        document.getElementById('calendarSwitch').addEventListener('click', async (e) => {
-            if (!isSignedUp) { showToast('Sign in first'); return; }
-            e.stopPropagation();
-            // With the pill gone there is nothing to split the click between,
-            // so it always opens the menu — which already carries Turn on /
-            // Turn off alongside Sync and Disconnect. Toggling straight from
-            // the icon would have made Disconnect unreachable.
-            showCalendarPopup();
-        });
-
-        // ============================================
         // THEME (dark / light)
         // ============================================
         const THEME_KEY = 'movealong.theme';
@@ -8806,7 +8611,6 @@
             document.getElementById('teamPopup').classList.remove('visible');
             document.getElementById('lockPopup').classList.remove('visible');
             document.getElementById('accountPopup').classList.remove('visible');
-            document.getElementById('calendarPopup').classList.remove('visible');
             document.removeEventListener('click', hidePopupsOnClickOutside);
         }
 
@@ -8817,7 +8621,6 @@
                 !e.target.closest('.task-lock') &&
                 !e.target.closest('.header-display') &&
                 !e.target.closest('.project-tab') &&
-                !e.target.closest('#calendarSwitch') &&
                 !e.target.closest('.modal')) {
                 hidePopups();
             }
@@ -8869,7 +8672,6 @@
                 await loadUsers();
                 renderProjectBar();
                 renderBoard();
-                loadCalendarStatus();
             } catch (err) {
                 console.error('Failed to restore session:', err);
                 clearSession();

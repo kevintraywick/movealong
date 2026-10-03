@@ -49,6 +49,22 @@
         .pref input:focus { border-color: #0ea5e9; }
         .pref-note { font-size: 12px; color: #64748b; line-height: 1.5; margin-top: 8px; }
         .pref-note b { color: #f59e0b; font-weight: 600; }
+        .cal-line { font-size: 12px; color: #64748b; line-height: 1.5; margin: 2px 0; }
+        .cal-line.error { color: #ef4444; }
+        .cal-form { display: flex; gap: 8px; margin-top: 4px; }
+        .cal-form input[type=text] {
+            flex: 1; min-width: 0; width: auto; text-align: left; padding: 5px 8px; font: inherit;
+            border: 1px solid #e2e8f0; border-radius: 6px; background: #ffffff; color: inherit; outline: none;
+        }
+        .cal-form input[type=text]:focus { border-color: #0ea5e9; }
+        .cal-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+        .cal-btn {
+            font: inherit; font-size: 12px; padding: 4px 12px; border-radius: 6px; cursor: pointer;
+            border: 1px solid #e2e8f0; background: #ffffff; color: #0284c7;
+        }
+        .cal-btn:hover { border-color: #bae6fd; background: #f0f9ff; }
+        .cal-btn.danger { color: #ef4444; margin-left: auto; }
+        .beta-tag { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; color: #b45309; background: #fef3c7; border-radius: 4px; padding: 1px 5px; }
         .page-error { text-align: center; color: #64748b; padding: 48px 0; }
 
         body.dark { background: #0f172a; color: #e2e8f0; }
@@ -58,6 +74,12 @@
         body.dark .pane { background: #1e293b; border-color: #334155; }
         body.dark .pref input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
         body.dark .pref input:focus { border-color: #0ea5e9; }
+        body.dark .cal-line { color: #94a3b8; }
+        body.dark .cal-form input[type=text] { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+        body.dark .cal-btn { background: #1e293b; border-color: #334155; color: #38bdf8; }
+        body.dark .cal-btn:hover { background: rgba(14, 165, 233, 0.12); }
+        body.dark .cal-btn.danger { color: #f87171; }
+        body.dark .beta-tag { background: #451a03; color: #fbbf24; }
         body.dark .save-state { color: #475569; }
         body.dark .save-state.saved { color: #38bdf8; }
 
@@ -139,6 +161,14 @@
                         <span id="zipPlace" style="color:#64748b;font-size:12px">wherever this device is</span>
                     </div>
                     <div class="pref-note">This is about <b>you</b>, not this board — it follows you to every board. There's nothing to set: the weather follows this device's location (the board asks the browser each time it opens), and the time zone follows your Mac's.</div>
+                </div>
+
+                <div class="pane" id="calPane"${sess && sess.slug ? '' : ' hidden'}>
+                    <div class="pane-title"><span>Calendar <span class="beta-tag">Beta</span></span>
+                        <span class="save-state" id="calState"></span>
+                    </div>
+                    <div id="calBody"><div class="cal-line">Loading&hellip;</div></div>
+                    <div class="pref-note">This is about <b>you</b>, not this board — imported events show on every board. Events reach the board two ways: a secret iCal address pasted here (checked every 15 minutes), and Claude through your Google Calendar connector, which Tom refreshes on his heartbeat.</div>
                 </div>`;
 
             // ---- Where you are (user-level, autosave) ----
@@ -146,6 +176,74 @@
                 const placeEl = document.getElementById('zipPlace');
                 const base = `/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}/settings`;
                 api(base).then(st => { if (st.place) placeEl.textContent = st.place + ' (last seen)'; }).catch(() => {});
+            }
+
+            // ---- Calendar (user-level; moved here from the board's header, 2026-10-02) ----
+            if (sess && sess.slug) {
+                const base = `/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}/calendar`;
+                const body = document.getElementById('calBody');
+                const calState = document.getElementById('calState');
+                let cal = { connected: false, enabled: false };
+                const since = (iso) => {
+                    if (!iso) return 'never';
+                    const mins = Math.floor((Date.now() - Date.parse(iso)) / 60000);
+                    if (!isFinite(mins) || mins < 1) return 'just now';
+                    if (mins < 60) return `${mins} min ago`;
+                    const hrs = Math.floor(mins / 60);
+                    return hrs < 24 ? `${hrs} hr ago` : `${Math.floor(hrs / 24)} d ago`;
+                };
+                const drawCal = () => {
+                    const via = cal.connector_count
+                        ? `<div class="cal-line">${cal.connector_count} events from your Claude (Google Calendar connector) · posted ${since(cal.connector_posted_at)}. Say “put my calendar on the board” to refresh them.</div>` : '';
+                    if (!cal.connected) {
+                        body.innerHTML = `${via}
+                            <div class="cal-line">Not connected. Google, Proton, iCloud and Outlook each publish a private iCal address in their calendar settings.</div>
+                            <div class="cal-form"><input type="text" id="calUrl" placeholder="Paste your secret iCal URL" autocomplete="off" spellcheck="false"><button class="cal-btn" data-act="connect">Connect</button></div>
+                            <div class="cal-line" style="color:#b45309">Anyone who can open your board will see these event titles — this app has no password.</div>`;
+                    } else {
+                        const err = cal.last_status === 'error' ? `<div class="cal-line error">Last sync failed: ${escapeHtml(cal.last_error || 'unknown error')}</div>` : '';
+                        body.innerHTML = `<div class="cal-line">${escapeHtml(cal.url_masked || '')} · <b>${cal.enabled ? 'on' : 'off'}</b><br>${cal.event_count || 0} events · synced ${since(cal.last_synced_at)}</div>
+                            ${err}${via}
+                            <div class="cal-actions">
+                                <button class="cal-btn" data-act="sync">Sync now</button>
+                                <button class="cal-btn" data-act="toggle">${cal.enabled ? 'Turn off' : 'Turn on'}</button>
+                                <button class="cal-btn danger" data-act="disconnect">Disconnect</button>
+                            </div>`;
+                    }
+                };
+                const say = (t, bad) => { calState.textContent = t; calState.className = 'save-state ' + (bad ? 'error' : 'saved'); };
+                const loadCal = () => api(base).then(c => { cal = c; drawCal(); }).catch(() => { cal = { connected: false, enabled: false }; drawCal(); });
+                body.addEventListener('click', async (e) => {
+                    const btn = e.target.closest('[data-act]');
+                    if (!btn) return;
+                    const act = btn.dataset.act;
+                    try {
+                        if (act === 'connect') {
+                            const url = (document.getElementById('calUrl') || {}).value || '';
+                            if (!url.trim()) { say('Paste your calendar URL first', true); return; }
+                            say('Connecting…');
+                            cal = await api(base, { method: 'PUT', body: { url: url.trim() } });
+                            say(`connected — ${cal.event_count || 0} events`);
+                        } else if (act === 'sync') {
+                            say('Syncing…');
+                            cal = await api(base + '/sync', { method: 'POST' });
+                            say(`synced — ${cal.event_count || 0} events`);
+                        } else if (act === 'toggle') {
+                            cal = await api(base, { method: 'PUT', body: { enabled: !cal.enabled } });
+                            say(cal.enabled ? 'on' : 'off');
+                        } else if (act === 'disconnect') {
+                            if (!confirm('Disconnect your calendar? Imported events will be removed from the board.')) return;
+                            cal = await api(base, { method: 'DELETE' });
+                            say('disconnected');
+                        }
+                        drawCal();
+                    } catch (err) {
+                        say(err.message || 'Calendar action failed', true);
+                        loadCal();
+                    }
+                });
+                body.addEventListener('keydown', (e) => { if (e.key === 'Enter' && e.target.id === 'calUrl') { e.preventDefault(); body.querySelector('[data-act=connect]').click(); } });
+                loadCal();
             }
 
             const input = document.getElementById('autolockInput');

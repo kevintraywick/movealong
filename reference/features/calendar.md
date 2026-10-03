@@ -23,3 +23,5 @@
 - `docs/animation/build.js` **strips `.beta-badge` spans from a scene's title** before slugifying.
 - **The feed URL is a bearer credential.** Stored server-side, returned masked, never in localStorage. SSRF surface: https only, private/loopback/link-local rejected, 10s timeout, 5 MB cap, 500-event cap.
 - Calendar rows are **absent from the List view** (filters `t.project_id = ?`). Intended.
+
+- **The 📅 header icon is gone (2026-10-02).** Tom's heartbeat keeps events fresh, so the icon was nearly always idle. Its popup (connect / sync now / turn on-off / disconnect / last error / connector status) is now the **Calendar pane on the preferences page** (`preferences.html`, user-level like "Where you are", reached from the board tab's menu › Preferences). Same routes (`GET|PUT|DELETE .../calendar`, `POST .../calendar/sync`). The board no longer loads calendar status; the Calendar section of help.html points at Preferences.
