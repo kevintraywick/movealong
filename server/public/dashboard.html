@@ -129,8 +129,11 @@
         .entry .day-nav button:hover { border-color: #bae6fd; }
         .entry .day-nav button:disabled { color: #cbd5e1; cursor: default; }
         .entry .day-nav input[type=date] { font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 4px; background: #fff; color: #0f172a; font-family: inherit; width: 122px; }
-        .entry .day-word { font-size: 11px; color: #64748b; }
-        .entry .day-word b { color: #0284c7; font-weight: 600; }
+        .entry .day-nav { position: relative; }
+        .entry .day-label { font-size: 12px; font-weight: 600; color: #0284c7; min-width: 44px; text-align: center; cursor: pointer; padding: 3px 2px; border-radius: 6px; }
+        .entry .day-label:hover { background: #f0f9ff; }
+        /* The real date field stays (the picker, the max) but the label is what you see. */
+        .entry .day-nav input[type=date].day-pick { position: absolute; left: 22px; bottom: 0; width: 1px; height: 1px; padding: 0; border: 0; opacity: 0; pointer-events: none; }
         .entry label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #334155; }
         .entry label .u { font-size: 10px; color: #94a3b8; }
         .entry input[type=number] { width: 64px; font-size: 13px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px; background: #fff; color: #0f172a; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
@@ -175,7 +178,9 @@
         .streak .wk b { color: #475569; font-weight: 600; }
 
         body.dark .weeks-nav select, body.dark .entry input[type=number], body.dark .entry .day-nav input[type=date], body.dark .entry .day-nav button { background: #0f172a; border-color: #334155; color: #e2e8f0; }
-        body.dark .weeks-nav, body.dark .entry .day-word { color: #94a3b8; }
+        body.dark .weeks-nav { color: #94a3b8; }
+        body.dark .entry .day-label { color: #38bdf8; }
+        body.dark .entry .day-label:hover { background: rgba(14, 165, 233, 0.12); }
         body.dark .entry .day-nav button { color: #38bdf8; }
         body.dark .entry { background: #0f172a; border-color: #334155; }
         body.dark .entry label { color: #cbd5e1; }
@@ -217,7 +222,6 @@
         <div class="pane" id="healthPane">
             <div class="pane-head">
                 <span class="pane-title">Health</span>
-                <span class="pane-total" id="healthLede">steps · weight · gym · yoga, entered by hand</span>
                 <div class="weeks-nav">
                     <label for="weeksSel">Show</label>
                     <select id="weeksSel">
@@ -231,10 +235,10 @@
             <form class="entry" id="entry" autocomplete="off" onsubmit="return false">
                 <div class="day-nav">
                     <button type="button" id="prevDay" title="Previous day">&lsaquo;</button>
-                    <input type="date" id="entryDay">
+                    <span class="day-label" id="dayLabel" role="button" tabindex="0" title="Pick a day"></span>
+                    <input type="date" id="entryDay" class="day-pick" tabindex="-1" aria-hidden="true">
                     <button type="button" id="nextDay" title="Next day">&rsaquo;</button>
                 </div>
-                <span class="day-word" id="dayWord"></span>
                 <label>Steps <input type="number" id="f_steps" min="0" step="1" inputmode="numeric" placeholder="—"></label>
                 <label>Weight <input type="number" id="f_weight" min="0" step="0.1" inputmode="decimal" placeholder="—"><span class="u">lb</span></label>
                 <label class="check"><input type="checkbox" id="f_gym"> Gym</label>
@@ -518,8 +522,10 @@
             document.getElementById('entryDay').value = entryDay;
             document.getElementById('entryDay').max = health.today;
             document.getElementById('nextDay').disabled = entryDay >= health.today;
-            const rel = entryDay === health.today ? 'today' : entryDay === dayKeyShift(health.today, -1) ? 'yesterday' : '';
-            document.getElementById('dayWord').innerHTML = (rel ? `<b>${rel}</b> · ` : '') + escapeHtml(fmtDay(entryDay, { weekday: 'short' }));
+            const rel = entryDay === health.today ? ' (today)' : entryDay === dayKeyShift(health.today, -1) ? ' (yesterday)' : '';
+            const label = document.getElementById('dayLabel');
+            label.textContent = fmtDay(entryDay, { month: 'short', day: 'numeric' });
+            label.title = fmtDay(entryDay, { weekday: 'long', month: 'long', day: 'numeric' }) + rel + ' — click to pick a day';
             document.getElementById('f_steps').value = e.steps != null ? e.steps : '';
             document.getElementById('f_weight').value = e.weight != null ? e.weight : '';
             document.getElementById('f_gym').checked = e.gym === 1;
@@ -559,6 +565,9 @@
         });
         ['gym', 'yoga'].forEach(k => document.getElementById('f_' + k).addEventListener('change', () => saveField(k)));
         document.getElementById('entryDay').addEventListener('change', e => { if (/^\d{4}-\d{2}-\d{2}$/.test(e.target.value)) setEntryDay(e.target.value); });
+        const openDayPicker = () => { const i = document.getElementById('entryDay'); try { i.showPicker(); } catch (e) { i.focus(); } };
+        document.getElementById('dayLabel').addEventListener('click', openDayPicker);
+        document.getElementById('dayLabel').addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); openDayPicker(); } });
         document.getElementById('prevDay').addEventListener('click', () => setEntryDay(dayKeyShift(entryDay, -1)));
         document.getElementById('nextDay').addEventListener('click', () => setEntryDay(dayKeyShift(entryDay, 1)));
         document.getElementById('weeksSel').value = String(weeks);

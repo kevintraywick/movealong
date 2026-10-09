@@ -66,7 +66,7 @@ archive/                     - Old prototypes and mockups (gitignored)
 
 - All frontend state loads from the API; no local persistence beyond per-browser conveniences in `localStorage['movealong.*']`.
 - **No `assigned_to` column; assignment is not a flag.** `POST /tasks/:id/assign` rewrites `owner_id` — the row *moves*. Adding `assigned_to IS NULL` is a 500. `task.assigned_to_id` is a client-side optimistic field only.
-- Companies use subdomain-style URLs (`{subdomain}.movealong.com/{user_slug}` is aspirational). No authentication — a known team + user name is the credential (`POST /api/companies` signs in *or* up).
+- Companies use subdomain-style URLs (`{subdomain}.movealong.com/{user_slug}` is aspirational). No per-user authentication — a known team + user name is the credential (`POST /api/companies` signs in *or* up). **Site login (2026-10-09):** set `SITE_USER` + `SITE_PASSWORD` and the whole site asks for HTTP Basic auth (middleware in `server.js`); unset = open, so local runs and tests are unchanged. Exempt: `/help` + icons, `/mcp/<secret>`, a valid `x-ai-key` (= `AI_ACCESS_KEY`; Tom's scripts send it), and loopback calls with no `X-Forwarded-For`. 10 bad tries per address per 10 min = 429.
 - API: all under `/api`, RESTful JSON — full list in `reference/api-reference.md`.
 - **The DB persists once per HTTP request** (`flushDb` on response finish, plus SIGTERM/SIGINT) via atomic tmp-file + rename in `saveDb()`. **Anything that writes after the response (research, calendar sync) must call `flushDb()` itself.**
 - **Hand-listed task SELECTs are a recurring trap.** Several routes list columns instead of `t.*`; a new task column the board or List view needs (`t.locked`, `t.goal`, `t.list_master_id` …) must be added to each, and **every board query must carry `COALESCE(shelved,0) = 0`**. Grep for the existing ones before adding a column.
@@ -77,7 +77,7 @@ archive/                     - Old prototypes and mockups (gitignored)
 - **Railway starts `node src/server.js` directly (`server/railway.json`), never `npm start`** — npm turned deploy SIGTERMs into "Deployment crashed" emails on every push.
 - **`engines.node` picks the MINIMUM the range allows** — `">=18"` got Node 18 and a crash loop (`node-ical` needs Node 20+). Now `">=22"`; bump it whenever a dependency raises its floor. `require('./calendar')` is wrapped in try/catch with a no-op stub.
 - `railway logs --deployment <id>` before guessing about a crash.
-- Railway env: `ANTHROPIC_API_KEY` + `AI_ACCESS_KEY`; volume at `/data` with `DB_PATH=/data/movealong.db`, or every deploy wipes data.
+- Railway env: `ANTHROPIC_API_KEY` + `AI_ACCESS_KEY` (+ `SITE_USER` / `SITE_PASSWORD` for the site login); volume at `/data` with `DB_PATH=/data/movealong.db`, or every deploy wipes data.
 - Domain: `https://moveit.kevintraywick.com` (CNAME → `48p6jw91.up.railway.app` + `_railway-verify.moveit` TXT at Hover); `movealong-production.up.railway.app` still serves.
 
 ## Cross-cutting design rules

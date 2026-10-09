@@ -24,3 +24,5 @@
 
 ### Chart palette rule
 - **Any new chart goes through the dataviz palette validator before it ships** (`node scripts/validate_palette.js "<hexes>" --mode light|dark --surface <hex>`). The first three palettes failed (adjacent orange/yellow under 15 ΔE, a grey under the chroma floor, dark steps outside the lightness band). Alternating warm/cool made it pass. Don't eyeball it.
+
+- **Health pane saves room (2026-10-08, Kevin).** The "steps · weight · gym · yoga, entered by hand" subtitle is gone, and the strip's date is a label — `Oct 7`, no "yesterday · Wed" — between the ‹ › arrows (`#dayLabel`; hover shows the weekday and today/yesterday). **The real `<input type=date id=entryDay>` stays, visually hidden** (`.day-pick`), and clicking the label calls `showPicker()` (falls back to `focus()`), so jumping to any day still works. Steps, weight, gym and yoga now share one row at half width. Design source: `finance-dashboard-mockup.html` at the repo root (the finance pane next to the real Health and Completed panes) — not built into the live page yet.

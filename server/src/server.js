@@ -95,6 +95,52 @@ app.all('/mcp/:secret', async (req, res) => {
   }
 });
 
+// ---- Site login (2026-10-09, Kevin: reachable over the internet, not public) ----
+// One username and password for the whole site, as HTTP Basic auth: Safari asks
+// once, remembers it, and sends it on every page and fetch after. Off until
+// SITE_USER and SITE_PASSWORD are both set, so local runs and tests are
+// unchanged. Left open on purpose: /help and the icons; /mcp/<secret> (its own
+// secret); anyone sending the AI_ACCESS_KEY in x-ai-key (Tom's scripts and the
+// stdio MCP server already do); and this server calling itself over loopback
+// (the phone connector's tools). Ten wrong tries from one address in ten
+// minutes earns a 429.
+const SITE_USER = process.env.SITE_USER || '';
+const SITE_PASSWORD = process.env.SITE_PASSWORD || '';
+const sha = (v) => crypto.createHash('sha256').update(String(v)).digest();
+const sameSecret = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
+const SITE_OPEN = /^\/(help\/?|favicon[^/]*|apple-touch-icon\.png|fonts\/.*)$/;
+const siteFails = new Map();   // ip -> { n, since }
+function isLoopback(req) {
+  const a = req.socket.remoteAddress || '';
+  return (a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1') && !req.get('x-forwarded-for');
+}
+app.use((req, res, next) => {
+  if (!SITE_USER || !SITE_PASSWORD) return next();
+  if (SITE_OPEN.test(req.path) || req.path.startsWith('/mcp/') || isLoopback(req)) return next();
+  const aiKey = process.env.AI_ACCESS_KEY || '';
+  const given = req.get('x-ai-key');
+  if (aiKey && given && sameSecret(given, aiKey)) return next();
+
+  const now = Date.now(), rec = siteFails.get(req.ip);
+  if (rec && now - rec.since > 600000) siteFails.delete(req.ip);
+  const cur = siteFails.get(req.ip);
+  if (cur && cur.n >= 10) return res.status(429).type('text').send('Too many tries. Wait ten minutes.');
+
+  const m = /^Basic (.+)$/i.exec(req.get('authorization') || '');
+  if (m) {
+    const text = Buffer.from(m[1], 'base64').toString('utf8');
+    const i = text.indexOf(':');
+    if (i >= 0 && sameSecret(text.slice(0, i), SITE_USER) && sameSecret(text.slice(i + 1), SITE_PASSWORD)) {
+      siteFails.delete(req.ip);
+      return next();
+    }
+    const f = siteFails.get(req.ip) || { n: 0, since: now };
+    f.n++; siteFails.set(req.ip, f);
+  }
+  res.set('WWW-Authenticate', 'Basic realm="MoveIt", charset="UTF-8"');
+  res.status(401).type('text').send('Sign in to MoveIt');
+});
+
 // Persist the database once per request (after the response is sent) instead
 // of once per SQL statement — spillover/cascade paths can run dozens of
 // statements per request, and each full-DB export is O(database size).

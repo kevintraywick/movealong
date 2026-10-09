@@ -1,0 +1,975 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Finance pane — mockup v1 · MoveIt</title>
+<style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    :root {
+        --orange: #eb6834; --blue: #0284c7; --violet: #4a3aa7; --red: #ef4444;
+    }
+    body.dark { --orange: #ea580c; --blue: #0284c7; --violet: #9085e9; --red: #f87171; }
+    body {
+        font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+        font-size: 13px; background: #f8fafc; color: #0f172a; padding: 20px;
+    }
+    .page { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+    .page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .wordmark { font-weight: 800; font-size: 17px; letter-spacing: -0.03em; color: #0f172a; }
+    .wordmark span { color: #0ea5e9; }
+    .page-meta { font-size: 12px; color: #64748b; }
+    #fin .page-meta b { color: #475569; font-weight: 600; }
+    .spacer { margin-left: auto; }
+    .btn {
+        font: inherit; font-size: 12px; padding: 4px 11px; border-radius: 6px; cursor: pointer;
+        border: 1px solid #e2e8f0; background: #fff; color: #0284c7;
+    }
+    .btn:hover { border-color: #bae6fd; background: #f0f9ff; }
+    .btn.quiet { color: #64748b; }
+    .btn.primary { background: #0ea5e9; border-color: #0ea5e9; color: #fff; }
+    .btn.primary:hover { background: #0284c7; }
+    .theme-toggle { width: 26px; height: 26px; border-radius: 50%; padding: 0; font-size: 13px; }
+
+    .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+    @media (max-width: 1040px) { .cols { grid-template-columns: 1fr; } }
+
+    #fin.pane { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px 12px; min-width: 0; }
+    #fin .pane-head { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    #fin .pane-title { font-size: 15px; font-weight: 600; }
+    #fin .pane-head .l { min-width: 0; }
+    #fin .sub { font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: #94a3b8; margin: 14px 0 6px; display: flex; align-items: baseline; gap: 8px; }
+    #fin .sub .r { margin-left: auto; font-weight: 400; text-transform: none; letter-spacing: 0; color: #64748b; }
+
+    /* drop zone, top right: a circle with a plus */
+    #fin .drop {
+        flex-shrink: 0; width: 40px; height: 40px; border-radius: 50%; cursor: pointer;
+        display: flex; align-items: center; justify-content: center; font-size: 26px; line-height: 1; font-weight: 300;
+        border: 1.5px dashed #7dd3fc; background: #f0f9ff; color: #0284c7; transition: background 0.15s, border-color 0.15s;
+    }
+    #fin .drop:hover { background: #e0f2fe; }
+    #fin .drop.over { background: #e0f2fe; border-color: #0ea5e9; border-style: solid; }
+    #fin .drop.has { border-style: solid; font-size: 12px; font-weight: 600; }
+    #fin .files:empty { display: none; }
+    #fin .files { font-size: 11px; color: #64748b; margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: flex-end; }
+    #fin .files span { white-space: nowrap; }
+    #fin .files a { color: #94a3b8; cursor: pointer; text-decoration: none; margin-left: 3px; }
+
+    /* entry bar — one row: the day, four balances, a saved word */
+    #fin .entry { display: flex; align-items: flex-end; gap: 8px; flex-wrap: nowrap; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
+    #fin .entry .day-nav { display: flex; align-items: center; gap: 3px; padding-bottom: 8px; }
+    #fin .entry .day-nav button { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #e2e8f0; background: #fff; color: #0284c7; cursor: pointer; font-size: 12px; line-height: 1; }
+    #fin .entry .day-nav button:disabled { color: #cbd5e1; cursor: default; }
+    #fin .entry .day-word { font-size: 12px; color: #334155; min-width: 44px; text-align: center; }
+    #fin .entry .day-word b { color: #0284c7; font-weight: 600; }
+    #fin .entry label { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+    #fin .entry label .k { font-size: 10.5px; color: #64748b; }
+    #fin .entry .money { position: relative; display: block; }
+    #fin .entry .money i { position: absolute; left: 7px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 12px; color: #94a3b8; pointer-events: none; }
+    #fin .entry input[type=text] { width: 100%; min-width: 0; font-size: 13px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px 4px 16px; background: #fff; color: #0f172a; font-variant-numeric: tabular-nums; }
+    #fin .entry input[type=text]:focus { outline: none; border-color: #7dd3fc; box-shadow: 0 0 0 2px #e0f2fe; }
+    #fin .entry .state { font-size: 11px; color: #94a3b8; width: 34px; text-align: right; padding-bottom: 12px; flex-shrink: 0; }
+    #fin .entry .state.saved { color: #0ea5e9; }
+
+    /* thirty days of entries: blue if anything went in, light blue if not */
+    #fin .boxes { display: grid; grid-template-columns: repeat(30, 1fr); gap: 3px; }
+    #fin .boxes .b { aspect-ratio: 1; border-radius: 3px; border: 1px solid #bae6fd; background: #bae6fd; cursor: pointer; }
+    #fin .boxes .b.on { background: #38bdf8; border-color: #38bdf8; }
+    #fin .boxes .b.today { box-shadow: 0 0 0 2px #0284c7 inset; }
+    #fin .boxes .b.sel { outline: 2px solid #0ea5e9; outline-offset: 1px; }
+
+    /* one row, a tip or an alert */
+    #fin .tiprow { display: flex; align-items: center; gap: 10px; margin-top: 12px; padding: 8px 10px; border-radius: 8px; border: 1px solid #e2e8f0; background: #fff; font-size: 12.5px; line-height: 1.45; min-height: 42px; }
+    #fin .tiprow.alert { border-color: #fecaca; background: #fef2f2; }
+    #fin .tiprow .chip { flex-shrink: 0; font-size: 10px; font-weight: 700; letter-spacing: 0.05em; border-radius: 4px; padding: 1px 6px; color: #0284c7; background: #e0f2fe; }
+    #fin .tiprow.alert .chip { color: #fff; background: var(--red); }
+    #fin .tiprow .txt { flex: 1; min-width: 0; }
+    #fin .tiprow b { font-weight: 600; }
+    #fin .tiprow .fb { display: flex; gap: 4px; flex-shrink: 0; }
+    #fin .tiprow .fb button { font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #64748b; cursor: pointer; }
+    #fin .tiprow .fb button:hover { border-color: #bae6fd; color: #0284c7; }
+
+    /* stat cards */
+    #fin .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 10px; margin-top: 12px; }
+    #fin .stat { border: 1px solid #f1f5f9; border-radius: 10px; padding: 8px 10px; }
+    #fin .stat .k { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
+    #fin .stat .k .sw { width: 8px; height: 8px; border-radius: 2px; }
+    #fin .stat .v { font-size: 17px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+    #fin .bar { height: 4px; border-radius: 2px; background: #f1f5f9; margin-top: 6px; overflow: hidden; }
+    #fin .bar i { display: block; height: 100%; background: #38bdf8; }
+
+    /* charts */
+    #fin .chart-wrap { position: relative; }
+    #fin svg.chart { width: 100%; height: auto; display: block; }
+    #fin svg.chart text { font-size: 10px; fill: #94a3b8; font-family: inherit; }
+    #fin svg.chart text.today { fill: #0284c7; font-weight: 600; }
+    #fin svg.chart .grid { stroke: #f1f5f9; stroke-width: 1; }
+    #fin svg.chart .zero { stroke: #cbd5e1; stroke-width: 1; }
+    #fin svg.chart .hit { fill: transparent; }
+    #fin .tipbox {
+        position: absolute; pointer-events: none; opacity: 0; transition: opacity 0.1s; z-index: 5;
+        background: #0f172a; color: #f1f5f9; border-radius: 8px; padding: 7px 10px; font-size: 11.5px; line-height: 1.5; white-space: nowrap;
+    }
+    #fin .tipbox.on { opacity: 1; }
+    #fin .tipbox .d { color: #cbd5e1; margin-bottom: 2px; }
+    #fin .tipbox .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+    #fin .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f1f5f9; font-size: 11.5px; color: #475569; }
+    #fin .legend .item { display: flex; align-items: center; gap: 6px; }
+    #fin .legend .sw { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+    #fin .legend .sw.proj { background: transparent; border: 1.5px solid; }
+    #fin .legend .ln { width: 14px; height: 0; border-top: 2px dashed var(--violet); }
+    #fin .legend label { display: flex; align-items: center; gap: 5px; cursor: pointer; margin-left: auto; }
+
+    /* what-if */
+    #fin .plans { display: flex; flex-direction: column; gap: 5px; }
+    #fin .plan { display: grid; grid-template-columns: 18px 1fr 124px 86px auto 22px; gap: 6px; align-items: center; font-size: 12px; }
+    #fin .plan.add { margin-top: 2px; }
+    #fin .plan input[type=text], #fin .plan input[type=date], #fin .assume input { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; background: #fff; color: #0f172a; min-width: 0; width: 100%; }
+    #fin .plan input[type=checkbox] { accent-color: #0ea5e9; }
+    #fin .plan .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
+    #fin .plan label.every { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
+    #fin .plan.off input[type=text], #fin .plan.off input[type=date] { color: #94a3b8; }
+    #fin .effect { font-size: 12px; color: #475569; margin-top: 6px; line-height: 1.5; }
+    #fin .effect b { color: var(--violet); }
+    #fin details { margin-top: 12px; }
+    #fin summary { cursor: pointer; font-size: 12px; color: #64748b; }
+    #fin .assume { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 12px; margin-top: 8px; }
+    #fin .assume label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #64748b; }
+    #fin .bills { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
+    #fin .bill { display: grid; grid-template-columns: 1fr 64px 86px 120px; gap: 6px; align-items: center; font-size: 12px; }
+    #fin .bill input[type=text], #fin .bill input[type=number] { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; background: #fff; color: #0f172a; min-width: 0; width: 100%; }
+    #fin .bill .h { font-size: 10.5px; color: #94a3b8; }
+    #fin .note { font-size: 11.5px; color: #64748b; line-height: 1.5; margin-top: 10px; }
+    #fin .note b { color: #475569; }
+
+    /* the real Health and Completed panes (static snapshots), stacked as on the live page */
+    .leftcol { display: flex; flex-direction: column; min-width: 0; }
+    .dash { display: flex; flex-direction: column; gap: 14px; }
+    .dash-dark { display: none; }
+    body.dark .dash-dark { display: flex; }
+    body.dark .dash-light { display: none; }
+
+
+
+.dash .page { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+.dash .page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dash .wordmark { font-family: 'Bricolage Grotesque', -apple-system, sans-serif; font-weight: 800; font-size: 17px; color: #0f172a; text-decoration: none; letter-spacing: -0.02em; }
+.dash .wordmark span { color: #0ea5e9; }
+.dash .page-meta { font-size: 12px; color: #64748b; margin-left: auto; }
+.dash .page-meta b { color: #475569; font-weight: 600; }
+.dash .theme-toggle { width: 26px; height: 26px; border-radius: 50%; border: 1px solid #e2e8f0; background: #fff; color: #0284c7; font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.dash .theme-toggle:hover { border-color: #bae6fd; }
+.dash .pane { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px 12px; }
+.dash .pane-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
+.dash .pane-title { font-size: 15px; font-weight: 600; }
+.dash .pane-total { font-size: 12px; color: #64748b; }
+.dash .pane-total b { color: #0f172a; font-weight: 600; font-size: 13px; }
+.dash .pane-ratio { margin-left: auto; font-size: 12px; color: #64748b; }
+.dash .pane-ratio b { color: #0f172a; font-weight: 600; font-size: 13px; }
+.dash .month-nav { margin-left: auto; display: flex; align-items: center; gap: 6px; font-size: 12px; color: #475569; }
+.dash .month-nav button { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #e2e8f0; background: #fff; color: #0284c7; cursor: pointer; font-size: 12px; line-height: 1; }
+.dash .month-nav button:hover { border-color: #bae6fd; }
+.dash .month-nav button:disabled { color: #cbd5e1; cursor: default; }
+.dash .month-name { min-width: 110px; text-align: center; font-weight: 600; color: #0f172a; }
+.dash .chart-wrap { position: relative; }
+.dash .chart { display: block; width: 100%; height: auto; overflow: visible; }
+.dash .chart .grid { stroke: #f1f5f9; stroke-width: 1; }
+.dash .chart .axis-label { font-size: 10px; fill: #94a3b8; }
+.dash .chart .axis-label.today { fill: #0ea5e9; font-weight: 600; }
+.dash .chart .seg { stroke: #fff; stroke-width: 2; cursor: default; }
+.dash .chart .seg:hover { filter: brightness(0.9); }
+.dash .chart .hit { fill: transparent; }
+.dash .chart .hit:hover { fill: rgba(14, 165, 233, 0.06); }
+.dash .chart .value { font-size: 10px; fill: #475569; text-anchor: middle; pointer-events: none; }
+.dash .tip { position: absolute; pointer-events: none; background: #0f172a; color: #f8fafc; font-size: 11px; padding: 5px 8px; border-radius: 6px; white-space: nowrap; transform: translate(-50%, calc(-100% - 8px)); opacity: 0; transition: opacity .12s; z-index: 2; }
+.dash .tip.on { opacity: 1; }
+.dash .tip .row { display: flex; align-items: center; gap: 6px; }
+.dash .tip .sw { width: 8px; height: 8px; border-radius: 2px; flex-shrink: 0; }
+.dash .tip .day { color: #cbd5e1; margin-bottom: 2px; }
+.dash .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #f1f5f9; font-size: 12px; color: #334155; }
+.dash .legend .item { display: flex; align-items: center; gap: 6px; }
+.dash .legend .sw { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
+.dash .legend .n { color: #64748b; font-variant-numeric: tabular-nums; }
+.dash .legend .item.quiet { color: #94a3b8; }
+.dash .empty { color: #94a3b8; font-size: 12px; padding: 30px 0; text-align: center; }
+.dash details { margin-top: 8px; font-size: 11px; color: #64748b; }
+.dash summary { cursor: pointer; }
+.dash table { border-collapse: collapse; margin-top: 6px; font-size: 11px; }
+.dash th, .dash td { text-align: right; padding: 2px 8px; border-bottom: 1px solid #f1f5f9; font-variant-numeric: tabular-nums; }
+.dash th:first-child, .dash td:first-child { text-align: left; }
+.dash th { color: #64748b; font-weight: 600; }
+.dash .page-error { color: #94a3b8; font-size: 12px; }
+.dash .page-error a { color: #0284c7; }
+.dash .weeks-nav { margin-left: auto; font-size: 12px; color: #475569; display: flex; align-items: center; gap: 6px; }
+.dash .weeks-nav select { font-size: 12px; color: #0f172a; border: 1px solid #e2e8f0; border-radius: 6px; padding: 2px 4px; background: #fff; }
+.dash .entry { display: flex; align-items: center; gap: 8px 12px; flex-wrap: wrap; padding: 10px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; margin-bottom: 12px; }
+.dash .entry .day-nav { display: flex; align-items: center; gap: 4px; }
+.dash .entry .day-nav button { width: 22px; height: 22px; border-radius: 50%; border: 1px solid #e2e8f0; background: #fff; color: #0284c7; cursor: pointer; font-size: 12px; line-height: 1; }
+.dash .entry .day-nav button:hover { border-color: #bae6fd; }
+.dash .entry .day-nav button:disabled { color: #cbd5e1; cursor: default; }
+.dash .entry .day-nav input[type=date] { font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 4px; background: #fff; color: #0f172a; font-family: inherit; width: 122px; }
+.dash .entry .day-word { font-size: 11px; color: #64748b; }
+.dash .entry .day-word b { color: #0284c7; font-weight: 600; }
+.dash .entry label { display: flex; align-items: center; gap: 5px; font-size: 12px; color: #334155; }
+.dash .entry label .u { font-size: 10px; color: #94a3b8; }
+.dash .entry input[type=number] { width: 64px; font-size: 13px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 4px 6px; background: #fff; color: #0f172a; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+.dash .entry input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+.dash .entry input[type=number]:focus, .dash .entry input[type=date]:focus { outline: none; border-color: #7dd3fc; box-shadow: 0 0 0 2px #e0f2fe; }
+.dash .entry .check { cursor: pointer; user-select: none; }
+.dash .entry .check input { accent-color: #0ea5e9; width: 15px; height: 15px; margin: 0; cursor: pointer; }
+.dash .entry .state { font-size: 11px; color: #94a3b8; margin-left: auto; text-align: right; }
+.dash .entry .state:empty { display: none; }
+.dash .entry .state.err { color: #ef4444; }
+.dash .stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.dash .stat { border: 1px solid #f1f5f9; border-radius: 10px; padding: 8px 10px; }
+.dash .stat .k { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 6px; }
+.dash .stat .k .sw { width: 8px; height: 8px; border-radius: 2px; }
+.dash .stat .v { font-size: 17px; font-weight: 600; color: #0f172a; margin-top: 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.dash .stat .v small { font-size: 11px; font-weight: 500; color: #64748b; margin-left: 4px; }
+.dash .stat .s { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+.dash .stat .s.up { color: #0284c7; }
+.dash .sub-title { font-size: 12px; font-weight: 600; color: #334155; margin: 12px 0 4px; display: flex; align-items: baseline; gap: 8px; }
+.dash .sub-title span { font-weight: 400; color: #94a3b8; font-size: 11px; }
+.dash .chart .bar { cursor: default; }
+.dash .chart .bar:hover { filter: brightness(0.85); }
+.dash .chart .avg { fill: none; stroke: #0f172a; stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .55; }
+.dash .chart .wline { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.dash .chart .wdot { stroke: #fff; stroke-width: 1.5; }
+.dash .chart .wlabel { font-size: 10px; fill: #475569; text-anchor: middle; }
+.dash .chart .week-sep { stroke: #e2e8f0; stroke-width: 1; stroke-dasharray: 2 3; }
+.dash .streaks { display: flex; flex-direction: column; gap: 8px; }
+.dash .streak { display: grid; grid-template-columns: 44px 1fr; align-items: center; gap: 10px; }
+.dash .streak .name { font-size: 12px; font-weight: 600; color: #334155; }
+.dash .streak .weeks { display: flex; gap: 8px; }
+.dash .streak .week { display: flex; flex-direction: column; gap: 3px; flex: 1; min-width: 0; }
+.dash .streak .cells { display: flex; gap: 2px; }
+.dash .streak .cell { flex: 1; aspect-ratio: 1; border-radius: 3px; background: #f1f5f9; min-width: 0; }
+.dash .streak .cell.on { background: var(--c); }
+.dash .streak .cell.future { background: transparent; }
+.dash .streak .cell.today { box-shadow: inset 0 0 0 1px #0ea5e9; }
+.dash .streak .wk { font-size: 10px; color: #94a3b8; text-align: center; font-variant-numeric: tabular-nums; }
+.dash .streak .wk b { color: #475569; font-weight: 600; }
+body.dark .dash .weeks-nav select, body.dark .dash .entry input[type=number], body.dark .dash .entry .day-nav input[type=date], body.dark .dash .entry .day-nav button { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+body.dark .dash .weeks-nav, body.dark .dash .entry .day-word { color: #94a3b8; }
+body.dark .dash .entry .day-nav button { color: #38bdf8; }
+body.dark .dash .entry { background: #0f172a; border-color: #334155; }
+body.dark .dash .entry label { color: #cbd5e1; }
+body.dark .dash .stat { border-color: #334155; }
+body.dark .dash .stat .v { color: #f1f5f9; }
+body.dark .dash .sub-title, body.dark .dash .streak .name { color: #cbd5e1; }
+body.dark .dash .chart .avg { stroke: #f8fafc; }
+body.dark .dash .chart .wdot { stroke: #1e293b; }
+body.dark .dash .chart .wlabel { fill: #cbd5e1; }
+body.dark .dash .chart .week-sep { stroke: #334155; }
+body.dark .dash .streak .cell { background: #334155; }
+body.dark .dash .streak .cell.on { background: var(--c); }
+body.dark .dash .streak .cell.future { background: transparent; }
+body.dark .dash .streak .wk b { color: #cbd5e1; }
+.dash body.dark { background: #0f172a; color: #e2e8f0; }
+body.dark .dash .wordmark { color: #f1f5f9; }
+body.dark .dash .pane { background: #1e293b; border-color: #334155; }
+body.dark .dash .pane-total b, body.dark .dash .pane-ratio b, body.dark .dash .month-name, body.dark .dash .pane-title { color: #f1f5f9; }
+body.dark .dash .theme-toggle, body.dark .dash .month-nav button { background: #1e293b; border-color: #334155; color: #38bdf8; }
+body.dark .dash .month-nav button:disabled { color: #475569; }
+body.dark .dash .chart .grid { stroke: #334155; }
+body.dark .dash .chart .seg { stroke: #1e293b; }
+body.dark .dash .chart .axis-label { fill: #64748b; }
+body.dark .dash .chart .value { fill: #cbd5e1; }
+body.dark .dash .legend { color: #cbd5e1; border-color: #334155; }
+body.dark .dash .legend .n { color: #94a3b8; }
+body.dark .dash .tip { background: #f8fafc; color: #0f172a; }
+body.dark .dash .tip .day { color: #475569; }
+body.dark .dash th, body.dark .dash td { border-color: #334155; }
+body.dark .dash .page-meta b { color: #cbd5e1; }
+.dash .mi-nav { position: sticky; top: 0; z-index: 90; display: flex; align-items: center; gap: 14px; flex-wrap: wrap; min-height: 44px; margin: -20px -20px 16px; padding: 4px 20px; background: rgba(255, 255, 255, 0.85); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border-bottom: 1px solid #e8edf3; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; }
+.dash .mi-nav .mi-logo { font-family: 'Bricolage Grotesque', -apple-system, sans-serif; font-weight: 800; font-size: 17px; letter-spacing: -0.03em; color: #0f172a; white-space: nowrap; text-decoration: none; }
+.dash .mi-nav .mi-logo span { color: #0ea5e9; }
+.dash .mi-nav .mi-icon { width: 26px; height: 26px; border-radius: 6px; flex-shrink: 0; border: 1px solid #e2e8f0; background: transparent; color: #0284c7; display: flex; align-items: center; justify-content: center; text-decoration: none; transition: all 0.2s; position: relative; margin-right: 4px; }
+.dash .mi-nav .mi-dot { width: 4px; height: 4px; border-radius: 50%; background: #cbd5e1; flex-shrink: 0; margin: 0 4px; }
+.dash .mi-nav #listsLink { margin-right: auto; }
+.dash .mi-nav .mi-icon:hover { background: #f0f9ff; color: #0ea5e9; border-color: #bae6fd; }
+.dash .mi-nav .mi-icon.here { background: #f0f9ff; border-color: #38bdf8; }
+.dash .mi-nav .mi-icon svg { width: 15px; height: 15px; display: block; stroke: currentColor; fill: none; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.dash .mi-nav .mi-icon.unread::after { content: ''; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: #0ea5e9; }
+.dash .mi-nav .mi-tabs { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; margin-left: auto; }
+.dash .mi-nav .mi-tab { padding: 3px 10px; border-radius: 6px; font-size: 12px; white-space: nowrap; text-decoration: none; border: 1px solid #e2e8f0; background: #ffffff; color: #475569; cursor: pointer; transition: background 0.2s, color 0.2s, border-color 0.2s; }
+.dash .mi-nav .mi-tab:hover { border-color: #38bdf8; color: #0284c7; background: #f0f9ff; }
+.dash .mi-nav .mi-tab.due, .dash .mi-nav .mi-tab.due:hover { border: 2px solid #ef4444; padding: 2px 9px; }
+.dash .mi-nav .mi-theme { width: 26px; height: 26px; border-radius: 6px; border: none; background: transparent; font-size: 14px; line-height: 1; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+.dash .mi-nav .mi-theme:hover { background: #f0f9ff; }
+.dash .mi-nav .mi-who { font-size: 12px; color: #94a3b8; font-weight: 500; padding: 4px 8px; white-space: nowrap; }
+.dash .mi-nav .mi-who i { font-style: normal; color: #cbd5e1; margin: 0 8px; }
+.dash .mi-nav .mi-help { width: 20px; height: 20px; border-radius: 50%; background: #0ea5e9; color: #fff; font-size: 11px; font-weight: 700; line-height: 1; flex-shrink: 0; text-decoration: none; display: flex; align-items: center; justify-content: center; }
+.dash .mi-nav .mi-help:hover { background: #0284c7; box-shadow: 0 1px 4px rgba(14, 165, 233, 0.4); }
+body.dark .dash .mi-nav { background: rgba(15, 23, 42, 0.85); border-bottom-color: #1e293b; }
+body.dark .dash .mi-nav .mi-logo { color: #f1f5f9; }
+body.dark .dash .mi-nav .mi-dot { background: #475569; }
+body.dark .dash .mi-nav .mi-icon { color: #38bdf8; border-color: #334155; }
+body.dark .dash .mi-nav .mi-icon:hover { background: rgba(14, 165, 233, 0.12); border-color: #0284c7; }
+body.dark .dash .mi-nav .mi-icon.here { background: rgba(14, 165, 233, 0.15); border-color: #38bdf8; }
+body.dark .dash .mi-nav .mi-tab { background: #1e293b; border-color: #334155; color: #94a3b8; }
+body.dark .dash .mi-nav .mi-tab:hover { border-color: #38bdf8; color: #38bdf8; background: rgba(14, 165, 233, 0.12); }
+body.dark .dash .mi-nav .mi-tab.due, body.dark .dash .mi-nav .mi-tab.due:hover { border-color: #ef4444; }
+body.dark .dash .mi-nav .mi-theme { background: transparent; border: none; }
+body.dark .dash .mi-nav .mi-theme:hover { background: rgba(14, 165, 233, 0.12); }
+body.dark .dash .mi-nav .mi-who i { color: #475569; }
+@media (max-width: 640px) { .dash .mi-nav { margin: -20px -20px 12px; padding: 4px 12px; gap: 10px; }
+.dash .mi-nav .mi-who { display: none; } }
+
+    /* dark */
+    body.dark { background: #0f172a; color: #e2e8f0; }
+    body.dark .wordmark { color: #f1f5f9; }
+    body.dark #fin.pane { background: #1e293b; border-color: #334155; }
+    body.dark .page-meta, body.dark #fin .note, body.dark #fin .effect, body.dark #fin .files { color: #94a3b8; }
+    body.dark #fin .page-meta b, body.dark #fin .note b { color: #cbd5e1; }
+    body.dark .btn { background: #1e293b; border-color: #334155; color: #38bdf8; }
+    body.dark .btn.primary { background: #0284c7; border-color: #0284c7; color: #fff; }
+    body.dark .btn.quiet { color: #94a3b8; }
+    body.dark #fin .drop { background: rgba(14, 165, 233, 0.1); border-color: #0369a1; color: #38bdf8; }
+    body.dark #fin .entry { background: #0f172a; border-color: #334155; }
+    body.dark #fin .entry label .k { color: #94a3b8; }
+    body.dark #fin .entry input[type=text], body.dark #fin .plan input, body.dark #fin .assume input, body.dark #fin .bill input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+    body.dark #fin .entry .day-nav button { background: #1e293b; border-color: #334155; color: #38bdf8; }
+    body.dark #fin .boxes .b { background: #0c4a6e; border-color: #0c4a6e; }
+    body.dark #fin .boxes .b.on { background: #0284c7; border-color: #0284c7; }
+    body.dark #fin .tiprow { background: #0f172a; border-color: #334155; }
+    body.dark #fin .tiprow.alert { background: #2a1215; border-color: #7f1d1d; }
+    body.dark #fin .tiprow .chip { background: rgba(14, 165, 233, 0.18); color: #38bdf8; }
+    body.dark #fin .tiprow.alert .chip { background: var(--red); color: #1e293b; }
+    body.dark #fin .tiprow .fb button { background: #1e293b; border-color: #334155; color: #94a3b8; }
+    body.dark #fin .stat { border-color: #334155; }
+    body.dark #fin .stat .v { color: #f1f5f9; }
+    body.dark #fin .bar { background: #334155; }
+    body.dark #fin svg.chart .grid { stroke: #334155; }
+    body.dark #fin svg.chart .zero { stroke: #475569; }
+    body.dark #fin svg.chart text.today { fill: #38bdf8; }
+    body.dark #fin .legend { border-top-color: #334155; color: #cbd5e1; }
+    body.dark #fin .sub { color: #64748b; }
+    body.dark #fin .tipbox { background: #020617; border: 1px solid #334155; }
+</style>
+</head>
+<body>
+<div class="page">
+    <div class="page-header">
+        <span class="wordmark">Move<span>It</span></span>
+        <span class="page-meta"><b>Dashboard</b> · finance pane, mockup v3 · <b>sample numbers</b> · Health and Completed are untouched snapshots of the live panes</span>
+        <span class="spacer"></span>
+        <button class="btn quiet" id="reset" title="Throw away your edits and go back to the sample data">Reset sample data</button>
+        <button class="btn theme-toggle" id="theme" title="Switch theme">🌙</button>
+    </div>
+
+    <div class="cols">
+        <div class="leftcol">
+            <div class="dash dash-light"><div class="pane">
+            <div class="pane-head">
+                <span class="pane-title">Health</span>
+                <div class="weeks-nav">
+                    <label for="weeksSel">Show</label>
+                    <select>
+                        <option value="4">4 weeks</option>
+                        <option value="8" selected="">8 weeks</option>
+                        <option value="12">12 weeks</option>
+                        <option value="26">26 weeks</option>
+                    </select>
+                </div>
+            </div>
+            <form class="entry" autocomplete="off" onsubmit="return false">
+                <div class="day-nav">
+                    <button type="button" title="Previous day">‹</button>
+                    <span class="day-word"><b>Oct 7</b></span>
+                    <button type="button" title="Next day">›</button>
+                </div>
+                <label>Steps <input type="number" min="0" step="1" inputmode="numeric" placeholder="—" value="6433"></label>
+                <label>Weight <input type="number" min="0" step="0.1" inputmode="decimal" placeholder="—" value=""><span class="u">lb</span></label>
+                <label class="check"><input type="checkbox" value="on" checked=""> Gym</label>
+                <label class="check"><input type="checkbox" value="on"> Yoga</label>
+                <span class="state"></span>
+            </form>
+            <div class="stats"><div class="stat"><div class="k"><span class="sw" style="background:#0284c7"></span>Steps, 7-day avg</div><div class="v">8,332</div><div class="s">▼ 1,443 vs the week before</div></div><div class="stat"><div class="k"><span class="sw" style="background:#4a3aa7"></span>Weight</div><div class="v">184.3<small>lb</small></div><div class="s">+1.8 since Aug 17</div></div><div class="stat"><div class="k"><span class="sw" style="background:#eb6834"></span>Gym</div><div class="v">3<small>this week</small></div><div class="s">24 in 8 weeks · 3.0 a week</div></div><div class="stat"><div class="k"><span class="sw" style="background:#e87ba4"></span>Yoga</div><div class="v">1<small>this week</small></div><div class="s">13 in 8 weeks · 1.6 a week</div></div></div>
+            <div><div class="sub-title">Steps <span>a day · dashed line is the 7-day average</span></div><svg class="chart" viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg"><line class="grid" x1="40" x2="712" y1="128" y2="128"></line><text class="axis-label" x="34" y="131" text-anchor="end">0</text><line class="grid" x1="40" x2="712" y1="105.2" y2="105.2"></line><text class="axis-label" x="34" y="108.2" text-anchor="end">2.5k</text><line class="grid" x1="40" x2="712" y1="82.4" y2="82.4"></line><text class="axis-label" x="34" y="85.4" text-anchor="end">5k</text><line class="grid" x1="40" x2="712" y1="59.60000000000001" y2="59.60000000000001"></line><text class="axis-label" x="34" y="62.60000000000001" text-anchor="end">7.5k</text><line class="grid" x1="40" x2="712" y1="36.8" y2="36.8"></line><text class="axis-label" x="34" y="39.8" text-anchor="end">10k</text><line class="grid" x1="40" x2="712" y1="14" y2="14"></line><text class="axis-label" x="34" y="17" text-anchor="end">12.5k</text><rect class="bar" data-tip="Mon, Aug 17 · 9,763 steps" x="41.92" y="38.96144000000001" width="8.16" height="89.03855999999999" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="42" y="144">Aug 17</text><rect class="bar" data-tip="Tue, Aug 18 · 6,926 steps" x="53.92" y="64.83488" width="8.16" height="63.16512" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Aug 19 · 11,658 steps" x="65.92" y="21.67904" width="8.16" height="106.32096" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Aug 20 · 7,674 steps" x="77.92" y="58.01312" width="8.16" height="69.98688" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Aug 21 · 9,857 steps" x="89.92" y="38.10415999999999" width="8.16" height="89.89584" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Aug 22 · 9,167 steps" x="101.92" y="44.39695999999999" width="8.16" height="83.60304000000001" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Aug 23 · 4,920 steps" x="113.92" y="83.1296" width="8.16" height="44.870400000000004" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="124" x2="124" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Aug 24 · 7,917 steps" x="125.92" y="55.79696" width="8.16" height="72.20304" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="126" y="144">Aug 24</text><rect class="bar" data-tip="Tue, Aug 25 · 6,583 steps" x="137.92" y="67.96304" width="8.16" height="60.03695999999999" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Aug 26 · 6,267 steps" x="149.92" y="70.84496" width="8.16" height="57.15504" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Aug 27 · 7,950 steps" x="161.92" y="55.495999999999995" width="8.16" height="72.504" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Aug 28 · 8,094 steps" x="173.92" y="54.18272" width="8.16" height="73.81728" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Aug 29 · 7,853 steps" x="185.92" y="56.38064" width="8.16" height="71.61936" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Aug 30 · 11,339 steps" x="197.92" y="24.588319999999996" width="8.16" height="103.41168" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="208" x2="208" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Aug 31 · 8,519 steps" x="209.92" y="50.30672" width="8.16" height="77.69328" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="210" y="144">Aug 31</text><rect class="bar" data-tip="Tue, Sep 1 · 12,451 steps" x="221.92" y="14.446880000000007" width="8.16" height="113.55311999999999" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Sep 2 · 4,986 steps" x="233.92" y="82.52768" width="8.16" height="45.472319999999996" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Sep 3 · 6,197 steps" x="245.92" y="71.48336" width="8.16" height="56.516639999999995" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Sep 4 · 7,471 steps" x="257.92" y="59.86448" width="8.16" height="68.13552" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Sep 5 · 8,225 steps" x="269.92" y="52.988" width="8.16" height="75.012" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Sep 6 · 12,379 steps" x="281.92" y="15.103520000000003" width="8.16" height="112.89648" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="292" x2="292" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Sep 7 · 6,892 steps" x="293.92" y="65.14496" width="8.16" height="62.85504" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="294" y="144">Sep 7</text><rect class="bar" data-tip="Tue, Sep 8 · 11,200 steps" x="305.92" y="25.855999999999995" width="8.16" height="102.144" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Sep 9 · 11,556 steps" x="317.92" y="22.60928" width="8.16" height="105.39072" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Sep 10 · 6,867 steps" x="329.92" y="65.37296" width="8.16" height="62.627039999999994" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Sep 11 · 10,031 steps" x="341.92" y="36.51728" width="8.16" height="91.48272" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Sep 12 · 10,212 steps" x="353.92" y="34.86655999999999" width="8.16" height="93.13344000000001" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Sep 13 · 6,883 steps" x="365.92" y="65.22703999999999" width="8.16" height="62.77296000000001" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="376" x2="376" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Sep 14 · 9,541 steps" x="377.92" y="40.98608" width="8.16" height="87.01392" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="378" y="144">Sep 14</text><rect class="bar" data-tip="Tue, Sep 15 · 10,301 steps" x="389.92" y="34.05488" width="8.16" height="93.94512" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Sep 16 · 9,075 steps" x="401.92" y="45.236000000000004" width="8.16" height="82.764" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Sep 17 · 8,071 steps" x="413.92" y="54.39247999999999" width="8.16" height="73.60752000000001" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Sep 18 · 6,160 steps" x="425.92" y="71.82079999999999" width="8.16" height="56.17920000000001" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Sep 19 · 10,019 steps" x="437.92" y="36.626720000000006" width="8.16" height="91.37328" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Sep 20 · 8,750 steps" x="449.92" y="48.2" width="8.16" height="79.8" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="460" x2="460" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Sep 21 · 4,879 steps" x="461.92" y="83.50352000000001" width="8.16" height="44.49647999999999" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="462" y="144">Sep 21</text><rect class="bar" data-tip="Tue, Sep 22 · 6,410 steps" x="473.92" y="69.54079999999999" width="8.16" height="58.45920000000001" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Sep 23 · 9,406 steps" x="485.92" y="42.21728" width="8.16" height="85.78272" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Sep 24 · 7,053 steps" x="497.92" y="63.676640000000006" width="8.16" height="64.32336" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Sep 25 · 11,945 steps" x="509.92" y="19.0616" width="8.16" height="108.9384" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Sep 26 · 11,200 steps" x="521.92" y="25.855999999999995" width="8.16" height="102.144" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Sep 27 · 8,379 steps" x="533.92" y="51.58351999999999" width="8.16" height="76.41648" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="544" x2="544" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Sep 28 · 7,264 steps" x="545.92" y="61.75232" width="8.16" height="66.24768" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="546" y="144">Sep 28</text><rect class="bar" data-tip="Tue, Sep 29 · 11,709 steps" x="557.92" y="21.21392" width="8.16" height="106.78608" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Sep 30 · 6,872 steps" x="569.92" y="65.32736" width="8.16" height="62.67264" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Oct 1 · 11,057 steps" x="581.92" y="27.160160000000005" width="8.16" height="100.83984" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Oct 2 · 12,224 steps" x="593.92" y="16.517120000000006" width="8.16" height="111.48288" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Oct 3 · 5,914 steps" x="605.92" y="74.06432000000001" width="8.16" height="53.93567999999999" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Oct 4 · 4,982 steps" x="617.92" y="82.56415999999999" width="8.16" height="45.43584000000001" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="628" x2="628" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Oct 5 · 12,019 steps" x="629.92" y="18.386719999999997" width="8.16" height="109.61328" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="630" y="144">Oct 5</text><rect class="bar" data-tip="Tue, Oct 6 · 8,422 steps" x="641.92" y="51.19136" width="8.16" height="76.80864" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Oct 7 · 6,433 steps" x="653.92" y="69.33104" width="8.16" height="58.66896" rx="1.5" fill="#0284c7"></rect><path class="avg" d="M70.0 41.8 L82.0 45.9 L94.0 44.3 L106.0 44.3 L118.0 49.9 L130.0 52.3 L142.0 52.7 L154.0 59.7 L166.0 59.4 L178.0 61.7 L190.0 63.4 L202.0 55.0 L214.0 54.3 L226.0 46.6 L238.0 48.3 L250.0 50.6 L262.0 51.4 L274.0 50.9 L286.0 49.5 L298.0 51.7 L310.0 53.3 L322.0 44.7 L334.0 43.8 L346.0 40.5 L358.0 37.9 L370.0 45.1 L382.0 41.6 L394.0 42.8 L406.0 46.0 L418.0 44.5 L430.0 49.5 L442.0 49.8 L454.0 47.3 L466.0 53.4 L478.0 58.5 L490.0 58.0 L502.0 59.4 L514.0 51.8 L526.0 50.3 L538.0 50.8 L550.0 47.7 L562.0 40.8 L574.0 44.1 L586.0 38.9 L598.0 38.5 L610.0 45.4 L622.0 49.8 L634.0 43.6 L646.0 47.9 L658.0 48.5 L670.0 52.0 "></path></svg><div class="sub-title">Weight <span>lb</span></div><svg class="chart" viewBox="0 0 720 130" xmlns="http://www.w3.org/2000/svg"><line class="grid" x1="40" x2="712" y1="108" y2="108"></line><text class="axis-label" x="34" y="111" text-anchor="end">181</text><line class="grid" x1="40" x2="712" y1="89.2" y2="89.2"></line><text class="axis-label" x="34" y="92.2" text-anchor="end">182</text><line class="grid" x1="40" x2="712" y1="70.4" y2="70.4"></line><text class="axis-label" x="34" y="73.4" text-anchor="end">183</text><line class="grid" x1="40" x2="712" y1="51.6" y2="51.6"></line><text class="axis-label" x="34" y="54.6" text-anchor="end">184</text><line class="grid" x1="40" x2="712" y1="32.8" y2="32.8"></line><text class="axis-label" x="34" y="35.8" text-anchor="end">185</text><line class="grid" x1="40" x2="712" y1="14" y2="14"></line><text class="axis-label" x="34" y="17" text-anchor="end">186</text><text class="axis-label" x="42" y="124">Aug 17</text><text class="axis-label" x="126" y="124">Aug 24</text><text class="axis-label" x="210" y="124">Aug 31</text><text class="axis-label" x="294" y="124">Sep 7</text><text class="axis-label" x="378" y="124">Sep 14</text><text class="axis-label" x="462" y="124">Sep 21</text><text class="axis-label" x="546" y="124">Sep 28</text><text class="axis-label" x="630" y="124">Oct 5</text><path class="wline" stroke="#4a3aa7" d="M46.0 79.8 L70.0 79.8 L94.0 83.6 L118.0 79.8 L142.0 59.1 L166.0 68.5 L190.0 74.2 L214.0 77.9 L238.0 59.1 L262.0 62.9 L286.0 64.8 L310.0 47.8 L334.0 53.5 L358.0 62.9 L382.0 42.2 L406.0 44.1 L430.0 62.9 L454.0 57.2 L478.0 64.8 L502.0 53.5 L526.0 55.4 L550.0 57.2 L574.0 36.6 L598.0 36.6 L622.0 51.6 L646.0 46.0"></path><circle class="wdot" data-tip="Mon, Aug 17 · 182.5 lb" cx="46" cy="79.8" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Wed, Aug 19 · 182.5 lb" cx="70" cy="79.8" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Fri, Aug 21 · 182.3 lb" cx="94" cy="83.55999999999979" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Sun, Aug 23 · 182.5 lb" cx="118" cy="79.8" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Tue, Aug 25 · 183.6 lb" cx="142" cy="59.120000000000104" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Thu, Aug 27 · 183.1 lb" cx="166" cy="68.5200000000001" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Sat, Aug 29 · 182.8 lb" cx="190" cy="74.1599999999998" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Mon, Aug 31 · 182.6 lb" cx="214" cy="77.9200000000001" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Wed, Sep 2 · 183.6 lb" cx="238" cy="59.120000000000104" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Fri, Sep 4 · 183.4 lb" cx="262" cy="62.87999999999989" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Sun, Sep 6 · 183.3 lb" cx="286" cy="64.75999999999979" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Tue, Sep 8 · 184.2 lb" cx="310" cy="47.84000000000022" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Thu, Sep 10 · 183.9 lb" cx="334" cy="53.47999999999989" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Sat, Sep 12 · 183.4 lb" cx="358" cy="62.87999999999989" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Mon, Sep 14 · 184.5 lb" cx="382" cy="42.2" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Wed, Sep 16 · 184.4 lb" cx="406" cy="44.07999999999989" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Fri, Sep 18 · 183.4 lb" cx="430" cy="62.87999999999989" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Sun, Sep 20 · 183.7 lb" cx="454" cy="57.240000000000215" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Tue, Sep 22 · 183.3 lb" cx="478" cy="64.75999999999979" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Thu, Sep 24 · 183.9 lb" cx="502" cy="53.47999999999989" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Sat, Sep 26 · 183.8 lb" cx="526" cy="55.359999999999786" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Mon, Sep 28 · 183.7 lb" cx="550" cy="57.240000000000215" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Wed, Sep 30 · 184.8 lb" cx="574" cy="36.55999999999979" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Fri, Oct 2 · 184.8 lb" cx="598" cy="36.55999999999979" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Sun, Oct 4 · 184.0 lb" cx="622" cy="51.6" r="3.5" fill="#4a3aa7"></circle><circle class="wdot" data-tip="Tue, Oct 6 · 184.3 lb" cx="646" cy="45.95999999999979" r="3.5" fill="#4a3aa7"></circle><text class="wlabel" x="646" y="37.95999999999979">184.3</text></svg><div class="sub-title">Gym and yoga <span>a cell a day, Monday first · count per week</span></div><div class="streaks"><div class="streak"><div class="name">Gym</div><div class="weeks"><div class="week"><div class="cells"><div class="cell on" style="--c:#eb6834" title="Mon, Aug 17 · gym"></div><div class="cell" style="--c:#eb6834" title="Tue, Aug 18"></div><div class="cell" style="--c:#eb6834" title="Wed, Aug 19"></div><div class="cell on" style="--c:#eb6834" title="Thu, Aug 20 · gym"></div><div class="cell" style="--c:#eb6834" title="Fri, Aug 21"></div><div class="cell" style="--c:#eb6834" title="Sat, Aug 22"></div><div class="cell" style="--c:#eb6834" title="Sun, Aug 23"></div></div><div class="wk"><b>2</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#eb6834" title="Mon, Aug 24"></div><div class="cell on" style="--c:#eb6834" title="Tue, Aug 25 · gym"></div><div class="cell" style="--c:#eb6834" title="Wed, Aug 26"></div><div class="cell" style="--c:#eb6834" title="Thu, Aug 27"></div><div class="cell" style="--c:#eb6834" title="Fri, Aug 28"></div><div class="cell" style="--c:#eb6834" title="Sat, Aug 29"></div><div class="cell" style="--c:#eb6834" title="Sun, Aug 30"></div></div><div class="wk"><b>1</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#eb6834" title="Mon, Aug 31"></div><div class="cell on" style="--c:#eb6834" title="Tue, Sep 1 · gym"></div><div class="cell on" style="--c:#eb6834" title="Wed, Sep 2 · gym"></div><div class="cell" style="--c:#eb6834" title="Thu, Sep 3"></div><div class="cell" style="--c:#eb6834" title="Fri, Sep 4"></div><div class="cell on" style="--c:#eb6834" title="Sat, Sep 5 · gym"></div><div class="cell on" style="--c:#eb6834" title="Sun, Sep 6 · gym"></div></div><div class="wk"><b>4</b></div></div><div class="week"><div class="cells"><div class="cell on" style="--c:#eb6834" title="Mon, Sep 7 · gym"></div><div class="cell on" style="--c:#eb6834" title="Tue, Sep 8 · gym"></div><div class="cell" style="--c:#eb6834" title="Wed, Sep 9"></div><div class="cell on" style="--c:#eb6834" title="Thu, Sep 10 · gym"></div><div class="cell" style="--c:#eb6834" title="Fri, Sep 11"></div><div class="cell on" style="--c:#eb6834" title="Sat, Sep 12 · gym"></div><div class="cell" style="--c:#eb6834" title="Sun, Sep 13"></div></div><div class="wk"><b>4</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#eb6834" title="Mon, Sep 14"></div><div class="cell on" style="--c:#eb6834" title="Tue, Sep 15 · gym"></div><div class="cell on" style="--c:#eb6834" title="Wed, Sep 16 · gym"></div><div class="cell" style="--c:#eb6834" title="Thu, Sep 17"></div><div class="cell" style="--c:#eb6834" title="Fri, Sep 18"></div><div class="cell on" style="--c:#eb6834" title="Sat, Sep 19 · gym"></div><div class="cell" style="--c:#eb6834" title="Sun, Sep 20"></div></div><div class="wk"><b>3</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#eb6834" title="Mon, Sep 21"></div><div class="cell on" style="--c:#eb6834" title="Tue, Sep 22 · gym"></div><div class="cell on" style="--c:#eb6834" title="Wed, Sep 23 · gym"></div><div class="cell" style="--c:#eb6834" title="Thu, Sep 24"></div><div class="cell on" style="--c:#eb6834" title="Fri, Sep 25 · gym"></div><div class="cell" style="--c:#eb6834" title="Sat, Sep 26"></div><div class="cell on" style="--c:#eb6834" title="Sun, Sep 27 · gym"></div></div><div class="wk"><b>4</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#eb6834" title="Mon, Sep 28"></div><div class="cell on" style="--c:#eb6834" title="Tue, Sep 29 · gym"></div><div class="cell" style="--c:#eb6834" title="Wed, Sep 30"></div><div class="cell on" style="--c:#eb6834" title="Thu, Oct 1 · gym"></div><div class="cell" style="--c:#eb6834" title="Fri, Oct 2"></div><div class="cell" style="--c:#eb6834" title="Sat, Oct 3"></div><div class="cell on" style="--c:#eb6834" title="Sun, Oct 4 · gym"></div></div><div class="wk"><b>3</b></div></div><div class="week"><div class="cells"><div class="cell on" style="--c:#eb6834" title="Mon, Oct 5 · gym"></div><div class="cell on" style="--c:#eb6834" title="Tue, Oct 6 · gym"></div><div class="cell on" style="--c:#eb6834" title="Wed, Oct 7 · gym"></div><div class="cell today" style="--c:#eb6834" title="Thu, Oct 8"></div><div class="cell future" style="--c:#eb6834" title="Fri, Oct 9"></div><div class="cell future" style="--c:#eb6834" title="Sat, Oct 10"></div><div class="cell future" style="--c:#eb6834" title="Sun, Oct 11"></div></div><div class="wk"><b>3</b></div></div></div></div><div class="streak"><div class="name">Yoga</div><div class="weeks"><div class="week"><div class="cells"><div class="cell" style="--c:#e87ba4" title="Mon, Aug 17"></div><div class="cell" style="--c:#e87ba4" title="Tue, Aug 18"></div><div class="cell" style="--c:#e87ba4" title="Wed, Aug 19"></div><div class="cell on" style="--c:#e87ba4" title="Thu, Aug 20 · yoga"></div><div class="cell" style="--c:#e87ba4" title="Fri, Aug 21"></div><div class="cell" style="--c:#e87ba4" title="Sat, Aug 22"></div><div class="cell" style="--c:#e87ba4" title="Sun, Aug 23"></div></div><div class="wk"><b>1</b></div></div><div class="week"><div class="cells"><div class="cell on" style="--c:#e87ba4" title="Mon, Aug 24 · yoga"></div><div class="cell" style="--c:#e87ba4" title="Tue, Aug 25"></div><div class="cell on" style="--c:#e87ba4" title="Wed, Aug 26 · yoga"></div><div class="cell" style="--c:#e87ba4" title="Thu, Aug 27"></div><div class="cell on" style="--c:#e87ba4" title="Fri, Aug 28 · yoga"></div><div class="cell on" style="--c:#e87ba4" title="Sat, Aug 29 · yoga"></div><div class="cell" style="--c:#e87ba4" title="Sun, Aug 30"></div></div><div class="wk"><b>4</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#e87ba4" title="Mon, Aug 31"></div><div class="cell on" style="--c:#e87ba4" title="Tue, Sep 1 · yoga"></div><div class="cell" style="--c:#e87ba4" title="Wed, Sep 2"></div><div class="cell on" style="--c:#e87ba4" title="Thu, Sep 3 · yoga"></div><div class="cell" style="--c:#e87ba4" title="Fri, Sep 4"></div><div class="cell" style="--c:#e87ba4" title="Sat, Sep 5"></div><div class="cell" style="--c:#e87ba4" title="Sun, Sep 6"></div></div><div class="wk"><b>2</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#e87ba4" title="Mon, Sep 7"></div><div class="cell" style="--c:#e87ba4" title="Tue, Sep 8"></div><div class="cell" style="--c:#e87ba4" title="Wed, Sep 9"></div><div class="cell on" style="--c:#e87ba4" title="Thu, Sep 10 · yoga"></div><div class="cell on" style="--c:#e87ba4" title="Fri, Sep 11 · yoga"></div><div class="cell" style="--c:#e87ba4" title="Sat, Sep 12"></div><div class="cell on" style="--c:#e87ba4" title="Sun, Sep 13 · yoga"></div></div><div class="wk"><b>3</b></div></div><div class="week"><div class="cells"><div class="cell on" style="--c:#e87ba4" title="Mon, Sep 14 · yoga"></div><div class="cell" style="--c:#e87ba4" title="Tue, Sep 15"></div><div class="cell" style="--c:#e87ba4" title="Wed, Sep 16"></div><div class="cell" style="--c:#e87ba4" title="Thu, Sep 17"></div><div class="cell" style="--c:#e87ba4" title="Fri, Sep 18"></div><div class="cell" style="--c:#e87ba4" title="Sat, Sep 19"></div><div class="cell" style="--c:#e87ba4" title="Sun, Sep 20"></div></div><div class="wk"><b>1</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#e87ba4" title="Mon, Sep 21"></div><div class="cell" style="--c:#e87ba4" title="Tue, Sep 22"></div><div class="cell" style="--c:#e87ba4" title="Wed, Sep 23"></div><div class="cell" style="--c:#e87ba4" title="Thu, Sep 24"></div><div class="cell" style="--c:#e87ba4" title="Fri, Sep 25"></div><div class="cell" style="--c:#e87ba4" title="Sat, Sep 26"></div><div class="cell" style="--c:#e87ba4" title="Sun, Sep 27"></div></div><div class="wk">·</div></div><div class="week"><div class="cells"><div class="cell" style="--c:#e87ba4" title="Mon, Sep 28"></div><div class="cell" style="--c:#e87ba4" title="Tue, Sep 29"></div><div class="cell" style="--c:#e87ba4" title="Wed, Sep 30"></div><div class="cell on" style="--c:#e87ba4" title="Thu, Oct 1 · yoga"></div><div class="cell" style="--c:#e87ba4" title="Fri, Oct 2"></div><div class="cell" style="--c:#e87ba4" title="Sat, Oct 3"></div><div class="cell" style="--c:#e87ba4" title="Sun, Oct 4"></div></div><div class="wk"><b>1</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#e87ba4" title="Mon, Oct 5"></div><div class="cell on" style="--c:#e87ba4" title="Tue, Oct 6 · yoga"></div><div class="cell" style="--c:#e87ba4" title="Wed, Oct 7"></div><div class="cell today" style="--c:#e87ba4" title="Thu, Oct 8"></div><div class="cell future" style="--c:#e87ba4" title="Fri, Oct 9"></div><div class="cell future" style="--c:#e87ba4" title="Sat, Oct 10"></div><div class="cell future" style="--c:#e87ba4" title="Sun, Oct 11"></div></div><div class="wk"><b>1</b></div></div></div></div></div><details><summary>As a table</summary><div><table><tbody><tr><th>Day</th><th>Steps</th><th>Weight</th><th>Gym</th><th>Yoga</th></tr><tr><td>Wed, Oct 7</td><td>6,433</td><td></td><td>✓</td><td></td></tr><tr><td>Tue, Oct 6</td><td>8,422</td><td>184.3</td><td>✓</td><td>✓</td></tr><tr><td>Mon, Oct 5</td><td>12,019</td><td></td><td>✓</td><td></td></tr><tr><td>Sun, Oct 4</td><td>4,982</td><td>184.0</td><td>✓</td><td></td></tr><tr><td>Sat, Oct 3</td><td>5,914</td><td></td><td></td><td></td></tr><tr><td>Fri, Oct 2</td><td>12,224</td><td>184.8</td><td></td><td></td></tr><tr><td>Thu, Oct 1</td><td>11,057</td><td></td><td>✓</td><td>✓</td></tr><tr><td>Wed, Sep 30</td><td>6,872</td><td>184.8</td><td></td><td></td></tr><tr><td>Tue, Sep 29</td><td>11,709</td><td></td><td>✓</td><td></td></tr><tr><td>Mon, Sep 28</td><td>7,264</td><td>183.7</td><td></td><td></td></tr><tr><td>Sun, Sep 27</td><td>8,379</td><td></td><td>✓</td><td></td></tr><tr><td>Sat, Sep 26</td><td>11,200</td><td>183.8</td><td></td><td></td></tr><tr><td>Fri, Sep 25</td><td>11,945</td><td></td><td>✓</td><td></td></tr><tr><td>Thu, Sep 24</td><td>7,053</td><td>183.9</td><td></td><td></td></tr><tr><td>Wed, Sep 23</td><td>9,406</td><td></td><td>✓</td><td></td></tr><tr><td>Tue, Sep 22</td><td>6,410</td><td>183.3</td><td>✓</td><td></td></tr><tr><td>Mon, Sep 21</td><td>4,879</td><td></td><td></td><td></td></tr><tr><td>Sun, Sep 20</td><td>8,750</td><td>183.7</td><td></td><td></td></tr><tr><td>Sat, Sep 19</td><td>10,019</td><td></td><td>✓</td><td></td></tr><tr><td>Fri, Sep 18</td><td>6,160</td><td>183.4</td><td></td><td></td></tr><tr><td>Thu, Sep 17</td><td>8,071</td><td></td><td></td><td></td></tr><tr><td>Wed, Sep 16</td><td>9,075</td><td>184.4</td><td>✓</td><td></td></tr><tr><td>Tue, Sep 15</td><td>10,301</td><td></td><td>✓</td><td></td></tr><tr><td>Mon, Sep 14</td><td>9,541</td><td>184.5</td><td></td><td>✓</td></tr><tr><td>Sun, Sep 13</td><td>6,883</td><td></td><td></td><td>✓</td></tr><tr><td>Sat, Sep 12</td><td>10,212</td><td>183.4</td><td>✓</td><td></td></tr><tr><td>Fri, Sep 11</td><td>10,031</td><td></td><td></td><td>✓</td></tr><tr><td>Thu, Sep 10</td><td>6,867</td><td>183.9</td><td>✓</td><td>✓</td></tr><tr><td>Wed, Sep 9</td><td>11,556</td><td></td><td></td><td></td></tr><tr><td>Tue, Sep 8</td><td>11,200</td><td>184.2</td><td>✓</td><td></td></tr><tr><td>Mon, Sep 7</td><td>6,892</td><td></td><td>✓</td><td></td></tr><tr><td>Sun, Sep 6</td><td>12,379</td><td>183.3</td><td>✓</td><td></td></tr><tr><td>Sat, Sep 5</td><td>8,225</td><td></td><td>✓</td><td></td></tr><tr><td>Fri, Sep 4</td><td>7,471</td><td>183.4</td><td></td><td></td></tr><tr><td>Thu, Sep 3</td><td>6,197</td><td></td><td></td><td>✓</td></tr><tr><td>Wed, Sep 2</td><td>4,986</td><td>183.6</td><td>✓</td><td></td></tr><tr><td>Tue, Sep 1</td><td>12,451</td><td></td><td>✓</td><td>✓</td></tr><tr><td>Mon, Aug 31</td><td>8,519</td><td>182.6</td><td></td><td></td></tr><tr><td>Sun, Aug 30</td><td>11,339</td><td></td><td></td><td></td></tr><tr><td>Sat, Aug 29</td><td>7,853</td><td>182.8</td><td></td><td>✓</td></tr><tr><td>Fri, Aug 28</td><td>8,094</td><td></td><td></td><td>✓</td></tr><tr><td>Thu, Aug 27</td><td>7,950</td><td>183.1</td><td></td><td></td></tr><tr><td>Wed, Aug 26</td><td>6,267</td><td></td><td></td><td>✓</td></tr><tr><td>Tue, Aug 25</td><td>6,583</td><td>183.6</td><td>✓</td><td></td></tr><tr><td>Mon, Aug 24</td><td>7,917</td><td></td><td></td><td>✓</td></tr><tr><td>Sun, Aug 23</td><td>4,920</td><td>182.5</td><td></td><td></td></tr><tr><td>Sat, Aug 22</td><td>9,167</td><td></td><td></td><td></td></tr><tr><td>Fri, Aug 21</td><td>9,857</td><td>182.3</td><td></td><td></td></tr><tr><td>Thu, Aug 20</td><td>7,674</td><td></td><td>✓</td><td>✓</td></tr><tr><td>Wed, Aug 19</td><td>11,658</td><td>182.5</td><td></td><td></td></tr><tr><td>Tue, Aug 18</td><td>6,926</td><td></td><td></td><td></td></tr><tr><td>Mon, Aug 17</td><td>9,763</td><td>182.5</td><td>✓</td><td></td></tr></tbody></table></div></details></div>
+        </div>
+<div class="pane">
+            <div class="pane-head">
+                <span class="pane-title">Completed this month</span>
+                <span class="pane-total"><b>32</b> tasks · <b>2</b> pushed</span>
+                <span class="pane-ratio" title="Of 32 tasks due in October 2026: 32 on time, 0 late, 0 past 10 days late, 0 not done. Each is worth 100, minus 10 for every day it slipped."><b>100</b> score</span>
+                <div class="month-nav">
+                    <button title="Previous month">‹</button>
+                    <span class="month-name">October 2026</span>
+                    <button title="Next month" disabled="">›</button>
+                </div>
+            </div>
+            <div class="chart-wrap"><svg class="chart" viewBox="0 0 720 220" role="img" aria-label="Completed tasks per day, October 2026"><line class="grid" x1="24" x2="714" y1="198" y2="198"></line><text class="axis-label" x="18" y="201" text-anchor="end">0</text><line class="grid" x1="24" x2="714" y1="136.66666666666669" y2="136.66666666666669"></line><text class="axis-label" x="18" y="139.66666666666669" text-anchor="end">2</text><line class="grid" x1="24" x2="714" y1="75.33333333333334" y2="75.33333333333334"></line><text class="axis-label" x="18" y="78.33333333333334" text-anchor="end">4</text><line class="grid" x1="24" x2="714" y1="14" y2="14"></line><text class="axis-label" x="18" y="17" text-anchor="end">6</text><rect class="hit" x="24" y="14" width="22.258064516129032" height="184" data-i="0"></rect><path class="seg" data-i="0" data-si="1" fill="#eb6834" d="M25.999999999999996 198 V136.66666666666669 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="0" data-si="2" fill="#4a3aa7" d="M25.999999999999996 136.66666666666669 V78.33333333333334 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V136.66666666666669 Z"></path><text class="value" x="30.314516129032256" y="71.33333333333334">4</text><text class="axis-label" x="35.12903225806451" y="214" text-anchor="middle">1</text><rect class="hit" x="46.25806451612903" y="14" width="22.258064516129032" height="184" data-i="1"></rect><path class="seg" data-i="1" data-si="0" fill="#0284c7" d="M48.25806451612904 198 V136.66666666666669 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="1" data-si="1" fill="#eb6834" d="M48.25806451612904 136.66666666666669 V106 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V136.66666666666669 Z"></path><path class="seg" data-i="1" data-si="2" fill="#4a3aa7" d="M48.25806451612904 106 V78.33333333333334 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V106 Z"></path><text class="value" x="52.572580645161295" y="71.33333333333334">4</text><rect class="hit" x="68.51612903225806" y="14" width="22.258064516129032" height="184" data-i="2"></rect><path class="seg" data-i="2" data-si="0" fill="#0284c7" d="M70.51612903225806 198 V136.66666666666669 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="2" data-si="1" fill="#eb6834" d="M70.51612903225806 136.66666666666669 V75.33333333333334 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V136.66666666666669 Z"></path><path class="seg" data-i="2" data-si="2" fill="#4a3aa7" d="M70.51612903225806 75.33333333333334 V17 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V75.33333333333334 Z"></path><text class="value" x="74.83064516129032" y="10">6</text><rect class="hit" x="90.7741935483871" y="14" width="22.258064516129032" height="184" data-i="3"></rect><path class="seg" data-i="3" data-si="2" fill="#4a3aa7" d="M92.7741935483871 198 V139.66666666666669 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V198 Z"></path><text class="value" x="97.08870967741936" y="132.66666666666669">2</text><path class="seg" data-i="3" fill="#b91c1c" d="M102.40322580645162 198 V170.33333333333334 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V198 Z"></path><text class="value" x="106.71774193548387" y="163.33333333333334">1</text><rect class="hit" x="113.03225806451613" y="14" width="22.258064516129032" height="184" data-i="4"></rect><path class="seg" data-i="4" data-si="0" fill="#0284c7" d="M115.03225806451613 198 V136.66666666666669 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="4" data-si="1" fill="#eb6834" d="M115.03225806451613 136.66666666666669 V109 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V136.66666666666669 Z"></path><text class="value" x="119.34677419354838" y="102">3</text><text class="axis-label" x="124.16129032258064" y="214" text-anchor="middle">5</text><rect class="hit" x="135.29032258064515" y="14" width="22.258064516129032" height="184" data-i="5"></rect><path class="seg" data-i="5" data-si="1" fill="#eb6834" d="M137.29032258064515 198 V170.33333333333334 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V198 Z"></path><text class="value" x="141.6048387096774" y="163.33333333333334">1</text><path class="seg" data-i="5" fill="#b91c1c" d="M146.91935483870967 198 V170.33333333333334 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V198 Z"></path><text class="value" x="151.23387096774192" y="163.33333333333334">1</text><rect class="hit" x="157.5483870967742" y="14" width="22.258064516129032" height="184" data-i="6"></rect><path class="seg" data-i="6" data-si="0" fill="#0284c7" d="M159.5483870967742 198 V106 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="6" data-si="1" fill="#eb6834" d="M159.5483870967742 106 V75.33333333333334 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V106 Z"></path><path class="seg" data-i="6" data-si="2" fill="#4a3aa7" d="M159.5483870967742 75.33333333333334 V17 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V75.33333333333334 Z"></path><text class="value" x="163.86290322580646" y="10">6</text><rect class="hit" x="179.80645161290323" y="14" width="22.258064516129032" height="184" data-i="7"></rect><path class="seg" data-i="7" data-si="0" fill="#0284c7" d="M181.80645161290323 198 V75.33333333333334 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="7" data-si="2" fill="#4a3aa7" d="M181.80645161290323 75.33333333333334 V17 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V75.33333333333334 Z"></path><text class="value" x="186.1209677419355" y="10">6</text><text class="axis-label today" x="190.93548387096774" y="214" text-anchor="middle">8</text><rect class="hit" x="202.06451612903226" y="14" width="22.258064516129032" height="184" data-i="8"></rect><rect class="hit" x="224.32258064516128" y="14" width="22.258064516129032" height="184" data-i="9"></rect><text class="axis-label" x="235.4516129032258" y="214" text-anchor="middle">10</text><rect class="hit" x="246.5806451612903" y="14" width="22.258064516129032" height="184" data-i="10"></rect><rect class="hit" x="268.8387096774194" y="14" width="22.258064516129032" height="184" data-i="11"></rect><rect class="hit" x="291.0967741935484" y="14" width="22.258064516129032" height="184" data-i="12"></rect><rect class="hit" x="313.35483870967744" y="14" width="22.258064516129032" height="184" data-i="13"></rect><rect class="hit" x="335.61290322580646" y="14" width="22.258064516129032" height="184" data-i="14"></rect><text class="axis-label" x="346.741935483871" y="214" text-anchor="middle">15</text><rect class="hit" x="357.8709677419355" y="14" width="22.258064516129032" height="184" data-i="15"></rect><rect class="hit" x="380.1290322580645" y="14" width="22.258064516129032" height="184" data-i="16"></rect><rect class="hit" x="402.38709677419354" y="14" width="22.258064516129032" height="184" data-i="17"></rect><rect class="hit" x="424.64516129032256" y="14" width="22.258064516129032" height="184" data-i="18"></rect><rect class="hit" x="446.9032258064516" y="14" width="22.258064516129032" height="184" data-i="19"></rect><text class="axis-label" x="458.0322580645161" y="214" text-anchor="middle">20</text><rect class="hit" x="469.1612903225806" y="14" width="22.258064516129032" height="184" data-i="20"></rect><rect class="hit" x="491.4193548387097" y="14" width="22.258064516129032" height="184" data-i="21"></rect><rect class="hit" x="513.6774193548388" y="14" width="22.258064516129032" height="184" data-i="22"></rect><rect class="hit" x="535.9354838709678" y="14" width="22.258064516129032" height="184" data-i="23"></rect><rect class="hit" x="558.1935483870968" y="14" width="22.258064516129032" height="184" data-i="24"></rect><text class="axis-label" x="569.3225806451613" y="214" text-anchor="middle">25</text><rect class="hit" x="580.4516129032259" y="14" width="22.258064516129032" height="184" data-i="25"></rect><rect class="hit" x="602.7096774193549" y="14" width="22.258064516129032" height="184" data-i="26"></rect><rect class="hit" x="624.9677419354839" y="14" width="22.258064516129032" height="184" data-i="27"></rect><rect class="hit" x="647.2258064516129" y="14" width="22.258064516129032" height="184" data-i="28"></rect><rect class="hit" x="669.483870967742" y="14" width="22.258064516129032" height="184" data-i="29"></rect><text class="axis-label" x="680.6129032258065" y="214" text-anchor="middle">30</text><rect class="hit" x="691.741935483871" y="14" width="22.258064516129032" height="184" data-i="30"></rect></svg><div class="tip"></div></div>
+            <div class="legend"><span class="item"><span class="sw" style="background:#0284c7"></span>Main <span class="n">13</span></span><span class="item"><span class="sw" style="background:#eb6834"></span>Home <span class="n">8</span></span><span class="item"><span class="sw" style="background:#4a3aa7"></span>Studio <span class="n">11</span></span><span class="item" title="Tasks moved to a later day — by the arrow, a number key, spillover or a full day"><span class="sw" style="background:#b91c1c"></span>Pushed <span class="n">2</span></span></div>
+            <details><summary>As a table</summary><div><table><tbody><tr><th>Day</th><th>Main</th><th>Home</th><th>Studio</th><th>Total</th><th>Pushed</th></tr><tr><td>1</td><td></td><td>2</td><td>2</td><td>4</td><td></td></tr><tr><td>2</td><td>2</td><td>1</td><td>1</td><td>4</td><td></td></tr><tr><td>3</td><td>2</td><td>2</td><td>2</td><td>6</td><td></td></tr><tr><td>4</td><td></td><td></td><td>2</td><td>2</td><td>1</td></tr><tr><td>5</td><td>2</td><td>1</td><td></td><td>3</td><td></td></tr><tr><td>6</td><td></td><td>1</td><td></td><td>1</td><td>1</td></tr><tr><td>7</td><td>3</td><td>1</td><td>2</td><td>6</td><td></td></tr><tr><td>8</td><td>4</td><td></td><td>2</td><td>6</td><td></td></tr><tr><th>Total</th><th>13</th><th>8</th><th>11</th><th>32</th><th>2</th></tr></tbody></table></div></details>
+        </div></div>
+            <div class="dash dash-dark"><div class="pane">
+            <div class="pane-head">
+                <span class="pane-title">Health</span>
+                <div class="weeks-nav">
+                    <label for="weeksSel">Show</label>
+                    <select>
+                        <option value="4">4 weeks</option>
+                        <option value="8" selected="">8 weeks</option>
+                        <option value="12">12 weeks</option>
+                        <option value="26">26 weeks</option>
+                    </select>
+                </div>
+            </div>
+            <form class="entry" autocomplete="off" onsubmit="return false">
+                <div class="day-nav">
+                    <button type="button" title="Previous day">‹</button>
+                    <span class="day-word"><b>Oct 7</b></span>
+                    <button type="button" title="Next day">›</button>
+                </div>
+                <label>Steps <input type="number" min="0" step="1" inputmode="numeric" placeholder="—" value="6433"></label>
+                <label>Weight <input type="number" min="0" step="0.1" inputmode="decimal" placeholder="—" value=""><span class="u">lb</span></label>
+                <label class="check"><input type="checkbox" value="on" checked=""> Gym</label>
+                <label class="check"><input type="checkbox" value="on"> Yoga</label>
+                <span class="state"></span>
+            </form>
+            <div class="stats"><div class="stat"><div class="k"><span class="sw" style="background:#0284c7"></span>Steps, 7-day avg</div><div class="v">8,332</div><div class="s">▼ 1,443 vs the week before</div></div><div class="stat"><div class="k"><span class="sw" style="background:#9085e9"></span>Weight</div><div class="v">184.3<small>lb</small></div><div class="s">+1.8 since Aug 17</div></div><div class="stat"><div class="k"><span class="sw" style="background:#ea580c"></span>Gym</div><div class="v">3<small>this week</small></div><div class="s">24 in 8 weeks · 3.0 a week</div></div><div class="stat"><div class="k"><span class="sw" style="background:#db2777"></span>Yoga</div><div class="v">1<small>this week</small></div><div class="s">13 in 8 weeks · 1.6 a week</div></div></div>
+            <div><div class="sub-title">Steps <span>a day · dashed line is the 7-day average</span></div><svg class="chart" viewBox="0 0 720 150" xmlns="http://www.w3.org/2000/svg"><line class="grid" x1="40" x2="712" y1="128" y2="128"></line><text class="axis-label" x="34" y="131" text-anchor="end">0</text><line class="grid" x1="40" x2="712" y1="105.2" y2="105.2"></line><text class="axis-label" x="34" y="108.2" text-anchor="end">2.5k</text><line class="grid" x1="40" x2="712" y1="82.4" y2="82.4"></line><text class="axis-label" x="34" y="85.4" text-anchor="end">5k</text><line class="grid" x1="40" x2="712" y1="59.60000000000001" y2="59.60000000000001"></line><text class="axis-label" x="34" y="62.60000000000001" text-anchor="end">7.5k</text><line class="grid" x1="40" x2="712" y1="36.8" y2="36.8"></line><text class="axis-label" x="34" y="39.8" text-anchor="end">10k</text><line class="grid" x1="40" x2="712" y1="14" y2="14"></line><text class="axis-label" x="34" y="17" text-anchor="end">12.5k</text><rect class="bar" data-tip="Mon, Aug 17 · 9,763 steps" x="41.92" y="38.96144000000001" width="8.16" height="89.03855999999999" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="42" y="144">Aug 17</text><rect class="bar" data-tip="Tue, Aug 18 · 6,926 steps" x="53.92" y="64.83488" width="8.16" height="63.16512" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Aug 19 · 11,658 steps" x="65.92" y="21.67904" width="8.16" height="106.32096" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Aug 20 · 7,674 steps" x="77.92" y="58.01312" width="8.16" height="69.98688" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Aug 21 · 9,857 steps" x="89.92" y="38.10415999999999" width="8.16" height="89.89584" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Aug 22 · 9,167 steps" x="101.92" y="44.39695999999999" width="8.16" height="83.60304000000001" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Aug 23 · 4,920 steps" x="113.92" y="83.1296" width="8.16" height="44.870400000000004" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="124" x2="124" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Aug 24 · 7,917 steps" x="125.92" y="55.79696" width="8.16" height="72.20304" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="126" y="144">Aug 24</text><rect class="bar" data-tip="Tue, Aug 25 · 6,583 steps" x="137.92" y="67.96304" width="8.16" height="60.03695999999999" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Aug 26 · 6,267 steps" x="149.92" y="70.84496" width="8.16" height="57.15504" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Aug 27 · 7,950 steps" x="161.92" y="55.495999999999995" width="8.16" height="72.504" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Aug 28 · 8,094 steps" x="173.92" y="54.18272" width="8.16" height="73.81728" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Aug 29 · 7,853 steps" x="185.92" y="56.38064" width="8.16" height="71.61936" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Aug 30 · 11,339 steps" x="197.92" y="24.588319999999996" width="8.16" height="103.41168" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="208" x2="208" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Aug 31 · 8,519 steps" x="209.92" y="50.30672" width="8.16" height="77.69328" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="210" y="144">Aug 31</text><rect class="bar" data-tip="Tue, Sep 1 · 12,451 steps" x="221.92" y="14.446880000000007" width="8.16" height="113.55311999999999" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Sep 2 · 4,986 steps" x="233.92" y="82.52768" width="8.16" height="45.472319999999996" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Sep 3 · 6,197 steps" x="245.92" y="71.48336" width="8.16" height="56.516639999999995" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Sep 4 · 7,471 steps" x="257.92" y="59.86448" width="8.16" height="68.13552" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Sep 5 · 8,225 steps" x="269.92" y="52.988" width="8.16" height="75.012" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Sep 6 · 12,379 steps" x="281.92" y="15.103520000000003" width="8.16" height="112.89648" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="292" x2="292" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Sep 7 · 6,892 steps" x="293.92" y="65.14496" width="8.16" height="62.85504" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="294" y="144">Sep 7</text><rect class="bar" data-tip="Tue, Sep 8 · 11,200 steps" x="305.92" y="25.855999999999995" width="8.16" height="102.144" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Sep 9 · 11,556 steps" x="317.92" y="22.60928" width="8.16" height="105.39072" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Sep 10 · 6,867 steps" x="329.92" y="65.37296" width="8.16" height="62.627039999999994" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Sep 11 · 10,031 steps" x="341.92" y="36.51728" width="8.16" height="91.48272" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Sep 12 · 10,212 steps" x="353.92" y="34.86655999999999" width="8.16" height="93.13344000000001" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Sep 13 · 6,883 steps" x="365.92" y="65.22703999999999" width="8.16" height="62.77296000000001" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="376" x2="376" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Sep 14 · 9,541 steps" x="377.92" y="40.98608" width="8.16" height="87.01392" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="378" y="144">Sep 14</text><rect class="bar" data-tip="Tue, Sep 15 · 10,301 steps" x="389.92" y="34.05488" width="8.16" height="93.94512" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Sep 16 · 9,075 steps" x="401.92" y="45.236000000000004" width="8.16" height="82.764" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Sep 17 · 8,071 steps" x="413.92" y="54.39247999999999" width="8.16" height="73.60752000000001" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Sep 18 · 6,160 steps" x="425.92" y="71.82079999999999" width="8.16" height="56.17920000000001" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Sep 19 · 10,019 steps" x="437.92" y="36.626720000000006" width="8.16" height="91.37328" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Sep 20 · 8,750 steps" x="449.92" y="48.2" width="8.16" height="79.8" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="460" x2="460" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Sep 21 · 4,879 steps" x="461.92" y="83.50352000000001" width="8.16" height="44.49647999999999" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="462" y="144">Sep 21</text><rect class="bar" data-tip="Tue, Sep 22 · 6,410 steps" x="473.92" y="69.54079999999999" width="8.16" height="58.45920000000001" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Sep 23 · 9,406 steps" x="485.92" y="42.21728" width="8.16" height="85.78272" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Sep 24 · 7,053 steps" x="497.92" y="63.676640000000006" width="8.16" height="64.32336" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Sep 25 · 11,945 steps" x="509.92" y="19.0616" width="8.16" height="108.9384" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Sep 26 · 11,200 steps" x="521.92" y="25.855999999999995" width="8.16" height="102.144" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Sep 27 · 8,379 steps" x="533.92" y="51.58351999999999" width="8.16" height="76.41648" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="544" x2="544" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Sep 28 · 7,264 steps" x="545.92" y="61.75232" width="8.16" height="66.24768" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="546" y="144">Sep 28</text><rect class="bar" data-tip="Tue, Sep 29 · 11,709 steps" x="557.92" y="21.21392" width="8.16" height="106.78608" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Sep 30 · 6,872 steps" x="569.92" y="65.32736" width="8.16" height="62.67264" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Thu, Oct 1 · 11,057 steps" x="581.92" y="27.160160000000005" width="8.16" height="100.83984" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Fri, Oct 2 · 12,224 steps" x="593.92" y="16.517120000000006" width="8.16" height="111.48288" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sat, Oct 3 · 5,914 steps" x="605.92" y="74.06432000000001" width="8.16" height="53.93567999999999" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Sun, Oct 4 · 4,982 steps" x="617.92" y="82.56415999999999" width="8.16" height="45.43584000000001" rx="1.5" fill="#0284c7"></rect><line class="week-sep" x1="628" x2="628" y1="14" y2="128"></line><rect class="bar" data-tip="Mon, Oct 5 · 12,019 steps" x="629.92" y="18.386719999999997" width="8.16" height="109.61328" rx="1.5" fill="#0284c7"></rect><text class="axis-label" x="630" y="144">Oct 5</text><rect class="bar" data-tip="Tue, Oct 6 · 8,422 steps" x="641.92" y="51.19136" width="8.16" height="76.80864" rx="1.5" fill="#0284c7"></rect><rect class="bar" data-tip="Wed, Oct 7 · 6,433 steps" x="653.92" y="69.33104" width="8.16" height="58.66896" rx="1.5" fill="#0284c7"></rect><path class="avg" d="M70.0 41.8 L82.0 45.9 L94.0 44.3 L106.0 44.3 L118.0 49.9 L130.0 52.3 L142.0 52.7 L154.0 59.7 L166.0 59.4 L178.0 61.7 L190.0 63.4 L202.0 55.0 L214.0 54.3 L226.0 46.6 L238.0 48.3 L250.0 50.6 L262.0 51.4 L274.0 50.9 L286.0 49.5 L298.0 51.7 L310.0 53.3 L322.0 44.7 L334.0 43.8 L346.0 40.5 L358.0 37.9 L370.0 45.1 L382.0 41.6 L394.0 42.8 L406.0 46.0 L418.0 44.5 L430.0 49.5 L442.0 49.8 L454.0 47.3 L466.0 53.4 L478.0 58.5 L490.0 58.0 L502.0 59.4 L514.0 51.8 L526.0 50.3 L538.0 50.8 L550.0 47.7 L562.0 40.8 L574.0 44.1 L586.0 38.9 L598.0 38.5 L610.0 45.4 L622.0 49.8 L634.0 43.6 L646.0 47.9 L658.0 48.5 L670.0 52.0 "></path></svg><div class="sub-title">Weight <span>lb</span></div><svg class="chart" viewBox="0 0 720 130" xmlns="http://www.w3.org/2000/svg"><line class="grid" x1="40" x2="712" y1="108" y2="108"></line><text class="axis-label" x="34" y="111" text-anchor="end">181</text><line class="grid" x1="40" x2="712" y1="89.2" y2="89.2"></line><text class="axis-label" x="34" y="92.2" text-anchor="end">182</text><line class="grid" x1="40" x2="712" y1="70.4" y2="70.4"></line><text class="axis-label" x="34" y="73.4" text-anchor="end">183</text><line class="grid" x1="40" x2="712" y1="51.6" y2="51.6"></line><text class="axis-label" x="34" y="54.6" text-anchor="end">184</text><line class="grid" x1="40" x2="712" y1="32.8" y2="32.8"></line><text class="axis-label" x="34" y="35.8" text-anchor="end">185</text><line class="grid" x1="40" x2="712" y1="14" y2="14"></line><text class="axis-label" x="34" y="17" text-anchor="end">186</text><text class="axis-label" x="42" y="124">Aug 17</text><text class="axis-label" x="126" y="124">Aug 24</text><text class="axis-label" x="210" y="124">Aug 31</text><text class="axis-label" x="294" y="124">Sep 7</text><text class="axis-label" x="378" y="124">Sep 14</text><text class="axis-label" x="462" y="124">Sep 21</text><text class="axis-label" x="546" y="124">Sep 28</text><text class="axis-label" x="630" y="124">Oct 5</text><path class="wline" stroke="#9085e9" d="M46.0 79.8 L70.0 79.8 L94.0 83.6 L118.0 79.8 L142.0 59.1 L166.0 68.5 L190.0 74.2 L214.0 77.9 L238.0 59.1 L262.0 62.9 L286.0 64.8 L310.0 47.8 L334.0 53.5 L358.0 62.9 L382.0 42.2 L406.0 44.1 L430.0 62.9 L454.0 57.2 L478.0 64.8 L502.0 53.5 L526.0 55.4 L550.0 57.2 L574.0 36.6 L598.0 36.6 L622.0 51.6 L646.0 46.0"></path><circle class="wdot" data-tip="Mon, Aug 17 · 182.5 lb" cx="46" cy="79.8" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Wed, Aug 19 · 182.5 lb" cx="70" cy="79.8" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Fri, Aug 21 · 182.3 lb" cx="94" cy="83.55999999999979" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Sun, Aug 23 · 182.5 lb" cx="118" cy="79.8" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Tue, Aug 25 · 183.6 lb" cx="142" cy="59.120000000000104" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Thu, Aug 27 · 183.1 lb" cx="166" cy="68.5200000000001" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Sat, Aug 29 · 182.8 lb" cx="190" cy="74.1599999999998" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Mon, Aug 31 · 182.6 lb" cx="214" cy="77.9200000000001" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Wed, Sep 2 · 183.6 lb" cx="238" cy="59.120000000000104" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Fri, Sep 4 · 183.4 lb" cx="262" cy="62.87999999999989" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Sun, Sep 6 · 183.3 lb" cx="286" cy="64.75999999999979" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Tue, Sep 8 · 184.2 lb" cx="310" cy="47.84000000000022" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Thu, Sep 10 · 183.9 lb" cx="334" cy="53.47999999999989" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Sat, Sep 12 · 183.4 lb" cx="358" cy="62.87999999999989" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Mon, Sep 14 · 184.5 lb" cx="382" cy="42.2" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Wed, Sep 16 · 184.4 lb" cx="406" cy="44.07999999999989" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Fri, Sep 18 · 183.4 lb" cx="430" cy="62.87999999999989" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Sun, Sep 20 · 183.7 lb" cx="454" cy="57.240000000000215" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Tue, Sep 22 · 183.3 lb" cx="478" cy="64.75999999999979" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Thu, Sep 24 · 183.9 lb" cx="502" cy="53.47999999999989" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Sat, Sep 26 · 183.8 lb" cx="526" cy="55.359999999999786" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Mon, Sep 28 · 183.7 lb" cx="550" cy="57.240000000000215" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Wed, Sep 30 · 184.8 lb" cx="574" cy="36.55999999999979" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Fri, Oct 2 · 184.8 lb" cx="598" cy="36.55999999999979" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Sun, Oct 4 · 184.0 lb" cx="622" cy="51.6" r="3.5" fill="#9085e9"></circle><circle class="wdot" data-tip="Tue, Oct 6 · 184.3 lb" cx="646" cy="45.95999999999979" r="3.5" fill="#9085e9"></circle><text class="wlabel" x="646" y="37.95999999999979">184.3</text></svg><div class="sub-title">Gym and yoga <span>a cell a day, Monday first · count per week</span></div><div class="streaks"><div class="streak"><div class="name">Gym</div><div class="weeks"><div class="week"><div class="cells"><div class="cell on" style="--c:#ea580c" title="Mon, Aug 17 · gym"></div><div class="cell" style="--c:#ea580c" title="Tue, Aug 18"></div><div class="cell" style="--c:#ea580c" title="Wed, Aug 19"></div><div class="cell on" style="--c:#ea580c" title="Thu, Aug 20 · gym"></div><div class="cell" style="--c:#ea580c" title="Fri, Aug 21"></div><div class="cell" style="--c:#ea580c" title="Sat, Aug 22"></div><div class="cell" style="--c:#ea580c" title="Sun, Aug 23"></div></div><div class="wk"><b>2</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#ea580c" title="Mon, Aug 24"></div><div class="cell on" style="--c:#ea580c" title="Tue, Aug 25 · gym"></div><div class="cell" style="--c:#ea580c" title="Wed, Aug 26"></div><div class="cell" style="--c:#ea580c" title="Thu, Aug 27"></div><div class="cell" style="--c:#ea580c" title="Fri, Aug 28"></div><div class="cell" style="--c:#ea580c" title="Sat, Aug 29"></div><div class="cell" style="--c:#ea580c" title="Sun, Aug 30"></div></div><div class="wk"><b>1</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#ea580c" title="Mon, Aug 31"></div><div class="cell on" style="--c:#ea580c" title="Tue, Sep 1 · gym"></div><div class="cell on" style="--c:#ea580c" title="Wed, Sep 2 · gym"></div><div class="cell" style="--c:#ea580c" title="Thu, Sep 3"></div><div class="cell" style="--c:#ea580c" title="Fri, Sep 4"></div><div class="cell on" style="--c:#ea580c" title="Sat, Sep 5 · gym"></div><div class="cell on" style="--c:#ea580c" title="Sun, Sep 6 · gym"></div></div><div class="wk"><b>4</b></div></div><div class="week"><div class="cells"><div class="cell on" style="--c:#ea580c" title="Mon, Sep 7 · gym"></div><div class="cell on" style="--c:#ea580c" title="Tue, Sep 8 · gym"></div><div class="cell" style="--c:#ea580c" title="Wed, Sep 9"></div><div class="cell on" style="--c:#ea580c" title="Thu, Sep 10 · gym"></div><div class="cell" style="--c:#ea580c" title="Fri, Sep 11"></div><div class="cell on" style="--c:#ea580c" title="Sat, Sep 12 · gym"></div><div class="cell" style="--c:#ea580c" title="Sun, Sep 13"></div></div><div class="wk"><b>4</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#ea580c" title="Mon, Sep 14"></div><div class="cell on" style="--c:#ea580c" title="Tue, Sep 15 · gym"></div><div class="cell on" style="--c:#ea580c" title="Wed, Sep 16 · gym"></div><div class="cell" style="--c:#ea580c" title="Thu, Sep 17"></div><div class="cell" style="--c:#ea580c" title="Fri, Sep 18"></div><div class="cell on" style="--c:#ea580c" title="Sat, Sep 19 · gym"></div><div class="cell" style="--c:#ea580c" title="Sun, Sep 20"></div></div><div class="wk"><b>3</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#ea580c" title="Mon, Sep 21"></div><div class="cell on" style="--c:#ea580c" title="Tue, Sep 22 · gym"></div><div class="cell on" style="--c:#ea580c" title="Wed, Sep 23 · gym"></div><div class="cell" style="--c:#ea580c" title="Thu, Sep 24"></div><div class="cell on" style="--c:#ea580c" title="Fri, Sep 25 · gym"></div><div class="cell" style="--c:#ea580c" title="Sat, Sep 26"></div><div class="cell on" style="--c:#ea580c" title="Sun, Sep 27 · gym"></div></div><div class="wk"><b>4</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#ea580c" title="Mon, Sep 28"></div><div class="cell on" style="--c:#ea580c" title="Tue, Sep 29 · gym"></div><div class="cell" style="--c:#ea580c" title="Wed, Sep 30"></div><div class="cell on" style="--c:#ea580c" title="Thu, Oct 1 · gym"></div><div class="cell" style="--c:#ea580c" title="Fri, Oct 2"></div><div class="cell" style="--c:#ea580c" title="Sat, Oct 3"></div><div class="cell on" style="--c:#ea580c" title="Sun, Oct 4 · gym"></div></div><div class="wk"><b>3</b></div></div><div class="week"><div class="cells"><div class="cell on" style="--c:#ea580c" title="Mon, Oct 5 · gym"></div><div class="cell on" style="--c:#ea580c" title="Tue, Oct 6 · gym"></div><div class="cell on" style="--c:#ea580c" title="Wed, Oct 7 · gym"></div><div class="cell today" style="--c:#ea580c" title="Thu, Oct 8"></div><div class="cell future" style="--c:#ea580c" title="Fri, Oct 9"></div><div class="cell future" style="--c:#ea580c" title="Sat, Oct 10"></div><div class="cell future" style="--c:#ea580c" title="Sun, Oct 11"></div></div><div class="wk"><b>3</b></div></div></div></div><div class="streak"><div class="name">Yoga</div><div class="weeks"><div class="week"><div class="cells"><div class="cell" style="--c:#db2777" title="Mon, Aug 17"></div><div class="cell" style="--c:#db2777" title="Tue, Aug 18"></div><div class="cell" style="--c:#db2777" title="Wed, Aug 19"></div><div class="cell on" style="--c:#db2777" title="Thu, Aug 20 · yoga"></div><div class="cell" style="--c:#db2777" title="Fri, Aug 21"></div><div class="cell" style="--c:#db2777" title="Sat, Aug 22"></div><div class="cell" style="--c:#db2777" title="Sun, Aug 23"></div></div><div class="wk"><b>1</b></div></div><div class="week"><div class="cells"><div class="cell on" style="--c:#db2777" title="Mon, Aug 24 · yoga"></div><div class="cell" style="--c:#db2777" title="Tue, Aug 25"></div><div class="cell on" style="--c:#db2777" title="Wed, Aug 26 · yoga"></div><div class="cell" style="--c:#db2777" title="Thu, Aug 27"></div><div class="cell on" style="--c:#db2777" title="Fri, Aug 28 · yoga"></div><div class="cell on" style="--c:#db2777" title="Sat, Aug 29 · yoga"></div><div class="cell" style="--c:#db2777" title="Sun, Aug 30"></div></div><div class="wk"><b>4</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#db2777" title="Mon, Aug 31"></div><div class="cell on" style="--c:#db2777" title="Tue, Sep 1 · yoga"></div><div class="cell" style="--c:#db2777" title="Wed, Sep 2"></div><div class="cell on" style="--c:#db2777" title="Thu, Sep 3 · yoga"></div><div class="cell" style="--c:#db2777" title="Fri, Sep 4"></div><div class="cell" style="--c:#db2777" title="Sat, Sep 5"></div><div class="cell" style="--c:#db2777" title="Sun, Sep 6"></div></div><div class="wk"><b>2</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#db2777" title="Mon, Sep 7"></div><div class="cell" style="--c:#db2777" title="Tue, Sep 8"></div><div class="cell" style="--c:#db2777" title="Wed, Sep 9"></div><div class="cell on" style="--c:#db2777" title="Thu, Sep 10 · yoga"></div><div class="cell on" style="--c:#db2777" title="Fri, Sep 11 · yoga"></div><div class="cell" style="--c:#db2777" title="Sat, Sep 12"></div><div class="cell on" style="--c:#db2777" title="Sun, Sep 13 · yoga"></div></div><div class="wk"><b>3</b></div></div><div class="week"><div class="cells"><div class="cell on" style="--c:#db2777" title="Mon, Sep 14 · yoga"></div><div class="cell" style="--c:#db2777" title="Tue, Sep 15"></div><div class="cell" style="--c:#db2777" title="Wed, Sep 16"></div><div class="cell" style="--c:#db2777" title="Thu, Sep 17"></div><div class="cell" style="--c:#db2777" title="Fri, Sep 18"></div><div class="cell" style="--c:#db2777" title="Sat, Sep 19"></div><div class="cell" style="--c:#db2777" title="Sun, Sep 20"></div></div><div class="wk"><b>1</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#db2777" title="Mon, Sep 21"></div><div class="cell" style="--c:#db2777" title="Tue, Sep 22"></div><div class="cell" style="--c:#db2777" title="Wed, Sep 23"></div><div class="cell" style="--c:#db2777" title="Thu, Sep 24"></div><div class="cell" style="--c:#db2777" title="Fri, Sep 25"></div><div class="cell" style="--c:#db2777" title="Sat, Sep 26"></div><div class="cell" style="--c:#db2777" title="Sun, Sep 27"></div></div><div class="wk">·</div></div><div class="week"><div class="cells"><div class="cell" style="--c:#db2777" title="Mon, Sep 28"></div><div class="cell" style="--c:#db2777" title="Tue, Sep 29"></div><div class="cell" style="--c:#db2777" title="Wed, Sep 30"></div><div class="cell on" style="--c:#db2777" title="Thu, Oct 1 · yoga"></div><div class="cell" style="--c:#db2777" title="Fri, Oct 2"></div><div class="cell" style="--c:#db2777" title="Sat, Oct 3"></div><div class="cell" style="--c:#db2777" title="Sun, Oct 4"></div></div><div class="wk"><b>1</b></div></div><div class="week"><div class="cells"><div class="cell" style="--c:#db2777" title="Mon, Oct 5"></div><div class="cell on" style="--c:#db2777" title="Tue, Oct 6 · yoga"></div><div class="cell" style="--c:#db2777" title="Wed, Oct 7"></div><div class="cell today" style="--c:#db2777" title="Thu, Oct 8"></div><div class="cell future" style="--c:#db2777" title="Fri, Oct 9"></div><div class="cell future" style="--c:#db2777" title="Sat, Oct 10"></div><div class="cell future" style="--c:#db2777" title="Sun, Oct 11"></div></div><div class="wk"><b>1</b></div></div></div></div></div><details><summary>As a table</summary><div><table><tbody><tr><th>Day</th><th>Steps</th><th>Weight</th><th>Gym</th><th>Yoga</th></tr><tr><td>Wed, Oct 7</td><td>6,433</td><td></td><td>✓</td><td></td></tr><tr><td>Tue, Oct 6</td><td>8,422</td><td>184.3</td><td>✓</td><td>✓</td></tr><tr><td>Mon, Oct 5</td><td>12,019</td><td></td><td>✓</td><td></td></tr><tr><td>Sun, Oct 4</td><td>4,982</td><td>184.0</td><td>✓</td><td></td></tr><tr><td>Sat, Oct 3</td><td>5,914</td><td></td><td></td><td></td></tr><tr><td>Fri, Oct 2</td><td>12,224</td><td>184.8</td><td></td><td></td></tr><tr><td>Thu, Oct 1</td><td>11,057</td><td></td><td>✓</td><td>✓</td></tr><tr><td>Wed, Sep 30</td><td>6,872</td><td>184.8</td><td></td><td></td></tr><tr><td>Tue, Sep 29</td><td>11,709</td><td></td><td>✓</td><td></td></tr><tr><td>Mon, Sep 28</td><td>7,264</td><td>183.7</td><td></td><td></td></tr><tr><td>Sun, Sep 27</td><td>8,379</td><td></td><td>✓</td><td></td></tr><tr><td>Sat, Sep 26</td><td>11,200</td><td>183.8</td><td></td><td></td></tr><tr><td>Fri, Sep 25</td><td>11,945</td><td></td><td>✓</td><td></td></tr><tr><td>Thu, Sep 24</td><td>7,053</td><td>183.9</td><td></td><td></td></tr><tr><td>Wed, Sep 23</td><td>9,406</td><td></td><td>✓</td><td></td></tr><tr><td>Tue, Sep 22</td><td>6,410</td><td>183.3</td><td>✓</td><td></td></tr><tr><td>Mon, Sep 21</td><td>4,879</td><td></td><td></td><td></td></tr><tr><td>Sun, Sep 20</td><td>8,750</td><td>183.7</td><td></td><td></td></tr><tr><td>Sat, Sep 19</td><td>10,019</td><td></td><td>✓</td><td></td></tr><tr><td>Fri, Sep 18</td><td>6,160</td><td>183.4</td><td></td><td></td></tr><tr><td>Thu, Sep 17</td><td>8,071</td><td></td><td></td><td></td></tr><tr><td>Wed, Sep 16</td><td>9,075</td><td>184.4</td><td>✓</td><td></td></tr><tr><td>Tue, Sep 15</td><td>10,301</td><td></td><td>✓</td><td></td></tr><tr><td>Mon, Sep 14</td><td>9,541</td><td>184.5</td><td></td><td>✓</td></tr><tr><td>Sun, Sep 13</td><td>6,883</td><td></td><td></td><td>✓</td></tr><tr><td>Sat, Sep 12</td><td>10,212</td><td>183.4</td><td>✓</td><td></td></tr><tr><td>Fri, Sep 11</td><td>10,031</td><td></td><td></td><td>✓</td></tr><tr><td>Thu, Sep 10</td><td>6,867</td><td>183.9</td><td>✓</td><td>✓</td></tr><tr><td>Wed, Sep 9</td><td>11,556</td><td></td><td></td><td></td></tr><tr><td>Tue, Sep 8</td><td>11,200</td><td>184.2</td><td>✓</td><td></td></tr><tr><td>Mon, Sep 7</td><td>6,892</td><td></td><td>✓</td><td></td></tr><tr><td>Sun, Sep 6</td><td>12,379</td><td>183.3</td><td>✓</td><td></td></tr><tr><td>Sat, Sep 5</td><td>8,225</td><td></td><td>✓</td><td></td></tr><tr><td>Fri, Sep 4</td><td>7,471</td><td>183.4</td><td></td><td></td></tr><tr><td>Thu, Sep 3</td><td>6,197</td><td></td><td></td><td>✓</td></tr><tr><td>Wed, Sep 2</td><td>4,986</td><td>183.6</td><td>✓</td><td></td></tr><tr><td>Tue, Sep 1</td><td>12,451</td><td></td><td>✓</td><td>✓</td></tr><tr><td>Mon, Aug 31</td><td>8,519</td><td>182.6</td><td></td><td></td></tr><tr><td>Sun, Aug 30</td><td>11,339</td><td></td><td></td><td></td></tr><tr><td>Sat, Aug 29</td><td>7,853</td><td>182.8</td><td></td><td>✓</td></tr><tr><td>Fri, Aug 28</td><td>8,094</td><td></td><td></td><td>✓</td></tr><tr><td>Thu, Aug 27</td><td>7,950</td><td>183.1</td><td></td><td></td></tr><tr><td>Wed, Aug 26</td><td>6,267</td><td></td><td></td><td>✓</td></tr><tr><td>Tue, Aug 25</td><td>6,583</td><td>183.6</td><td>✓</td><td></td></tr><tr><td>Mon, Aug 24</td><td>7,917</td><td></td><td></td><td>✓</td></tr><tr><td>Sun, Aug 23</td><td>4,920</td><td>182.5</td><td></td><td></td></tr><tr><td>Sat, Aug 22</td><td>9,167</td><td></td><td></td><td></td></tr><tr><td>Fri, Aug 21</td><td>9,857</td><td>182.3</td><td></td><td></td></tr><tr><td>Thu, Aug 20</td><td>7,674</td><td></td><td>✓</td><td>✓</td></tr><tr><td>Wed, Aug 19</td><td>11,658</td><td>182.5</td><td></td><td></td></tr><tr><td>Tue, Aug 18</td><td>6,926</td><td></td><td></td><td></td></tr><tr><td>Mon, Aug 17</td><td>9,763</td><td>182.5</td><td>✓</td><td></td></tr></tbody></table></div></details></div>
+        </div>
+<div class="pane">
+            <div class="pane-head">
+                <span class="pane-title">Completed this month</span>
+                <span class="pane-total"><b>32</b> tasks · <b>2</b> pushed</span>
+                <span class="pane-ratio" title="Of 32 tasks due in October 2026: 32 on time, 0 late, 0 past 10 days late, 0 not done. Each is worth 100, minus 10 for every day it slipped."><b>100</b> score</span>
+                <div class="month-nav">
+                    <button title="Previous month">‹</button>
+                    <span class="month-name">October 2026</span>
+                    <button title="Next month" disabled="">›</button>
+                </div>
+            </div>
+            <div class="chart-wrap"><svg class="chart" viewBox="0 0 720 220" role="img" aria-label="Completed tasks per day, October 2026"><line class="grid" x1="24" x2="714" y1="198" y2="198"></line><text class="axis-label" x="18" y="201" text-anchor="end">0</text><line class="grid" x1="24" x2="714" y1="136.66666666666669" y2="136.66666666666669"></line><text class="axis-label" x="18" y="139.66666666666669" text-anchor="end">2</text><line class="grid" x1="24" x2="714" y1="75.33333333333334" y2="75.33333333333334"></line><text class="axis-label" x="18" y="78.33333333333334" text-anchor="end">4</text><line class="grid" x1="24" x2="714" y1="14" y2="14"></line><text class="axis-label" x="18" y="17" text-anchor="end">6</text><rect class="hit" x="24" y="14" width="22.258064516129032" height="184" data-i="0"></rect><path class="seg" data-i="0" data-si="1" fill="#ea580c" d="M25.999999999999996 198 V136.66666666666669 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="0" data-si="2" fill="#9085e9" d="M25.999999999999996 136.66666666666669 V78.33333333333334 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V136.66666666666669 Z"></path><text class="value" x="30.314516129032256" y="71.33333333333334">4</text><text class="axis-label" x="35.12903225806451" y="214" text-anchor="middle">1</text><rect class="hit" x="46.25806451612903" y="14" width="22.258064516129032" height="184" data-i="1"></rect><path class="seg" data-i="1" data-si="0" fill="#0284c7" d="M48.25806451612904 198 V136.66666666666669 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="1" data-si="1" fill="#ea580c" d="M48.25806451612904 136.66666666666669 V106 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V136.66666666666669 Z"></path><path class="seg" data-i="1" data-si="2" fill="#9085e9" d="M48.25806451612904 106 V78.33333333333334 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V106 Z"></path><text class="value" x="52.572580645161295" y="71.33333333333334">4</text><rect class="hit" x="68.51612903225806" y="14" width="22.258064516129032" height="184" data-i="2"></rect><path class="seg" data-i="2" data-si="0" fill="#0284c7" d="M70.51612903225806 198 V136.66666666666669 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="2" data-si="1" fill="#ea580c" d="M70.51612903225806 136.66666666666669 V75.33333333333334 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V136.66666666666669 Z"></path><path class="seg" data-i="2" data-si="2" fill="#9085e9" d="M70.51612903225806 75.33333333333334 V17 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V75.33333333333334 Z"></path><text class="value" x="74.83064516129032" y="10">6</text><rect class="hit" x="90.7741935483871" y="14" width="22.258064516129032" height="184" data-i="3"></rect><path class="seg" data-i="3" data-si="2" fill="#9085e9" d="M92.7741935483871 198 V139.66666666666669 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V198 Z"></path><text class="value" x="97.08870967741936" y="132.66666666666669">2</text><path class="seg" data-i="3" fill="#fca5a5" d="M102.40322580645162 198 V170.33333333333334 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V198 Z"></path><text class="value" x="106.71774193548387" y="163.33333333333334">1</text><rect class="hit" x="113.03225806451613" y="14" width="22.258064516129032" height="184" data-i="4"></rect><path class="seg" data-i="4" data-si="0" fill="#0284c7" d="M115.03225806451613 198 V136.66666666666669 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="4" data-si="1" fill="#ea580c" d="M115.03225806451613 136.66666666666669 V109 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V136.66666666666669 Z"></path><text class="value" x="119.34677419354838" y="102">3</text><text class="axis-label" x="124.16129032258064" y="214" text-anchor="middle">5</text><rect class="hit" x="135.29032258064515" y="14" width="22.258064516129032" height="184" data-i="5"></rect><path class="seg" data-i="5" data-si="1" fill="#ea580c" d="M137.29032258064515 198 V170.33333333333334 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V198 Z"></path><text class="value" x="141.6048387096774" y="163.33333333333334">1</text><path class="seg" data-i="5" fill="#fca5a5" d="M146.91935483870967 198 V170.33333333333334 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V198 Z"></path><text class="value" x="151.23387096774192" y="163.33333333333334">1</text><rect class="hit" x="157.5483870967742" y="14" width="22.258064516129032" height="184" data-i="6"></rect><path class="seg" data-i="6" data-si="0" fill="#0284c7" d="M159.5483870967742 198 V106 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="6" data-si="1" fill="#ea580c" d="M159.5483870967742 106 V75.33333333333334 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V106 Z"></path><path class="seg" data-i="6" data-si="2" fill="#9085e9" d="M159.5483870967742 75.33333333333334 V17 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V75.33333333333334 Z"></path><text class="value" x="163.86290322580646" y="10">6</text><rect class="hit" x="179.80645161290323" y="14" width="22.258064516129032" height="184" data-i="7"></rect><path class="seg" data-i="7" data-si="0" fill="#0284c7" d="M181.80645161290323 198 V75.33333333333334 a0 0 0 0 1 0 -0 h8.629032258064516 a0 0 0 0 1 0 0 V198 Z"></path><path class="seg" data-i="7" data-si="2" fill="#9085e9" d="M181.80645161290323 75.33333333333334 V17 a3 3 0 0 1 3 -3 h2.629032258064516 a3 3 0 0 1 3 3 V75.33333333333334 Z"></path><text class="value" x="186.1209677419355" y="10">6</text><text class="axis-label today" x="190.93548387096774" y="214" text-anchor="middle">8</text><rect class="hit" x="202.06451612903226" y="14" width="22.258064516129032" height="184" data-i="8"></rect><rect class="hit" x="224.32258064516128" y="14" width="22.258064516129032" height="184" data-i="9"></rect><text class="axis-label" x="235.4516129032258" y="214" text-anchor="middle">10</text><rect class="hit" x="246.5806451612903" y="14" width="22.258064516129032" height="184" data-i="10"></rect><rect class="hit" x="268.8387096774194" y="14" width="22.258064516129032" height="184" data-i="11"></rect><rect class="hit" x="291.0967741935484" y="14" width="22.258064516129032" height="184" data-i="12"></rect><rect class="hit" x="313.35483870967744" y="14" width="22.258064516129032" height="184" data-i="13"></rect><rect class="hit" x="335.61290322580646" y="14" width="22.258064516129032" height="184" data-i="14"></rect><text class="axis-label" x="346.741935483871" y="214" text-anchor="middle">15</text><rect class="hit" x="357.8709677419355" y="14" width="22.258064516129032" height="184" data-i="15"></rect><rect class="hit" x="380.1290322580645" y="14" width="22.258064516129032" height="184" data-i="16"></rect><rect class="hit" x="402.38709677419354" y="14" width="22.258064516129032" height="184" data-i="17"></rect><rect class="hit" x="424.64516129032256" y="14" width="22.258064516129032" height="184" data-i="18"></rect><rect class="hit" x="446.9032258064516" y="14" width="22.258064516129032" height="184" data-i="19"></rect><text class="axis-label" x="458.0322580645161" y="214" text-anchor="middle">20</text><rect class="hit" x="469.1612903225806" y="14" width="22.258064516129032" height="184" data-i="20"></rect><rect class="hit" x="491.4193548387097" y="14" width="22.258064516129032" height="184" data-i="21"></rect><rect class="hit" x="513.6774193548388" y="14" width="22.258064516129032" height="184" data-i="22"></rect><rect class="hit" x="535.9354838709678" y="14" width="22.258064516129032" height="184" data-i="23"></rect><rect class="hit" x="558.1935483870968" y="14" width="22.258064516129032" height="184" data-i="24"></rect><text class="axis-label" x="569.3225806451613" y="214" text-anchor="middle">25</text><rect class="hit" x="580.4516129032259" y="14" width="22.258064516129032" height="184" data-i="25"></rect><rect class="hit" x="602.7096774193549" y="14" width="22.258064516129032" height="184" data-i="26"></rect><rect class="hit" x="624.9677419354839" y="14" width="22.258064516129032" height="184" data-i="27"></rect><rect class="hit" x="647.2258064516129" y="14" width="22.258064516129032" height="184" data-i="28"></rect><rect class="hit" x="669.483870967742" y="14" width="22.258064516129032" height="184" data-i="29"></rect><text class="axis-label" x="680.6129032258065" y="214" text-anchor="middle">30</text><rect class="hit" x="691.741935483871" y="14" width="22.258064516129032" height="184" data-i="30"></rect></svg><div class="tip"></div></div>
+            <div class="legend"><span class="item"><span class="sw" style="background:#0284c7"></span>Main <span class="n">13</span></span><span class="item"><span class="sw" style="background:#ea580c"></span>Home <span class="n">8</span></span><span class="item"><span class="sw" style="background:#9085e9"></span>Studio <span class="n">11</span></span><span class="item" title="Tasks moved to a later day — by the arrow, a number key, spillover or a full day"><span class="sw" style="background:#fca5a5"></span>Pushed <span class="n">2</span></span></div>
+            <details><summary>As a table</summary><div><table><tbody><tr><th>Day</th><th>Main</th><th>Home</th><th>Studio</th><th>Total</th><th>Pushed</th></tr><tr><td>1</td><td></td><td>2</td><td>2</td><td>4</td><td></td></tr><tr><td>2</td><td>2</td><td>1</td><td>1</td><td>4</td><td></td></tr><tr><td>3</td><td>2</td><td>2</td><td>2</td><td>6</td><td></td></tr><tr><td>4</td><td></td><td></td><td>2</td><td>2</td><td>1</td></tr><tr><td>5</td><td>2</td><td>1</td><td></td><td>3</td><td></td></tr><tr><td>6</td><td></td><td>1</td><td></td><td>1</td><td>1</td></tr><tr><td>7</td><td>3</td><td>1</td><td>2</td><td>6</td><td></td></tr><tr><td>8</td><td>4</td><td></td><td>2</td><td>6</td><td></td></tr><tr><th>Total</th><th>13</th><th>8</th><th>11</th><th>32</th><th>2</th></tr></tbody></table></div></details>
+        </div></div>
+        </div>
+
+        <!-- Finance -->
+        <div class="pane" id="fin">
+            <div class="pane-head">
+                <div class="pane-title">Finance</div>
+            </div>
+            <div class="entry" id="entry">
+                <div class="day-nav"><button id="prev" title="Day before">‹</button><span class="day-word" id="dayWord"></span><button id="next" title="Day after">›</button></div>
+                <label><span class="k">Cash</span><span class="money"><i>$</i><input type="text" inputmode="decimal" data-f="cash" autocomplete="off"></span></label>
+                <label><span class="k">Savings</span><span class="money"><i>$</i><input type="text" inputmode="decimal" data-f="savings" autocomplete="off"></span></label>
+                <label><span class="k">Debt</span><span class="money"><i>$</i><input type="text" inputmode="decimal" data-f="debt" autocomplete="off"></span></label>
+                <label><span class="k">Trading</span><span class="money"><i>$</i><input type="text" inputmode="decimal" data-f="invest" autocomplete="off"></span></label>
+                <span class="state" id="state"></span>
+                <div class="drop" id="drop" role="button" aria-label="Add statements" title="Drop bank and credit card statements here, or click to choose them">+</div>
+                <input type="file" id="pick" multiple accept=".pdf,.csv,.ofx,.qfx" hidden>
+            </div>
+            <div class="files" id="files"></div>
+
+            <div class="sub">The last 30 days <span class="r" id="boxCount"></span></div>
+            <div class="boxes" id="boxes"></div>
+
+            <div class="tiprow" id="tips"></div>
+
+            <div class="stats" id="stats"></div>
+
+            <div class="sub">Next 60 days <span class="r">30 back, 30 ahead · cash + savings − debt</span></div>
+            <div class="chart-wrap" id="c1wrap"><div class="tipbox" id="tip1"></div></div>
+            <div class="legend" id="leg1"></div>
+
+            <div class="sub">Next 12 months <span class="r">week by week, cash + savings − debt</span></div>
+            <div class="chart-wrap" id="c2wrap"><div class="tipbox" id="tip2"></div></div>
+            <div class="legend" id="leg2"></div>
+
+            <div class="sub">What if I spend…</div>
+            <div class="plans" id="plans"></div>
+            <div class="effect" id="effect"></div>
+
+            <details>
+                <summary>Assumptions the projection runs on</summary>
+                <div class="assume" id="assume"></div>
+                <div class="bills" id="bills"></div>
+                <div class="note">The projection starts from your last complete day of entries and walks forward: pay on the 1st and 15th, your daily spend, the bills below on their days, interest on debt and savings, and the monthly moves into savings and the house fund. <b>These are guesses until the real pane learns them from your statements.</b></div>
+            </details>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+    // ---------- dates ----------
+    const DAY = 86400000;
+    const pad = n => String(n).padStart(2, '0');
+    const key = d => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+    const parse = k => new Date(k + 'T00:00:00Z');
+    const add = (k, n) => key(new Date(parse(k).getTime() + n * DAY));
+    const diff = (a, b) => Math.round((parse(b) - parse(a)) / DAY);
+    const now = new Date();
+    const TODAY = `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`;
+    const dim = k => new Date(Date.UTC(+k.slice(0, 4), +k.slice(5, 7), 0)).getUTCDate();
+    const dom = k => +k.slice(8, 10);
+    const fmtDay = (k, o) => parse(k).toLocaleDateString(undefined, Object.assign({ timeZone: 'UTC' }, o));
+    const money = (n, short) => {
+        const v = Math.round(n), a = Math.abs(v);
+        const s = short && a >= 1000 ? (a / 1000).toFixed(a >= 10000 ? 0 : 1).replace(/\.0$/, '') + 'k' : a.toLocaleString();
+        return (v < 0 ? '−$' : '$') + s;
+    };
+    const esc = t => { const d = document.createElement('div'); d.textContent = t == null ? '' : String(t); return d.innerHTML.replace(/"/g, '&quot;'); };
+
+    // ---------- sample data and state ----------
+    const STORE = 'moveit.finance.mock.v1';
+    const FIELDS = ['cash', 'savings', 'debt', 'invest'];
+    const FIELD_NAME = { cash: 'Cash', savings: 'Savings', debt: 'Debt owed', invest: 'Trading' };
+
+    function seed() {
+        const cardDay = Math.min(28, dom(add(TODAY, 1)));   // so the demo has a payment due tomorrow
+        const assume = { income: 6900, spend: 55, debtApr: 22, saveAdd: 200, houseAdd: 300, houseGoal: 60000, house: 900,
+                         saveApy: 0.5, hysaApy: 4.3, investReturn: 7 };
+        const bills = [
+            { label: 'Rent', day: 1, amount: 1800, debt: false },
+            { label: 'Utilities', day: 8, amount: 220, debt: false },
+            { label: 'Phone + internet', day: 12, amount: 150, debt: false },
+            { label: 'Insurance', day: 15, amount: 160, debt: false },
+            { label: 'Credit card payment', day: cardDay, amount: 1500, debt: true }
+        ];
+        // Walk 30 days of history forward from a start, then thin it out like a real month of mornings.
+        const start = add(TODAY, -30);
+        const s = { cash: 2900, savings: 2600, debt: 9600, invest: 4100, house: assume.house - 300 };
+        const entries = {};
+        let seedn = 7;
+        const rnd = () => { seedn = (seedn * 9301 + 49297) % 233280; return seedn / 233280; };
+        for (let i = 1; i <= 29; i++) {
+            const d = add(start, i);
+            const row = stepDay(s, d, assume, bills, 0, []);
+            Object.assign(s, row);
+            const r = rnd();
+            if (r < 0.2) continue;                          // missed morning
+            const e = { cash: Math.round(s.cash + (rnd() - 0.5) * 60), savings: Math.round(s.savings), debt: Math.round(s.debt), invest: Math.round(s.invest + (rnd() - 0.5) * 220) };
+            if (r < 0.3) { delete e.invest; delete e.debt; }   // a partial one
+            entries[d] = e;
+        }
+        return {
+            entries, assume, bills,
+            planned: [
+                { id: 1, label: 'Flight to Seattle', date: add(TODAY, 12), amount: 480, on: true, monthly: false },
+                { id: 2, label: 'New laptop', date: add(TODAY, 40), amount: 1400, on: false, monthly: false }
+            ],
+            statements: [], nextId: 3
+        };
+    }
+
+    let S;
+    try { S = JSON.parse(localStorage.getItem(STORE) || 'null'); } catch (e) { S = null; }
+    if (!S || !S.entries) S = seed();
+    const persist = () => { try { localStorage.setItem(STORE, JSON.stringify(S)); } catch (e) { /* session only */ } };
+
+    // ---------- the projection ----------
+    function stepDay(st, d, A, bills, spendCut, planned) {
+        const o = { cash: st.cash, savings: st.savings, debt: st.debt, invest: st.invest, house: st.house };
+        const day = dom(d), last = dim(d);
+        if (day === 1 || day === 15) o.cash += A.income / 2;
+        o.cash -= Math.max(0, A.spend - spendCut);
+        for (const b of bills) {
+            if (Math.min(b.day, last) !== day) continue;
+            if (b.debt) { const pay = Math.min(b.amount, o.debt); o.cash -= pay; o.debt -= pay; }
+            else o.cash -= b.amount;
+        }
+        for (const p of planned) {
+            if (!p.on || !p.amount) continue;
+            const hit = p.date === d || (p.monthly && d > p.date && Math.min(dom(p.date), last) === day);
+            if (hit) o.cash -= p.amount;
+        }
+        if (day === 1) { const mv = A.saveAdd + A.houseAdd; o.cash -= mv; o.savings += mv; o.house += A.houseAdd; }
+        o.debt += o.debt * (A.debtApr / 100) / 365;
+        o.savings += o.savings * (A.saveApy / 100) / 365;
+        o.invest += o.invest * (A.investReturn / 100) / 365;
+        return o;
+    }
+    function runSim(base, from, days, opts) {
+        opts = opts || {};
+        const A = opts.assume || S.assume, bills = opts.bills || S.bills;
+        const planned = opts.planned === false ? [] : S.planned;
+        let st = Object.assign({}, base), rows = [];
+        for (let i = 1; i <= days; i++) {
+            const d = add(from, i);
+            const cut = opts.cut && d > TODAY && diff(TODAY, d) <= opts.cut.days ? opts.cut.amount : 0;
+            st = stepDay(st, d, A, bills, cut, planned);
+            if (opts.cut && d > TODAY && diff(TODAY, d) === opts.cut.days) st.debt = Math.max(0, st.debt - opts.cut.amount * opts.cut.days);   // the money kept goes on the card
+            rows.push(Object.assign({ date: d }, st));
+        }
+        return rows;
+    }
+    const isFull = e => e && FIELDS.every(f => typeof e[f] === 'number');
+    const netOf = (r, inv) => r.cash + r.savings - r.debt + (inv ? r.invest : 0);
+
+    // The last complete day of entries is where the projection starts.
+    function baseDay() {
+        const days = Object.keys(S.entries).filter(d => isFull(S.entries[d]) && d <= TODAY).sort();
+        if (!days.length) return null;
+        const d = days[days.length - 1], e = S.entries[d];
+        return { date: d, state: { cash: e.cash, savings: e.savings, debt: e.debt, invest: e.invest, house: S.assume.house } };
+    }
+    const debtFree = rows => { const r = rows.find(x => x.debt <= 0.5); return r ? r.date : null; };
+    const yearEnd = `${TODAY.slice(0, 4)}-12-31`;
+
+    // ---------- model snapshot, rebuilt on every change ----------
+    let M;
+    function model() {
+        const base = baseDay();
+        const m = { base };
+        if (!base) { m.empty = true; return m; }
+        m.horizon = Math.max(420, diff(base.date, TODAY) + 400);
+        m.plain = runSim(base.state, base.date, m.horizon, { planned: false });
+        m.withPlan = runSim(base.state, base.date, m.horizon, {});
+        m.freeDate = debtFree(m.plain);
+        m.freePlanDate = debtFree(m.withPlan);
+        return m;
+    }
+    const simAt = (rows, base, d) => rows[diff(base.date, d) - 1];
+
+    // net for each of the 61 days
+    function series1() {
+        const inv = document.getElementById('inv') ? document.getElementById('inv').checked : false;
+        const out = [];
+        const fullDays = Object.keys(S.entries).filter(d => isFull(S.entries[d])).sort();
+        for (let k = -30; k <= 30; k++) {
+            const d = add(TODAY, k);
+            let net, kind, plan = null;
+            if (M.empty) { net = 0; kind = 'est'; }
+            else if (k <= 0 && isFull(S.entries[d])) { net = netOf(S.entries[d], inv); kind = 'actual'; }
+            else if (k <= 0 && d < M.base.date) {
+                const before = [...fullDays].reverse().find(x => x < d), after = fullDays.find(x => x > d);
+                const v = x => netOf(S.entries[x], inv);
+                net = before && after ? v(before) + (v(after) - v(before)) * diff(before, d) / diff(before, after) : v(before || after);
+                kind = 'est';
+            } else if (d <= M.base.date) { net = netOf(S.entries[M.base.date], inv); kind = 'est'; }
+            else {
+                const r = simAt(M.plain, M.base, d);
+                net = netOf(r, inv);
+                kind = k <= 0 ? 'est' : 'proj';
+            }
+            if (!M.empty && k >= 0 && d > M.base.date) plan = netOf(simAt(M.withPlan, M.base, d), inv);
+            const row = !M.empty && d > M.base.date ? simAt(M.plain, M.base, d) : (S.entries[d] || null);
+            out.push({ d, k, net, kind, plan, row });
+        }
+        return out;
+    }
+    function series2() {
+        const inv = document.getElementById('inv') ? document.getElementById('inv').checked : false;
+        const out = [];
+        if (M.empty) return out;
+        for (let w = 1; w <= 52; w++) {
+            const d = add(TODAY, 7 * w);
+            if (d <= M.base.date) continue;
+            const a = simAt(M.plain, M.base, d), b = simAt(M.withPlan, M.base, d);
+            out.push({ d, w, net: netOf(a, inv), plan: netOf(b, inv), debt: a.debt, planDebt: b.debt, house: a.house, savings: a.savings, kind: 'proj' });
+        }
+        return out;
+    }
+
+    // ---------- entry bar ----------
+    let selDay = TODAY, saveTimer = null;
+    const $ = id => document.getElementById(id);
+    const parseMoney = v => { const n = parseFloat(String(v).replace(/[$,\s]/g, '')); return isFinite(n) ? n : null; };
+    function fillEntry() {
+        const e = S.entries[selDay] || {};
+        document.querySelectorAll('#entry input[data-f]').forEach(inp => {
+            const f = inp.dataset.f;
+            inp.value = typeof e[f] === 'number' ? e[f].toLocaleString() : '';
+        });
+        const k = diff(selDay, TODAY);
+        const lbl = esc(fmtDay(selDay, { month: 'short', day: 'numeric' }));
+        $('dayWord').innerHTML = k === 0 ? `<b>${lbl}</b>` : lbl;
+        $('dayWord').title = fmtDay(selDay, { weekday: 'long', month: 'long', day: 'numeric' }) + (k === 0 ? ' (today)' : '');
+        $('next').disabled = selDay >= TODAY;
+        $('prev').disabled = diff(selDay, TODAY) >= 29;
+    }
+    function onType() {
+        $('state').textContent = 'typing…'; $('state').className = 'state';
+        clearTimeout(saveTimer);
+        saveTimer = setTimeout(commitEntry, 500);
+    }
+    function commitEntry() {
+        const e = S.entries[selDay] ? Object.assign({}, S.entries[selDay]) : {};
+        document.querySelectorAll('#entry input[data-f]').forEach(inp => {
+            const v = parseMoney(inp.value);
+            if (v === null) delete e[inp.dataset.f]; else e[inp.dataset.f] = v;
+        });
+        if (Object.keys(e).length) S.entries[selDay] = e; else delete S.entries[selDay];
+        persist();
+        $('state').textContent = 'saved'; $('state').className = 'state saved';
+        setTimeout(() => { if ($('state').textContent === 'saved') $('state').textContent = ''; }, 1600);
+        refresh(false);
+    }
+
+    // ---------- thirty days ----------
+    function drawBoxes() {
+        let on = 0;
+        const cells = [];
+        for (let k = -29; k <= 0; k++) {
+            const d = add(TODAY, k), e = S.entries[d];
+            const any = !!e && FIELDS.some(f => typeof e[f] === 'number');
+            if (any) on++;
+            cells.push(`<div class="b ${any ? 'on' : ''}${k === 0 ? ' today' : ''}${d === selDay ? ' sel' : ''}" data-d="${d}" title="${esc(fmtDay(d, { weekday: 'short', month: 'short', day: 'numeric' }))}${any ? '' : ' — nothing entered'}"></div>`);
+        }
+        $('boxes').innerHTML = cells.join('');
+        $('boxCount').innerHTML = `<b style="color:#0284c7">${on}</b> of 30 days`;
+    }
+
+    // ---------- the one tip-or-alert row ----------
+    // In the real pane Tom writes this row: he reads the entries and the
+    // statements and notices what you would miss. These are samples of the
+    // range, from a due date to a habit he has learned. The two buttons are how
+    // he would learn which kinds of tip land with you.
+    let tipIdx = 0;
+    function sampleTips() {
+        const tomorrow = add(TODAY, 1);
+        const due = S.bills.filter(b => Math.min(b.day, dim(tomorrow)) === dom(tomorrow))[0];
+        const out = [];
+        if (due) out.push({ t: 'alert', h: `<b>${esc(due.label)} is due tomorrow</b> — ${money(due.amount)}.` });
+        out.push({ t: 'tip', h: '<b>Weekends run about $38 a day above weekdays</b> — roughly $330 a month. That is the biggest single lever on the Dec 31 debt date.' });
+        out.push({ t: 'tip', h: '<b>Eating out has gone up three months running</b> ($212, $264, $331). Everything else is flat.' });
+        out.push({ t: 'tip', h: '<b>The months you moved money to savings the morning after payday, you moved it; the months you waited, you did not.</b> Same $200, set up as a transfer on the 2nd and 16th, takes the decision away.' });
+        out.push({ t: 'tip', h: `<b>Your savings earn ${S.assume.saveApy}%.</b> At ${S.assume.hysaApy}% the same money would earn about ${money(((S.entries[(baseDay() || {}).date] || {}).savings || 3000) * (S.assume.hysaApy - S.assume.saveApy) / 100)} more a year.` });
+        out.push({ t: 'tip', h: `<b>Your trading account earns about ${S.assume.investReturn}% while the debt costs ${S.assume.debtApr}%.</b> Selling some to pay the card is a guaranteed ${S.assume.debtApr}% return — worth looking at, mind the taxes.` });
+        let missed = 0; for (let k = -7; k <= -1; k++) if (!S.entries[add(TODAY, k)]) missed++;
+        if (missed >= 2) out.push({ t: 'tip', h: `<b>${missed} of the last 7 mornings have nothing entered.</b> A statement dropped in the plus box would fill the gaps.` });
+        return out;
+    }
+    function drawTips() {
+        const items = sampleTips();
+        const i = items[tipIdx % items.length];
+        const row = $('tips');
+        row.className = 'tiprow ' + i.t;
+        row.innerHTML = `<span class="chip">${i.t === 'alert' ? 'ALERT' : 'TIP'}</span><span class="txt">${i.h}</span>
+            <span class="fb"><button data-fb="up" title="Helpful — Tom shows you more like this">Useful</button><button data-fb="no" title="Not for me — Tom shows you fewer like this">Not for me</button></span>`;
+        row.querySelectorAll('[data-fb]').forEach(b => b.addEventListener('click', () => { tipIdx++; drawTips(); }));
+    }
+
+    // ---------- stats ----------
+    function drawStats() {
+        if (M.empty) { $('stats').innerHTML = ''; return; }
+        const t = isFull(S.entries[TODAY]) ? S.entries[TODAY] : simAt(M.plain, M.base, TODAY) || M.base.state;
+        const net = t.cash + t.savings - t.debt;
+        const free = M.freeDate, A = S.assume;
+        const house = (simAt(M.plain, M.base, TODAY) || { house: A.house }).house;
+        $('stats').innerHTML = `
+            <div class="stat"><div class="k"><span class="sw" style="background:${net >= 0 ? 'var(--orange)' : 'var(--blue)'}"></span>Net</div><div class="v">${money(net)}</div></div>
+            <div class="stat"><div class="k">Debt-free</div><div class="v">${free ? esc(fmtDay(free, { month: 'short', day: 'numeric' })) : '—'}</div></div>
+            <div class="stat"><div class="k">Debt left</div><div class="v">${money(t.debt)}</div></div>
+            <div class="stat"><div class="k">Savings</div><div class="v">${money(t.savings)}</div></div>
+            <div class="stat"><div class="k">House fund</div><div class="v">${money(house)}</div><div class="bar"><i style="width:${Math.min(100, house / A.houseGoal * 100)}%"></i></div></div>`;
+    }
+
+    // ---------- charts ----------
+    const NS = 'http://www.w3.org/2000/svg';
+    function niceTicks(lo, hi, n) {
+        const span = (hi - lo) || 1, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
+        const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
+        const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-6; v += step) out.push(Math.round(v * 100) / 100);
+        return out;
+    }
+    function chart(wrapId, tipId, w, h, pts, o) {
+        const wrap = $(wrapId), tip = $(tipId);
+        const L = 40, R = 8, T = 14, B = 22;
+        const vals = [0]; pts.forEach(p => { vals.push(p.net); if (p.plan !== null && p.plan !== undefined) vals.push(p.plan); });
+        let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+        const padv = (hi - lo) * 0.08 || 100; if (lo < 0) lo -= padv; hi += padv;
+        const ticks = niceTicks(lo, hi, 4);
+        lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks[ticks.length - 1]);
+        const y = v => T + (h - T - B) * (1 - (v - lo) / (hi - lo));
+        const slot = (w - L - R) / pts.length, bw = Math.max(2, slot * (o.bar || 0.72));
+        const x = i => L + slot * i + (slot - bw) / 2;
+        let g = '';
+        ticks.forEach(v => { g += `<line class="${v === 0 ? 'zero' : 'grid'}" x1="${L}" x2="${w - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 5}" y="${y(v) + 3}" text-anchor="end">${money(v, true)}</text>`; });
+        pts.forEach((p, i) => {
+            const pos = p.net >= 0, col = pos ? 'var(--orange)' : 'var(--blue)';
+            const top = Math.min(y(p.net), y(0)), ht = Math.max(1, Math.abs(y(p.net) - y(0)));
+            if (p.kind === 'proj') g += `<rect x="${x(i)}" y="${top}" width="${bw}" height="${ht}" rx="1.5" fill="${col}" fill-opacity="0.16" stroke="${col}" stroke-width="1" stroke-dasharray="3 2"/>`;
+            else g += `<rect x="${x(i)}" y="${top}" width="${bw}" height="${ht}" rx="1.5" fill="${col}" fill-opacity="${p.kind === 'est' ? 0.5 : 1}"/>`;
+        });
+        const planPts = pts.map((p, i) => ({ i, v: p.plan })).filter(q => q.v !== null && q.v !== undefined);
+        if (o.showPlan && planPts.length > 1) g += `<polyline fill="none" stroke="var(--violet)" stroke-width="2" stroke-dasharray="5 3" stroke-linejoin="round" points="${planPts.map(q => `${x(q.i) + bw / 2},${y(q.v)}`).join(' ')}"/>`;
+        (o.marks || []).forEach(m => { g += `<line x1="${m.x}" x2="${m.x}" y1="${T - 4}" y2="${h - B}" stroke="${m.color}" stroke-width="1" stroke-dasharray="2 3"/><text x="${m.x}" y="${T - 5}" text-anchor="middle" style="fill:${m.color}">${m.label}</text>`; });
+        pts.forEach((p, i) => { if (o.labelAt(i, p)) g += `<text class="${p.k === 0 ? 'today' : ''}" x="${x(i) + bw / 2}" y="${h - 7}" text-anchor="middle">${o.label(p)}</text>`; });
+        g += pts.map((p, i) => `<rect class="hit" data-i="${i}" x="${L + slot * i}" y="${T}" width="${slot}" height="${h - T - B}"/>`).join('');
+        wrap.querySelector('svg') && wrap.querySelector('svg').remove();
+        wrap.insertAdjacentHTML('afterbegin', `<svg class="chart" viewBox="0 0 ${w} ${h}" role="img" aria-label="${esc(o.aria)}">${g}</svg>`);
+        wrap.querySelectorAll('.hit').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                const p = pts[+el.dataset.i];
+                tip.innerHTML = o.tip(p); tip.classList.add('on');
+                const wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect();
+                const left = er.left - wr.left + er.width / 2;
+                tip.style.left = Math.max(0, Math.min(wr.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px';
+                tip.style.top = '4px';
+            });
+            el.addEventListener('mouseleave', () => tip.classList.remove('on'));
+        });
+    }
+    const KIND = { actual: 'entered', est: 'estimated — no complete entry', proj: 'projected' };
+    function draw1() {
+        const pts = series1();
+        const anyPlan = S.planned.some(p => p.on && p.amount);
+        chart('c1wrap', 'tip1', 600, 190, pts, {
+            aria: 'Net position, 30 days back and 30 ahead', showPlan: anyPlan, bar: 0.74,
+            labelAt: i => i % 10 === 0 || i === 30, label: p => p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' }),
+            tip: p => {
+                const r = p.row || {};
+                const sw = p.net >= 0 ? 'var(--orange)' : 'var(--blue)';
+                return `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${KIND[p.kind]}</div>`
+                    + `<div><span class="sw" style="background:${sw}"></span>Net <b>${money(p.net)}</b></div>`
+                    + (typeof r.cash === 'number' ? `<div>Cash ${money(r.cash)} · Savings ${money(r.savings)}</div>` : '')
+                    + (typeof r.debt === 'number' ? `<div>Debt ${money(r.debt)}</div>` : '')
+                    + (p.plan !== null && anyPlan ? `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b></div>` : '');
+            }
+        });
+        $('leg1').innerHTML = `<span class="item"><span class="sw" style="background:var(--orange)"></span>Cash + savings ahead of debt</span>
+            <span class="item"><span class="sw" style="background:var(--blue)"></span>Debt ahead</span>
+            <span class="item"><span class="sw" style="background:var(--orange);opacity:.5"></span>Estimated (no entry)</span>
+            <span class="item"><span class="sw proj" style="border-color:var(--orange)"></span>Projected</span>
+            ${anyPlan ? '<span class="item"><span class="ln"></span>With planned spending</span>' : ''}
+            <label><input type="checkbox" id="inv" ${document.getElementById('inv') && document.getElementById('inv').checked ? 'checked' : ''}> include trading account</label>`;
+        $('inv').addEventListener('change', () => { draw1(); draw2(); });
+    }
+    function draw2() {
+        const pts = series2();
+        if (!pts.length) { $('c2wrap').querySelector('svg') && $('c2wrap').querySelector('svg').remove(); $('leg2').innerHTML = ''; return; }
+        const anyPlan = S.planned.some(p => p.on && p.amount);
+        const freeIdx = pts.findIndex(p => p.debt <= 0.5);
+        const L = 40, R = 8, w = 600, slot = (w - L - R) / pts.length;
+        const marks = freeIdx >= 0 ? [{ x: L + slot * freeIdx + slot / 2, color: 'var(--blue)', label: 'debt-free' }] : [];
+        chart('c2wrap', 'tip2', w, 190, pts, {
+            aria: 'Projected net position, week by week for the next 12 months', showPlan: anyPlan, bar: 0.74, marks,
+            labelAt: (i, p) => i === 0 || p.d.slice(5, 7) !== pts[i - 1].d.slice(5, 7),
+            label: p => fmtDay(p.d, { month: 'short' }),
+            tip: p => `<div class="d">Week of ${esc(fmtDay(p.d, { month: 'short', day: 'numeric' }))} · projected</div>`
+                + `<div><span class="sw" style="background:${p.net >= 0 ? 'var(--orange)' : 'var(--blue)'}"></span>Net <b>${money(p.net)}</b></div>`
+                + `<div>Debt ${money(p.debt)} · Savings ${money(p.savings)}</div><div>House fund ${money(p.house)}</div>`
+                + (anyPlan ? `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b> (debt ${money(p.planDebt)})</div>` : '')
+        });
+        const decIdx = (() => { let j = -1; pts.forEach((p, i) => { if (p.d <= yearEnd) j = i; }); return j; })();
+        $('leg2').innerHTML = `<span class="item"><span class="sw" style="background:var(--orange)"></span>Cash + savings ahead of debt</span>
+            <span class="item"><span class="sw" style="background:var(--blue)"></span>Debt ahead</span>
+            <span class="item"><span class="sw proj" style="border-color:var(--orange)"></span>Projected</span>
+            ${anyPlan ? '<span class="item"><span class="ln"></span>With planned spending</span>' : ''}
+            <span class="item">${freeIdx >= 0 ? `Debt reaches zero the week of <b style="margin-left:3px">${esc(fmtDay(pts[freeIdx].d, { month: 'short', day: 'numeric' }))}</b>` : 'Debt is not cleared within 12 months'}</span>
+            <span class="item">House fund by Dec 31 <b style="margin-left:3px">${money(pts[decIdx >= 0 ? decIdx : pts.length - 1].house)}</b></span>`;
+    }
+
+    // ---------- planned spending ----------
+    function drawPlans() {
+        $('plans').innerHTML = S.planned.map(p => `
+            <div class="plan ${p.on ? '' : 'off'}" data-id="${p.id}">
+                <input type="checkbox" data-k="on" ${p.on ? 'checked' : ''} title="Count it in the projection">
+                <input type="text" data-k="label" value="${esc(p.label)}">
+                <input type="date" data-k="date" value="${esc(p.date)}">
+                <input type="text" data-k="amount" inputmode="decimal" value="${p.amount ? p.amount.toLocaleString() : ''}" placeholder="$ amount">
+                <label class="every"><input type="checkbox" data-k="monthly" ${p.monthly ? 'checked' : ''}>monthly</label>
+                <button class="x" data-k="del" title="Remove">×</button>
+            </div>`).join('') + `
+            <div class="plan add">
+                <span></span><input type="text" id="np-label" placeholder="Something you might buy">
+                <input type="date" id="np-date" value="${add(TODAY, 14)}">
+                <input type="text" id="np-amount" inputmode="decimal" placeholder="$ amount">
+                <span></span><button class="btn" id="np-add" style="padding:2px 8px">Add</button>
+            </div>`;
+        const row = el => S.planned.find(p => p.id === +el.closest('.plan').dataset.id);
+        $('plans').querySelectorAll('.plan[data-id] [data-k]').forEach(el => {
+            const ev = el.type === 'checkbox' || el.tagName === 'BUTTON' || el.type === 'date' ? 'change' : 'input';
+            el.addEventListener(el.tagName === 'BUTTON' ? 'click' : ev, () => {
+                const p = row(el), k = el.dataset.k;
+                if (k === 'del') S.planned = S.planned.filter(x => x !== p);
+                else if (k === 'on' || k === 'monthly') p[k] = el.checked;
+                else if (k === 'amount') p.amount = parseMoney(el.value) || 0;
+                else p[k] = el.value;
+                persist();
+                if (k === 'del' || k === 'on') { drawPlans(); }
+                else if (k !== 'label') { /* amount and date redraw the charts as you type */ }
+                refresh(false, true);
+            });
+        });
+        const addIt = () => {
+            const amount = parseMoney($('np-amount').value), label = $('np-label').value.trim();
+            if (!amount || !$('np-date').value) return;
+            S.planned.push({ id: S.nextId++, label: label || 'Planned spending', date: $('np-date').value, amount, on: true, monthly: false });
+            persist(); drawPlans(); refresh(false, true);
+        };
+        $('np-add').addEventListener('click', addIt);
+        $('np-amount').addEventListener('keydown', e => { if (e.key === 'Enter') addIt(); });
+        drawEffect();
+    }
+    function drawEffect() {
+        const on = S.planned.filter(p => p.on && p.amount);
+        if (!M) return;
+        if (M.empty || !on.length) { $('effect').textContent = on.length ? '' : 'Tick one on, or add something you are thinking of buying, and the violet line shows what it does to the next 60 days and the next 12 months.'; return; }
+        const total = on.reduce((s, p) => s + p.amount * (p.monthly ? 1 : 1), 0);
+        const d = yearEnd > M.base.date ? simAt(M.plain, M.base, yearEnd) : null, dp = d ? simAt(M.withPlan, M.base, yearEnd) : null;
+        const shift = M.freeDate && M.freePlanDate ? diff(M.freeDate, M.freePlanDate) : null;
+        $('effect').innerHTML = `With ${on.length === 1 ? 'this' : 'these ' + on.length}: <b>${d ? money(netOf(dp) - netOf(d)) : '—'}</b> on your net by Dec 31`
+            + (shift !== null ? `, and the debt-free date ${shift === 0 ? 'does not move' : shift > 0 ? `moves <b>${shift} day${shift === 1 ? '' : 's'} later</b> (${esc(fmtDay(M.freePlanDate, { month: 'short', day: 'numeric', year: 'numeric' }))})` : 'moves earlier'}` : '')
+            + '.';
+    }
+
+    // ---------- assumptions and bills ----------
+    const AS = [['income', 'Take-home pay a month', '$'], ['spend', 'Everyday spend a day', '$'], ['debtApr', 'Debt APR', '%'], ['saveAdd', 'To savings, the 1st', '$'],
+                ['houseAdd', 'To house fund, the 1st', '$'], ['houseGoal', 'House fund goal', '$'], ['house', 'House fund now (inside savings)', '$'],
+                ['saveApy', 'Your savings rate', '%'], ['hysaApy', 'A better savings rate', '%'], ['investReturn', 'Trading account return', '%']];
+    function drawAssume() {
+        $('assume').innerHTML = AS.map(([k, label, u]) => `<label>${label}<input type="text" inputmode="decimal" data-a="${k}" value="${S.assume[k]}"></label>`).join('');
+        $('assume').querySelectorAll('input').forEach(el => el.addEventListener('input', () => {
+            const v = parseMoney(el.value); if (v === null) return;
+            S.assume[el.dataset.a] = v; persist(); refresh(false, true);
+        }));
+        $('bills').innerHTML = `<div class="bill"><span class="h">Recurring bill</span><span class="h">day</span><span class="h">amount</span><span class="h"></span></div>`
+            + S.bills.map((b, i) => `<div class="bill"><input type="text" data-b="label" data-i="${i}" value="${esc(b.label)}"><input type="number" min="1" max="31" data-b="day" data-i="${i}" value="${b.day}"><input type="text" inputmode="decimal" data-b="amount" data-i="${i}" value="${b.amount}"><span class="h">${b.debt ? 'pays down the debt' : ''}</span></div>`).join('');
+        $('bills').querySelectorAll('input').forEach(el => el.addEventListener('input', () => {
+            const b = S.bills[+el.dataset.i], k = el.dataset.b;
+            if (k === 'label') b.label = el.value; else { const v = parseMoney(el.value); if (v === null) return; b[k] = k === 'day' ? Math.max(1, Math.min(31, Math.round(v))) : v; }
+            persist(); refresh(false, true);
+        }));
+    }
+
+    // ---------- statements ----------
+    function drawFiles() {
+        $('files').innerHTML = S.statements.map((f, i) => `<span>📄 ${esc(f.name)} <a data-i="${i}" title="Remove">×</a></span>`).join('');
+        $('drop').classList.toggle('has', S.statements.length > 0);
+        $('drop').textContent = S.statements.length ? S.statements.length : '+';
+        $('files').querySelectorAll('a').forEach(a => a.addEventListener('click', () => { S.statements.splice(+a.dataset.i, 1); persist(); drawFiles(); refresh(false); }));
+    }
+    function takeFiles(list) {
+        [...list].forEach(f => S.statements.push({ name: f.name, size: f.size, at: TODAY }));
+        persist(); drawFiles(); refresh(false);
+    }
+
+    // ---------- glue ----------
+    function refresh(refill, noTips) {
+        M = model();
+        if (refill !== false) fillEntry(); else if (!document.activeElement || !document.activeElement.closest || !document.activeElement.closest('#entry')) fillEntry();
+        drawBoxes(); drawStats(); draw1(); draw2(); drawEffect();
+        if (!noTips || true) drawTips();
+    }
+    $('entry').addEventListener('input', e => { if (e.target.matches('input[data-f]')) onType(); });
+    $('entry').addEventListener('focusout', e => { if (e.target.matches('input[data-f]')) { clearTimeout(saveTimer); commitEntry(); fillEntry(); } });
+    $('entry').addEventListener('keydown', e => { if (e.key === 'Enter' && e.target.matches('input[data-f]')) { e.preventDefault(); const all = [...document.querySelectorAll('#entry input[data-f]')]; const nx = all[all.indexOf(e.target) + 1]; if (nx) nx.focus(); else e.target.blur(); } });
+    $('prev').addEventListener('click', () => { selDay = add(selDay, -1); fillEntry(); drawBoxes(); });
+    $('next').addEventListener('click', () => { if (selDay < TODAY) { selDay = add(selDay, 1); fillEntry(); drawBoxes(); } });
+    $('boxes').addEventListener('click', e => { const b = e.target.closest('.b'); if (b) { selDay = b.dataset.d; fillEntry(); drawBoxes(); document.querySelector('#entry input[data-f]').focus(); } });
+    const drop = $('drop');
+    ['dragenter', 'dragover'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.add('over'); }));
+    ['dragleave', 'drop'].forEach(ev => drop.addEventListener(ev, e => { e.preventDefault(); drop.classList.remove('over'); }));
+    drop.addEventListener('drop', e => { if (e.dataTransfer && e.dataTransfer.files.length) takeFiles(e.dataTransfer.files); });
+    drop.addEventListener('click', () => $('pick').click());
+    $('pick').addEventListener('change', e => { if (e.target.files.length) takeFiles(e.target.files); e.target.value = ''; });
+    $('reset').addEventListener('click', () => { try { localStorage.removeItem(STORE); } catch (e) { /* */ } S = seed(); selDay = TODAY; drawFiles(); drawPlans(); drawAssume(); refresh(); });
+    // theme, shared key with the app
+    const THEME = 'movealong.theme';
+    function applyTheme() { let t = 'light'; try { t = localStorage.getItem(THEME) || 'light'; } catch (e) { /* */ } document.body.classList.toggle('dark', t === 'dark'); $('theme').textContent = t === 'dark' ? '☀️' : '🌙'; }
+    $('theme').addEventListener('click', () => { const next = document.body.classList.contains('dark') ? 'light' : 'dark'; try { localStorage.setItem(THEME, next); } catch (e) { /* */ } applyTheme(); });
+    applyTheme();
+
+    drawFiles(); drawPlans(); drawAssume(); refresh();
+})();
+</script>
+</body>
+</html>
