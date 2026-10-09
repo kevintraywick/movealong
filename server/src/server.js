@@ -1840,7 +1840,8 @@ app.put('/api/companies/:subdomain/users/:slug/finance/plan', (req, res) => {
   }
   const bills = (Array.isArray(b.bills) ? b.bills : []).slice(0, 40).map(x => ({
     label: str(x.label, 60) || 'Bill', day: Math.min(31, Math.max(1, Math.round(financeNum(x.day, 1, 31) || 1))),
-    amount: financeNum(x.amount, 0, 1e9) || 0, debt: !!x.debt
+    amount: financeNum(x.amount, 0, 1e9) || 0, debt: !!x.debt,
+    ...(/^\d{4}-\d{2}-\d{2}$/.test(String(x.from)) ? { from: x.from } : {}), ...(/^\d{4}-\d{2}-\d{2}$/.test(String(x.until)) ? { until: x.until } : {})
   }));
   const dayRe = /^\d{4}-\d{2}-\d{2}$/;
   const planned = (Array.isArray(b.planned) ? b.planned : []).slice(0, 60).filter(x => dayRe.test(String(x.date))).map(x => ({

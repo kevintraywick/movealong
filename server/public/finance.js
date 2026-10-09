@@ -127,8 +127,8 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 .assume { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 12px; margin-top: 8px; }
 .assume label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #64748b; }
 .bills { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
-.bill { display: grid; grid-template-columns: 1fr 52px 80px auto 20px; gap: 6px; align-items: center; font-size: 12px; }
-.bill input[type=text], .bill input[type=number] { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; background: #fff; color: #0f172a; min-width: 0; width: 100%; }
+.bill { display: grid; grid-template-columns: 1fr 52px 74px 118px auto 20px; gap: 6px; align-items: center; font-size: 12px; }
+.bill input[type=text], .bill input[type=number], .bill input[type=date] { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; background: #fff; color: #0f172a; min-width: 0; width: 100%; }
 .bill .h { font-size: 10.5px; color: #94a3b8; }
 .note { font-size: 11.5px; color: #64748b; line-height: 1.5; margin-top: 10px; }
 .note b { color: #475569; }
@@ -279,6 +279,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         o.cash -= Math.max(0, A.spend - spendCut);
         for (const b of bills) {
             if (Math.min(b.day, last) !== day) continue;
+            if ((b.from && d < b.from) || (b.until && d > b.until)) continue;   // a payment plan has an end
             if (b.debt) { const pay = Math.min(b.amount, o.debt); o.cash -= pay; o.debt -= pay; }
             else o.cash -= b.amount;
         }
@@ -342,12 +343,12 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const out = {}; let run = 0;
         for (let i = 1; i <= days; i++) {
             const d = add(TODAY, i), last = dim(d);
-            for (const b of S.bills) if (!b.debt && Math.min(b.day, last) === dom(d)) run += b.amount;
+            for (const b of S.bills) if (!b.debt && Math.min(b.day, last) === dom(d) && !(b.from && d < b.from) && !(b.until && d > b.until)) run += b.amount;
             out[d] = run;
         }
         return out;
     }
-    const monthlyExpenses = () => S.bills.filter(b => !b.debt).reduce((t, b) => t + (b.amount || 0), 0);
+    const monthlyExpenses = () => S.bills.filter(b => !b.debt && !(b.until && b.until < TODAY) && !(b.from && b.from > TODAY)).reduce((t, b) => t + (b.amount || 0), 0);
     function series1() {
         const inv = $('inv') ? $('inv').checked : false;
         const out = [];
@@ -684,9 +685,9 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         $('goal-add').addEventListener('click', () => { S.goals.push({ title: '', done: false }); persist(); drawGoals(); const ins = $('goals').querySelectorAll('input[data-g=title]'); if (ins.length) ins[ins.length - 1].focus(); });
     }
     function drawBills() {
-        $('bills').innerHTML = `<div class="bill"><span class="h">Monthly expense</span><span class="h">day</span><span class="h">amount</span><span class="h"></span><span></span></div>`
-            + S.bills.map((b, i) => `<div class="bill"><input type="text" data-b="label" data-i="${i}" value="${esc(b.label)}"><input type="number" min="1" max="31" data-b="day" data-i="${i}" value="${b.day}"><input type="text" inputmode="decimal" data-b="amount" data-i="${i}" value="${b.amount || ''}" placeholder="$"><label class="debt" title="This payment lowers your debt"><input type="checkbox" data-b="debt" data-i="${i}" ${b.debt ? 'checked' : ''}>pays debt</label><button class="x" data-b="del" data-i="${i}" title="Remove">×</button></div>`).join('')
-            + `<div class="bill new" title="Type a monthly charge here and press Enter"><input type="text" id="bill-new-label" placeholder="Add a monthly expense…"><input type="number" min="1" max="31" id="bill-new-day" placeholder="day"><input type="text" inputmode="decimal" id="bill-new-amount" placeholder="$"><span></span><span></span></div>`;
+        $('bills').innerHTML = `<div class="bill"><span class="h">Monthly expense</span><span class="h">day</span><span class="h">amount</span><span class="h">last payment</span><span class="h"></span><span></span></div>`
+            + S.bills.map((b, i) => `<div class="bill"><input type="text" data-b="label" data-i="${i}" value="${esc(b.label)}"><input type="number" min="1" max="31" data-b="day" data-i="${i}" value="${b.day}"><input type="text" inputmode="decimal" data-b="amount" data-i="${i}" value="${b.amount || ''}" placeholder="$"><input type="date" data-b="until" data-i="${i}" value="${esc(b.until || '')}" title="Leave empty for a bill that goes on. A payment plan ends here."><label class="debt" title="This payment lowers your debt"><input type="checkbox" data-b="debt" data-i="${i}" ${b.debt ? 'checked' : ''}>pays debt</label><button class="x" data-b="del" data-i="${i}" title="Remove">×</button></div>`).join('')
+            + `<div class="bill new" title="Type a monthly charge here and press Enter"><input type="text" id="bill-new-label" placeholder="Add a monthly expense…"><input type="number" min="1" max="31" id="bill-new-day" placeholder="day"><input type="text" inputmode="decimal" id="bill-new-amount" placeholder="$"><span></span><span></span><span></span></div>`;
         $('bills').querySelectorAll('[data-b]').forEach(el => {
             const ev = el.type === 'checkbox' ? 'change' : el.tagName === 'BUTTON' ? 'click' : 'input';
             el.addEventListener(ev, () => {
@@ -695,6 +696,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 const b = S.bills[i];
                 if (k === 'label') b.label = el.value;
                 else if (k === 'debt') b.debt = el.checked;
+                else if (k === 'until') { if (el.value) b.until = el.value; else delete b.until; }
                 else { const v = parseMoney(el.value); if (v === null) return; b[k] = k === 'day' ? Math.max(1, Math.min(31, Math.round(v))) : v; }
                 persist(); refresh(false);
             });
