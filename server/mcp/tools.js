@@ -555,7 +555,7 @@ At most 12 items total, in this order: calendar, mail, market, texts, nudges, he
 // habits live in the board, not in this public repo.
 export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance pane and post it with post_finance_tip.
 
-1. get_finance. Read plan.goals first: Kevin's goals in order (a done one is crossed off). The first not done is the one every tip must serve; the rest are what comes after it. Then read recent_tips: every one has his answer (up = Useful, no = Not for me, replaced = never answered). Learn from them. Do not repeat a kind of tip he said was not for him, and lean toward the kinds he found useful.
+1. get_finance and get_brief. The brief holds money facts he has told you (what a payment was for, what is cancelled, what is not part of the debt goal): honour them, and do not raise again anything it already explains. From get_finance read plan.goals first: Kevin's goals in order (a done one is crossed off). The first not done is the one every tip must serve; the rest are what comes after it. Then read recent_tips: every one has his answer (up = Useful, no = Not for me, replaced = never answered). Learn from them. Do not repeat a kind of tip he said was not for him, and lean toward the kinds he found useful.
 
 2. If a tip posted in the last 20 hours is still unanswered, stop; do not post another.
 
