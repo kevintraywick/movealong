@@ -3,7 +3,7 @@
 > Read when touching the finance pane on /dashboard, `server/public/finance.js`, the `finance_*` tables or Tom's finance tip. Built 2026-10-09 from `finance-dashboard-mockup.html` (repo root), which is the design source and stays as a reference.
 
 ### What it is
-- **A pane beside Health on /dashboard.** Layout is `.cols` (two equal columns, one below 1040px): the left column stacks the **unchanged** Health and Completed panes, the right is `#financePane`. Kevin's rule: **only resize the Health and Completed panes, never restyle them** — the first mockup invented a stand-in and he sent it back.
+- **A pane on /dashboard, in one column: Health, Finance, Completed** (page width back to 760px). **Side by side was tried and reverted the same day (2026-10-09, Kevin): every pane came out too small.** Kevin's rule: **only resize or reposition the Health and Completed panes, never restyle them** — the first mockup invented a stand-in and he sent it back. The page's children are `#healthPane`, `#financePane`, `#pane` directly (no wrapper: `display: contents` + `order` rendered in the wrong order in WebKit).
 - **Four balances a day** — Cash, Savings, Debt, Trading (the E-Trade account) — in one entry row (‹ Oct 9 ›, four `$` fields, a saved word, the **+** statement drop at the end). Autosaves; a blank clears the field (unentered is not zero). Defaults to **today**, not yesterday.
 - **The last 30 days:** one box a day, **blue if anything was entered, light blue if not**. No count scheme, no key. Click a day to fill it in.
 - **One row for a tip or an alert**, written by Tom, with **Useful / Not for me**. No heading, no arithmetic in it (Kevin: "it doesn't need to calculate cash following the alert").
