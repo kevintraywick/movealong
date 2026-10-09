@@ -208,7 +208,7 @@
         <div class="pane" id="sprintPane">
             <div class="pane-head">
                 <span class="pane-title">Sprint</span>
-                <span class="pane-lede">one thing, six weeks, someone waiting on it</span>
+                <span class="pane-lede">one thing, six weeks</span>
                 <span class="pane-right"><span class="state" id="sprintState"></span></span>
             </div>
             <div id="sprintBody"><div class="empty">Loading…</div></div>
@@ -289,14 +289,10 @@
                         <div class="field"><label for="nsStart">Starts</label><input id="nsStart" type="date"></div>
                         <div class="field"><label for="nsEnd">Ends</label><input id="nsEnd" type="date"></div>
                     </div>
-                    <div class="grid2">
-                        <div class="field"><label for="nsWaiting">Who's waiting on it</label><input id="nsWaiting" placeholder="A person, a festival deadline, a lender"></div>
-                    </div>
-                    <div class="field"><label for="nsDeliv">Deliverable — done means</label><textarea id="nsDeliv" placeholder="What exists at the end that doesn't exist now"></textarea></div>
                     <div class="row-actions"><button class="btn primary" id="nsGo">Start the sprint</button><button class="btn quiet" id="nsCancel">Cancel</button></div>
                 </div>`;
             if (!s) {
-                body.innerHTML = `<div class="empty">No sprint running. Name one thing, give it six weeks and a deliverable someone is waiting on.</div>
+                body.innerHTML = `<div class="empty">No sprint running. Name one thing and give it six weeks.</div>
                     <div class="row-actions"><button class="btn primary" id="startBtn">Start a sprint</button></div>${plannedHtml}${startForm}${closedHtml}`;
                 wireStart(null);
                 return;
@@ -319,10 +315,6 @@
                 </div>
                 ${touchGrid(s)}
                 <div class="touch-key">Click a day to change its answer. Orange is a day you touched it; grey is an honest no; blank is unasked.</div>
-                <div class="grid2" style="margin-top:12px">
-                    <div class="field"><label for="spDeliv">Deliverable — done means</label><textarea id="spDeliv" placeholder="What exists at the end that doesn't exist now">${escapeHtml(s.deliverable || '')}</textarea></div>
-                    <div class="field"><label for="spWaiting">Who's waiting on it</label><input id="spWaiting" value="${escapeHtml(s.waiting_on || '')}" placeholder="A person, a festival deadline, a lender"></div>
-                </div>
                 <div class="row-actions">
                     <button class="btn" id="closeDone" title="Close this sprint as shipped">Close as done</button>
                     <button class="btn danger" id="closeAbandon" title="Close this sprint without shipping — the log stays">Abandon</button>
@@ -331,8 +323,6 @@
             const put = body => save('sprintState', async () => { const out = await api(`/sprints/${s.id}`, { method: 'PUT', body }); Object.assign(s, out); });
             document.getElementById('spTitle').addEventListener('focusout', e => { const v = e.target.value.trim(); if (v && v !== s.title) put({ title: v }); else e.target.value = s.title; });
             document.getElementById('spTitle').addEventListener('keydown', e => { if (e.key === 'Enter') e.target.blur(); });
-            document.getElementById('spDeliv').addEventListener('focusout', e => { if ((e.target.value.trim() || null) !== (s.deliverable || null)) put({ deliverable: e.target.value }); });
-            document.getElementById('spWaiting').addEventListener('focusout', e => { if ((e.target.value.trim() || null) !== (s.waiting_on || null)) put({ waiting_on: e.target.value }); });
             document.getElementById('checkin').addEventListener('click', e => {
                 const b = e.target.closest('.pill'); if (!b) return;
                 logDay(s, s.yesterday, b.dataset.touched === '1');
@@ -401,8 +391,6 @@
                     title: document.getElementById('nsTitle').value,
                     start_day: document.getElementById('nsStart').value,
                     end_day: document.getElementById('nsEnd').value,
-                    waiting_on: document.getElementById('nsWaiting').value,
-                    deliverable: document.getElementById('nsDeliv').value,
                     close_active: 'done'   // starting now closes the current one as shipped; a future start only plans it
                 };
                 let ok = false;
