@@ -31,3 +31,7 @@
 - **`FINANCE_RECIPE` points Tom at them:** he reads `plan.goals` first, serves the first one that is not done, and says which goal a tip serves.
 - **The shape of the ladder** (figures are in the board): debt-free by the end of the year, then a savings floor, then a car, then a house down payment. Order matters: a tip that helps the car while the debt is open is the wrong tip.
 - **If a goal needs a number Tom can't see** (a car budget, a house date), he should ask through a tip, not guess.
+
+### Fixed expenses line (2026-10-09)
+- **Recurring bills that aren't a debt payment are the "fixed expenses."** Both line charts draw them as a **pink line of cumulative fixed expenses since today** (downward, so it reads as money out on the zero-centred axis); the legend names the monthly total; the tooltip gives the running figure. The **projection already subtracted them** from cash, so the line shows what they cost, not a second subtraction. A bill marked "pays debt" (the card payment) is **not** an expense: it moves cash to debt and net doesn't change.
+- **Kevin's list went in as recurring bills** (a spreadsheet of monthly costs: healthcare, phone lines, subscriptions, storage unit, fibre, gym), **all on the 1st until his statements give the real days** — the day of month matters for the 60-day chart. His own sheet's totals disagree (monthly 580 includes the gym, annual 6,574 leaves it out; 12 × 580 is 6,960). Rows at $0 were left out. Medical bills beyond the healthcare line weren't given amounts yet.

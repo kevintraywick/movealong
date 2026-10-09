@@ -27,8 +27,8 @@
 
     const root = host.attachShadow({ mode: 'open' });
     const CSS = `:host { display: block; }
-#fin { --orange: #eb6834; --blue: #0284c7; --violet: #4a3aa7; --red: #ef4444; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; color: #0f172a; }
-#fin.dark { --orange: #ea580c; --violet: #9085e9; --red: #f87171; color: #e2e8f0; }
+#fin { --orange: #eb6834; --blue: #0284c7; --violet: #4a3aa7; --pink: #c2417a; --red: #ef4444; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; color: #0f172a; }
+#fin.dark { --orange: #ea580c; --violet: #9085e9; --pink: #f472b6; --red: #f87171; color: #e2e8f0; }
 *, *::before, *::after { box-sizing: border-box; }
 #fin.dark { --orange: #ea580c; --blue: #0284c7; --violet: #9085e9; --red: #f87171; }
 .btn {
@@ -336,10 +336,23 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     const simAt = (rows, base, d) => rows[diff(base.date, d) - 1];
 
     // net for each of the 61 days
+    // Fixed expenses so far from today: the recurring bills that are not a debt payment, summed day by day.
+    const hasExpenses = () => S.bills.some(b => !b.debt && b.amount > 0);
+    function expenseTotals(days) {
+        const out = {}; let run = 0;
+        for (let i = 1; i <= days; i++) {
+            const d = add(TODAY, i), last = dim(d);
+            for (const b of S.bills) if (!b.debt && Math.min(b.day, last) === dom(d)) run += b.amount;
+            out[d] = run;
+        }
+        return out;
+    }
+    const monthlyExpenses = () => S.bills.filter(b => !b.debt).reduce((t, b) => t + (b.amount || 0), 0);
     function series1() {
         const inv = $('inv') ? $('inv').checked : false;
         const out = [];
         const fullDays = Object.keys(S.entries).filter(d => isFull(S.entries[d])).sort();
+        const exps = expenseTotals(30);
         for (let k = -30; k <= 30; k++) {
             const d = add(TODAY, k);
             let net, kind, plan = null;
@@ -358,7 +371,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             }
             if (!M.empty && k >= 0 && d > M.base.date) plan = netOf(simAt(M.withPlan, M.base, d), inv);
             const row = !M.empty && d > M.base.date ? simAt(M.plain, M.base, d) : (S.entries[d] || null);
-            out.push({ d, k, net, kind, plan, row });
+            out.push({ d, k, net, kind, plan, row, exp: k >= 0 && hasExpenses() ? -(k === 0 ? 0 : exps[d]) : undefined });
         }
         return out;
     }
@@ -366,11 +379,12 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const inv = $('inv') ? $('inv').checked : false;
         const out = [];
         if (M.empty) return out;
+        const exps = expenseTotals(7 * 52);
         for (let w = 1; w <= 52; w++) {
             const d = add(TODAY, 7 * w);
             if (d <= M.base.date) continue;
             const a = simAt(M.plain, M.base, d), b = simAt(M.withPlan, M.base, d);
-            out.push({ d, w, net: netOf(a, inv), plan: netOf(b, inv), debt: a.debt, planDebt: b.debt, house: a.house, savings: a.savings, kind: 'proj' });
+            out.push({ d, w, net: netOf(a, inv), plan: netOf(b, inv), debt: a.debt, planDebt: b.debt, house: a.house, savings: a.savings, kind: 'proj', exp: hasExpenses() ? -exps[d] : undefined });
         }
         return out;
     }
@@ -466,7 +480,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     function chart(wrapId, tipId, w, h, pts, o) {
         const wrap = $(wrapId), tip = $(tipId);
         const L = 40, R = 8, T = 14, B = 22;
-        const vals = [0]; pts.forEach(p => { vals.push(p.net); if (p.plan !== null && p.plan !== undefined) vals.push(p.plan); });
+        const vals = [0]; pts.forEach(p => { vals.push(p.net); if (p.plan !== null && p.plan !== undefined) vals.push(p.plan); if (o.showExp && p.exp !== undefined) vals.push(p.exp); });
         let lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
         const padv = (hi - lo) * 0.08 || 100; if (lo < 0) lo -= padv; hi += padv;
         const ticks = niceTicks(lo, hi, 4);
@@ -507,6 +521,10 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             if (p.kind === 'proj') g += `<rect x="${x(i)}" y="${top}" width="${bw}" height="${ht}" rx="1.5" fill="${col}" fill-opacity="0.16" stroke="${col}" stroke-width="1" stroke-dasharray="3 2"/>`;
             else g += `<rect x="${x(i)}" y="${top}" width="${bw}" height="${ht}" rx="1.5" fill="${col}" fill-opacity="${p.kind === 'est' ? 0.5 : 1}"/>`;
         });
+        if (o.showExp) {
+            const ep = pts.map((p, i) => ({ i, v: p.exp })).filter(q => q.v !== undefined);
+            if (ep.length > 1) g += `<polyline fill="none" stroke="var(--pink)" stroke-width="1.8" stroke-linejoin="round" points="${ep.map(q => `${x(q.i) + bw / 2},${y(q.v)}`).join(' ')}"/>`;
+        }
         const planPts = pts.map((p, i) => ({ i, v: p.plan })).filter(q => q.v !== null && q.v !== undefined);
         if (o.showPlan && planPts.length > 1) g += `<polyline fill="none" stroke="var(--violet)" stroke-width="2" stroke-dasharray="5 3" stroke-linejoin="round" points="${planPts.map(q => `${x(q.i) + bw / 2},${y(q.v)}`).join(' ')}"/>`;
         (o.marks || []).forEach(m => { g += `<line x1="${m.x}" x2="${m.x}" y1="${T - 4}" y2="${h - B}" stroke="${m.color}" stroke-width="1" stroke-dasharray="2 3"/><text x="${m.x}" y="${T - 5}" text-anchor="middle" style="fill:${m.color}">${m.label}</text>`; });
@@ -533,7 +551,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const pts = series1();
         const anyPlan = S.planned.some(p => p.on && p.amount);
         chart('c1wrap', 'tip1', 600, 190, pts, {
-            aria: 'Net position, 30 days back and 30 ahead', showPlan: anyPlan, bar: 0.74, line: true,
+            aria: 'Net position, 30 days back and 30 ahead', showPlan: anyPlan, showExp: hasExpenses(), bar: 0.74, line: true,
             labelAt: i => i % 10 === 0 || i === 30, label: p => p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' }),
             tip: p => {
                 const r = p.row || {};
@@ -542,6 +560,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                     + `<div><span class="sw" style="background:${sw}"></span>Net <b>${money(p.net)}</b></div>`
                     + (typeof r.cash === 'number' ? `<div>Cash ${money(r.cash)} · Savings ${money(r.savings)}</div>` : '')
                     + (typeof r.debt === 'number' ? `<div>Debt ${money(r.debt)}</div>` : '')
+                    + (p.exp !== undefined && p.k > 0 ? `<div><span class="sw" style="background:var(--pink)"></span>Fixed expenses since today <b>${money(-p.exp)}</b></div>` : '')
                     + (p.plan !== null && anyPlan ? `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b></div>` : '');
             }
         });
@@ -549,6 +568,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             <span class="item"><span class="sw" style="background:var(--blue)"></span>Debt ahead</span>
             <span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--orange);opacity:.55"></span>Estimated (no entry)</span>
             <span class="item"><span class="ln" style="border-top-color:var(--orange)"></span>Projected</span>
+            ${hasExpenses() ? `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--pink)"></span>Fixed expenses since today (${money(monthlyExpenses())} a month)</span>` : ''}
             ${anyPlan ? '<span class="item"><span class="ln"></span>With planned spending</span>' : ''}
             <label><input type="checkbox" id="inv" ${$('inv') && $('inv').checked ? 'checked' : ''}> include trading account</label>`;
         $('inv').addEventListener('change', () => { draw1(); draw2(); });
@@ -563,18 +583,20 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const L = 40, R = 8, w = 600, slot = (w - L - R) / pts.length;
         const marks = freeIdx >= 0 ? [{ x: L + slot * freeIdx + slot / 2, color: 'var(--blue)', label: 'debt-free' }] : [];
         chart('c2wrap', 'tip2', w, 190, pts, {
-            aria: 'Projected net position, week by week for the next 12 months', showPlan: anyPlan, bar: 0.74, line: true, marks,
+            aria: 'Projected net position, week by week for the next 12 months', showPlan: anyPlan, showExp: hasExpenses(), bar: 0.74, line: true, marks,
             labelAt: (i, p) => i === 0 || p.d.slice(5, 7) !== pts[i - 1].d.slice(5, 7),
             label: p => fmtDay(p.d, { month: 'short' }),
             tip: p => `<div class="d">Week of ${esc(fmtDay(p.d, { month: 'short', day: 'numeric' }))} · projected</div>`
                 + `<div><span class="sw" style="background:${p.net >= 0 ? 'var(--orange)' : 'var(--blue)'}"></span>Net <b>${money(p.net)}</b></div>`
                 + `<div>Debt ${money(p.debt)} · Savings ${money(p.savings)}</div><div>House fund ${money(p.house)}</div>`
+                + (p.exp !== undefined ? `<div><span class="sw" style="background:var(--pink)"></span>Fixed expenses since today <b>${money(-p.exp)}</b></div>` : '')
                 + (anyPlan ? `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b> (debt ${money(p.planDebt)})</div>` : '')
         });
         const decIdx = (() => { let j = -1; pts.forEach((p, i) => { if (p.d <= yearEnd) j = i; }); return j; })();
         $('leg2').innerHTML = `<span class="item"><span class="sw" style="background:var(--orange)"></span>Cash + savings ahead of debt</span>
             <span class="item"><span class="sw" style="background:var(--blue)"></span>Debt ahead</span>
             <span class="item"><span class="ln" style="border-top-color:var(--orange)"></span>Projected</span>
+            ${hasExpenses() ? '<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--pink)"></span>Fixed expenses since today</span>' : ''}
             ${anyPlan ? '<span class="item"><span class="ln"></span>With planned spending</span>' : ''}
             <span class="item">${freeIdx >= 0 ? `Debt reaches zero the week of <b style="margin-left:3px">${esc(fmtDay(pts[freeIdx].d, { month: 'short', day: 'numeric' }))}</b>` : 'Debt is not cleared within 12 months'}</span>
             <span class="item">House fund by Dec 31 <b style="margin-left:3px">${money(pts[decIdx >= 0 ? decIdx : pts.length - 1].house)}</b></span>`;
