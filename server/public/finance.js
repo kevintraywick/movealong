@@ -459,12 +459,37 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const padv = (hi - lo) * 0.08 || 100; if (lo < 0) lo -= padv; hi += padv;
         const ticks = niceTicks(lo, hi, 4);
         lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks[ticks.length - 1]);
+        if (o.line) { const m = Math.max(Math.abs(lo), Math.abs(hi)); lo = -m; hi = m; ticks.length = 0; niceTicks(-m, m, 4).forEach(v => ticks.push(v)); if (ticks.indexOf(0) < 0) ticks.push(0); }
         const y = v => T + (h - T - B) * (1 - (v - lo) / (hi - lo));
         const slot = (w - L - R) / pts.length, bw = Math.max(2, slot * (o.bar || 0.72));
         const x = i => L + slot * i + (slot - bw) / 2;
         let g = '';
         ticks.forEach(v => { g += `<line class="${v === 0 ? 'zero' : 'grid'}" x1="${L}" x2="${w - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 5}" y="${y(v) + 3}" text-anchor="end">${money(v, true)}</text>`; });
-        pts.forEach((p, i) => {
+        if (o.line) {
+            // A line through the net, zero in the middle: orange above it, blue below, a faint wash back to the zero line.
+            const cx = i => L + slot * i + slot / 2, y0 = y(0);
+            const colOf = v => v >= 0 ? 'var(--orange)' : 'var(--blue)';
+            const segs = [];
+            for (let i = 0; i < pts.length - 1; i++) {
+                const a = { x: cx(i), v: pts[i].net }, b = { x: cx(i + 1), v: pts[i + 1].net };
+                const kind = (pts[i].kind === 'proj' || pts[i + 1].kind === 'proj') ? 'proj' : (pts[i].kind === 'est' || pts[i + 1].kind === 'est') ? 'est' : 'actual';
+                if ((a.v >= 0) !== (b.v >= 0)) { const t = a.v / (a.v - b.v), m = { x: a.x + (b.x - a.x) * t, v: 0 }; segs.push([a, m, kind], [m, b, kind]); }
+                else segs.push([a, b, kind]);
+            }
+            segs.forEach(([a, b, kind]) => { g += `<polygon points="${a.x},${y(a.v)} ${b.x},${y(b.v)} ${b.x},${y0} ${a.x},${y0}" fill="${colOf(a.v || b.v)}" fill-opacity="${kind === 'proj' ? 0.08 : 0.16}"/>`; });
+            let run = null;
+            const flush = () => { if (run) g += `<polyline fill="none" stroke="${run.c}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${run.kind === 'proj' ? ' stroke-dasharray="5 3"' : ''}${run.kind === 'est' ? ' stroke-opacity="0.55"' : ''} points="${run.pts.join(' ')}"/>`; run = null; };
+            segs.forEach(([a, b, kind]) => {
+                const c = colOf(a.v || b.v);
+                if (!run || run.c !== c || run.kind !== kind) { flush(); run = { c, kind, pts: [`${a.x},${y(a.v)}`] }; }
+                run.pts.push(`${b.x},${y(b.v)}`);
+            });
+            flush();
+            pts.forEach((p, i) => { if (p.kind === 'actual') g += `<circle cx="${cx(i)}" cy="${y(p.net)}" r="2.3" fill="${colOf(p.net)}"/>`; });
+            const ti = pts.findIndex(p => p.k === 0);
+            if (ti >= 0) g += `<line x1="${cx(ti)}" x2="${cx(ti)}" y1="${T}" y2="${h - B}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/>`;
+        }
+        if (!o.line) pts.forEach((p, i) => {
             const pos = p.net >= 0, col = pos ? 'var(--orange)' : 'var(--blue)';
             const top = Math.min(y(p.net), y(0)), ht = Math.max(1, Math.abs(y(p.net) - y(0)));
             if (p.kind === 'proj') g += `<rect x="${x(i)}" y="${top}" width="${bw}" height="${ht}" rx="1.5" fill="${col}" fill-opacity="0.16" stroke="${col}" stroke-width="1" stroke-dasharray="3 2"/>`;
@@ -496,7 +521,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const pts = series1();
         const anyPlan = S.planned.some(p => p.on && p.amount);
         chart('c1wrap', 'tip1', 600, 190, pts, {
-            aria: 'Net position, 30 days back and 30 ahead', showPlan: anyPlan, bar: 0.74,
+            aria: 'Net position, 30 days back and 30 ahead', showPlan: anyPlan, bar: 0.74, line: true,
             labelAt: i => i % 10 === 0 || i === 30, label: p => p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' }),
             tip: p => {
                 const r = p.row || {};
@@ -510,8 +535,8 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         });
         $('leg1').innerHTML = `<span class="item"><span class="sw" style="background:var(--orange)"></span>Cash + savings ahead of debt</span>
             <span class="item"><span class="sw" style="background:var(--blue)"></span>Debt ahead</span>
-            <span class="item"><span class="sw" style="background:var(--orange);opacity:.5"></span>Estimated (no entry)</span>
-            <span class="item"><span class="sw proj" style="border-color:var(--orange)"></span>Projected</span>
+            <span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--orange);opacity:.55"></span>Estimated (no entry)</span>
+            <span class="item"><span class="ln" style="border-top-color:var(--orange)"></span>Projected</span>
             ${anyPlan ? '<span class="item"><span class="ln"></span>With planned spending</span>' : ''}
             <label><input type="checkbox" id="inv" ${$('inv') && $('inv').checked ? 'checked' : ''}> include trading account</label>`;
         $('inv').addEventListener('change', () => { draw1(); draw2(); });
