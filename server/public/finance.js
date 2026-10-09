@@ -165,6 +165,16 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin .bill .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
 #fin .bill label.debt { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
 #fin .bill-add { margin-top: 4px; }
+#fin .goals { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
+#fin .gtitle { font-size: 11px; font-weight: 600; color: #475569; }
+#fin .gtitle span { font-weight: 400; color: #94a3b8; margin-left: 6px; }
+#fin .goal { display: grid; grid-template-columns: 16px 1fr 20px; gap: 6px; align-items: center; }
+#fin .goal input[type=text] { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; background: #fff; color: #0f172a; min-width: 0; width: 100%; }
+#fin .goal input[type=checkbox] { accent-color: #0ea5e9; }
+#fin .goal.done input[type=text] { color: #94a3b8; text-decoration: line-through; }
+#fin .goal .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
+#fin.dark .gtitle { color: #cbd5e1; }
+#fin.dark .goal input[type=text] { background: #0f172a; border-color: #334155; color: #e2e8f0; }
 #fin .entry .state.err { color: #ef4444; width: auto; max-width: 110px; }
 `;
     const MARKUP = `<div class="pane" id="fin">
@@ -203,7 +213,8 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             <div class="effect" id="effect"></div>
 
             <details>
-                <summary>Assumptions the projection runs on</summary>
+                <summary>Goals, assumptions and bills</summary>
+                <div class="goals" id="goals"></div>
                 <div class="assume" id="assume"></div>
                 <div class="bills" id="bills"></div>
                 <div class="note">The projection starts from your last day with cash, savings and debt entered and walks forward: pay on the 1st and 15th, your daily spend, these bills on their days, interest on debt and savings, and the monthly moves into savings and the house fund. Leave a setting at 0 and it counts for nothing.</div>
@@ -219,13 +230,14 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     // ---------- state ----------
     const FIELDS = ['cash', 'savings', 'debt', 'invest'];
     const DEFAULT_ASSUME = { income: 0, spend: 0, debtApr: 0, saveAdd: 0, houseAdd: 0, houseGoal: 0, house: 0, saveApy: 0, hysaApy: 0, investReturn: 0 };
-    let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], statements: [], tip: null, nextId: 1 };
+    let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], goals: [], statements: [], tip: null, nextId: 1 };
     function take(d) {
         TODAY = d.today; yearEnd = `${TODAY.slice(0, 4)}-12-31`;
         S.entries = d.entries || {};
         S.assume = Object.assign({}, DEFAULT_ASSUME, (d.plan || {}).assume);
         S.bills = ((d.plan || {}).bills || []).map(b => Object.assign({}, b));
         S.planned = ((d.plan || {}).planned || []).map(p => Object.assign({}, p));
+        S.goals = ((d.plan || {}).goals || []).map(g => Object.assign({}, g));
         S.nextId = S.planned.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
         S.statements = d.statements || [];
         S.tip = d.tip || null;
@@ -235,7 +247,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     const persist = () => {
         clearTimeout(planTimer);
         planTimer = setTimeout(async () => {
-            try { await call('/plan', { method: 'PUT', body: { assume: S.assume, bills: S.bills, planned: S.planned } }); }
+            try { await call('/plan', { method: 'PUT', body: { assume: S.assume, bills: S.bills, planned: S.planned, goals: S.goals } }); }
             catch (e) { say(e.message || 'not saved', true); }
         }, 600);
     };
@@ -551,7 +563,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const L = 40, R = 8, w = 600, slot = (w - L - R) / pts.length;
         const marks = freeIdx >= 0 ? [{ x: L + slot * freeIdx + slot / 2, color: 'var(--blue)', label: 'debt-free' }] : [];
         chart('c2wrap', 'tip2', w, 190, pts, {
-            aria: 'Projected net position, week by week for the next 12 months', showPlan: anyPlan, bar: 0.74, marks,
+            aria: 'Projected net position, week by week for the next 12 months', showPlan: anyPlan, bar: 0.74, line: true, marks,
             labelAt: (i, p) => i === 0 || p.d.slice(5, 7) !== pts[i - 1].d.slice(5, 7),
             label: p => fmtDay(p.d, { month: 'short' }),
             tip: p => `<div class="d">Week of ${esc(fmtDay(p.d, { month: 'short', day: 'numeric' }))} · projected</div>`
@@ -562,7 +574,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const decIdx = (() => { let j = -1; pts.forEach((p, i) => { if (p.d <= yearEnd) j = i; }); return j; })();
         $('leg2').innerHTML = `<span class="item"><span class="sw" style="background:var(--orange)"></span>Cash + savings ahead of debt</span>
             <span class="item"><span class="sw" style="background:var(--blue)"></span>Debt ahead</span>
-            <span class="item"><span class="sw proj" style="border-color:var(--orange)"></span>Projected</span>
+            <span class="item"><span class="ln" style="border-top-color:var(--orange)"></span>Projected</span>
             ${anyPlan ? '<span class="item"><span class="ln"></span>With planned spending</span>' : ''}
             <span class="item">${freeIdx >= 0 ? `Debt reaches zero the week of <b style="margin-left:3px">${esc(fmtDay(pts[freeIdx].d, { month: 'short', day: 'numeric' }))}</b>` : 'Debt is not cleared within 12 months'}</span>
             <span class="item">House fund by Dec 31 <b style="margin-left:3px">${money(pts[decIdx >= 0 ? decIdx : pts.length - 1].house)}</b></span>`;
@@ -631,7 +643,23 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             const v = el.value.trim() === '' ? 0 : parseMoney(el.value); if (v === null) return;
             S.assume[el.dataset.a] = v; persist(); refresh(false);
         }));
+        drawGoals();
         drawBills();
+    }
+    function drawGoals() {
+        $('goals').innerHTML = `<div class="gtitle">Goals, in order <span>Tom works toward the first one that isn't done</span></div>`
+            + S.goals.map((g, i) => `<div class="goal ${g.done ? 'done' : ''}"><input type="checkbox" data-g="done" data-i="${i}" ${g.done ? 'checked' : ''} title="Reached"><input type="text" data-g="title" data-i="${i}" value="${esc(g.title)}" placeholder="A goal"><button class="x" data-g="del" data-i="${i}" title="Remove">×</button></div>`).join('')
+            + `<div class="goal-add"><button class="btn" id="goal-add">Add a goal</button></div>`;
+        $('goals').querySelectorAll('[data-g]').forEach(el => {
+            const ev = el.type === 'checkbox' ? 'change' : el.tagName === 'BUTTON' ? 'click' : 'input';
+            el.addEventListener(ev, () => {
+                const i = +el.dataset.i, k = el.dataset.g;
+                if (k === 'del') { S.goals.splice(i, 1); persist(); drawGoals(); return; }
+                if (k === 'done') { S.goals[i].done = el.checked; persist(); drawGoals(); return; }
+                S.goals[i].title = el.value; persist();
+            });
+        });
+        $('goal-add').addEventListener('click', () => { S.goals.push({ title: '', done: false }); persist(); drawGoals(); const ins = $('goals').querySelectorAll('input[data-g=title]'); if (ins.length) ins[ins.length - 1].focus(); });
     }
     function drawBills() {
         $('bills').innerHTML = `<div class="bill"><span class="h">Recurring bill</span><span class="h">day</span><span class="h">amount</span><span class="h"></span><span></span></div>`

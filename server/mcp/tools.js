@@ -204,7 +204,7 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
   // Finance (2026-10-09). The pane on the dashboard; Tom writes its one tip-or-alert row.
   server.registerTool('get_finance', {
     title: 'Read the finance pane',
-    description: 'The last 60 days of Kevin\'s four balances (cash, savings, debt, trading), his projection settings (income, daily spend, debt APR, monthly savings and house-fund moves, recurring bills, planned spending), the tip now showing, and the recent tips with his Useful / Not for me answers (read those first: they say what lands), plus the statements he has dropped (fetch one with its id at /api/finance/statements/<id>/file).',
+    description: 'The last 60 days of Kevin\'s four balances (cash, savings, debt, trading), his goals in order (plan.goals), his projection settings (income, daily spend, debt APR, monthly savings and house-fund moves, recurring bills, planned spending), the tip now showing, and the recent tips with his Useful / Not for me answers (read those first: they say what lands), plus the statements he has dropped (fetch one with its id at /api/finance/statements/<id>/file).',
     inputSchema: {}
   }, async () => {
     const d = await api(`${me}/finance`);
@@ -555,7 +555,7 @@ At most 12 items total, in this order: calendar, mail, market, texts, nudges, he
 // habits live in the board, not in this public repo.
 export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance pane and post it with post_finance_tip.
 
-1. get_finance. Read recent_tips first: every one has his answer (up = Useful, no = Not for me, replaced = never answered). Learn from them. Do not repeat a kind of tip he said was not for him, and lean toward the kinds he found useful.
+1. get_finance. Read plan.goals first: Kevin's goals in order (a done one is crossed off). The first not done is the one every tip must serve; the rest are what comes after it. Then read recent_tips: every one has his answer (up = Useful, no = Not for me, replaced = never answered). Learn from them. Do not repeat a kind of tip he said was not for him, and lean toward the kinds he found useful.
 
 2. If a tip posted in the last 20 hours is still unanswered, stop; do not post another.
 
@@ -563,7 +563,7 @@ export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance p
    - An alert: a bill or payment due today or tomorrow (the plan's recurring bills, or a due date you can see in a statement file). Say what and how much. Do not work out what cash will be left.
    - A pattern in his entries or statements he would not see: spending that runs higher on certain days, a category that keeps rising, months he saves and months he does not and what was different.
    - An opportunity: money earning almost nothing that could earn more, interest he is paying that the money in his trading account or savings could remove.
-   - A strategy he is not using that would help the goals (debt to zero by the end of the year, savings up, the house fund), or a small change in daily spending that moves the debt-free date.
+   - A strategy he is not using that would help the first goal that is not done, or a small change in daily spending that moves the date he reaches it. Say which goal it serves.
    - If there are gaps in his entries, a statement dropped in the plus box would fill them.
 
 4. One or two sentences, under 300 characters, plain words, one specific number at most. A tip is an observation and a suggestion, never a lecture. If there is nothing worth saying, post nothing.`;

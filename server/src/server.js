@@ -1776,7 +1776,7 @@ function financePlanOf(userId) {
   const row = queryOne('SELECT data FROM finance_plan WHERE user_id = ?', [userId]);
   let plan = null;
   try { plan = row ? JSON.parse(row.data) : null; } catch (e) { /* start over */ }
-  return plan || { assume: {}, bills: [], planned: [] };
+  return plan || { assume: {}, bills: [], planned: [], goals: [] };
 }
 const tipOut = (t) => t && { id: t.id, kind: t.kind, body: t.body, feedback: t.feedback, created_at: t.created_at };
 const statementOut = (r) => ({ id: r.id, name: r.name, size: r.size, created_at: r.created_at });
@@ -1847,10 +1847,11 @@ app.put('/api/companies/:subdomain/users/:slug/finance/plan', (req, res) => {
     id: Math.round(financeNum(x.id, 0, 1e9) || 0), label: str(x.label, 60) || 'Planned spending', date: x.date,
     amount: financeNum(x.amount, 0, 1e9) || 0, on: !!x.on, monthly: !!x.monthly
   }));
-  const data = JSON.stringify({ assume, bills, planned });
+  const goals = (Array.isArray(b.goals) ? b.goals : []).slice(0, 12).map(g => ({ title: str(g.title, 140), done: !!g.done })).filter(g => g.title);
+  const data = JSON.stringify({ assume, bills, planned, goals });
   runSql(`INSERT INTO finance_plan (user_id, data, updated_at) VALUES (?, ?, ?)
           ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, [user.id, data, new Date().toISOString()]);
-  res.json({ assume, bills, planned });
+  res.json({ assume, bills, planned, goals });
 });
 
 // Tom's one row. A new tip replaces the one on show; the older ones stay, with
