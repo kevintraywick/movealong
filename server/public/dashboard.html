@@ -60,6 +60,10 @@
 
         .pane-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 8px; }
         .pane-title { font-size: 15px; font-weight: 600; }
+        .goal-line { stroke: #0f172a; stroke-opacity: .55; stroke-width: 1.2; stroke-dasharray: 5 4; }
+        .goal-label { font-size: 10px; fill: #475569; font-weight: 600; }
+        body.dark .goal-line { stroke: #e2e8f0; stroke-opacity: .6; }
+        body.dark .goal-label { fill: #cbd5e1; }
         .pane-total { font-size: 12px; color: #64748b; }
         .pane-total b { color: #0f172a; font-weight: 600; font-size: 13px; }
 
@@ -619,12 +623,14 @@
         }
 
         // Steps: one bar a day, a dashed 7-day rolling average over it.
+        // Targets drawn as a dashed line so you can see how far off you are (Kevin, 2026-10-09).
+        const STEPS_GOAL = 7000, WEIGHT_GOAL = 175;
         function stepsChart(days) {
             const W = 720, H = 150, padL = 40, padR = 8, padT = 14, padB = 22;
             const plotW = W - padL - padR, plotH = H - padT - padB;
             const n = days.length, slot = plotW / n, barW = Math.max(2, slot * 0.68);
             const vals = days.map(d => d.e.steps);
-            const max = Math.max(1000, ...vals.filter(v => v != null));
+            const max = Math.max(1000, STEPS_GOAL, ...vals.filter(v => v != null));
             const step = max > 20000 ? 5000 : max > 8000 ? 2500 : 1000;
             const top = Math.ceil(max / step) * step;
             const y = v => padT + plotH - (v / top) * plotH;
@@ -649,6 +655,7 @@
                 path += `${pen ? 'L' : 'M'}${(padL + slot * i + slot / 2).toFixed(1)} ${y(a).toFixed(1)} `; pen = true;
             });
             if (path) svg += `<path class="avg" d="${path}"/>`;
+            svg += `<line class="goal-line" x1="${padL}" x2="${W - padR}" y1="${y(STEPS_GOAL)}" y2="${y(STEPS_GOAL)}"/><text class="goal-label" x="${W - padR - 2}" y="${y(STEPS_GOAL) - 4}" text-anchor="end">goal ${fmtN(STEPS_GOAL)}</text>`;
             return svg + '</svg>';
         }
 
@@ -660,7 +667,7 @@
             const plotW = W - padL - padR, plotH = H - padT - padB;
             const n = days.length, slot = plotW / n;
             const ws = pts.map(p => p.d.e.weight);
-            let lo = Math.floor(Math.min(...ws) - 1), hi = Math.ceil(Math.max(...ws) + 1);
+            let lo = Math.floor(Math.min(...ws, WEIGHT_GOAL) - 1), hi = Math.ceil(Math.max(...ws, WEIGHT_GOAL) + 1);
             if (hi - lo < 4) { hi = lo + 4; }
             const y = v => padT + plotH - ((v - lo) / (hi - lo)) * plotH;
             const x = i => padL + slot * i + slot / 2;
@@ -673,6 +680,7 @@
             days.forEach((d, i) => { if (i % 7 === 0) svg += `<text class="axis-label${d.today ? ' today' : ''}" x="${padL + slot * i + 2}" y="${H - 6}">${fmtDay(d.key, { month: 'short', day: 'numeric' })}</text>`; });
             svg += `<path class="wline" stroke="${hcol('weight')}" d="${pts.map((p, k) => `${k ? 'L' : 'M'}${x(p.i).toFixed(1)} ${y(p.d.e.weight).toFixed(1)}`).join(' ')}"/>`;
             pts.forEach(p => { svg += `<circle class="wdot" data-tip="${escapeHtml(fmtDay(p.d.key, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.d.e.weight.toFixed(1)} lb" cx="${x(p.i)}" cy="${y(p.d.e.weight)}" r="3.5" fill="${hcol('weight')}"/>`; });
+            svg += `<line class="goal-line" x1="${padL}" x2="${W - padR}" y1="${y(WEIGHT_GOAL)}" y2="${y(WEIGHT_GOAL)}"/><text class="goal-label" x="${W - padR - 2}" y="${y(WEIGHT_GOAL) - 4}" text-anchor="end">goal ${WEIGHT_GOAL}</text>`;
             const last = pts[pts.length - 1];
             // label sits on the side the line isn't coming from
             const prev = pts[pts.length - 2];

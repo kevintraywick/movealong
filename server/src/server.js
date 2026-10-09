@@ -1765,7 +1765,7 @@ const FINANCE_WINDOW_DAYS = 60;
 const STATEMENT_EXT = ['pdf', 'csv', 'ofx', 'qfx', 'txt'];
 const STATEMENT_MAX = 15 * 1024 * 1024;
 const STATEMENT_DIR = path.join(path.dirname(process.env.DB_PATH || path.join(__dirname, '..', 'movealong.db')), 'statements');
-const FINANCE_ASSUME_KEYS = ['income', 'spend', 'debtApr', 'saveAdd', 'houseAdd', 'houseGoal', 'house', 'saveApy', 'hysaApy', 'investReturn'];
+const FINANCE_ASSUME_KEYS = ['income', 'spend', 'debtApr', 'saveAdd', 'houseAdd', 'houseGoal', 'house', 'saveApy', 'hysaApy', 'investReturn', 'saveGoal'];
 
 function financeNum(v, lo, hi) {
   const n = typeof v === 'number' ? v : Number(String(v).replace(/[$,\s]/g, ''));
@@ -1806,7 +1806,8 @@ app.get('/api/companies/:subdomain/users/:slug/finance/history', (req, res) => {
   const days = Math.min(120, Math.max(1, parseInt(req.query.days, 10) || 30));
   const files = queryAll('SELECT file FROM finance_statements WHERE user_id = ? ORDER BY id', [user.id]);
   const rows = statementsLib.loadRows(STATEMENT_DIR, files);
-  res.json({ today, statements: files.length, ...statementsLib.history(rows, addDays(today, -(days - 1)), today) });
+  const appleCats = new Map(rows.filter(r => r.acct === 'apple' && r.appleCategory).map(r => [r.date + '|' + r.desc + '|' + r.amount.toFixed(2), r.appleCategory]));
+  res.json({ today, statements: files.length, ...statementsLib.history(rows, addDays(today, -(days - 1)), today, appleCats) });
 });
 
 // One day's balances. null or '' clears a field; days after today are refused.

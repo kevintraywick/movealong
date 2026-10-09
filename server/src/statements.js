@@ -38,7 +38,7 @@ function parseFile(text) {
     for (const r of t.slice(1)) {
       const date = toDay(r[col('transaction date')]), amt = num(r[col('amount (usd)')]);
       if (!date || amt === null) continue;
-      out.push({ acct: 'apple', date, desc: (r[col('merchant')] || r[col('description')] || '').trim(), amount: -amt });
+      out.push({ acct: 'apple', date, desc: (r[col('merchant')] || r[col('description')] || '').trim(), amount: -amt, appleCategory: (r[col('category')] || '').trim() });
     }
   } else if (head.includes('posted date') && head.includes('payee')) {
     for (const r of t.slice(1)) {
@@ -75,54 +75,70 @@ function loadRows(dir, statementRows) {
   return combine(files);
 }
 
-// What a checking-account line is, for the cash chart.
-//   income   a deposit that is not a move between his own accounts
-//   transfer to or from his other accounts (savings, the share account, overdraft cover)
-//   plan     a payment on a card or a payment plan
-//   bill     a recurring bill
-//   other    taxes, checks and the like
-//   daily    everything else he spends (card swipes, Cash App, Zelle)
+// ---- Categories (2026-10-09) ----
+// Spending is counted when it happens, on whichever account it happens: a card purchase is groceries when you
+// buy them, not when the card is paid. Payments between his own accounts and card payments are not spending.
+const CAT_RE = {
+  medical: /bcbs|blue cross|baptist|anesth|pharm|\bcvs\b|walgreens|dental|dentist|clinic|hospital|medical|physical therap|urgent care|doctor|eyeworks|optic|\bmed\*|\bpt \*/i,
+  groceries: /market|foods?\b|convenience|quick stop|bottle|casey|grocer|food store|a to z food|wal-?mart|wm supercenter|walmart|dollar general|trader joe|\bpcc\b|kroger|aldi|safeway|food lion|7-eleven|pepsi|publix|costco|murphyatwal/i,
+  dining: /restaurant|cafe|coffee|pizza|grill|tavern|taproom|sushi|steakhouse|mcdonald|arby|chick-fil|sonic|drive in|billiards|vantage|ruler foods|doordash|uber eats|bar\b|brew|donut|bakery|kitchen|diner|woodfire/i,
+  travel: /airline|\bair\b|alaska air|american air|broadway\.com|hotel|airbnb|shell oil|exxon|chevron|\bgas\b|fuel|parking|sdot|paybyphone|\buber\b|\blyft\b|mnaa|rental car|amtrak/i,
+  taxes: /\birs\b|treasury|usataxpymt|\btax\b/i,
+  shopping: /amazon|amzn|mktpl|lumber|\brei\b|home depot|lowe'?s|target|best buy|etsy|ebay|boutique|lingerie|camera|goodwill|fred.?meyer|styles on|unreal engine|epc\*/i,
+  bills: /tmobile|t-mobile|visible|urban storage|west ky|dynamix|anthropic|claude|google|apple services|apple\.com|amazon prime|midjourney|elevenlabs|github|insurance|annual fee|netflix|spotify|hover|obsidian|storage|fiber|internet|utility|electric|water|gym/i
+};
+const APPLE_CAT = { restaurants: 'dining', groceries: 'groceries', transportation: 'travel', health: 'medical', 'medical': 'medical' };
+function category(r, appleCategory) {
+  for (const k of ['taxes', 'medical', 'bills', 'groceries', 'dining', 'travel', 'shopping']) if (CAT_RE[k].test(r.desc)) return k;
+  if (appleCategory && APPLE_CAT[appleCategory.toLowerCase()]) return APPLE_CAT[appleCategory.toLowerCase()];
+  return 'other';
+}
+const merchantKey = (d) => d.toUpperCase().replace(/POS WITHDRAWAL - |EXTERNAL WITHDRAWAL - |PURCHASE AUTHORIZED ON.*/g, '').replace(/CARD ENDING IN \d+/g, '').replace(/[#*]\S*/g, ' ').replace(/\d[\d\-/.]*/g, ' ').replace(/[^A-Z& ]/g, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 3).join(' ');
+
+// What a checking-account line is, for the cash line and the income bars.
 const RE = {
   transfer: /online banking transfer|overdraft protection|^withdrawal - transfer to|dividend|interest/i,
-  plan: /applecard|apple card|gsbank|bank of america|bofa|visa autopay|transfer to\s+visa|credit card|capital one|chase|discover|baptist/i,
-  bill: /tmobile|t-mobile|bcbs|blue cross|urban storage|west ky|dynamix|anthropic|google|apple services|visible|midjourney|elevenlabs|github|insurance|\brent\b|utility|electric|water|internet|storage/i,
-  other: /\birs\b|treasury|usataxpymt|\btax\b|^check\b|electronic check/i
+  cardpay: /applecard|apple card|gsbank|bank of america|bofa|visa autopay|transfer\s+to\s+visa|credit card|capital one|chase|discover|payment - thank you|online\/mobile payment|payment received/i
 };
 function label(desc) {
   return desc.replace(/^(external withdrawal|pos withdrawal|transfer withdrawal|withdrawal|deposit|transfer deposit|electronic check)\s*-\s*/i, '')
-    .replace(/\s*card ending in \d+/i, '').replace(/\s+\d{3,}.*$/, '').replace(/\s+/g, ' ').trim().slice(0, 34) || desc.slice(0, 34);
-}
-function classify(r) {
-  const d = r.desc;
-  if (r.amount > 0) {
-    if (RE.transfer.test(d)) return 'transfer';
-    if (/mobile banking|deposit - (check|ach|direct)|payroll|direct dep/i.test(d) || r.amount >= 100) return 'income';
-    return 'other';
-  }
-  if (/transfer\s+to\s+visa|visa autopay/i.test(d)) return 'plan';   // paying his BECU card
-  if (RE.transfer.test(d)) return 'transfer';
-  if (RE.other.test(d)) return 'other';
-  if (RE.plan.test(d)) return 'plan';
-  if (RE.bill.test(d)) return 'bill';
-  return 'daily';
+    .replace(/\s*card ending in \d+/i, '').replace(/\s+\d{3,}.*$/, '').replace(/^TST\*\s*|^SQ \*\s*|^PT \*\s*|^MED\*\s*/i, '').replace(/\s+/g, ' ').trim().slice(0, 34) || desc.slice(0, 34);
 }
 
-// Daily flows of the checking account over a window, by kind, with the line items for hover.
-function history(rows, from, to) {
+// Daily money in and out over a window. income: checking deposits that are not moves between his own accounts.
+// spend: purchases on every account, by category, with the recurring part marked (a merchant that charges in three
+// or more different months, or a recurring kind of bill in two). net: the checking account's own movement, which
+// is what the cash line follows. shares: how his everyday spending splits by category over the last 90 days.
+function history(rows, from, to, appleCats) {
+  appleCats = appleCats || new Map();
+  const months = new Map();
+  for (const r of rows) { if (r.amount < 0) { const k = merchantKey(r.desc); if (k) { if (!months.has(k)) months.set(k, new Set()); months.get(k).add(r.date.slice(0, 7)); } } }
+  const recurring = (r) => { const k = merchantKey(r.desc), n = (months.get(k) || new Set()).size; return n >= 3 || (n >= 2 && CAT_RE.bills.test(r.desc)); };
   const days = {};
+  const day = (d) => days[d] = days[d] || { income: 0, spend: {}, rec: {}, net: 0, items: [] };
+  const share = {}; let shareTotal = 0;
+  const shareFrom = new Date(Date.parse(to + 'T00:00:00Z') - 90 * 86400000).toISOString().slice(0, 10);
   let any = false;
   for (const r of rows) {
-    if (r.acct !== 'becu_checking' || r.date < from || r.date > to) continue;
-    any = true;
-    const d = days[r.date] = days[r.date] || { income: 0, bill: 0, plan: 0, daily: 0, other: 0, transferIn: 0, transferOut: 0, net: 0, items: [] };
-    let k = classify(r);
-    if (k === 'transfer') k = r.amount > 0 ? 'transferIn' : 'transferOut';
-    d[k] += Math.abs(r.amount); d.net += r.amount;
-    d.items.push([k, label(r.desc), Math.round(Math.abs(r.amount) * 100) / 100]);
+    const inWindow = r.date >= from && r.date <= to;
+    if (r.acct === 'becu_checking') {
+      if (inWindow) { any = true; day(r.date).net += r.amount; }
+      if (r.amount > 0) {
+        if (inWindow && !RE.transfer.test(r.desc) && (/mobile banking|deposit - (check|ach|direct)|payroll|direct dep/i.test(r.desc) || r.amount >= 100)) { const d = day(r.date); d.income += r.amount; d.items.push(['income', label(r.desc), Math.round(r.amount * 100) / 100, false]); }
+        continue;
+      }
+    } else if (r.amount > 0) continue;   // a card payment or refund is not spending
+    if (r.amount >= 0) continue;
+    if (RE.transfer.test(r.desc) || RE.cardpay.test(r.desc)) continue;   // moves between his accounts, card payments
+    const cat = category(r, appleCats.get(r.date + '|' + r.desc + '|' + r.amount.toFixed(2)));
+    const rec = recurring(r), amt = -r.amount;
+    if (inWindow) { const d = day(r.date); d.spend[cat] = (d.spend[cat] || 0) + amt; if (rec) d.rec[cat] = (d.rec[cat] || 0) + amt; d.items.push([cat, label(r.desc), Math.round(amt * 100) / 100, rec]); }
+    if (r.date >= shareFrom && r.date <= to && !rec && amt < 250) { share[cat] = (share[cat] || 0) + amt; shareTotal += amt; }
   }
-  for (const d of Object.values(days)) for (const k of ['income', 'bill', 'plan', 'daily', 'other', 'transferIn', 'transferOut', 'net']) d[k] = Math.round(d[k] * 100) / 100;
+  for (const d of Object.values(days)) { d.net = Math.round(d.net * 100) / 100; d.income = Math.round(d.income * 100) / 100; for (const m of [d.spend, d.rec]) for (const k of Object.keys(m)) m[k] = Math.round(m[k] * 100) / 100; }
+  const shares = {}; if (shareTotal > 0) for (const k of Object.keys(share)) shares[k] = Math.round(share[k] / shareTotal * 1000) / 1000;
   const dates = rows.filter(r => r.acct === 'becu_checking').map(r => r.date).sort();
-  return { from, to, has_checking: any || dates.length > 0, coverage: dates.length ? { first: dates[0], last: dates[dates.length - 1] } : null, days };
+  return { from, to, has_checking: any || dates.length > 0, coverage: dates.length ? { first: dates[0], last: dates[dates.length - 1] } : null, days, shares };
 }
 
-module.exports = { parseFile, combine, loadRows, classify, history };
+module.exports = { parseFile, combine, loadRows, history };
