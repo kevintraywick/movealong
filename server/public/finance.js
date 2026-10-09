@@ -164,7 +164,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin .tiprow.idle .txt { color: #94a3b8; }
 #fin .bill .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
 #fin .bill label.debt { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
-#fin .bill-add { margin-top: 4px; }
+#fin .bill.new input { border-style: dashed; }
 #fin .goals { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 #fin .gtitle { font-size: 11px; font-weight: 600; color: #475569; }
 #fin .gtitle span { font-weight: 400; color: #94a3b8; margin-left: 6px; }
@@ -684,9 +684,9 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         $('goal-add').addEventListener('click', () => { S.goals.push({ title: '', done: false }); persist(); drawGoals(); const ins = $('goals').querySelectorAll('input[data-g=title]'); if (ins.length) ins[ins.length - 1].focus(); });
     }
     function drawBills() {
-        $('bills').innerHTML = `<div class="bill"><span class="h">Recurring bill</span><span class="h">day</span><span class="h">amount</span><span class="h"></span><span></span></div>`
+        $('bills').innerHTML = `<div class="bill"><span class="h">Monthly expense</span><span class="h">day</span><span class="h">amount</span><span class="h"></span><span></span></div>`
             + S.bills.map((b, i) => `<div class="bill"><input type="text" data-b="label" data-i="${i}" value="${esc(b.label)}"><input type="number" min="1" max="31" data-b="day" data-i="${i}" value="${b.day}"><input type="text" inputmode="decimal" data-b="amount" data-i="${i}" value="${b.amount || ''}" placeholder="$"><label class="debt" title="This payment lowers your debt"><input type="checkbox" data-b="debt" data-i="${i}" ${b.debt ? 'checked' : ''}>pays debt</label><button class="x" data-b="del" data-i="${i}" title="Remove">×</button></div>`).join('')
-            + `<div class="bill-add"><button class="btn" id="bill-add">Add a bill</button></div>`;
+            + `<div class="bill new" title="Type a monthly charge here and press Enter"><input type="text" id="bill-new-label" placeholder="Add a monthly expense…"><input type="number" min="1" max="31" id="bill-new-day" placeholder="day"><input type="text" inputmode="decimal" id="bill-new-amount" placeholder="$"><span></span><span></span></div>`;
         $('bills').querySelectorAll('[data-b]').forEach(el => {
             const ev = el.type === 'checkbox' ? 'change' : el.tagName === 'BUTTON' ? 'click' : 'input';
             el.addEventListener(ev, () => {
@@ -699,7 +699,16 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 persist(); refresh(false);
             });
         });
-        $('bill-add').addEventListener('click', () => { S.bills.push({ label: 'New bill', day: 1, amount: 0, debt: false }); persist(); drawBills(); });
+        // The blank line at the foot: fill the name and the amount and it becomes a bill.
+        const addBill = () => {
+            const label = $('bill-new-label').value.trim(), amount = parseMoney($('bill-new-amount').value), day = parseMoney($('bill-new-day').value);
+            if (!label || !amount) return;
+            S.bills.push({ label, day: Math.max(1, Math.min(31, Math.round(day || 1))), amount, debt: false });
+            persist(); drawBills(); refresh(false);
+            const nl = $('bill-new-label'); if (nl) nl.focus();
+        };
+        ['bill-new-label', 'bill-new-day', 'bill-new-amount'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addBill(); } }));
+        $('bill-new-amount').addEventListener('change', addBill);
     }
 
     // ---------- statements ----------

@@ -564,6 +564,7 @@ export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance p
    - A pattern in his entries or statements he would not see: spending that runs higher on certain days, a category that keeps rising, months he saves and months he does not and what was different.
    - An opportunity: money earning almost nothing that could earn more, interest he is paying that the money in his trading account or savings could remove.
    - A strategy he is not using that would help the first goal that is not done, or a small change in daily spending that moves the date he reaches it. Say which goal it serves.
+   - A new monthly charge. Read the statement files he has dropped (statement_files, each a CSV or PDF at the URL given) and look for a charge that repeats monthly (same merchant, similar amount, a different month each time) that is not in plan.bills. Name it, the amount and the day of the month, and tell him to add it on the blank line under the bills if it is real. Check this before the other kinds: it is the alert he asked for.
    - If there are gaps in his entries, a statement dropped in the plus box would fill them.
 
 4. One or two sentences, under 300 characters, plain words, one specific number at most. A tip is an observation and a suggestion, never a lecture. If there is nothing worth saying, post nothing.`;
