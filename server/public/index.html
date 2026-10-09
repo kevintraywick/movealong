@@ -1747,6 +1747,22 @@
         .briefing-sprint-dot.no { background: #e2e8f0; border-color: #e2e8f0; }
         .briefing-sprint-dot.out { opacity: .35; }
         .briefing-sprint-stat { margin-left: 6px; color: #64748b; font-size: 10.5px; font-variant-numeric: tabular-nums; white-space: nowrap; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+        /* Yesterday's health, typed into the brief (2026-10-09): same four numbers and the same
+           rows as the dashboard's Health pane. */
+        .briefing-health { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e2e8f0; font-size: 11px; color: #334155; }
+        .bh-head { display: flex; align-items: baseline; gap: 6px; }
+        .bh-kind { font-size: 9px; text-transform: uppercase; letter-spacing: .04em; color: #0284c7; font-weight: 600; }
+        .bh-day { color: #64748b; font-variant-numeric: tabular-nums; }
+        .bh-state { margin-left: auto; font-size: 10px; color: #94a3b8; }
+        .bh-state.saved { color: #0ea5e9; }
+        .bh-state.err { color: #ef4444; }
+        .bh-row { display: flex; align-items: center; gap: 8px; margin-top: 4px; }
+        .bh-row label { display: flex; align-items: center; gap: 4px; min-width: 0; color: #64748b; }
+        .bh-row input[type=number] { width: 58px; min-width: 0; font-size: 11.5px; border: 1px solid #e2e8f0; border-radius: 5px; padding: 2px 4px; background: #fff; color: #0f172a; font-variant-numeric: tabular-nums; -moz-appearance: textfield; }
+        .bh-row input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; }
+        .bh-row input[type=number]:focus { outline: none; border-color: #7dd3fc; box-shadow: 0 0 0 2px #e0f2fe; }
+        .bh-row .bh-check { cursor: pointer; color: #334155; }
+        .bh-row .bh-check input { accent-color: #0ea5e9; width: 13px; height: 13px; margin: 0; cursor: pointer; }
         .briefing-sprint-line { margin-top: 3px; color: #475569; line-height: 1.35; }
         .briefing-sprint-line b { font-weight: 600; color: #0f172a; }
         .briefing-sprint-line a { color: #0284c7; text-decoration: none; }
@@ -3162,6 +3178,10 @@
         body.dark .briefing-weather { color: #cbd5e1; border-color: #334155; }
         body.dark .briefing-story { color: #94a3b8; }
         body.dark .briefing-market { border-color: #334155; }
+        body.dark .briefing-health { color: #cbd5e1; border-color: #334155; }
+        body.dark .bh-kind { color: #38bdf8; }
+        body.dark .bh-row label, body.dark .bh-row .bh-check { color: #94a3b8; }
+        body.dark .bh-row input[type=number] { background: #0f172a; border-color: #334155; color: #e2e8f0; }
         body.dark .briefing-sprint { color: #cbd5e1; border-color: #334155; }
         body.dark .briefing-sprint-kind, body.dark .briefing-sprint-title { color: #fb923c; }
         body.dark .briefing-sprint-ask .q { color: #e2e8f0; }
@@ -3677,6 +3697,10 @@
         // as a pane under today's card on the first board only — "personal
         // only for now" (Kevin, 2026-09-13).
         let briefing = null;
+        // Yesterday's health numbers shown at the foot of the brief (same rows as the
+        // dashboard's Health pane: GET .../health, PUT .../health/:day).
+        let briefingHealth = null;   // { day, vals: {steps, weight, gym, yoga}, state, stateClass }
+        let briefingHealthWrite = Promise.resolve();
         let selectedDayIndex = 0;
         // Focus mode dims every day but the one in focus. Per browser, like the
         // theme and the assistant switch — it's a way of looking at the board,
@@ -4256,7 +4280,56 @@
                 const changed = JSON.stringify(fresh) !== JSON.stringify(briefing);
                 briefing = fresh;
                 if (changed && viewMode === 'calendar') renderView();
+                loadBriefingHealth();
             } catch (err) { briefing = null; }
+        }
+        async function loadBriefingHealth() {
+            try {
+                const h = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/health?weeks=1`);
+                const day = addDaysToKey(h.today, -1);   // the morning entry is about yesterday
+                const typing = document.activeElement && document.activeElement.closest && document.activeElement.closest('.briefing-health');
+                if (briefingHealth && briefingHealth.day === day && typing) return;   // never under your fingers
+                briefingHealth = { day, vals: Object.assign({}, h.entries[day] || {}), state: '', stateClass: '' };
+                if (viewMode === 'calendar' && briefing) renderView();
+            } catch (err) { briefingHealth = null; }
+        }
+        function renderBriefingHealth() {
+            const h = briefingHealth;
+            if (!h) return '';
+            const v = h.vals, num = (x) => (x == null ? '' : escapeHtml(x));
+            const label = new Date(h.day + 'T00:00:00Z').toLocaleDateString(undefined, { timeZone: 'UTC', month: 'short', day: 'numeric' });
+            return `<div class="briefing-health" data-day="${escapeHtml(h.day)}" title="The numbers for ${escapeHtml(label)}. They land on the Health pane of your dashboard.">
+                <div class="bh-head"><span class="bh-kind">Health</span><span class="bh-day">${escapeHtml(label)}</span><span class="bh-state ${h.stateClass}">${escapeHtml(h.state)}</span></div>
+                <div class="bh-row">
+                    <label>Steps <input type="number" min="0" step="1" inputmode="numeric" placeholder="—" data-bh="steps" value="${num(v.steps)}"></label>
+                    <label>Weight <input type="number" min="0" step="0.1" inputmode="decimal" placeholder="—" data-bh="weight" value="${num(v.weight)}"></label>
+                </div>
+                <div class="bh-row">
+                    <label class="bh-check"><input type="checkbox" data-bh="gym" ${v.gym === 1 ? 'checked' : ''}> Gym</label>
+                    <label class="bh-check"><input type="checkbox" data-bh="yoga" ${v.yoga === 1 ? 'checked' : ''}> Yoga</label>
+                </div>
+            </div>`;
+        }
+        // Blank clears a number (didn't log is not zero); a box sends 1 or 0 once you touch it.
+        function saveBriefingHealth(el) {
+            const h = briefingHealth;
+            if (!h) return;
+            const key = el.dataset.bh, day = h.day;
+            const value = el.type === 'checkbox' ? (el.checked ? 1 : 0) : (el.value.trim() === '' ? null : el.value.trim());
+            const setState = (text, cls) => {
+                h.state = text; h.stateClass = cls;
+                const st = document.querySelector('.briefing-health .bh-state');
+                if (st) { st.textContent = text; st.className = 'bh-state ' + cls; }
+            };
+            setState('saving…', '');
+            briefingHealthWrite = briefingHealthWrite.then(async () => {
+                try {
+                    const out = await api(`/companies/${company.subdomain}/users/${currentUser.slug}/health/${day}`, { method: 'PUT', body: { [key]: value } });
+                    if (briefingHealth && briefingHealth.day === day) briefingHealth.vals = Object.assign({}, out.entry);
+                    setState('saved', 'saved');
+                    setTimeout(() => { if (h.state === 'saved') setState('', ''); }, 1600);
+                } catch (err) { setState(err.message || 'not saved', 'err'); }
+            });
         }
         // Prices move; re-read the briefing every five minutes while visible.
         setInterval(() => { if (document.visibilityState === 'visible' && briefing && briefing.market) loadBriefing(); }, 300000);
@@ -4326,6 +4399,7 @@
                 ${renderBriefingMarket(b.market)}
                 ${items}
                 ${allDone ? '<div class="briefing-all">All handled.</div>' : ''}
+                ${renderBriefingHealth()}
             </div>`;
         }
         async function tickBriefingItem(id, done) {
@@ -6665,6 +6739,10 @@
                     if (e.altKey) { prepTaskForEvent(ev); return; }
                     if (ev.event_link) window.open(ev.event_link, '_blank', 'noopener');
                 });
+            });
+            document.querySelectorAll('.briefing-health [data-bh]').forEach(el => {
+                el.addEventListener('change', () => saveBriefingHealth(el));
+                if (el.type !== 'checkbox') el.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); el.blur(); } });
             });
             document.querySelectorAll('.briefing-pane').forEach(pane => {
                 pane.addEventListener('click', e => {
