@@ -127,7 +127,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 .assume { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px 12px; margin-top: 8px; }
 .assume label { display: flex; flex-direction: column; gap: 2px; font-size: 11px; color: #64748b; }
 .bills { margin-top: 10px; display: flex; flex-direction: column; gap: 4px; }
-.bill { display: grid; grid-template-columns: 1fr 52px 74px 118px auto 20px; gap: 6px; align-items: center; font-size: 12px; }
+.bill { display: grid; grid-template-columns: 16px 1fr 52px 74px 118px auto 20px; gap: 6px; align-items: center; font-size: 12px; }
 .bill input[type=text], .bill input[type=number], .bill input[type=date] { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; background: #fff; color: #0f172a; min-width: 0; width: 100%; }
 .bill .h { font-size: 10.5px; color: #94a3b8; }
 .note { font-size: 11.5px; color: #64748b; line-height: 1.5; margin-top: 10px; }
@@ -165,6 +165,28 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin .bill .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
 #fin .bill label.debt { font-size: 11px; color: #64748b; display: flex; align-items: center; gap: 3px; white-space: nowrap; }
 #fin .bill.new input { border-style: dashed; }
+#fin .inc { display: grid; grid-template-columns: 1fr 52px 74px 118px 20px; gap: 6px; align-items: center; font-size: 12px; margin-top: 4px; }
+#fin .inc input[type=text], #fin .inc input[type=number], #fin .inc input[type=date] { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; background: #fff; color: #0f172a; min-width: 0; width: 100%; }
+#fin .inc.new input { border-style: dashed; }
+#fin .inc .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
+#fin .incomes { margin-top: 10px; }
+#fin.dark .inc input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+#fin .bill.off input[type=text], #fin .bill.off input[type=number] { color: #94a3b8; text-decoration: line-through; }
+#fin .monthend { margin-top: 8px; }
+#fin .me-head { font-size: 12px; color: #475569; line-height: 1.5; }
+#fin .me-head b { color: #0f172a; }
+#fin .me-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; margin-top: 6px; }
+#fin .me { border: 1px solid #f1f5f9; border-radius: 10px; padding: 7px 9px; font-size: 11.5px; }
+#fin .me .k { font-size: 11px; font-weight: 600; color: #334155; margin-bottom: 3px; }
+#fin .me .row { display: flex; justify-content: space-between; color: #64748b; font-variant-numeric: tabular-nums; }
+#fin .me .row b { color: #0f172a; font-weight: 600; }
+#fin .me .need { margin-top: 4px; font-weight: 600; font-size: 11.5px; }
+#fin .me .need.short { color: var(--red); }
+#fin .me .need.ok { color: #0284c7; }
+#fin.dark .me-head, #fin.dark .me .k { color: #cbd5e1; }
+#fin.dark .me-head b, #fin.dark .me .row b { color: #f1f5f9; }
+#fin.dark .me { border-color: #334155; }
+#fin.dark .me .need.ok { color: #38bdf8; }
 #fin .goals { margin-top: 8px; display: flex; flex-direction: column; gap: 4px; }
 #fin .gtitle { font-size: 11px; font-weight: 600; color: #475569; }
 #fin .gtitle span { font-weight: 400; color: #94a3b8; margin-left: 6px; }
@@ -200,9 +222,10 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 
             <div class="stats" id="stats"></div>
 
-            <div class="sub">Next 60 days <span class="r">30 back, 30 ahead · cash + savings − debt</span></div>
+            <div class="sub">Cash <span class="r">30 days back, 30 ahead · what comes in, what goes out</span></div>
             <div class="chart-wrap" id="c1wrap"><div class="tipbox" id="tip1"></div></div>
             <div class="legend" id="leg1"></div>
+            <div class="monthend" id="monthend"></div>
 
             <div class="sub">Next 12 months <span class="r">week by week, cash + savings − debt</span></div>
             <div class="chart-wrap" id="c2wrap"><div class="tipbox" id="tip2"></div></div>
@@ -215,6 +238,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             <details>
                 <summary>Goals, assumptions and bills</summary>
                 <div class="goals" id="goals"></div>
+                <div class="incomes" id="incomes"></div>
                 <div class="assume" id="assume"></div>
                 <div class="bills" id="bills"></div>
                 <div class="note">The projection starts from your last day with cash, savings and debt entered and walks forward: pay on the 1st and 15th, your daily spend, these bills on their days, interest on debt and savings, and the monthly moves into savings and the house fund. Leave a setting at 0 and it counts for nothing.</div>
@@ -230,7 +254,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     // ---------- state ----------
     const FIELDS = ['cash', 'savings', 'debt', 'invest'];
     const DEFAULT_ASSUME = { income: 0, spend: 0, debtApr: 0, saveAdd: 0, houseAdd: 0, houseGoal: 0, house: 0, saveApy: 0, hysaApy: 0, investReturn: 0 };
-    let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], goals: [], statements: [], tip: null, nextId: 1 };
+    let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], goals: [], incomes: [], statements: [], tip: null, nextId: 1 };
     function take(d) {
         TODAY = d.today; yearEnd = `${TODAY.slice(0, 4)}-12-31`;
         S.entries = d.entries || {};
@@ -238,6 +262,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         S.bills = ((d.plan || {}).bills || []).map(b => Object.assign({}, b));
         S.planned = ((d.plan || {}).planned || []).map(p => Object.assign({}, p));
         S.goals = ((d.plan || {}).goals || []).map(g => Object.assign({}, g));
+        S.incomes = ((d.plan || {}).incomes || []).map(g => Object.assign({}, g));
         S.nextId = S.planned.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
         S.statements = d.statements || [];
         S.tip = d.tip || null;
@@ -247,7 +272,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     const persist = () => {
         clearTimeout(planTimer);
         planTimer = setTimeout(async () => {
-            try { await call('/plan', { method: 'PUT', body: { assume: S.assume, bills: S.bills, planned: S.planned, goals: S.goals } }); }
+            try { await call('/plan', { method: 'PUT', body: { assume: S.assume, bills: S.bills, planned: S.planned, goals: S.goals, incomes: S.incomes } }); }
             catch (e) { say(e.message || 'not saved', true); }
         }, 600);
     };
@@ -272,14 +297,19 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 
     // ---------- engine (from the mockup) ----------
     // ---------- the projection ----------
-    function stepDay(st, d, A, bills, spendCut, planned) {
+    // Money coming in: a monthly one lands on its day; a one-time one on its date.
+    const incomeHits = (inc, d, day, last) => inc.amount > 0 && !inc.off && !(inc.until && d > inc.until)
+        && (inc.date ? inc.date === d : Math.min(inc.day || 1, last) === day);
+    function stepDay(st, d, A, bills, spendCut, planned, incomes) {
+        incomes = incomes || [];
         const o = { cash: st.cash, savings: st.savings, debt: st.debt, invest: st.invest, house: st.house };
         const day = dom(d), last = dim(d);
-        if (day === 1 || day === 15) o.cash += A.income / 2;
+        if (A.income && (day === 1 || day === 15)) o.cash += A.income / 2;
+        for (const inc of incomes) if (incomeHits(inc, d, day, last)) o.cash += inc.amount;
         o.cash -= Math.max(0, A.spend - spendCut);
         for (const b of bills) {
             if (Math.min(b.day, last) !== day) continue;
-            if ((b.from && d < b.from) || (b.until && d > b.until)) continue;   // a payment plan has an end
+            if (b.off || (b.from && d < b.from) || (b.until && d > b.until)) continue;   // switched off, or a payment plan that has ended
             if (b.debt) { const pay = Math.min(b.amount, o.debt); o.cash -= pay; o.debt -= pay; }
             else o.cash -= b.amount;
         }
@@ -302,7 +332,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         for (let i = 1; i <= days; i++) {
             const d = add(from, i);
             const cut = opts.cut && d > TODAY && diff(TODAY, d) <= opts.cut.days ? opts.cut.amount : 0;
-            st = stepDay(st, d, A, bills, cut, planned);
+            st = stepDay(st, d, A, bills, cut, planned, opts.incomes || S.incomes);
             if (opts.cut && d > TODAY && diff(TODAY, d) === opts.cut.days) st.debt = Math.max(0, st.debt - opts.cut.amount * opts.cut.days);   // the money kept goes on the card
             rows.push(Object.assign({ date: d }, st));
         }
@@ -338,46 +368,19 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 
     // net for each of the 61 days
     // Fixed expenses so far from today: the recurring bills that are not a debt payment, summed day by day.
-    const hasExpenses = () => S.bills.some(b => !b.debt && b.amount > 0);
+    const hasExpenses = () => S.bills.some(b => !b.debt && !b.off && b.amount > 0);
     function expenseTotals(days) {
         const out = {}; let run = 0;
         for (let i = 1; i <= days; i++) {
             const d = add(TODAY, i), last = dim(d);
-            for (const b of S.bills) if (!b.debt && Math.min(b.day, last) === dom(d) && !(b.from && d < b.from) && !(b.until && d > b.until)) run += b.amount;
+            for (const b of S.bills) if (!b.debt && !b.off && Math.min(b.day, last) === dom(d) && !(b.from && d < b.from) && !(b.until && d > b.until)) run += b.amount;
             out[d] = run;
         }
         return out;
     }
-    const monthlyExpenses = () => S.bills.filter(b => !b.debt && !(b.until && b.until < TODAY) && !(b.from && b.from > TODAY)).reduce((t, b) => t + (b.amount || 0), 0);
-    function series1() {
-        const inv = $('inv') ? $('inv').checked : false;
-        const out = [];
-        const fullDays = Object.keys(S.entries).filter(d => isFull(S.entries[d])).sort();
-        const exps = expenseTotals(30);
-        for (let k = -30; k <= 30; k++) {
-            const d = add(TODAY, k);
-            let net, kind, plan = null;
-            if (M.empty) { net = 0; kind = 'est'; }
-            else if (k <= 0 && isFull(S.entries[d])) { net = netOf(S.entries[d], inv); kind = 'actual'; }
-            else if (k <= 0 && d < M.base.date) {
-                const before = [...fullDays].reverse().find(x => x < d), after = fullDays.find(x => x > d);
-                const v = x => netOf(S.entries[x], inv);
-                net = before && after ? v(before) + (v(after) - v(before)) * diff(before, d) / diff(before, after) : v(before || after);
-                kind = 'est';
-            } else if (d <= M.base.date) { net = netOf(S.entries[M.base.date], inv); kind = 'est'; }
-            else {
-                const r = simAt(M.plain, M.base, d);
-                net = netOf(r, inv);
-                kind = k <= 0 ? 'est' : 'proj';
-            }
-            if (!M.empty && k >= 0 && d > M.base.date) plan = netOf(simAt(M.withPlan, M.base, d), inv);
-            const row = !M.empty && d > M.base.date ? simAt(M.plain, M.base, d) : (S.entries[d] || null);
-            out.push({ d, k, net, kind, plan, row, exp: k >= 0 && hasExpenses() ? -(k === 0 ? 0 : exps[d]) : undefined });
-        }
-        return out;
-    }
+    const monthlyExpenses = () => S.bills.filter(b => !b.debt && !b.off && !(b.until && b.until < TODAY) && !(b.from && b.from > TODAY)).reduce((t, b) => t + (b.amount || 0), 0);
     function series2() {
-        const inv = $('inv') ? $('inv').checked : false;
+        const inv = false;
         const out = [];
         if (M.empty) return out;
         const exps = expenseTotals(7 * 52);
@@ -545,35 +548,6 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             el.addEventListener('mouseleave', () => tip.classList.remove('on'));
         });
     }
-    const KIND = { actual: 'entered', est: 'estimated — no complete entry', proj: 'projected' };
-    function draw1() {
-        if (M.empty) { showEmpty('c1wrap', 'Enter cash, savings and debt for a day and the projection appears.'); $('leg1').innerHTML = ''; return; }
-        clearEmpty('c1wrap');
-        const pts = series1();
-        const anyPlan = S.planned.some(p => p.on && p.amount);
-        chart('c1wrap', 'tip1', 600, 190, pts, {
-            aria: 'Net position, 30 days back and 30 ahead', showPlan: anyPlan, showExp: hasExpenses(), bar: 0.74, line: true,
-            labelAt: i => i % 10 === 0 || i === 30, label: p => p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' }),
-            tip: p => {
-                const r = p.row || {};
-                const sw = p.net >= 0 ? 'var(--orange)' : 'var(--blue)';
-                return `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${KIND[p.kind]}</div>`
-                    + `<div><span class="sw" style="background:${sw}"></span>Net <b>${money(p.net)}</b></div>`
-                    + (typeof r.cash === 'number' ? `<div>Cash ${money(r.cash)} · Savings ${money(r.savings)}</div>` : '')
-                    + (typeof r.debt === 'number' ? `<div>Debt ${money(r.debt)}</div>` : '')
-                    + (p.exp !== undefined && p.k > 0 ? `<div><span class="sw" style="background:var(--pink)"></span>Fixed expenses since today <b>${money(-p.exp)}</b></div>` : '')
-                    + (p.plan !== null && anyPlan ? `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b></div>` : '');
-            }
-        });
-        $('leg1').innerHTML = `<span class="item"><span class="sw" style="background:var(--orange)"></span>Cash + savings ahead of debt</span>
-            <span class="item"><span class="sw" style="background:var(--blue)"></span>Debt ahead</span>
-            <span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--orange);opacity:.55"></span>Estimated (no entry)</span>
-            <span class="item"><span class="ln" style="border-top-color:var(--orange)"></span>Projected</span>
-            ${hasExpenses() ? `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--pink)"></span>Fixed expenses since today (${money(monthlyExpenses())} a month)</span>` : ''}
-            ${anyPlan ? '<span class="item"><span class="ln"></span>With planned spending</span>' : ''}
-            <label><input type="checkbox" id="inv" ${$('inv') && $('inv').checked ? 'checked' : ''}> include trading account</label>`;
-        $('inv').addEventListener('change', () => { draw1(); draw2(); });
-    }
     function draw2() {
         if (M.empty) { showEmpty('c2wrap', ''); $('leg2').innerHTML = ''; return; }
         clearEmpty('c2wrap');
@@ -657,7 +631,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             + '.';
     }
 
-    const AS = [['income', 'Take-home pay a month', '$'], ['spend', 'Everyday spend a day', '$'], ['debtApr', 'Debt APR', '%'], ['saveAdd', 'To savings, the 1st', '$'],
+    const AS = [['spend', 'Everyday spending a day', '$'], ['debtApr', 'Debt APR', '%'], ['saveAdd', 'To savings, the 1st', '$'],
                 ['houseAdd', 'To house fund, the 1st', '$'], ['houseGoal', 'House fund goal', '$'], ['house', 'House fund now (inside savings)', '$'],
                 ['saveApy', 'Your savings rate', '%'], ['hysaApy', 'A better savings rate', '%'], ['investReturn', 'Trading account return', '%']];
     function drawAssume() {
@@ -667,6 +641,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             S.assume[el.dataset.a] = v; persist(); refresh(false);
         }));
         drawGoals();
+        drawIncomes();
         drawBills();
     }
     function drawGoals() {
@@ -684,10 +659,35 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         });
         $('goal-add').addEventListener('click', () => { S.goals.push({ title: '', done: false }); persist(); drawGoals(); const ins = $('goals').querySelectorAll('input[data-g=title]'); if (ins.length) ins[ins.length - 1].focus(); });
     }
+    function drawIncomes() {
+        $('incomes').innerHTML = `<div class="gtitle">Income <span>monthly on a day, or once on a date</span></div>`
+            + S.incomes.map((n, i) => `<div class="inc"><input type="text" data-n="label" data-i="${i}" value="${esc(n.label || '')}" placeholder="Where from"><input type="number" min="1" max="31" data-n="day" data-i="${i}" value="${n.day || ''}" placeholder="day" title="Day of the month it usually arrives"><input type="text" inputmode="decimal" data-n="amount" data-i="${i}" value="${n.amount || ''}" placeholder="$"><input type="date" data-n="date" data-i="${i}" value="${esc(n.date || '')}" title="Set a date for a one-time payment"><button class="x" data-n="del" data-i="${i}" title="Remove">×</button></div>`).join('')
+            + `<div class="inc new"><input type="text" id="inc-new-label" placeholder="Add income…"><input type="number" min="1" max="31" id="inc-new-day" placeholder="day"><input type="text" inputmode="decimal" id="inc-new-amount" placeholder="$"><input type="date" id="inc-new-date" title="For a one-time payment"><span></span></div>`;
+        $('incomes').querySelectorAll('[data-n]').forEach(el => {
+            const ev = el.tagName === 'BUTTON' ? 'click' : 'input';
+            el.addEventListener(ev, () => {
+                const i = +el.dataset.i, k = el.dataset.n;
+                if (k === 'del') { S.incomes.splice(i, 1); persist(); drawIncomes(); refresh(false); return; }
+                const n = S.incomes[i];
+                if (k === 'label') n.label = el.value;
+                else if (k === 'date') { if (el.value) n.date = el.value; else delete n.date; }
+                else { const v = parseMoney(el.value); if (v === null) return; n[k] = k === 'day' ? Math.max(1, Math.min(31, Math.round(v))) : v; }
+                persist(); refresh(false);
+            });
+        });
+        const addInc = () => {
+            const label = $('inc-new-label').value.trim(), amount = parseMoney($('inc-new-amount').value), day = parseMoney($('inc-new-day').value), date = $('inc-new-date').value;
+            if (!label || !amount) return;
+            S.incomes.push(Object.assign({ label, amount }, date ? { date } : { day: Math.max(1, Math.min(31, Math.round(day || 1))) }));
+            persist(); drawIncomes(); refresh(false); const nl = $('inc-new-label'); if (nl) nl.focus();
+        };
+        ['inc-new-label', 'inc-new-day', 'inc-new-amount'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addInc(); } }));
+        $('inc-new-amount').addEventListener('change', addInc); $('inc-new-date').addEventListener('change', addInc);
+    }
     function drawBills() {
-        $('bills').innerHTML = `<div class="bill"><span class="h">Monthly expense</span><span class="h">day</span><span class="h">amount</span><span class="h">last payment</span><span class="h"></span><span></span></div>`
-            + S.bills.map((b, i) => `<div class="bill"><input type="text" data-b="label" data-i="${i}" value="${esc(b.label)}"><input type="number" min="1" max="31" data-b="day" data-i="${i}" value="${b.day}"><input type="text" inputmode="decimal" data-b="amount" data-i="${i}" value="${b.amount || ''}" placeholder="$"><input type="date" data-b="until" data-i="${i}" value="${esc(b.until || '')}" title="Leave empty for a bill that goes on. A payment plan ends here."><label class="debt" title="This payment lowers your debt"><input type="checkbox" data-b="debt" data-i="${i}" ${b.debt ? 'checked' : ''}>pays debt</label><button class="x" data-b="del" data-i="${i}" title="Remove">×</button></div>`).join('')
-            + `<div class="bill new" title="Type a monthly charge here and press Enter"><input type="text" id="bill-new-label" placeholder="Add a monthly expense…"><input type="number" min="1" max="31" id="bill-new-day" placeholder="day"><input type="text" inputmode="decimal" id="bill-new-amount" placeholder="$"><span></span><span></span><span></span></div>`;
+        $('bills').innerHTML = `<div class="bill"><span></span><span class="h">Monthly expense</span><span class="h">day</span><span class="h">amount</span><span class="h">last payment</span><span class="h"></span><span></span></div>`
+            + S.bills.map((b, i) => `<div class="bill ${b.off ? 'off' : ''}"><input type="checkbox" data-b="on" data-i="${i}" ${b.off ? '' : 'checked'} title="Counted. Untick it to see what cancelling it would do."><input type="text" data-b="label" data-i="${i}" value="${esc(b.label)}"><input type="number" min="1" max="31" data-b="day" data-i="${i}" value="${b.day}"><input type="text" inputmode="decimal" data-b="amount" data-i="${i}" value="${b.amount || ''}" placeholder="$"><input type="date" data-b="until" data-i="${i}" value="${esc(b.until || '')}" title="Leave empty for a bill that goes on. A payment plan ends here."><label class="debt" title="This payment lowers your debt"><input type="checkbox" data-b="debt" data-i="${i}" ${b.debt ? 'checked' : ''}>pays debt</label><button class="x" data-b="del" data-i="${i}" title="Remove">×</button></div>`).join('')
+            + `<div class="bill new" title="Type a monthly charge here and press Enter"><span></span><input type="text" id="bill-new-label" placeholder="Add a monthly expense…"><input type="number" min="1" max="31" id="bill-new-day" placeholder="day"><input type="text" inputmode="decimal" id="bill-new-amount" placeholder="$"><span></span><span></span><span></span></div>`;
         $('bills').querySelectorAll('[data-b]').forEach(el => {
             const ev = el.type === 'checkbox' ? 'change' : el.tagName === 'BUTTON' ? 'click' : 'input';
             el.addEventListener(ev, () => {
@@ -696,6 +696,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 const b = S.bills[i];
                 if (k === 'label') b.label = el.value;
                 else if (k === 'debt') b.debt = el.checked;
+                else if (k === 'on') { if (el.checked) delete b.off; else b.off = true; el.closest('.bill').classList.toggle('off', !el.checked); }
                 else if (k === 'until') { if (el.value) b.until = el.value; else delete b.until; }
                 else { const v = parseMoney(el.value); if (v === null) return; b[k] = k === 'day' ? Math.max(1, Math.min(31, Math.round(v))) : v; }
                 persist(); refresh(false);
@@ -743,10 +744,144 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         e.textContent = msg; e.hidden = !msg;
     }
     const clearEmpty = id => { const e = $(id).querySelector('.empty'); if (e) e.remove(); };
+
+    // ---------- cash: what comes in, what goes out ----------
+    // Top: the cash balance (entered days, then the projection). Bottom: each day's flows, income up in orange,
+    // what goes out stacked downward by kind. The month-end check under it says what extra income each month
+    // would need for the debt to be gone by Dec 31.
+    const FLOW = { income: ['Income', 'var(--orange)'], bill: ['Fixed bills', 'var(--pink)'], plan: ['Payment plans and cards', 'var(--blue)'], planned: ['Planned spending', 'var(--violet)'], daily: ['Everyday spending', '#eda100'] };
+    function flowsFor(d) {
+        const day = dom(d), last = dim(d), f = { income: 0, bill: 0, plan: 0, planned: 0, daily: 0, items: [] };
+        const A = S.assume;
+        if (A.income && (day === 1 || day === 15)) { f.income += A.income / 2; f.items.push(['income', 'Pay', A.income / 2]); }
+        for (const inc of S.incomes) if (incomeHits(inc, d, day, last)) { f.income += inc.amount; f.items.push(['income', inc.label || 'Income', inc.amount]); }
+        for (const b of S.bills) {
+            if (b.off || Math.min(b.day, last) !== day || (b.from && d < b.from) || (b.until && d > b.until)) continue;
+            const kind = b.debt || b.until ? 'plan' : 'bill';
+            f[kind] += b.amount; f.items.push([kind, b.label, b.amount]);
+        }
+        for (const p of S.planned) {
+            if (!p.on || !p.amount) continue;
+            if (p.date === d || (p.monthly && d > p.date && Math.min(dom(p.date), last) === day)) { f.planned += p.amount; f.items.push(['planned', p.label, p.amount]); }
+        }
+        f.daily = A.spend || 0;
+        return f;
+    }
+    function cashSeries() {
+        const out = [];
+        const days = Object.keys(S.entries).filter(d => typeof S.entries[d].cash === 'number').sort();
+        for (let k = -30; k <= 30; k++) {
+            const d = add(TODAY, k);
+            let cash = null, kind = 'est', plan = null, flows = null;
+            if (!M.empty && d > M.base.date) { const r = simAt(M.plain, M.base, d); cash = r.cash; kind = k <= 0 ? 'est' : 'proj'; if (k >= 0) plan = simAt(M.withPlan, M.base, d).cash; }
+            else if (typeof (S.entries[d] || {}).cash === 'number') { cash = S.entries[d].cash; kind = 'actual'; }
+            else {
+                const before = [...days].reverse().find(x => x < d), after = days.find(x => x > d);
+                if (before && after) cash = S.entries[before].cash + (S.entries[after].cash - S.entries[before].cash) * diff(before, d) / diff(before, after);
+                else if (before || after) cash = S.entries[before || after].cash;
+            }
+            if (k > 0) flows = flowsFor(d);
+            out.push({ d, k, cash, kind, plan, flows });
+        }
+        return out;
+    }
+    function drawCash() {
+        const wrap = $('c1wrap'), tip = $('tip1');
+        if (M.empty && !Object.keys(S.entries).some(d => typeof S.entries[d].cash === 'number')) { showEmpty('c1wrap', 'Enter your cash for a day and the cash picture appears.'); $('leg1').innerHTML = ''; return; }
+        clearEmpty('c1wrap');
+        const pts = cashSeries();
+        const anyPlan = S.planned.some(p => p.on && p.amount) && !M.empty;
+        const W = 600, L = 40, R = 8, slot = (W - L - R) / pts.length, cx = i => L + slot * i + slot / 2;
+        const TOP = 12, H1 = 118, GAP = 14, H2 = 96, LAB = 20, H = TOP + H1 + GAP + H2 + LAB;
+        // cash panel
+        const cv = pts.map(p => p.cash).filter(v => v !== null).concat(pts.map(p => p.plan).filter(v => v !== null), [0]);
+        let lo = Math.min.apply(null, cv), hi = Math.max.apply(null, cv); const pad = (hi - lo) * 0.08 || 100; hi += pad; if (lo < 0) lo -= pad; else lo = 0;
+        const t1 = niceTicks(lo, hi, 3); lo = Math.min(lo, t1[0]); hi = Math.max(hi, t1[t1.length - 1]);
+        const y1 = v => TOP + H1 * (1 - (v - lo) / (hi - lo));
+        // flow panel
+        const fl = pts.filter(p => p.flows);
+        const maxIn = Math.max(1, ...fl.map(p => p.flows.income)), maxOut = Math.max(1, ...fl.map(p => p.flows.bill + p.flows.plan + p.flows.planned + p.flows.daily));
+        const y2base = TOP + H1 + GAP, ztop = maxIn / (maxIn + maxOut), y0 = y2base + H2 * ztop, unit = H2 / (maxIn + maxOut);
+        let g = '';
+        t1.forEach(v => { g += `<line class="${v === 0 ? 'zero' : 'grid'}" x1="${L}" x2="${W - R}" y1="${y1(v)}" y2="${y1(v)}"/><text x="${L - 5}" y="${y1(v) + 3}" text-anchor="end">${money(v, true)}</text>`; });
+        g += `<line class="zero" x1="${L}" x2="${W - R}" y1="${y0}" y2="${y0}"/><text x="${L - 5}" y="${y0 + 3}" text-anchor="end">in / out</text>`;
+        // the cash line, orange above zero and blue below, dashed where projected
+        const colOf = v => v >= 0 ? 'var(--orange)' : 'var(--blue)';
+        let run = null;
+        const flush = () => { if (run) g += `<polyline fill="none" stroke="${run.c}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${run.kind === 'proj' ? ' stroke-dasharray="5 3"' : ''}${run.kind === 'est' ? ' stroke-opacity="0.55"' : ''} points="${run.pts.join(' ')}"/>`; run = null; };
+        for (let i = 0; i < pts.length - 1; i++) {
+            const a = pts[i], b = pts[i + 1]; if (a.cash === null || b.cash === null) { flush(); continue; }
+            const kind = (a.kind === 'proj' || b.kind === 'proj') ? 'proj' : (a.kind === 'est' || b.kind === 'est') ? 'est' : 'actual';
+            const parts = (a.cash >= 0) !== (b.cash >= 0) ? (() => { const t = a.cash / (a.cash - b.cash); return [[a.cash, 0, cx(i), cx(i) + (cx(i + 1) - cx(i)) * t], [0, b.cash, cx(i) + (cx(i + 1) - cx(i)) * t, cx(i + 1)]]; })() : [[a.cash, b.cash, cx(i), cx(i + 1)]];
+            parts.forEach(([v0, v1, x0, x1]) => { const c = colOf(v0 || v1); if (!run || run.c !== c || run.kind !== kind) { flush(); run = { c, kind, pts: [`${x0},${y1(v0)}`] }; } run.pts.push(`${x1},${y1(v1)}`); });
+        }
+        flush();
+        pts.forEach((p, i) => { if (p.kind === 'actual') g += `<circle cx="${cx(i)}" cy="${y1(p.cash)}" r="2.3" fill="${colOf(p.cash)}"/>`; });
+        const pp = pts.map((p, i) => ({ i, v: p.plan })).filter(q => q.v !== null);
+        if (anyPlan && pp.length > 1) g += `<polyline fill="none" stroke="var(--violet)" stroke-width="2" stroke-dasharray="5 3" stroke-linejoin="round" points="${pp.map(q => `${cx(q.i)},${y1(q.v)}`).join(' ')}"/>`;
+        // the flows
+        const bw = Math.max(2, slot * 0.7);
+        pts.forEach((p, i) => {
+            if (!p.flows) return;
+            const f = p.flows; let up = 0, down = 0;
+            const bar = (v, col, dirUp) => { if (v <= 0) return; const h = Math.max(1, v * unit); const yy = dirUp ? y0 - up - h : y0 + down; g += `<rect x="${cx(i) - bw / 2}" y="${yy}" width="${bw}" height="${h}" fill="${col}" fill-opacity="0.9"/>`; if (dirUp) up += h; else down += h; };
+            bar(f.income, FLOW.income[1], true);
+            ['daily', 'bill', 'plan', 'planned'].forEach(kd => bar(f[kd], FLOW[kd][1], false));
+        });
+        g += `<text x="${L + 6}" y="${y0 + 4}" style="font-style:italic">Past money in and out will show here once your statements are read.</text>`;
+        const ti = pts.findIndex(p => p.k === 0);
+        g += `<line x1="${cx(ti)}" x2="${cx(ti)}" y1="${TOP}" y2="${y2base + H2}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/>`;
+        pts.forEach((p, i) => { if (i % 10 === 0 || i === 30) g += `<text class="${p.k === 0 ? 'today' : ''}" x="${cx(i)}" y="${H - 6}" text-anchor="middle">${p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' })}</text>`; });
+        g += pts.map((p, i) => `<rect class="hit" data-i="${i}" x="${L + slot * i}" y="${TOP}" width="${slot}" height="${H - TOP - LAB}"/>`).join('');
+        const old = wrap.querySelector('svg'); if (old) old.remove();
+        wrap.insertAdjacentHTML('afterbegin', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cash balance and daily money in and out, 30 days back and 30 ahead">${g}</svg>`);
+        wrap.querySelectorAll('.hit').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                const p = pts[+el.dataset.i], f = p.flows;
+                let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'actual' ? 'entered' : p.kind === 'est' ? 'estimated' : 'projected'}</div>`;
+                if (p.cash !== null) h += `<div><span class="sw" style="background:${colOf(p.cash)}"></span>Cash <b>${money(p.cash)}</b></div>`;
+                if (p.plan !== null && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
+                if (f) { f.items.forEach(([kd, label, amt]) => { h += `<div><span class="sw" style="background:${FLOW[kd][1]}"></span>${esc(label)} <b>${kd === 'income' ? '+' : '−'}${money(amt)}</b></div>`; }); if (f.daily) h += `<div><span class="sw" style="background:${FLOW.daily[1]}"></span>Everyday <b>−${money(f.daily)}</b></div>`; }
+                tip.innerHTML = h; tip.classList.add('on');
+                const wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect(), left = er.left - wr.left + er.width / 2;
+                tip.style.left = Math.max(0, Math.min(wr.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px'; tip.style.top = '4px';
+            });
+            el.addEventListener('mouseleave', () => tip.classList.remove('on'));
+        });
+        $('leg1').innerHTML = Object.keys(FLOW).map(k => `<span class="item"><span class="sw" style="background:${FLOW[k][1]}"></span>${FLOW[k][0]}</span>`).join('')
+            + `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--orange)"></span>Cash balance</span>`
+            + (anyPlan ? '<span class="item"><span class="ln"></span>Cash with planned spending</span>' : '');
+        drawMonthEnd();
+    }
+    // At each month's end: what came in, what went out, and the extra income that month would need so the debt
+    // reaches zero by Dec 31 on a straight line from today. Cash on hand and savings are left out on purpose.
+    function drawMonthEnd() {
+        const box = $('monthend');
+        const debtNow = M.empty ? null : (isFull(S.entries[TODAY]) ? S.entries[TODAY].debt : simAt(M.plain, M.base, TODAY) ? simAt(M.plain, M.base, TODAY).debt : M.base.state.debt);
+        if (debtNow === null || debtNow === undefined) { box.innerHTML = `<div class="me-head">Enter cash, savings and debt for a day and each month's check appears here.</div>`; return; }
+        const total = Math.max(1, diff(TODAY, yearEnd));
+        const months = [];
+        for (let m = TODAY.slice(0, 7); m <= yearEnd.slice(0, 7); m = add(m + '-01', 32).slice(0, 7)) {
+            const first = m + '-01', from = add(first > TODAY ? first : TODAY, first > TODAY ? 0 : 1), to = m + '-' + pad(dim(first));
+            if (from > to) continue;
+            let inc = 0, out = 0, days = 0;
+            for (let d = from; d <= to && d <= yearEnd; d = add(d, 1)) { const f = flowsFor(d); inc += f.income; out += f.bill + f.plan + f.planned + f.daily; days++; }
+            const surplus = inc - out, need = debtNow * days / total, extra = Math.max(0, need - surplus);
+            months.push({ to, inc, out, surplus, need, extra });
+        }
+        const sum = months.reduce((t, x) => t + x.extra, 0);
+        const per = months.length ? sum / (total / 30.4) : 0;
+        box.innerHTML = `<div class="me-head">${debtNow <= 0 ? 'No debt entered, so nothing to clear.' : sum <= 0.5 ? 'On track: each month leaves enough to clear the debt by Dec 31.' : `To be debt-free by Dec 31 you need about <b>+${money(per)} more income a month</b> (${money(sum)} over the next ${months.length} month-ends).`}</div>`
+            + `<div class="me-grid">` + months.map(x => `<div class="me" title="From today to ${esc(fmtDay(x.to, { month: 'long', day: 'numeric' }))}: income ${money(x.inc)}, going out ${money(x.out)}. The debt has to fall by about ${money(x.need)} in that stretch to reach zero by Dec 31.">
+                <div class="k">${esc(fmtDay(x.to, { month: 'short', day: 'numeric' }))}</div>
+                <div class="row"><span>In</span><b>${money(x.inc)}</b></div><div class="row"><span>Out</span><b>${money(x.out)}</b></div>
+                <div class="row"><span>Left</span><b>${money(x.surplus)}</b></div>
+                <div class="need ${x.extra > 0.5 ? 'short' : 'ok'}">${x.extra > 0.5 ? `needs +${money(x.extra)}` : 'on track'}</div></div>`).join('') + `</div>`;
+    }
     function refresh(refill) {
         M = model();
         if (refill !== false) fillEntry(); else if (!root.activeElement || !root.activeElement.closest || !root.activeElement.closest('#entry')) fillEntry();
-        drawBoxes(); drawStats(); draw1(); draw2(); drawEffect(); drawTips();
+        drawBoxes(); drawStats(); drawCash(); draw2(); drawEffect(); drawTips();
     }
     $('entry').addEventListener('input', e => { if (e.target.matches('input[data-f]')) onType(); });
     $('entry').addEventListener('focusout', e => { if (e.target.matches('input[data-f]')) { clearTimeout(saveTimer); commitEntry(); } });

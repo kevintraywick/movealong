@@ -1776,7 +1776,7 @@ function financePlanOf(userId) {
   const row = queryOne('SELECT data FROM finance_plan WHERE user_id = ?', [userId]);
   let plan = null;
   try { plan = row ? JSON.parse(row.data) : null; } catch (e) { /* start over */ }
-  return plan || { assume: {}, bills: [], planned: [], goals: [] };
+  return plan || { assume: {}, bills: [], planned: [], goals: [], incomes: [] };
 }
 const tipOut = (t) => t && { id: t.id, kind: t.kind, body: t.body, feedback: t.feedback, created_at: t.created_at };
 const statementOut = (r) => ({ id: r.id, name: r.name, size: r.size, created_at: r.created_at });
@@ -1840,7 +1840,7 @@ app.put('/api/companies/:subdomain/users/:slug/finance/plan', (req, res) => {
   }
   const bills = (Array.isArray(b.bills) ? b.bills : []).slice(0, 40).map(x => ({
     label: str(x.label, 60) || 'Bill', day: Math.min(31, Math.max(1, Math.round(financeNum(x.day, 1, 31) || 1))),
-    amount: financeNum(x.amount, 0, 1e9) || 0, debt: !!x.debt,
+    amount: financeNum(x.amount, 0, 1e9) || 0, debt: !!x.debt, ...(x.off ? { off: true } : {}),
     ...(/^\d{4}-\d{2}-\d{2}$/.test(String(x.from)) ? { from: x.from } : {}), ...(/^\d{4}-\d{2}-\d{2}$/.test(String(x.until)) ? { until: x.until } : {})
   }));
   const dayRe = /^\d{4}-\d{2}-\d{2}$/;
@@ -1848,11 +1848,16 @@ app.put('/api/companies/:subdomain/users/:slug/finance/plan', (req, res) => {
     id: Math.round(financeNum(x.id, 0, 1e9) || 0), label: str(x.label, 60) || 'Planned spending', date: x.date,
     amount: financeNum(x.amount, 0, 1e9) || 0, on: !!x.on, monthly: !!x.monthly
   }));
+  const incomes = (Array.isArray(b.incomes) ? b.incomes : []).slice(0, 20).map(x => ({
+    label: str(x.label, 60) || 'Income', amount: financeNum(x.amount, 0, 1e9) || 0,
+    ...(/^\d{4}-\d{2}-\d{2}$/.test(String(x.date)) ? { date: x.date } : { day: Math.min(31, Math.max(1, Math.round(financeNum(x.day, 1, 31) || 1))) }),
+    ...(/^\d{4}-\d{2}-\d{2}$/.test(String(x.until)) ? { until: x.until } : {}), ...(x.off ? { off: true } : {})
+  })).filter(x => x.amount > 0);
   const goals = (Array.isArray(b.goals) ? b.goals : []).slice(0, 12).map(g => ({ title: str(g.title, 140), done: !!g.done })).filter(g => g.title);
-  const data = JSON.stringify({ assume, bills, planned, goals });
+  const data = JSON.stringify({ assume, bills, planned, goals, incomes });
   runSql(`INSERT INTO finance_plan (user_id, data, updated_at) VALUES (?, ?, ?)
           ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, [user.id, data, new Date().toISOString()]);
-  res.json({ assume, bills, planned, goals });
+  res.json({ assume, bills, planned, goals, incomes });
 });
 
 // Tom's one row. A new tip replaces the one on show; the older ones stay, with
