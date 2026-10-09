@@ -27,8 +27,8 @@
 
     const root = host.attachShadow({ mode: 'open' });
     const CSS = `:host { display: block; }
-#fin { --orange: #eb6834; --blue: #0284c7; --violet: #4a3aa7; --pink: #c2417a; --red: #ef4444; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; color: #0f172a; }
-#fin.dark { --orange: #ea580c; --violet: #9085e9; --pink: #f472b6; --red: #f87171; color: #e2e8f0; }
+#fin { --orange: #eb6834; --blue: #0284c7; --violet: #4a3aa7; --pink: #c2417a; --red: #ef4444; --band: rgba(100,116,139,.16); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; color: #0f172a; }
+#fin.dark { --orange: #ea580c; --violet: #9085e9; --pink: #f472b6; --red: #f87171; --band: rgba(255,255,255,.12); color: #e2e8f0; }
 *, *::before, *::after { box-sizing: border-box; }
 #fin.dark { --orange: #ea580c; --blue: #0284c7; --violet: #9085e9; --red: #f87171; }
 .btn {
@@ -172,6 +172,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin .inc .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
 #fin .incomes { margin-top: 10px; }
 #fin.dark .inc input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+#fin .ln.white { border-top: 2px solid #fff; box-shadow: 0 0 0 1px #64748b; }
 #fin .bill.off input[type=text], #fin .bill.off input[type=number] { color: #94a3b8; text-decoration: line-through; }
 #fin .monthend { margin-top: 8px; }
 #fin .me-head { font-size: 12px; color: #475569; line-height: 1.5; }
@@ -223,7 +224,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 
             <div class="stats" id="stats"></div>
 
-            <div class="sub">Last 30 days <span class="r" id="hist-note">cash and what moved it, from your statements</span></div>
+            <div class="sub">30 days <span class="r" id="hist-note">15 back, 15 ahead · bars are money in and out, the white line is your cash</span></div>
             <div class="chart-wrap" id="c0wrap"><div class="tipbox" id="tip0"></div></div>
             <div class="legend" id="leg0"></div>
 
@@ -825,20 +826,98 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         return out;
     }
     function drawCash() {
+        const haveCash = Object.keys(S.entries).some(d => typeof S.entries[d].cash === 'number');
         const hist = S.history && S.history.has_checking;
-        if (hist) {
-            clearEmpty('c0wrap');
-            const hp = historySeries();
-            $('hist-note').textContent = hp.rel ? 'change in cash, from your statements (enter your cash for a day to see the balance)' : 'cash and what moved it, from your statements';
-            renderCash({ wrapId: 'c0wrap', tipId: 'tip0', legId: 'leg0', pts: hp, rel: hp.rel, anyPlan: false });
-        } else showEmpty('c0wrap', 'Drop your BECU checking statement in the + circle and the last 30 days of cash appear here.'), $('leg0').innerHTML = '';
-        if (M.empty && !Object.keys(S.entries).some(d => typeof S.entries[d].cash === 'number')) { showEmpty('c1wrap', 'Enter your cash for a day and the cash picture appears.'); $('leg1').innerHTML = ''; return; }
+        if (!hist && M.empty) { showEmpty('c0wrap', 'Drop your BECU checking statement in the + circle, or enter cash for a day, and the next 30 days appear here.'); $('leg0').innerHTML = ''; }
+        else { clearEmpty('c0wrap'); renderFlowChart({ wrapId: 'c0wrap', tipId: 'tip0', legId: 'leg0', pts: cashSeries().filter(p => Math.abs(p.k) <= 15), anyPlan: S.planned.some(p => p.on && p.amount) && !M.empty }); }
+        if (M.empty && !haveCash) { showEmpty('c1wrap', 'Enter your cash for a day and the cash picture appears.'); $('leg1').innerHTML = ''; return; }
         clearEmpty('c1wrap');
-        renderCash({ wrapId: 'c1wrap', tipId: 'tip1', legId: 'leg1', pts: cashSeries(), anyPlan: S.planned.some(p => p.on && p.amount) && !M.empty, monthEnd: true });
+        renderCash({ wrapId: 'c1wrap', tipId: 'tip1', legId: 'leg1', pts: cashSeries(), anyPlan: S.planned.some(p => p.on && p.amount) && !M.empty, monthEnd: true, band: [-15, 15] });
+    }
+    // Bars are the chart; the cash balance is a white line laid over them on its own right-hand axis. Bar heights use a
+    // square-root scale so the everyday items stay readable next to a card payment or a paycheck (the axis says so).
+    const FS = Math.sqrt;
+    function flowTicks(maxIn, maxOut) {
+        const cand = [10, 50, 200, 500, 1000, 2000, 5000, 10000];
+        return { up: cand.filter(v => v <= maxIn).slice(-3), down: cand.filter(v => v <= maxOut).slice(-3) };
+    }
+    function renderFlowChart(cfg) {
+        const wrap = $(cfg.wrapId), tip = $(cfg.tipId), pts = cfg.pts, anyPlan = cfg.anyPlan;
+        const W = 600, L = 40, R = 44, slot = (W - L - R) / pts.length, cx = i => L + slot * i + slot / 2;
+        const TOP = 14, H1 = 176, LAB = 22, H = TOP + H1 + LAB;
+        const fl = pts.filter(p => p.flows);
+        const maxIn = Math.max(1, ...fl.map(p => p.flows.income + (p.flows.transferIn || 0))), maxOut = Math.max(1, ...fl.map(p => p.flows.bill + p.flows.plan + p.flows.planned + p.flows.daily + (p.flows.transferOut || 0)));
+        const unit = H1 / (FS(maxIn) + FS(maxOut)), y0 = TOP + FS(maxIn) * unit;
+        let g = '';
+        const t = flowTicks(maxIn, maxOut);
+        t.up.forEach(v => { g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y0 - FS(v) * unit}" y2="${y0 - FS(v) * unit}"/><text x="${L - 5}" y="${y0 - FS(v) * unit + 3}" text-anchor="end">+${money(v, true)}</text>`; });
+        t.down.forEach(v => { g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y0 + FS(v) * unit}" y2="${y0 + FS(v) * unit}"/><text x="${L - 5}" y="${y0 + FS(v) * unit + 3}" text-anchor="end">−${money(v, true)}</text>`; });
+        g += `<line class="zero" x1="${L}" x2="${W - R}" y1="${y0}" y2="${y0}"/>`;
+        const bw = Math.max(4, slot * 0.72);
+        pts.forEach((p, i) => {
+            if (!p.flows) return;
+            const f = p.flows; let up = 0, down = 0;
+            const bar = (v, col, dirUp) => {
+                if (v <= 0) return;
+                const from = dirUp ? up : down, to = from + v;
+                const h = Math.max(1, (FS(to) - FS(from)) * unit), yy = dirUp ? y0 - FS(to) * unit : y0 + FS(from) * unit;
+                g += `<rect x="${cx(i) - bw / 2}" y="${yy}" width="${bw}" height="${h}" fill="${col}"${p.kind === 'proj' ? ' fill-opacity="0.78"' : ''}/>`;
+                if (dirUp) up = to; else down = to;
+            };
+            bar(f.income, FLOW.income[1], true); bar(f.transferIn, FLOW.transferIn[1], true);
+            ['daily', 'bill', 'plan', 'planned', 'transferOut'].forEach(kd => bar(f[kd], FLOW[kd][1], false));
+        });
+        // the cash line: white with a dark edge so it reads over any bar colour, on its own scale at the right
+        const cv = pts.map(p => p.cash).filter(v => v !== null && v !== undefined);
+        if (cv.length > 1) {
+            let lo = Math.min.apply(null, cv), hi = Math.max.apply(null, cv); const pad = (hi - lo) * 0.12 || 100; lo -= pad; hi += pad;
+            const tk = niceTicks(lo, hi, 3), yc = v => TOP + H1 * (1 - (v - lo) / (hi - lo));
+            tk.forEach(v => { if (v >= lo && v <= hi) g += `<text x="${W - R + 5}" y="${yc(v) + 3}" style="fill:#64748b">${money(v, true)}</text>`; });
+            g += `<text x="${W - R + 5}" y="${TOP - 3}" style="fill:#64748b">cash</text>`;
+            let seg = [], dashed = false;
+            const lines = [];
+            for (let i = 0; i < pts.length; i++) {
+                const p = pts[i];
+                if (p.cash === null || p.cash === undefined) { if (seg.length > 1) lines.push({ pts: seg, dashed }); seg = []; continue; }
+                const isProj = p.kind === 'proj';
+                if (seg.length && isProj !== dashed) { lines.push({ pts: seg.concat([`${cx(i)},${yc(p.cash)}`]), dashed }); seg = [`${cx(i)},${yc(p.cash)}`]; dashed = isProj; continue; }
+                dashed = isProj; seg.push(`${cx(i)},${yc(p.cash)}`);
+            }
+            if (seg.length > 1) lines.push({ pts: seg, dashed });
+            lines.forEach(l => { g += `<polyline fill="none" stroke="#0f172a" stroke-opacity="0.5" stroke-width="4.6" stroke-linejoin="round" stroke-linecap="round" points="${l.pts.join(' ')}"/>`; });
+            lines.forEach(l => { g += `<polyline fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"${l.dashed ? ' stroke-dasharray="5 3"' : ''} points="${l.pts.join(' ')}"/>`; });
+            pts.forEach((p, i) => { if (p.kind === 'actual' && p.cash !== null) g += `<circle cx="${cx(i)}" cy="${yc(p.cash)}" r="2.4" fill="#ffffff" stroke="#0f172a" stroke-opacity="0.55" stroke-width="1"/>`; });
+            const pp = pts.map((p, i) => ({ i, v: p.plan })).filter(q => q.v !== null && q.v !== undefined);
+            if (anyPlan && pp.length > 1) g += `<polyline fill="none" stroke="var(--violet)" stroke-width="2" stroke-dasharray="5 3" stroke-linejoin="round" points="${pp.map(q => `${cx(q.i)},${yc(q.v)}`).join(' ')}"/>`;
+        }
+        const ti = pts.findIndex(p => p.k === 0);
+        g += `<line x1="${cx(ti)}" x2="${cx(ti)}" y1="${TOP}" y2="${TOP + H1}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/>`;
+        pts.forEach((p, i) => { if (i % 5 === 0 || i === pts.length - 1) g += `<text class="${p.k === 0 ? 'today' : ''}" x="${cx(i)}" y="${H - 6}" text-anchor="middle">${p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' })}</text>`; });
+        g += pts.map((p, i) => `<rect class="hit" data-i="${i}" x="${L + slot * i}" y="${TOP}" width="${slot}" height="${H1}"/>`).join('');
+        const old = wrap.querySelector('svg'); if (old) old.remove();
+        wrap.insertAdjacentHTML('afterbegin', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Money in and out for 15 days back and 15 ahead, with the cash balance as a line">${g}</svg>`);
+        wrap.querySelectorAll('.hit').forEach(el => {
+            el.addEventListener('mouseenter', () => {
+                const p = pts[+el.dataset.i], f = p.flows;
+                let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'actual' ? 'from your statements and entries' : p.kind === 'est' ? 'estimated' : 'projected'}</div>`;
+                if (p.cash !== null && p.cash !== undefined) h += `<div><span class="sw" style="background:#fff;box-shadow:0 0 0 1px #64748b"></span>Cash <b>${money(p.cash)}</b></div>`;
+                if (p.plan !== null && p.plan !== undefined && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
+                if (f) { f.items.forEach(([kd, label, amt]) => { h += `<div><span class="sw" style="background:${FLOW[kd][1]}"></span>${esc(label)} <b>${kd === 'income' || kd === 'transferIn' ? '+' : '−'}${money(amt)}</b></div>`; }); if (f.daily && p.kind === 'proj') h += `<div><span class="sw" style="background:${FLOW.daily[1]}"></span>Everyday <b>−${money(f.daily)}</b></div>`; }
+                tip.innerHTML = h; tip.classList.add('on');
+                const wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect(), left = er.left - wr.left + er.width / 2;
+                tip.style.left = Math.max(0, Math.min(wr.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px'; tip.style.top = '4px';
+            });
+            el.addEventListener('mouseleave', () => tip.classList.remove('on'));
+        });
+        const used = Object.keys(FLOW).filter(k => k !== 'transferOut' && pts.some(p => p.flows && (p.flows[k] || (k === 'transferIn' && p.flows.transferOut))));
+        $(cfg.legId).innerHTML = used.map(k => `<span class="item"><span class="sw" style="background:${FLOW[k][1]}"></span>${FLOW[k][0]}</span>`).join('')
+            + `<span class="item"><span class="ln white"></span>Cash (right axis)</span>`
+            + (anyPlan ? '<span class="item"><span class="ln"></span>Cash with planned spending</span>' : '')
+            + `<span class="item" style="color:#94a3b8" title="Bar heights use a square-root scale, so small items stay visible next to big ones. Hover a day for exact amounts.">square-root scale</span>`;
     }
     function renderCash(cfg) {
         const wrap = $(cfg.wrapId), tip = $(cfg.tipId), pts = cfg.pts, anyPlan = cfg.anyPlan;
-        const W = 600, L = 40, R = 8, slot = (W - L - R) / pts.length, cx = i => L + slot * i + slot / 2;
+        const W = 600, L = 40, R = 44, slot = (W - L - R) / pts.length, cx = i => L + slot * i + slot / 2;
         const TOP = 12, H1 = 118, GAP = 14, H2 = 96, LAB = 20, H = TOP + H1 + GAP + H2 + LAB;
         // cash panel
         const cv = pts.map(p => p.cash).filter(v => v !== null).concat(pts.map(p => p.plan).filter(v => v !== null), [0]);
@@ -848,7 +927,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         // flow panel
         const fl = pts.filter(p => p.flows);
         const maxIn = Math.max(1, ...fl.map(p => p.flows.income + (p.flows.transferIn || 0))), maxOut = Math.max(1, ...fl.map(p => p.flows.bill + p.flows.plan + p.flows.planned + p.flows.daily + (p.flows.transferOut || 0)));
-        const y2base = TOP + H1 + GAP, ztop = maxIn / (maxIn + maxOut), y0 = y2base + H2 * ztop, unit = H2 / (maxIn + maxOut);
+        const y2base = TOP + H1 + GAP, unit = H2 / (FS(maxIn) + FS(maxOut)), y0 = y2base + FS(maxIn) * unit;
         let g = '';
         t1.forEach(v => { g += `<line class="${v === 0 ? 'zero' : 'grid'}" x1="${L}" x2="${W - R}" y1="${y1(v)}" y2="${y1(v)}"/><text x="${L - 5}" y="${y1(v) + 3}" text-anchor="end">${money(v, true)}</text>`; });
         g += `<line class="zero" x1="${L}" x2="${W - R}" y1="${y0}" y2="${y0}"/><text x="${L - 5}" y="${y0 + 3}" text-anchor="end">in / out</text>`;
@@ -871,11 +950,12 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         pts.forEach((p, i) => {
             if (!p.flows) return;
             const f = p.flows; let up = 0, down = 0;
-            const bar = (v, col, dirUp) => { if (v <= 0) return; const h = Math.max(1, v * unit); const yy = dirUp ? y0 - up - h : y0 + down; g += `<rect x="${cx(i) - bw / 2}" y="${yy}" width="${bw}" height="${h}" fill="${col}" fill-opacity="0.9"/>`; if (dirUp) up += h; else down += h; };
+            const bar = (v, col, dirUp) => { if (v <= 0) return; const from = dirUp ? up : down, to = from + v; const h = Math.max(1, (FS(to) - FS(from)) * unit); const yy = dirUp ? y0 - FS(to) * unit : y0 + FS(from) * unit; g += `<rect x="${cx(i) - bw / 2}" y="${yy}" width="${bw}" height="${h}" fill="${col}" fill-opacity="0.9"/>`; if (dirUp) up = to; else down = to; };
             bar(f.income, FLOW.income[1], true); bar(f.transferIn, FLOW.transferIn[1], true);
             ['daily', 'bill', 'plan', 'planned', 'transferOut'].forEach(kd => bar(f[kd], FLOW[kd][1], false));
         });
         if (cfg.monthEnd && !(S.history && S.history.has_checking)) g += `<text x="${L + 6}" y="${y0 + 4}" style="font-style:italic">Past money in and out will show here once your statements are read.</text>`;
+        if (cfg.band) { const bi = pts.findIndex(p => p.k === cfg.band[0]), bj = pts.findIndex(p => p.k === cfg.band[1]); if (bi >= 0 && bj >= 0) g += `<rect x="${cx(bi) - slot / 2}" y="${TOP}" width="${cx(bj) - cx(bi) + slot}" height="${y2base + H2 - TOP}" fill="var(--band)" stroke="var(--band)" stroke-width="1"><title>The 30 days shown in the chart above</title></rect>`; }
         const ti = pts.findIndex(p => p.k === 0);
         g += `<line x1="${cx(ti)}" x2="${cx(ti)}" y1="${TOP}" y2="${y2base + H2}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/>`;
         pts.forEach((p, i) => { if (i % 10 === 0 || i === pts.length - 1) g += `<text class="${p.k === 0 ? 'today' : ''}" x="${cx(i)}" y="${H - 6}" text-anchor="middle">${p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' })}</text>`; });
