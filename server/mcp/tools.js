@@ -201,6 +201,40 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     return text({ task: slimTask(task), board: b.name });
   });
 
+  // Finance (2026-10-09). The pane on the dashboard; Tom writes its one tip-or-alert row.
+  server.registerTool('get_finance', {
+    title: 'Read the finance pane',
+    description: 'The last 60 days of Kevin\'s four balances (cash, savings, debt, trading), his projection settings (income, daily spend, debt APR, monthly savings and house-fund moves, recurring bills, planned spending), the tip now showing, and the recent tips with his Useful / Not for me answers (read those first: they say what lands), plus the statements he has dropped (fetch one with its id at /api/finance/statements/<id>/file).',
+    inputSchema: {}
+  }, async () => {
+    const d = await api(`${me}/finance`);
+    const tips = await api(`${me}/finance/tips?limit=30`);
+    return text({ ...d, recent_tips: tips, statement_files: d.statements.map(s => ({ ...s, file: `${URL_BASE}/api/finance/statements/${s.id}/file` })) });
+  });
+
+  server.registerTool('log_finance', {
+    title: 'Enter the balances for a day',
+    description: 'Record any of cash, savings, debt, invest (the E-Trade trading account) for a day (default today). null clears one. Use it only when Kevin tells you the number or you read it from a statement he dropped.',
+    inputSchema: { day: z.string().optional(), cash: z.number().nullable().optional(), savings: z.number().nullable().optional(), debt: z.number().nullable().optional(), invest: z.number().nullable().optional() }
+  }, async ({ day, ...fields }) => {
+    const body = {};
+    for (const [k, v] of Object.entries(fields)) if (v !== undefined) body[k] = v;
+    if (!Object.keys(body).length) throw new Error('Give at least one of cash, savings, debt, invest');
+    return text(await api(`${me}/finance/entries/${day || todayKey()}`, { method: 'PUT', body }));
+  });
+
+  server.registerTool('post_finance_tip', {
+    title: 'Post the finance tip or alert',
+    description: 'Put ONE row on the finance pane: kind "alert" for something dated (a payment due today or tomorrow) or "tip" for a pattern, trend, saving opportunity or a strategy he is not using. Under 300 characters, plain words, no cash-flow arithmetic. Replaces the row now showing.',
+    inputSchema: { kind: z.enum(['tip', 'alert']), body: z.string().min(1) }
+  }, async ({ kind, body }) => text(await api(`${me}/finance/tips`, { method: 'POST', body: { kind, body } })));
+
+  server.registerTool('finance_recipe', {
+    title: 'How to write the finance tip',
+    description: 'The steps for choosing the one tip or alert for the finance pane.',
+    inputSchema: {}
+  }, async () => text(FINANCE_RECIPE));
+
   server.registerTool('set_results', {
     title: 'Write a task\'s results',
     description: 'Set the Results pane on the task page (replaces). Optionally the Background too. Markdown-ish plain text; URLs and image URLs render.',
@@ -516,6 +550,24 @@ export const BRIEFING_RECIPE = `Build my morning briefing and post it to the Mov
 At most 12 items total, in this order: calendar, mail, market, texts, nudges, health. Then call post_briefing once with the whole list. Tell me in one line what you posted.`;
 
 
+// The finance pane's one row (2026-10-09). Kevin's goals: debt to zero by the
+// end of the year, savings up, money set aside for a house. His figures and
+// habits live in the board, not in this public repo.
+export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance pane and post it with post_finance_tip.
+
+1. get_finance. Read recent_tips first: every one has his answer (up = Useful, no = Not for me, replaced = never answered). Learn from them. Do not repeat a kind of tip he said was not for him, and lean toward the kinds he found useful.
+
+2. If a tip posted in the last 20 hours is still unanswered, stop; do not post another.
+
+3. Look for the one thing most worth his attention, in this order:
+   - An alert: a bill or payment due today or tomorrow (the plan's recurring bills, or a due date you can see in a statement file). Say what and how much. Do not work out what cash will be left.
+   - A pattern in his entries or statements he would not see: spending that runs higher on certain days, a category that keeps rising, months he saves and months he does not and what was different.
+   - An opportunity: money earning almost nothing that could earn more, interest he is paying that the money in his trading account or savings could remove.
+   - A strategy he is not using that would help the goals (debt to zero by the end of the year, savings up, the house fund), or a small change in daily spending that moves the debt-free date.
+   - If there are gaps in his entries, a statement dropped in the plus box would fill them.
+
+4. One or two sentences, under 300 characters, plain words, one specific number at most. A tip is an observation and a suggestion, never a lecture. If there is nothing worth saying, post nothing.`;
+
 // The mail strip (2026-09-23). Kevin's rules: unread mail in the inbox only
 // (he tried "unread anywhere" and it surfaced ~200 filtered newsletters), two colours only — blue for "needs
 // me", grey for the rest — and Tom learns from what he does with each sender.
@@ -608,8 +660,11 @@ ${CALENDAR_RECIPE}
 B. The mail strip — follow this recipe exactly, using the events you just read:
 ${INBOX_RECIPE}
 
+C. The finance pane's one row — once a day is plenty; the recipe says when to skip:
+${FINANCE_RECIPE}
+
 ${UNATTENDED_RULES}
-- Finish with one line: how many events you posted and what you did with the mail.`;
+- Finish with one line: how many events you posted, what you did with the mail, and whether you posted a finance tip.`;
 
 // A reload of the board asks for this (POST .../inbox/check; heartbeat.sh
 // polls for the request every minute). Mail only, so the strip refills in a

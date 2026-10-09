@@ -1756,6 +1756,164 @@ app.put('/api/companies/:subdomain/users/:slug/health/:day', (req, res) => {
   res.json({ day, entry });
 });
 
+// ---- Finance (2026-10-09) ----
+// Four balances a day (cash, savings, debt, trading), the settings the
+// projection runs on, one tip-or-alert row Tom writes, and dropped statements.
+// The page does the projecting; the server stores and validates.
+const FINANCE_FIELDS = ['cash', 'savings', 'debt', 'invest'];
+const FINANCE_WINDOW_DAYS = 60;
+const STATEMENT_EXT = ['pdf', 'csv', 'ofx', 'qfx', 'txt'];
+const STATEMENT_MAX = 15 * 1024 * 1024;
+const STATEMENT_DIR = path.join(path.dirname(process.env.DB_PATH || path.join(__dirname, '..', 'movealong.db')), 'statements');
+const FINANCE_ASSUME_KEYS = ['income', 'spend', 'debtApr', 'saveAdd', 'houseAdd', 'houseGoal', 'house', 'saveApy', 'hysaApy', 'investReturn'];
+
+function financeNum(v, lo, hi) {
+  const n = typeof v === 'number' ? v : Number(String(v).replace(/[$,\s]/g, ''));
+  if (!Number.isFinite(n) || n < lo || n > hi) return null;
+  return Math.round(n * 100) / 100;
+}
+function financePlanOf(userId) {
+  const row = queryOne('SELECT data FROM finance_plan WHERE user_id = ?', [userId]);
+  let plan = null;
+  try { plan = row ? JSON.parse(row.data) : null; } catch (e) { /* start over */ }
+  return plan || { assume: {}, bills: [], planned: [] };
+}
+const tipOut = (t) => t && { id: t.id, kind: t.kind, body: t.body, feedback: t.feedback, created_at: t.created_at };
+const statementOut = (r) => ({ id: r.id, name: r.name, size: r.size, created_at: r.created_at });
+
+app.get('/api/companies/:subdomain/users/:slug/finance', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const today = todayKeyFor(req);
+  const from = addDays(today, -(FINANCE_WINDOW_DAYS - 1));
+  const entries = {};
+  for (const r of queryAll('SELECT day, cash, savings, debt, invest FROM finance_entries WHERE user_id = ? AND day >= ? AND day <= ? ORDER BY day', [user.id, from, today])) {
+    const e = {};
+    for (const f of FINANCE_FIELDS) if (r[f] !== null && r[f] !== undefined) e[f] = r[f];
+    if (Object.keys(e).length) entries[r.day] = e;
+  }
+  const tip = queryOne('SELECT * FROM finance_tips WHERE user_id = ? AND feedback IS NULL ORDER BY id DESC LIMIT 1', [user.id]);
+  const statements = queryAll('SELECT id, name, size, created_at FROM finance_statements WHERE user_id = ? ORDER BY id DESC LIMIT 40', [user.id]);
+  res.json({ today, from, entries, plan: financePlanOf(user.id), tip: tipOut(tip) || null, statements: statements.map(statementOut) });
+});
+
+// One day's balances. null or '' clears a field; days after today are refused.
+app.put('/api/companies/:subdomain/users/:slug/finance/entries/:day', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const { day } = req.params;
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(day) || isNaN(new Date(day + 'T00:00:00Z'))) return res.status(400).json({ error: 'day must be YYYY-MM-DD' });
+  if (day > todayKeyFor(req)) return res.status(400).json({ error: 'That day has not happened yet' });
+  const body = req.body || {};
+  const sets = {};
+  for (const f of FINANCE_FIELDS) {
+    if (!(f in body)) continue;
+    const raw = body[f];
+    if (raw === null || raw === '' || raw === undefined) { sets[f] = null; continue; }
+    // Cash can be overdrawn; the others cannot be below zero.
+    const v = financeNum(raw, f === 'cash' ? -1e9 : 0, 1e9);
+    if (v === null) return res.status(400).json({ error: `${f} must be a dollar amount${f === 'cash' ? '' : ' of 0 or more'}` });
+    sets[f] = v;
+  }
+  if (!Object.keys(sets).length) return res.status(400).json({ error: `Send at least one of: ${FINANCE_FIELDS.join(', ')}` });
+  const now = new Date().toISOString();
+  runSql('INSERT OR IGNORE INTO finance_entries (user_id, day, created_at, updated_at) VALUES (?, ?, ?, ?)', [user.id, day, now, now]);
+  for (const [f, v] of Object.entries(sets)) runSql(`UPDATE finance_entries SET ${f} = ?, updated_at = ? WHERE user_id = ? AND day = ?`, [v, now, user.id, day]);
+  const row = queryOne('SELECT cash, savings, debt, invest FROM finance_entries WHERE user_id = ? AND day = ?', [user.id, day]);
+  if (FINANCE_FIELDS.every(f => row[f] === null)) runSql('DELETE FROM finance_entries WHERE user_id = ? AND day = ?', [user.id, day]);
+  const entry = {};
+  for (const f of FINANCE_FIELDS) if (row[f] !== null) entry[f] = row[f];
+  res.json({ day, entry });
+});
+
+// The projection's settings, replaced whole: assumptions, recurring bills,
+// planned spending.
+app.put('/api/companies/:subdomain/users/:slug/finance/plan', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const b = req.body || {};
+  const str = (v, n) => String(v == null ? '' : v).trim().slice(0, n);
+  const assume = {};
+  for (const k of FINANCE_ASSUME_KEYS) {
+    const v = financeNum((b.assume || {})[k], 0, 1e9);
+    if (v !== null) assume[k] = v;
+  }
+  const bills = (Array.isArray(b.bills) ? b.bills : []).slice(0, 40).map(x => ({
+    label: str(x.label, 60) || 'Bill', day: Math.min(31, Math.max(1, Math.round(financeNum(x.day, 1, 31) || 1))),
+    amount: financeNum(x.amount, 0, 1e9) || 0, debt: !!x.debt
+  }));
+  const dayRe = /^\d{4}-\d{2}-\d{2}$/;
+  const planned = (Array.isArray(b.planned) ? b.planned : []).slice(0, 60).filter(x => dayRe.test(String(x.date))).map(x => ({
+    id: Math.round(financeNum(x.id, 0, 1e9) || 0), label: str(x.label, 60) || 'Planned spending', date: x.date,
+    amount: financeNum(x.amount, 0, 1e9) || 0, on: !!x.on, monthly: !!x.monthly
+  }));
+  const data = JSON.stringify({ assume, bills, planned });
+  runSql(`INSERT INTO finance_plan (user_id, data, updated_at) VALUES (?, ?, ?)
+          ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, [user.id, data, new Date().toISOString()]);
+  res.json({ assume, bills, planned });
+});
+
+// Tom's one row. A new tip replaces the one on show; the older ones stay, with
+// whatever Kevin said about them, so Tom can read what lands.
+app.post('/api/companies/:subdomain/users/:slug/finance/tips', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const kind = (req.body || {}).kind === 'alert' ? 'alert' : 'tip';
+  const body = String((req.body || {}).body || '').trim().slice(0, 600);
+  if (!body) return res.status(400).json({ error: 'body is required' });
+  runSql('UPDATE finance_tips SET feedback = ?, answered_at = ? WHERE user_id = ? AND feedback IS NULL', ['replaced', new Date().toISOString(), user.id]);
+  runSql('INSERT INTO finance_tips (user_id, kind, body) VALUES (?, ?, ?)', [user.id, kind, body]);
+  const id = queryOne('SELECT last_insert_rowid() AS id').id;
+  res.status(201).json(tipOut(queryOne('SELECT * FROM finance_tips WHERE id = ?', [id])));
+});
+app.get('/api/companies/:subdomain/users/:slug/finance/tips', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
+  res.json(queryAll('SELECT * FROM finance_tips WHERE user_id = ? ORDER BY id DESC LIMIT ?', [user.id, limit]).map(tipOut));
+});
+app.put('/api/finance/tips/:id', (req, res) => {
+  const tip = queryOne('SELECT * FROM finance_tips WHERE id = ?', [req.params.id]);
+  if (!tip) return res.status(404).json({ error: 'Tip not found' });
+  const fb = (req.body || {}).feedback;
+  if (fb !== 'up' && fb !== 'no') return res.status(400).json({ error: "feedback must be 'up' or 'no'" });
+  runSql('UPDATE finance_tips SET feedback = ?, answered_at = ? WHERE id = ?', [fb, new Date().toISOString(), tip.id]);
+  res.json(tipOut(queryOne('SELECT * FROM finance_tips WHERE id = ?', [tip.id])));
+});
+
+// Statements: the raw file in the body, its name in x-filename (URL-encoded).
+const fs = require('fs');
+app.post('/api/companies/:subdomain/users/:slug/finance/statements', express.raw({ type: () => true, limit: STATEMENT_MAX }), (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  let name = '';
+  try { name = decodeURIComponent(String(req.get('x-filename') || '')); } catch (e) { name = ''; }
+  name = path.basename(name).replace(/[^\w.\- ()]/g, '_').slice(0, 120);
+  const ext = (name.split('.').pop() || '').toLowerCase();
+  if (!name || !STATEMENT_EXT.includes(ext)) return res.status(400).json({ error: `Statements are ${STATEMENT_EXT.join(', ')} files` });
+  if (!Buffer.isBuffer(req.body) || !req.body.length) return res.status(400).json({ error: 'The file is empty' });
+  fs.mkdirSync(STATEMENT_DIR, { recursive: true });
+  const file = `${Date.now()}-${crypto.randomBytes(4).toString('hex')}.${ext}`;
+  fs.writeFileSync(path.join(STATEMENT_DIR, file), req.body);
+  runSql('INSERT INTO finance_statements (user_id, name, size, file) VALUES (?, ?, ?, ?)', [user.id, name, req.body.length, file]);
+  const id = queryOne('SELECT last_insert_rowid() AS id').id;
+  res.status(201).json(statementOut(queryOne('SELECT * FROM finance_statements WHERE id = ?', [id])));
+});
+app.get('/api/finance/statements/:id/file', (req, res) => {
+  const row = queryOne('SELECT * FROM finance_statements WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Statement not found' });
+  const full = path.join(STATEMENT_DIR, path.basename(row.file));
+  if (!fs.existsSync(full)) return res.status(404).json({ error: 'The file is gone' });
+  res.download(full, row.name);
+});
+app.delete('/api/finance/statements/:id', (req, res) => {
+  const row = queryOne('SELECT * FROM finance_statements WHERE id = ?', [req.params.id]);
+  if (!row) return res.status(404).json({ error: 'Statement not found' });
+  try { fs.unlinkSync(path.join(STATEMENT_DIR, path.basename(row.file))); } catch (e) { /* already gone */ }
+  runSql('DELETE FROM finance_statements WHERE id = ?', [row.id]);
+  res.json({ ok: true });
+});
+
 // ---- Goals and sprints (2026-09-29) ----
 // Goals are the standing order of what matters (position = rank; the first
 // is the anchor everything else serves). A sprint is one goal, six weeks,

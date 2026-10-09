@@ -256,3 +256,9 @@ Which brief lines the model actually applied. Keyed by line text, so an edited l
 - `idx_tasks_assigned_by` on tasks(assigned_by)
 - `idx_task_notes_task` on task_notes(task_id)
 - `idx_companies_subdomain` on companies(subdomain)
+
+## Finance tables (2026-10-09)
+- `finance_entries(user_id, day, cash, savings, debt, invest)` UNIQUE(user_id, day); NULL = not entered.
+- `finance_plan(user_id PK, data JSON)` — assumptions, recurring bills, planned spending.
+- `finance_tips(id, user_id, kind, body, feedback up|no|replaced|NULL, created_at, answered_at)`.
+- `finance_statements(id, user_id, name, size, file)` — the file sits in `statements/` next to the DB.

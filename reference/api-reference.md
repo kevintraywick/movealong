@@ -781,3 +781,10 @@ The Lists page keeps a `list` task past the day it was written on: `tasks.shelve
 The board read (`GET .../tasks`) and the List view carry `list_master_id` and `list_master_name` for list copies.
 
 `PUT /api/tasks/:id` also accepts `goal` (0/1) — today's goal; refused on calendar rows.
+
+## Finance (2026-10-09) — see `features/finance.md`
+- `GET /api/companies/:sub/users/:slug/finance` → `{today, from, entries{day:{cash,savings,debt,invest}}, plan{assume,bills,planned}, tip, statements}`
+- `PUT .../finance/entries/:day` `{cash,savings,debt,invest}` (null clears; future refused)
+- `PUT .../finance/plan` `{assume,bills,planned}` (replaced whole)
+- `POST|GET .../finance/tips` `{kind:'tip'|'alert', body}`; `PUT /api/finance/tips/:id {feedback:'up'|'no'}`
+- `POST .../finance/statements` (raw body + `x-filename`); `GET /api/finance/statements/:id/file`; `DELETE /api/finance/statements/:id`

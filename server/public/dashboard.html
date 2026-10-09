@@ -25,7 +25,11 @@
             padding: 20px;
         }
 
-        .page { max-width: 760px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+        .page { max-width: 1280px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+        /* Health and Completed stack on the left, as they always did, narrowed to half; Finance sits beside them. */
+        .cols { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; align-items: start; }
+        .leftcol { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+        @media (max-width: 1040px) { .cols { grid-template-columns: 1fr; } }
 
         .page-header { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 
@@ -219,6 +223,8 @@
     <script src="/nav.js"></script>
     <div class="page">
 
+        <div class="cols">
+        <div class="leftcol">
         <div class="pane" id="healthPane">
             <div class="pane-head">
                 <span class="pane-title">Health</span>
@@ -263,6 +269,9 @@
             <div class="chart-wrap" id="chartWrap"><div class="empty">Loading&hellip;</div><div class="tip" id="tip"></div></div>
             <div class="legend" id="legend"></div>
             <details id="tableWrap" hidden><summary>As a table</summary><div id="table"></div></details>
+        </div>
+        </div>
+        <div id="financePane" hidden></div>
         </div>
     </div>
 
@@ -740,5 +749,6 @@
         document.getElementById('nextMonth').addEventListener('click', () => { month = shiftMonth(month || data.month, 1); load(); });
         load();
     </script>
+    <script src="/finance.js"></script>
 </body>
 </html>

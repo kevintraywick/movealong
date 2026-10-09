@@ -15,3 +15,5 @@ scripts/tom/clients/*.json
 !scripts/tom/clients/example.json
 scripts/tom/node_modules/
 scripts/tom/samples/
+server/statements/
+statements/

@@ -292,6 +292,48 @@ async function initDb() {
     );
     CREATE INDEX IF NOT EXISTS idx_health_user_day ON health_entries(user_id, day);
 
+    -- Finance (2026-10-09): the four balances Kevin types each morning, one row
+    -- per day (a blank is NULL, not zero), plus his projection settings as one
+    -- JSON blob, the one-row tip or alert Tom writes (with the Useful or Not for
+    -- me answer, which is how Tom learns what lands), and the statements dropped
+    -- on the pane (the files live on disk beside the database, never in it,
+    -- because every request exports the whole database).
+    CREATE TABLE IF NOT EXISTS finance_entries (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      day DATE NOT NULL,
+      cash REAL,
+      savings REAL,
+      debt REAL,
+      invest REAL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, day)
+    );
+    CREATE TABLE IF NOT EXISTS finance_plan (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      data TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS finance_tips (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      body TEXT NOT NULL,
+      feedback TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      answered_at DATETIME
+    );
+    CREATE INDEX IF NOT EXISTS idx_finance_tips_user ON finance_tips(user_id, id);
+    CREATE TABLE IF NOT EXISTS finance_statements (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      file TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- Morning briefing (2026-09-13). Items are posted by the user's own
     -- Claude through the MoveIt server (post_briefing) — mail, calendar,
     -- texts, board, health — one day at a time, replaced wholesale. Weather

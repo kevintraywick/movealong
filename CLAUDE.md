@@ -23,6 +23,7 @@ Detailed decisions, gotchas and history live in `reference/features/`. **Before 
 | `board-rows.md` | lock & deadlines, series, day counter, manual order, → moves, Shift+Click edit, goal (`g`), repeat (`r`), links |
 | `board-views.md` | completed board, preferences page, phone portrait layout, List (master) view |
 | `dashboard-and-health.md` | /dashboard, completions + pushed bars, health pane, chart palette rule |
+| `finance.md` | the finance pane on /dashboard, `finance.js`, `finance_*` tables, Tom's finance tip, statements |
 | `briefing-and-goals.md` | morning briefing (weather, market, Tom's items), /goals, sprint check-in, Friday review |
 | `mail-strip.md` | #mailStrip, inbox tools, per-sender learning, Tom's heartbeat |
 | `calendar.md` | calendar.js, feed + connector sync, the event band |
@@ -35,7 +36,7 @@ Also: `reference/api-reference.md` (routes), `reference/data-model.md` (schema),
 ## Project Structure
 
 ```
-server/public/index.html     - Single-page frontend (vanilla JS); lists/goals/notes/help/task/brief/dashboard/preferences .html are one static file each; nav.js is the header notes, dashboard, goals and lists share
+server/public/index.html     - Single-page frontend (vanilla JS); lists/goals/notes/help/task/brief/dashboard/preferences .html are one static file each; nav.js is the header notes, dashboard, goals and lists share; finance.js is the dashboard's finance pane
 server/src/server.js         - Express API server
 server/src/db.js             - SQLite layer (sql.js, pure JS)
 server/src/ai.js             - Anthropic API client; drafts and researches subtasks
