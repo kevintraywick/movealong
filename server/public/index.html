@@ -4292,7 +4292,6 @@
                 <div class="briefing-sprint-title">${escapeHtml(sp.title)}</div>
                 <div class="briefing-sprint-ask"><span class="q${yd == null ? '' : ' answered'}">${yd == null ? 'Touched it yesterday?' : 'Yesterday:'}</span><button class="briefing-sprint-btn${yd === true ? ' on' : ''}" data-touched="1" title="Yes — I worked on the sprint yesterday">yes</button><button class="briefing-sprint-btn no${yd === false ? ' on' : ''}" data-touched="0" title="No — an honest no beats a quiet slip">no</button></div>
                 <div class="briefing-sprint-week" title="The last seven days — orange is a day you touched it">${dots}<span class="briefing-sprint-stat" title="${sp.streak ? `${sp.streak} days in a row · ` : ''}${sp.touched} of ${sp.asked} logged days touched">${sp.streak ? `${sp.streak} in a row · ` : ''}${sp.touched}/${sp.asked}</span></div>
-                ${sp.review_due ? `<div class="briefing-sprint-line"><b>Friday:</b> <a href="/goals#review">write the week's review ↗</a></div>` : ''}
             </div>`;
         }
         async function logSprintDay(sprintId, day, touched) {

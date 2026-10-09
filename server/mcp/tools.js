@@ -503,7 +503,7 @@ export const BRIEFING_RECIPE = `Build my morning briefing and post it to the Mov
    - Oldest unanswered open question from get_brief. One line, the question itself.
    - A money deadline coming up in the next few days (bills, payment plans) - surface it ahead of time, not on the day.
    - Trip countdown with prep status for any trip named in my brief or on my calendar, e.g. "<city> in 4 days - packing list not started".
-   - The sprint: the board shows its own check-in (day N of M, yesterday yes/no) — do NOT repeat it. Post a sprint nudge only when get_goals shows something the check-in can't say: yesterday is still unanswered by the time you run AND the streak just broke; the last three days were "no"; the sprint has ended and nobody closed it; or it's Friday and review_due is true ("Friday review — 20 minutes, /goals"). One honest line, kind "board".
+   - The sprint: the board shows its own check-in (day N of M, yesterday yes/no) — do NOT repeat it. Post a sprint nudge only when get_goals shows something the check-in can't say: yesterday is still unanswered by the time you run AND the streak just broke; the last three days were "no"; or the sprint has ended and nobody closed it. One honest line, kind "board".
 
 8. Health (kind "health") - at most 2, only when triggered:
    - Steps under my daily step target (from my brief; 8,000 if it doesn't say), or a gap in the step log ("no steps logged for yesterday - say the number and I'll log it").
