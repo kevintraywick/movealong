@@ -56,6 +56,7 @@
 .files:empty { display: none; }
 .files { font-size: 11px; color: #64748b; margin: 6px 0 0; display: flex; flex-wrap: wrap; gap: 4px 10px; justify-content: flex-end; }
 .files span { white-space: nowrap; }
+.files .fsum { cursor: pointer; color: #0284c7; }
 .files a { color: #94a3b8; cursor: pointer; text-decoration: none; margin-left: 3px; }
 .entry { display: flex; align-items: flex-end; gap: 8px; flex-wrap: nowrap; padding: 8px 12px; border: 1px solid #e2e8f0; border-radius: 10px; background: #f8fafc; }
 .entry .day-nav { display: flex; align-items: center; gap: 3px; padding-bottom: 8px; }
@@ -222,6 +223,10 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 
             <div class="stats" id="stats"></div>
 
+            <div class="sub">Last 30 days <span class="r" id="hist-note">cash and what moved it, from your statements</span></div>
+            <div class="chart-wrap" id="c0wrap"><div class="tipbox" id="tip0"></div></div>
+            <div class="legend" id="leg0"></div>
+
             <div class="sub">Cash <span class="r">30 days back, 30 ahead · what comes in, what goes out</span></div>
             <div class="chart-wrap" id="c1wrap"><div class="tipbox" id="tip1"></div></div>
             <div class="legend" id="leg1"></div>
@@ -254,7 +259,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     // ---------- state ----------
     const FIELDS = ['cash', 'savings', 'debt', 'invest'];
     const DEFAULT_ASSUME = { income: 0, spend: 0, debtApr: 0, saveAdd: 0, houseAdd: 0, houseGoal: 0, house: 0, saveApy: 0, hysaApy: 0, investReturn: 0 };
-    let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], goals: [], incomes: [], statements: [], tip: null, nextId: 1 };
+    let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], goals: [], incomes: [], history: null, statements: [], tip: null, nextId: 1 };
     function take(d) {
         TODAY = d.today; yearEnd = `${TODAY.slice(0, 4)}-12-31`;
         S.entries = d.entries || {};
@@ -715,13 +720,18 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     }
 
     // ---------- statements ----------
+    let filesOpen = false;
     function drawFiles() {
-        $('files').innerHTML = S.statements.map(f => `<span>📄 ${esc(f.name)} <a data-id="${f.id}" title="Remove">×</a></span>`).join('');
+        const list = S.statements.map(f => `<span>📄 ${esc(f.name)} <a data-id="${f.id}" title="Remove">×</a></span>`).join('');
+        $('files').innerHTML = S.statements.length > 3
+            ? `<span class="fsum" id="files-toggle" title="Show or hide the files">${S.statements.length} statements ${filesOpen ? '▴' : '▾'}</span>` + (filesOpen ? list : '')
+            : list;
+        const ft = $('files-toggle'); if (ft) ft.addEventListener('click', () => { filesOpen = !filesOpen; drawFiles(); });
         $('drop').classList.toggle('has', S.statements.length > 0);
         $('drop').textContent = S.statements.length ? S.statements.length : '+';
         $('files').querySelectorAll('a').forEach(a => a.addEventListener('click', async () => {
             if (!confirm('Remove this statement?')) return;
-            try { await fetch('/api/finance/statements/' + a.dataset.id, { method: 'DELETE' }); S.statements = S.statements.filter(f => f.id !== +a.dataset.id); drawFiles(); }
+            try { await fetch('/api/finance/statements/' + a.dataset.id, { method: 'DELETE' }); S.statements = S.statements.filter(f => f.id !== +a.dataset.id); drawFiles(); try { S.history = await call('/history?days=30'); refresh(false); } catch (e) { /* as it was */ } }
             catch (e) { say('not removed', true); }
         }));
     }
@@ -732,7 +742,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 const res = await fetch(base + '/statements', { method: 'POST', headers: { 'x-filename': encodeURIComponent(f.name), 'Content-Type': f.type || 'application/octet-stream' }, body: f });
                 const out = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(out.error || ('HTTP ' + res.status));
-                S.statements.unshift(out); drawFiles(); say('saved');
+                S.statements.unshift(out); drawFiles(); say('saved'); try { S.history = await call('/history?days=30'); refresh(false); } catch (e) { /* the chart keeps what it had */ }
             } catch (e) { say(e.message || 'not uploaded', true); }
         }
     }
@@ -749,7 +759,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     // Top: the cash balance (entered days, then the projection). Bottom: each day's flows, income up in orange,
     // what goes out stacked downward by kind. The month-end check under it says what extra income each month
     // would need for the debt to be gone by Dec 31.
-    const FLOW = { income: ['Income', 'var(--orange)'], bill: ['Fixed bills', 'var(--pink)'], plan: ['Payment plans and cards', 'var(--blue)'], planned: ['Planned spending', 'var(--violet)'], daily: ['Everyday spending', '#eda100'] };
+    const FLOW = { income: ['Income', 'var(--orange)'], bill: ['Fixed bills', 'var(--pink)'], plan: ['Payment plans and cards', 'var(--blue)'], planned: ['Planned and one-off', 'var(--violet)'], daily: ['Everyday spending', '#eda100'], transferIn: ['Moved in from your other accounts', '#7dd3fc'], transferOut: ['Moved to your other accounts', '#7dd3fc'] };
     function flowsFor(d) {
         const day = dom(d), last = dim(d), f = { income: 0, bill: 0, plan: 0, planned: 0, daily: 0, items: [] };
         const A = S.assume;
@@ -767,30 +777,67 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         f.daily = A.spend || 0;
         return f;
     }
+    // The checking account's actual flows for a past day, from the statements.
+    function flowsFromHistory(d) {
+        const h = S.history && S.history.days && S.history.days[d];
+        const f = { income: 0, bill: 0, plan: 0, planned: 0, daily: 0, transferIn: 0, transferOut: 0, items: [] };
+        if (!h) return f;
+        f.income = h.income; f.bill = h.bill; f.plan = h.plan; f.daily = h.daily; f.planned = h.other; f.transferIn = h.transferIn; f.transferOut = h.transferOut;
+        f.items = h.items.map(([k, l, a]) => [k === 'other' ? 'planned' : k, l, a]);
+        return f;
+    }
+    // The last 30 days ending today, moving with the date. Cash is anchored on a cash balance he entered (the
+    // statements carry none); without one the line is the change since 30 days ago.
+    function historySeries() {
+        const out = []; const H = S.history && S.history.days || {};
+        const anchorDay = Object.keys(S.entries).filter(d => d <= TODAY && typeof S.entries[d].cash === 'number').sort().pop();
+        const net = d => (H[d] ? H[d].net : 0);
+        const rel = !anchorDay;
+        for (let k = -29; k <= 0; k++) {
+            const d = add(TODAY, k); let cash;
+            if (rel) { cash = 0; for (let x = add(TODAY, -29); x <= d; x = add(x, 1)) cash += net(x); }
+            else if (d <= anchorDay) { cash = S.entries[anchorDay].cash; for (let x = add(d, 1); x <= anchorDay; x = add(x, 1)) cash -= net(x); }
+            else { cash = S.entries[anchorDay].cash; for (let x = add(anchorDay, 1); x <= d; x = add(x, 1)) cash += net(x); }
+            out.push({ d, k, cash: Math.round(cash * 100) / 100, kind: 'actual', plan: null, flows: flowsFromHistory(d) });
+        }
+        out.rel = rel;
+        return out;
+    }
     function cashSeries() {
         const out = [];
         const days = Object.keys(S.entries).filter(d => typeof S.entries[d].cash === 'number').sort();
+        const fromStatements = {};
+        if (S.history && S.history.has_checking) { const hs = historySeries(); if (!hs.rel) hs.forEach(p => { fromStatements[p.d] = p.cash; }); }
         for (let k = -30; k <= 30; k++) {
             const d = add(TODAY, k);
             let cash = null, kind = 'est', plan = null, flows = null;
-            if (!M.empty && d > M.base.date) { const r = simAt(M.plain, M.base, d); cash = r.cash; kind = k <= 0 ? 'est' : 'proj'; if (k >= 0) plan = simAt(M.withPlan, M.base, d).cash; }
+            if (!M.empty && d > M.base.date && !(k <= 0 && fromStatements[d] !== undefined)) { const r = simAt(M.plain, M.base, d); cash = r.cash; kind = k <= 0 ? 'est' : 'proj'; if (k >= 0) plan = simAt(M.withPlan, M.base, d).cash; }
             else if (typeof (S.entries[d] || {}).cash === 'number') { cash = S.entries[d].cash; kind = 'actual'; }
+            else if (k <= 0 && fromStatements[d] !== undefined) { cash = fromStatements[d]; kind = 'actual'; }
             else {
                 const before = [...days].reverse().find(x => x < d), after = days.find(x => x > d);
                 if (before && after) cash = S.entries[before].cash + (S.entries[after].cash - S.entries[before].cash) * diff(before, d) / diff(before, after);
                 else if (before || after) cash = S.entries[before || after].cash;
             }
-            if (k > 0) flows = flowsFor(d);
+            if (k > 0) flows = flowsFor(d); else if (S.history && S.history.has_checking) flows = flowsFromHistory(d);
             out.push({ d, k, cash, kind, plan, flows });
         }
         return out;
     }
     function drawCash() {
-        const wrap = $('c1wrap'), tip = $('tip1');
+        const hist = S.history && S.history.has_checking;
+        if (hist) {
+            clearEmpty('c0wrap');
+            const hp = historySeries();
+            $('hist-note').textContent = hp.rel ? 'change in cash, from your statements (enter your cash for a day to see the balance)' : 'cash and what moved it, from your statements';
+            renderCash({ wrapId: 'c0wrap', tipId: 'tip0', legId: 'leg0', pts: hp, rel: hp.rel, anyPlan: false });
+        } else showEmpty('c0wrap', 'Drop your BECU checking statement in the + circle and the last 30 days of cash appear here.'), $('leg0').innerHTML = '';
         if (M.empty && !Object.keys(S.entries).some(d => typeof S.entries[d].cash === 'number')) { showEmpty('c1wrap', 'Enter your cash for a day and the cash picture appears.'); $('leg1').innerHTML = ''; return; }
         clearEmpty('c1wrap');
-        const pts = cashSeries();
-        const anyPlan = S.planned.some(p => p.on && p.amount) && !M.empty;
+        renderCash({ wrapId: 'c1wrap', tipId: 'tip1', legId: 'leg1', pts: cashSeries(), anyPlan: S.planned.some(p => p.on && p.amount) && !M.empty, monthEnd: true });
+    }
+    function renderCash(cfg) {
+        const wrap = $(cfg.wrapId), tip = $(cfg.tipId), pts = cfg.pts, anyPlan = cfg.anyPlan;
         const W = 600, L = 40, R = 8, slot = (W - L - R) / pts.length, cx = i => L + slot * i + slot / 2;
         const TOP = 12, H1 = 118, GAP = 14, H2 = 96, LAB = 20, H = TOP + H1 + GAP + H2 + LAB;
         // cash panel
@@ -800,7 +847,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const y1 = v => TOP + H1 * (1 - (v - lo) / (hi - lo));
         // flow panel
         const fl = pts.filter(p => p.flows);
-        const maxIn = Math.max(1, ...fl.map(p => p.flows.income)), maxOut = Math.max(1, ...fl.map(p => p.flows.bill + p.flows.plan + p.flows.planned + p.flows.daily));
+        const maxIn = Math.max(1, ...fl.map(p => p.flows.income + (p.flows.transferIn || 0))), maxOut = Math.max(1, ...fl.map(p => p.flows.bill + p.flows.plan + p.flows.planned + p.flows.daily + (p.flows.transferOut || 0)));
         const y2base = TOP + H1 + GAP, ztop = maxIn / (maxIn + maxOut), y0 = y2base + H2 * ztop, unit = H2 / (maxIn + maxOut);
         let g = '';
         t1.forEach(v => { g += `<line class="${v === 0 ? 'zero' : 'grid'}" x1="${L}" x2="${W - R}" y1="${y1(v)}" y2="${y1(v)}"/><text x="${L - 5}" y="${y1(v) + 3}" text-anchor="end">${money(v, true)}</text>`; });
@@ -825,13 +872,13 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             if (!p.flows) return;
             const f = p.flows; let up = 0, down = 0;
             const bar = (v, col, dirUp) => { if (v <= 0) return; const h = Math.max(1, v * unit); const yy = dirUp ? y0 - up - h : y0 + down; g += `<rect x="${cx(i) - bw / 2}" y="${yy}" width="${bw}" height="${h}" fill="${col}" fill-opacity="0.9"/>`; if (dirUp) up += h; else down += h; };
-            bar(f.income, FLOW.income[1], true);
-            ['daily', 'bill', 'plan', 'planned'].forEach(kd => bar(f[kd], FLOW[kd][1], false));
+            bar(f.income, FLOW.income[1], true); bar(f.transferIn, FLOW.transferIn[1], true);
+            ['daily', 'bill', 'plan', 'planned', 'transferOut'].forEach(kd => bar(f[kd], FLOW[kd][1], false));
         });
-        g += `<text x="${L + 6}" y="${y0 + 4}" style="font-style:italic">Past money in and out will show here once your statements are read.</text>`;
+        if (cfg.monthEnd && !(S.history && S.history.has_checking)) g += `<text x="${L + 6}" y="${y0 + 4}" style="font-style:italic">Past money in and out will show here once your statements are read.</text>`;
         const ti = pts.findIndex(p => p.k === 0);
         g += `<line x1="${cx(ti)}" x2="${cx(ti)}" y1="${TOP}" y2="${y2base + H2}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/>`;
-        pts.forEach((p, i) => { if (i % 10 === 0 || i === 30) g += `<text class="${p.k === 0 ? 'today' : ''}" x="${cx(i)}" y="${H - 6}" text-anchor="middle">${p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' })}</text>`; });
+        pts.forEach((p, i) => { if (i % 10 === 0 || i === pts.length - 1) g += `<text class="${p.k === 0 ? 'today' : ''}" x="${cx(i)}" y="${H - 6}" text-anchor="middle">${p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' })}</text>`; });
         g += pts.map((p, i) => `<rect class="hit" data-i="${i}" x="${L + slot * i}" y="${TOP}" width="${slot}" height="${H - TOP - LAB}"/>`).join('');
         const old = wrap.querySelector('svg'); if (old) old.remove();
         wrap.insertAdjacentHTML('afterbegin', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cash balance and daily money in and out, 30 days back and 30 ahead">${g}</svg>`);
@@ -839,19 +886,20 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             el.addEventListener('mouseenter', () => {
                 const p = pts[+el.dataset.i], f = p.flows;
                 let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'actual' ? 'entered' : p.kind === 'est' ? 'estimated' : 'projected'}</div>`;
-                if (p.cash !== null) h += `<div><span class="sw" style="background:${colOf(p.cash)}"></span>Cash <b>${money(p.cash)}</b></div>`;
+                if (p.cash !== null) h += `<div><span class="sw" style="background:${colOf(p.cash)}"></span>${cfg.rel ? 'Change in cash' : 'Cash'} <b>${money(p.cash)}</b></div>`;
                 if (p.plan !== null && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
-                if (f) { f.items.forEach(([kd, label, amt]) => { h += `<div><span class="sw" style="background:${FLOW[kd][1]}"></span>${esc(label)} <b>${kd === 'income' ? '+' : '−'}${money(amt)}</b></div>`; }); if (f.daily) h += `<div><span class="sw" style="background:${FLOW.daily[1]}"></span>Everyday <b>−${money(f.daily)}</b></div>`; }
+                if (f) { f.items.forEach(([kd, label, amt]) => { h += `<div><span class="sw" style="background:${FLOW[kd][1]}"></span>${esc(label)} <b>${kd === 'income' || kd === 'transferIn' ? '+' : '−'}${money(amt)}</b></div>`; }); if (f.daily) h += `<div><span class="sw" style="background:${FLOW.daily[1]}"></span>Everyday <b>−${money(f.daily)}</b></div>`; }
                 tip.innerHTML = h; tip.classList.add('on');
                 const wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect(), left = er.left - wr.left + er.width / 2;
                 tip.style.left = Math.max(0, Math.min(wr.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px'; tip.style.top = '4px';
             });
             el.addEventListener('mouseleave', () => tip.classList.remove('on'));
         });
-        $('leg1').innerHTML = Object.keys(FLOW).map(k => `<span class="item"><span class="sw" style="background:${FLOW[k][1]}"></span>${FLOW[k][0]}</span>`).join('')
-            + `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--orange)"></span>Cash balance</span>`
+        const used = Object.keys(FLOW).filter(k => k !== 'transferOut' && (cfg.monthEnd ? !['transferIn'].includes(k) || pts.some(p => p.flows && p.flows.transferIn) : pts.some(p => p.flows && (p.flows[k] || (k === 'transferIn' && p.flows.transferOut)))));
+        $(cfg.legId).innerHTML = used.map(k => `<span class="item"><span class="sw" style="background:${FLOW[k][1]}"></span>${FLOW[k][0]}</span>`).join('')
+            + `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--orange)"></span>${cfg.rel ? 'Change in cash' : 'Cash balance'}</span>`
             + (anyPlan ? '<span class="item"><span class="ln"></span>Cash with planned spending</span>' : '');
-        drawMonthEnd();
+        if (cfg.monthEnd) drawMonthEnd();
     }
     // At each month's end: what came in, what went out, and the extra income that month would need so the debt
     // reaches zero by Dec 31 on a straight line from today. Cash on hand and savings are left out on purpose.
@@ -903,6 +951,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             const d = await call('');
             if (!first && (root.activeElement || planTimer)) return;
             take(d);
+            try { S.history = await call('/history?days=30'); } catch (e) { S.history = null; }
             if (first) selDay = TODAY;
             drawFiles(); drawPlans(); drawAssume(); refresh(first);
         } catch (e) {

@@ -1797,6 +1797,18 @@ app.get('/api/companies/:subdomain/users/:slug/finance', (req, res) => {
   res.json({ today, from, entries, plan: financePlanOf(user.id), tip: tipOut(tip) || null, statements: statements.map(statementOut) });
 });
 
+// Actual money in and out of checking over the last N days, read from the statements he dropped.
+const statementsLib = require('./statements');
+app.get('/api/companies/:subdomain/users/:slug/finance/history', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const today = todayKeyFor(req);
+  const days = Math.min(120, Math.max(1, parseInt(req.query.days, 10) || 30));
+  const files = queryAll('SELECT file FROM finance_statements WHERE user_id = ? ORDER BY id', [user.id]);
+  const rows = statementsLib.loadRows(STATEMENT_DIR, files);
+  res.json({ today, statements: files.length, ...statementsLib.history(rows, addDays(today, -(days - 1)), today) });
+});
+
 // One day's balances. null or '' clears a field; days after today are refused.
 app.put('/api/companies/:subdomain/users/:slug/finance/entries/:day', (req, res) => {
   const user = healthUser(req, res);
