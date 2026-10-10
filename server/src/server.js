@@ -1709,6 +1709,15 @@ app.get('/api/companies/:subdomain/users/:slug/health', (req, res) => {
 // Upsert one day. Body carries any subset of the measures; null or '' clears
 // that measure for the day (an entry you didn't make must not read as 0
 // steps — absence is the honest value). Days after today are refused.
+// The health targets the card grades against.
+app.put('/api/companies/:subdomain/users/:slug/health/targets', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const b = req.body || {}, cur = healthTargetsOf(user.id), out = {};
+  for (const k of Object.keys(HEALTH_TARGET_DEFAULTS)) { const v = financeNum(b[k] === undefined ? cur[k] : b[k], 0, 1e6); out[k] = v === null ? cur[k] : (k === 'weight' ? v : Math.round(v)); }
+  runSql(`INSERT INTO health_targets (user_id, data, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, [user.id, JSON.stringify(out), new Date().toISOString()]);
+  res.json(out);
+});
 app.put('/api/companies/:subdomain/users/:slug/health/:day', (req, res) => {
   const user = healthUser(req, res);
   if (!user) return;
@@ -1922,6 +1931,151 @@ app.put('/api/companies/:subdomain/users/:slug/finance/plan', (req, res) => {
   runSql(`INSERT INTO finance_plan (user_id, data, updated_at) VALUES (?, ?, ?)
           ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, [user.id, data, new Date().toISOString()]);
   res.json({ assume, bills, planned, goals, incomes, cards });
+});
+
+// ---------- the Sunday report card (2026-10-10) ----------
+// Kevin: "a Sunday morning report card for me to review", A to F, for the health pane and the finance pane.
+// A week is Sunday to Saturday; the card grades the seven days ending on a Saturday and is read on Sunday
+// morning. Every line is a letter from a ratio against a target: health targets live in health_targets (steps a
+// day, a weight, gym and yoga days a week); finance targets are the plan's own numbers (everyday spending a
+// day, the straight line to debt zero on Dec 31, the monthly move to savings). A line the data cannot support
+// is "I" (incomplete, with the reason) and does not count toward the pane's grade; the pane's grade is the
+// mean of its lines on the 4-point scale, rounded. Nothing is stored but the targets and Tom's one note per
+// pane per week (report_notes); the grades are computed from the data every time, so a late statement or a
+// corrected entry regrades the week.
+const HEALTH_TARGET_DEFAULTS = { steps: 7000, weight: 0, gym: 3, yoga: 3 };
+const GPA = { A: 4, B: 3, C: 2, D: 1, F: 0 };
+const letterFor = (ratio, cuts) => ratio >= cuts[0] ? 'A' : ratio >= cuts[1] ? 'B' : ratio >= cuts[2] ? 'C' : ratio >= cuts[3] ? 'D' : 'F';
+const downLetter = (g, n) => { const order = ['A', 'B', 'C', 'D', 'F']; return order[Math.min(4, order.indexOf(g) + n)]; };
+const overallOf = (lines) => { const g = lines.filter(l => GPA[l.grade] !== undefined); if (!g.length) return 'I'; return ['F', 'D', 'C', 'B', 'A'][Math.round(g.reduce((s, l) => s + GPA[l.grade], 0) / g.length)]; };
+const mean = (xs) => xs.length ? xs.reduce((a, b) => a + b, 0) / xs.length : null;
+const dollars = (v) => '$' + Math.round(Math.abs(v)).toLocaleString('en-US');
+function healthTargetsOf(userId) {
+  const r = queryOne('SELECT data FROM health_targets WHERE user_id = ?', [userId]);
+  let d = {}; try { d = r ? JSON.parse(r.data) : {}; } catch (e) { d = {}; }
+  return Object.assign({}, HEALTH_TARGET_DEFAULTS, d);
+}
+// The most recent completed week: the Saturday on or before yesterday.
+const lastSaturday = (today) => addDays(today, -(new Date(today + 'T00:00:00Z').getUTCDay() + 1));
+
+function healthCard(userId, weekEnd, targets) {
+  const start = addDays(weekEnd, -6), prevStart = addDays(start, -7);
+  const E = {};
+  for (const r of queryAll('SELECT day, measure, value FROM health_entries WHERE user_id = ? AND day >= ? AND day <= ?', [userId, prevStart, weekEnd])) (E[r.day] = E[r.day] || {})[r.measure] = r.value;
+  const week = [], prev = [];
+  for (let d = prevStart; d <= weekEnd; d = addDays(d, 1)) (d >= start ? week : prev).push(E[d] || {});
+  const lines = [];
+  const steps = week.map(e => e.steps).filter(v => typeof v === 'number');
+  if (steps.length < 4) lines.push({ key: 'steps', label: 'Steps', grade: 'I', value: steps.length ? Math.round(mean(steps)) : null, target: targets.steps, note: `${steps.length} of 7 days logged; four are needed` });
+  else { const avg = Math.round(mean(steps)); lines.push({ key: 'steps', label: 'Steps', grade: letterFor(avg / targets.steps, [1, 0.85, 0.7, 0.55]), value: avg, target: targets.steps, note: `${avg.toLocaleString('en-US')} a day over ${steps.length} days, against ${targets.steps.toLocaleString('en-US')}` }); }
+  const w1 = week.map(e => e.weight).filter(v => typeof v === 'number'), w0 = prev.map(e => e.weight).filter(v => typeof v === 'number');
+  if (w1.length < 2 || !w0.length) lines.push({ key: 'weight', label: 'Weight', grade: 'I', value: w1.length ? Math.round(mean(w1) * 10) / 10 : null, target: targets.weight || null, note: w1.length < 2 ? `${w1.length} weigh-in${w1.length === 1 ? '' : 's'} this week; two are needed` : 'nothing to compare with last week' });
+  else {
+    const m1 = mean(w1), m0 = mean(w0), delta = m1 - m0;
+    const grade = targets.weight > 0 && m1 <= targets.weight ? 'A' : delta <= -0.5 ? 'A' : delta <= -0.2 ? 'B' : delta < 0.2 ? 'C' : delta < 1 ? 'D' : 'F';
+    lines.push({ key: 'weight', label: 'Weight', grade, value: Math.round(m1 * 10) / 10, target: targets.weight || null, note: `${m1.toFixed(1)} on average, ${Math.abs(delta) < 0.05 ? 'level with' : (delta < 0 ? 'down ' : 'up ') + Math.abs(delta).toFixed(1) + ' from'} last week${targets.weight > 0 && m1 <= targets.weight ? ', at the goal' : ''}` });
+  }
+  const anyLogged = week.some(e => Object.keys(e).length);
+  for (const k of ['gym', 'yoga']) {
+    const n = week.filter(e => e[k] === 1).length, t = targets[k] || 0;
+    const grade = t <= 0 || !anyLogged ? 'I' : n === 0 ? 'F' : letterFor(n / t, [1, 0.66, 0.33, 0.01]);
+    lines.push({ key: k, label: k === 'gym' ? 'Gym' : 'Yoga', grade, value: n, target: t || null, note: t <= 0 ? 'no weekly target set' : !anyLogged ? 'nothing logged this week' : `${n} of ${t} days` });
+  }
+  const logged = week.filter(e => Object.keys(e).length).length;
+  lines.push({ key: 'logged', label: 'Logged', grade: logged >= 7 ? 'A' : logged === 6 ? 'B' : logged === 5 ? 'C' : logged === 4 ? 'D' : logged === 0 ? 'I' : 'F', value: logged, target: 7, note: logged ? `${logged} of 7 days have an entry` : 'nothing logged this week' });
+  return { grade: overallOf(lines), lines };
+}
+
+// Everyday spending is what the daily-spend assumption covers: not bills, medical, taxes, travel (a trip is its
+// own decision) or dad (his father's care, frequent and irregular), and not income.
+const NOT_EVERYDAY = new Set(['income', 'bills', 'medical', 'taxes', 'travel', 'dad']);
+function financeCard(userId, weekEnd, today, plan, rows, overrides) {
+  const start = addDays(weekEnd, -6), A = plan.assume || {};
+  const lines = [];
+  // what the statements reach: the newest row per account that has ever been uploaded
+  const last = {}; for (const r of rows) if (!last[r.acct] || r.date > last[r.acct]) last[r.acct] = r.date;
+  const reach = Object.keys(last).length ? Object.values(last).sort()[0] : null;
+  const covered = !!reach && reach >= weekEnd;
+  const coverNote = reach ? `statements reach ${reach}; drop the newer exports and this regrades` : 'no statements yet';
+  // 1. everyday spending against the budget
+  const appleCats = new Map(rows.filter(r => r.acct === 'apple' && r.appleCategory).map(r => [r.date + '|' + r.desc + '|' + r.amount.toFixed(2), r.appleCategory]));
+  const h = statementsLib.history(rows, start, weekEnd, appleCats, overrides);
+  let spent = 0; for (const d of Object.keys(h.days || {})) if (d >= start && d <= weekEnd) for (const [cat, amt] of Object.entries(h.days[d].spend || {})) if (!NOT_EVERYDAY.has(cat)) spent += amt;
+  spent = Math.round(spent);
+  const budget = Math.round((A.spend || 0) * 7);
+  if (!budget) lines.push({ key: 'spend', label: 'Everyday spending', grade: 'I', value: spent, target: null, note: 'no everyday-spending assumption set' });
+  else if (!covered) lines.push({ key: 'spend', label: 'Everyday spending', grade: 'I', value: spent, target: budget, note: `${dollars(spent)} so far of ${dollars(budget)}; ${coverNote}` });
+  else { const r = spent / budget; lines.push({ key: 'spend', label: 'Everyday spending', grade: r <= 1 ? 'A' : r <= 1.15 ? 'B' : r <= 1.3 ? 'C' : r <= 1.5 ? 'D' : 'F', value: spent, target: budget, note: `${dollars(spent)} against ${dollars(budget)} for the week` }); }
+  // 2. debt against the straight line to zero on Dec 31
+  const entries = queryAll('SELECT day, cash, savings, debt FROM finance_entries WHERE user_id = ? AND day <= ? ORDER BY day', [userId, weekEnd]);
+  const at = (d, f) => { let v = null, vd = null; for (const e of entries) if (e.day <= d && typeof e[f] === 'number') { v = e[f]; vd = e.day; } return [v, vd]; };
+  const [debtNow, debtDay] = at(weekEnd, 'debt');
+  const firstDebt = entries.find(e => typeof e.debt === 'number');
+  const yearEnd = `${weekEnd.slice(0, 4)}-12-31`;
+  if (debtNow === null || debtDay < start) lines.push({ key: 'debt', label: 'Debt', grade: 'I', value: debtNow, target: null, note: debtNow === null ? 'no debt balance entered' : `last debt balance entered ${debtDay}; enter one in the week` });
+  else if (debtNow <= 0.5) lines.push({ key: 'debt', label: 'Debt', grade: 'A', value: 0, target: 0, note: 'debt free' });
+  else {
+    const startDay = firstDebt.day, debtStart = A.debtStart || firstDebt.debt;
+    const total = Math.max(1, Math.round((Date.parse(yearEnd) - Date.parse(startDay)) / 86400000)), gone = Math.min(total, Math.max(0, Math.round((Date.parse(weekEnd) - Date.parse(startDay)) / 86400000)));
+    const expected = Math.max(0, debtStart * (1 - gone / total)), gap = debtNow - expected, g = gap / debtStart;
+    lines.push({ key: 'debt', label: 'Debt', grade: g <= 0 ? 'A' : g <= 0.05 ? 'B' : g <= 0.1 ? 'C' : g <= 0.2 ? 'D' : 'F', value: Math.round(debtNow), target: Math.round(expected), note: `${dollars(debtNow)} against ${dollars(expected)} on the line to zero by Dec 31 (${gap <= 0 ? 'ahead by ' + dollars(-gap) : 'behind by ' + dollars(gap)})` });
+  }
+  // 3. savings: the week's move against the monthly target, or its direction
+  const [savNow, savDay] = at(weekEnd, 'savings'), [savThen] = at(addDays(start, -1), 'savings');
+  if (savNow === null || savThen === null || savDay < start) lines.push({ key: 'savings', label: 'Savings', grade: 'I', value: savNow, target: null, note: savNow === null ? 'no savings balance entered' : savThen === null ? 'no earlier savings balance to compare with' : `last savings balance entered ${savDay}` });
+  else {
+    const change = savNow - savThen, weekly = (A.saveAdd || 0) * 12 / 52;
+    const grade = weekly > 0 ? (change <= 0 ? 'F' : letterFor(change / weekly, [1, 0.75, 0.5, 0.001])) : change >= 100 ? 'A' : change > 5 ? 'B' : change >= -5 ? 'C' : change > -100 ? 'D' : 'F';
+    lines.push({ key: 'savings', label: 'Savings', grade, value: Math.round(savNow), target: weekly > 0 ? Math.round(weekly) : null, note: `${change > 5 ? 'up ' + dollars(change) : change < -5 ? 'down ' + dollars(change) : 'unchanged'} this week${weekly > 0 ? ', against ' + dollars(weekly) + ' a week' : ''}` });
+  }
+  // 4. interest: any interest charged on a card this week is an F (never a balance carried)
+  const interest = rows.filter(r => r.acct !== 'becu_checking' && r.date >= start && r.date <= weekEnd && r.amount < 0 && /interest|finance charge/i.test(r.desc)).reduce((s, r) => s - r.amount, 0);
+  if (!covered) lines.push({ key: 'interest', label: 'Interest', grade: 'I', value: Math.round(interest), target: 0, note: coverNote });
+  else lines.push({ key: 'interest', label: 'Interest', grade: interest > 0 ? 'F' : 'A', value: Math.round(interest), target: 0, note: interest > 0 ? `${dollars(interest)} of card interest this week` : 'no card interest this week' });
+  // 5. housekeeping: balances entered, statements current, questions answered
+  const full = entries.filter(e => e.day >= start && e.day <= weekEnd && typeof e.cash === 'number' && typeof e.savings === 'number' && typeof e.debt === 'number').length;
+  let grade = full >= 3 ? 'A' : full === 2 ? 'B' : full === 1 ? 'C' : 'F';
+  const notes = [`balances entered on ${full} day${full === 1 ? '' : 's'}`];
+  const due = statementsDue(userId, plan, today).filter(x => x.due && x.days_since >= 3);
+  if (due.length) { grade = downLetter(grade, due.length); notes.push(`${due.length} statement${due.length === 1 ? '' : 's'} overdue (${due.map(x => x.name).join(', ')})`); }
+  const stale = queryAll('SELECT id FROM finance_questions WHERE user_id = ? AND answer IS NULL AND created_at <= ?', [userId, addDays(today, -3) + ' 23:59:59']).length;
+  if (stale) { grade = downLetter(grade, 1); notes.push(`a question from Tom has waited over three days`); }
+  lines.push({ key: 'housekeeping', label: 'Housekeeping', grade: entries.length ? grade : 'I', value: full, target: 3, note: entries.length ? notes.join('; ') : 'no balances entered yet' });
+  return { grade: overallOf(lines), lines };
+}
+
+function reportFor(userId, today, weekEnd) {
+  const plan = financePlanOf(userId), targets = healthTargetsOf(userId);
+  const files = queryAll('SELECT file FROM finance_statements WHERE user_id = ? ORDER BY id', [userId]);
+  const rows = statementsLib.loadRows(STATEMENT_DIR, files);
+  const overrides = new Map(queryAll('SELECT merchant, category FROM finance_categories WHERE user_id = ?', [userId]).map(r => [r.merchant, r.category]));
+  const notes = {}; for (const n of queryAll('SELECT pane, body FROM report_notes WHERE user_id = ? AND week_ending = ?', [userId, weekEnd])) notes[n.pane] = n.body;
+  const history = [];
+  for (let i = 1; i <= 8; i++) { const w = addDays(weekEnd, -7 * i); history.unshift({ week_ending: w, health: healthCard(userId, w, targets).grade, finance: financeCard(userId, w, today, plan, rows, overrides).grade }); }
+  const isSunday = new Date(today + 'T00:00:00Z').getUTCDay() === 0;
+  return { today, week_start: addDays(weekEnd, -6), week_ending: weekEnd, is_sunday: isSunday, due: isSunday && weekEnd === addDays(today, -1) && !(notes.health && notes.finance),
+    health: Object.assign(healthCard(userId, weekEnd, targets), { targets }), finance: financeCard(userId, weekEnd, today, plan, rows, overrides), notes, history };
+}
+app.get('/api/companies/:subdomain/users/:slug/report', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const today = todayKeyFor(req);
+  let weekEnd = /^\d{4}-\d{2}-\d{2}$/.test(String(req.query.week || '')) ? req.query.week : lastSaturday(today);
+  if (new Date(weekEnd + 'T00:00:00Z').getUTCDay() !== 6) return res.status(400).json({ error: 'week must be a Saturday (the week ends on it)' });
+  if (weekEnd >= today) weekEnd = lastSaturday(today);
+  res.json(reportFor(user.id, today, weekEnd));
+});
+// Tom's note on a pane's week, one per pane per week (replaced wholesale).
+app.put('/api/companies/:subdomain/users/:slug/report/notes', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const today = todayKeyFor(req), b = req.body || {};
+  const pane = String(b.pane || ''), body = String(b.body || '').trim().slice(0, 600);
+  if (!['health', 'finance'].includes(pane)) return res.status(400).json({ error: 'pane must be health or finance' });
+  if (!body) return res.status(400).json({ error: 'body is required' });
+  const weekEnd = /^\d{4}-\d{2}-\d{2}$/.test(String(b.week_ending || '')) ? b.week_ending : lastSaturday(today);
+  runSql(`INSERT INTO report_notes (user_id, week_ending, pane, body, created_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, week_ending, pane) DO UPDATE SET body = excluded.body, created_at = excluded.created_at`, [user.id, weekEnd, pane, body, new Date().toISOString()]);
+  res.json({ week_ending: weekEnd, pane, body });
 });
 
 // Tom's one row. A new tip replaces the one on show; the older ones stay, with

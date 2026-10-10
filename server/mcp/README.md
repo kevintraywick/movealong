@@ -67,6 +67,7 @@ sends one — Claude Code on the Mac runs both; the MoveIt server can't reach Me
 | `add_note` | append to the task page's note feed |
 | `send_note` / `list_notes` | a free-standing note to the Notes page (`/notes`) — a quote, an idea, a feature request; not attached to any task |
 | `get_lists` / `create_list` / `add_list_items` / `put_list_on_board` | the Lists page — make a list (with items) from the phone, add to it, drop a copy on a day |
+| `get_report` / `grade_week` / `report_recipe` | the Sunday report card: the board's A–F grades for the health and finance panes (lines, targets, eight weeks of letters); Tom writes one note per pane on Sunday morning |
 | `get_finance` / `finance_history` / `ask_finance` / `log_finance` / `post_finance_tip` / `finance_recipe` | the finance pane — balances, plan (goals, line of credit, bills), recent tips with Kevin's answers, statements; `finance_history` is the habits digest read from the statements (months, shares, accounts, recent days); Tom writes the one tip-or-alert row and asks questions (`ask_finance`: number into an assumption, yes/no, one line, or what a charge was) that Kevin answers on the NEEDS row |
 | `set_results` | write the Results (and/or Background) pane |
 | `add_step` / `tick_step` / `promote_step` | steps under a task |

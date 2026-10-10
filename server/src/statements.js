@@ -88,7 +88,9 @@ const CAT_RE = {
   bills: /tmobile|t-mobile|visible|urban storage|west ky|dynamix|anthropic|claude|google|apple services|apple\.com|amazon prime|midjourney|elevenlabs|github|insurance|annual fee|netflix|spotify|hover|obsidian|storage|fiber|internet|utility|electric|water|gym/i
 };
 const APPLE_CAT = { restaurants: 'dining', groceries: 'groceries', transportation: 'travel', health: 'medical', 'medical': 'medical' };
-const KNOWN_CATS = ['income', 'taxes', 'medical', 'bills', 'groceries', 'dining', 'travel', 'shopping', 'entertainment', 'other'];
+// dad (2026-10-10): his father's care, frequent and irregular; which merchants are dad is learned per user
+// (finance_categories), never a rule here.
+const KNOWN_CATS = ['income', 'taxes', 'medical', 'bills', 'groceries', 'dining', 'travel', 'shopping', 'entertainment', 'dad', 'other'];
 function category(r, appleCategory, overrides) {
   if (overrides && overrides.size) { const o = overrides.get(merchantKey(r.desc)); if (o) return o; }
   for (const k of ['taxes', 'medical', 'bills', 'groceries', 'dining', 'travel', 'shopping']) if (CAT_RE[k].test(r.desc)) return k;

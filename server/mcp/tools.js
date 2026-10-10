@@ -252,6 +252,23 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     inputSchema: {}
   }, async () => text(FINANCE_RECIPE));
 
+  // The Sunday report card (2026-10-10): the board grades the week; Tom writes one note per pane.
+  server.registerTool('get_report', {
+    title: 'Read the week\'s report card',
+    description: 'The report card for the most recent completed week (Sunday to Saturday), or the week ending on a given Saturday: for the health pane and the finance pane, an A–F grade and the lines behind it (each with its letter, the number, the target and a plain note; "I" = the data could not support a grade, and the note says why), the health targets, the last eight weeks\' letters (history), your notes for the week if written (notes.health, notes.finance), and due: true when today is Sunday and a note is still missing.',
+    inputSchema: { week: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional().describe('The Saturday the week ends on; default the most recent completed week') }
+  }, async ({ week }) => text(await api(`${me}/report${week ? '?week=' + week : ''}`)));
+  server.registerTool('grade_week', {
+    title: 'Write the report card note',
+    description: 'Your one note under a pane\'s report card for the week: what drove the grade and the one thing to do differently this week. Under 400 characters. pane is health or finance; week_ending defaults to the most recent completed week. Replaces the note for that pane and week.',
+    inputSchema: { pane: z.enum(['health', 'finance']), body: z.string().min(1), week_ending: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional() }
+  }, async ({ pane, body, week_ending }) => text(await api(`${me}/report/notes`, { method: 'PUT', body: { pane, body, week_ending } })));
+  server.registerTool('report_recipe', {
+    title: 'How to write the Sunday report card notes',
+    description: 'The steps for the two notes under the Sunday report cards.',
+    inputSchema: {}
+  }, async () => text(REPORT_RECIPE));
+
   server.registerTool('set_results', {
     title: 'Write a task\'s results',
     description: 'Set the Results pane on the task page (replaces). Optionally the Background too. Markdown-ish plain text; URLs and image URLs render.',
@@ -603,6 +620,20 @@ export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance p
    - what a charge was (kind category) when a merchant that lands in "other" or looks wrongly placed carries real money ($50 or more, or repeats): pass its merchant key from finance_history and the categories you think fit (income, taxes, medical, bills, groceries, dining, travel, shopping, entertainment, other). He can type his own; a new word from him is a category from then on.
    Plain words, under 160 characters, one thing per question. Never ask what the pane already asks itself (missing balances).`;
 
+// The Sunday report card (2026-10-10). The board computes the grades from the data against targets he set;
+// Tom's part is one honest note per pane: why, and the one thing for this week.
+export const REPORT_RECIPE = `Write the two notes under Kevin's Sunday report cards with grade_week, one for health and one for finance. Nobody is watching.
+
+1. get_report (the week that just ended), then get_health with weeks=2, get_finance and finance_history for the numbers behind the lines, and get_brief for what he has told you. The grades are the board's, computed from his data against his targets; do not argue with them or restate them, he can see the letters.
+
+2. For each pane, one note, under 400 characters, two or three sentences, plain words:
+   - what drove the grade: the one or two lines that pulled it up or down, with the number from the card (steps a day, pounds, dollars against the budget, where the debt sits against the line);
+   - the one thing to do differently this week, specific and small enough to do (a day to walk, the card to pay first, the statement to drop, the balance to enter), chosen from his own numbers and habits, never a generic rule;
+   - a line marked I is a data gap: say what to log or upload so next week grades, and say nothing else about it.
+   Mark progress when it is real (a letter up on last week, a target hit); never pad. Keep the three standing finance goals in mind (credit score, no carried card balance, least interest) and his health priorities (he wants considerably more yoga).
+
+3. grade_week pane health, then grade_week pane finance. If get_report already shows a note for a pane this week, leave that pane alone.`;
+
 // The mail strip (2026-09-23). Kevin's rules: unread mail in the inbox only
 // (he tried "unread anywhere" and it surfaced ~200 filtered newsletters), two colours only — blue for "needs
 // me", grey for the rest — and Tom learns from what he does with each sender.
@@ -684,7 +715,7 @@ Tell me in one line how many events you posted and for which days.`;
 const UNATTENDED_RULES = `Rules for an unattended run:
 - Never ask a question and never wait for an answer. If something needs Kevin, it belongs on the strip (attention: true), not in your reply.
 - If a Gmail or Calendar action is denied or fails, report it with finish_inbox_action ok: false (for mail) and carry on. Do not retry it and do not look for another way to do it.
-- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing, marking spam and leaving reply drafts under the recipe are the only Gmail writes. On the board, write only through post_inbox, finish_inbox_action, post_calendar, note_from_mail and post_finance_tip.
+- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing, marking spam and leaving reply drafts under the recipe are the only Gmail writes. On the board, write only through post_inbox, finish_inbox_action, post_calendar, note_from_mail, post_finance_tip, ask_finance and grade_week.
 - \`enabled\` / \`connected\` in post_calendar's reply describe only the secret-address feed. Events you post show on the board regardless; don't mention it.`;
 
 export const HEARTBEAT_RECIPE = `You are Tom, running on a 30-minute heartbeat with nobody watching. Do these in order, then stop.
@@ -698,8 +729,11 @@ ${INBOX_RECIPE}
 C. The finance pane's one row — once a day is plenty; the recipe says when to skip:
 ${FINANCE_RECIPE}
 
+D. On Sunday morning only: call get_report; if it says due: true, follow this recipe, otherwise skip D:
+${REPORT_RECIPE}
+
 ${UNATTENDED_RULES}
-- Finish with one line: how many events you posted, what you did with the mail, and whether you posted a finance tip.`;
+- Finish with one line: how many events you posted, what you did with the mail, whether you posted a finance tip, and whether you wrote the report card notes.`;
 
 // A reload of the board asks for this (POST .../inbox/check; heartbeat.sh
 // polls for the request every minute). Mail only, so the strip refills in a

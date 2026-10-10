@@ -359,6 +359,23 @@ async function initDb() {
       PRIMARY KEY (user_id, merchant)
     );
 
+    -- The Sunday report card (2026-10-10). Grades are computed from the health and
+    -- finance data each time (GET .../report); only the targets the health grades
+    -- are measured against and Tom's one note per pane per week are stored.
+    CREATE TABLE IF NOT EXISTS health_targets (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      data TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+    );
+    CREATE TABLE IF NOT EXISTS report_notes (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      week_ending TEXT NOT NULL,
+      pane TEXT NOT NULL,
+      body TEXT NOT NULL,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, week_ending, pane)
+    );
+
     -- Morning briefing (2026-09-13). Items are posted by the user's own
     -- Claude through the MoveIt server (post_briefing) — mail, calendar,
     -- texts, board, health — one day at a time, replaced wholesale. Weather

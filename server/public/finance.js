@@ -283,6 +283,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 <input type="file" id="pick" multiple accept=".pdf,.csv,.ofx,.qfx" hidden>
             </div>
             <div class="files" id="files"></div>
+            <div id="report"></div>
 
             <div class="boxes" id="boxes"></div>
 
@@ -322,7 +323,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 <div class="note">The projection starts from your last day with cash, savings and debt entered and walks forward a day at a time: income on its days, everyday spending, these bills on their days (one marked <b>pays debt</b> moves cash to the debt instead), interest on the cards (at the blended APR of the cards listed) and the line of credit, the monthly moves into savings and the house fund. On the sweep day, whatever cash sits above the floor goes to the debt, dearest balance first; a day that ends below zero draws the line of credit, the way overdraft cover does. Leave a setting at 0 and it counts for nothing.</div>
             </details>
         </div>`;
-    root.innerHTML = '<style>' + CSS + '</style>' + MARKUP;
+    root.innerHTML = '<style>' + CSS + (window.REPORT_CSS || '') + '</style>' + MARKUP;
     const $ = id => root.getElementById(id);
     const fin = $('fin');
     const syncTheme = () => fin.classList.toggle('dark', document.body.classList.contains('dark'));
@@ -923,11 +924,11 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     // day, not when the card is paid), so card payments are not bars; the cash line still dips when you pay them.
     const CATS = {
         income: ['Income', 'var(--orange)'], medical: ['Medical', 'var(--pink)'], groceries: ['Groceries', '#eda100'], dining: ['Dining', 'var(--violet)'],
-        travel: ['Travel', 'var(--blue)'], bills: ['Bills', '#38bdf8'], shopping: ['Shopping', '#b45309'], entertainment: ['Entertainment', '#0d9488'], taxes: ['Taxes', '#475569'], other: ['Other', '#94a3b8']
+        travel: ['Travel', 'var(--blue)'], bills: ['Bills', '#38bdf8'], shopping: ['Shopping', '#b45309'], entertainment: ['Entertainment', '#0d9488'], dad: ['Dad', '#9f1239'], taxes: ['Taxes', '#475569'], other: ['Other', '#94a3b8']
     };
-    const BUILT_OUT = ['groceries', 'dining', 'travel', 'shopping', 'entertainment', 'bills', 'medical', 'taxes', 'other'];   // nearest the zero line first
+    const BUILT_OUT = ['groceries', 'dining', 'travel', 'shopping', 'entertainment', 'bills', 'medical', 'dad', 'taxes', 'other'];   // nearest the zero line first
     // A category Kevin typed himself gets a colour from this palette, in order of first appearance, and keeps it for the session.
-    const EXTRA_COLOURS = ['#be123c', '#4d7c0f', '#7c3aed', '#a16207', '#0369a1', '#9f1239'];
+    const EXTRA_COLOURS = ['#be123c', '#4d7c0f', '#7c3aed', '#a16207', '#0369a1', '#5b21b6'];
     const extraCats = [];
     const catInfo = k => { if (CATS[k]) return CATS[k]; if (!extraCats.includes(k)) extraCats.push(k); return [k.charAt(0).toUpperCase() + k.slice(1), EXTRA_COLOURS[(extraCats.indexOf(k)) % EXTRA_COLOURS.length]]; };
     // The outgoing categories, in drawing order: the built-ins, then his own words in the order they appeared.
@@ -1215,6 +1216,18 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 <div class="row"><span>Left</span><b>${money(x.surplus)}</b></div>
                 <div class="need ${x.extra > 0.5 ? 'short' : 'ok'}">${x.extra > 0.5 ? `needs +${money(x.extra)}` : 'on track'}</div></div>`).join('') + `</div>`;
     }
+    // The Sunday report card for this pane: the dashboard page owns the component (reportCardHtml, REPORT_CSS);
+    // this pane fetches its own copy of the week and renders the finance half.
+    async function drawReport() {
+        const box = $('report');
+        if (!window.reportCardHtml) { box.innerHTML = ''; return; }
+        try {
+            const R = await call(`/api/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}/report`);
+            const was = box.querySelector('details.rc'), keepOpen = was ? was.open : null;
+            box.innerHTML = window.reportCardHtml('finance', R, esc);
+            if (keepOpen !== null) box.querySelector('details.rc').open = keepOpen;
+        } catch (e) { box.innerHTML = ''; }
+    }
     function refresh(refill) {
         M = model();
         if (refill !== false) fillEntry(); else if (!root.activeElement || !root.activeElement.closest || !root.activeElement.closest('#entry')) fillEntry();
@@ -1242,7 +1255,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             take(d);
             try { S.history = await call('/history?days=' + (HIST_BACK + 1)); } catch (e) { S.history = null; }
             if (first) selDay = TODAY;
-            drawFiles(); drawPlans(); drawAssume(); refresh(first);
+            drawFiles(); drawPlans(); drawAssume(); refresh(first); drawReport();
         } catch (e) {
             if (first) { host.hidden = false; fin.innerHTML = '<div class="empty">Could not open finance: ' + esc(e.message) + '</div>'; }
         }

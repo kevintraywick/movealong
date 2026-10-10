@@ -259,6 +259,7 @@ Which brief lines the model actually applied. Keyed by line text, so an edited l
 
 ## Finance tables (2026-10-09)
 - `finance_entries(user_id, day, cash, savings, debt, invest)` UNIQUE(user_id, day); NULL = not entered.
+- `health_targets(user_id PK, data JSON)` — `{steps, weight, gym, yoga}` the Sunday report card grades health against (2026-10-10). `report_notes(user_id, week_ending, pane, body, created_at; PK user+week+pane)` — Tom's one note per pane per week.
 - `finance_plan(user_id PK, data JSON)` — `{assume, bills, planned, goals, incomes, cards}`: `cards` = one row per card `{label, apr, balance, limit}` (2026-10-10; the pane charges the cards' share of the debt at the balance-weighted APR and shows each card's share of its limit); assumptions (daily spend, card and line-of-credit APRs, the line's cap and drawn balance, the cash floor and sweep day, the savings / car / house goals, debtStart), recurring bills (`debt` = pays the debt pool, `until` ends a payment plan), planned spending, goals in order, incomes.
 - `finance_tips(id, user_id, kind, body, feedback up|no|replaced|NULL, created_at, answered_at)`.
 - `finance_statements(id, user_id, name, size, file)` — the file sits in `statements/` next to the DB.
