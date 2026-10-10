@@ -222,6 +222,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin .entry .state.err { color: #ef4444; width: auto; max-width: 110px; }
 #fin .tiprow.needs { margin-top: 6px; border-style: dashed; background: #f8fafc; color: #475569; }
 #fin .tiprow.needs .chip { color: #475569; background: #e2e8f0; }
+#fin .tiprow.needs .ask-chip { font-size: 12px; padding: 0 7px; line-height: 16px; }   /* a lone ? (Kevin, 2026-10-10: "instead of needs, use a ?") */
 #fin .ask { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 #fin .ask .money { display: inline-block; width: 96px; }
 #fin .ask .money i { position: absolute; left: 7px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 12px; color: #94a3b8; pointer-events: none; }
@@ -621,7 +622,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     function drawNeeds() {
         const row = $('needs'), list = M ? needs() : [];
         row.hidden = !list.length;
-        row.innerHTML = list.length ? `<span class="chip">NEEDS</span><div class="txt">${list.map(askHtml).join('')}</div>` : '';
+        row.innerHTML = list.length ? `<span class="chip ask-chip" title="Something the pane or Tom needs from you">?</span><div class="txt">${list.map(askHtml).join('')}</div>` : '';
         row.querySelectorAll('[data-key]').forEach(inp => {
             const commit = () => { const v = parseMoney(inp.value); if (v === null) return; S.assume[inp.dataset.key] = v; persist(); say('saved'); refresh(false); drawAssume(); };
             inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
