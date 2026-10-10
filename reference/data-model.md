@@ -262,3 +262,5 @@ Which brief lines the model actually applied. Keyed by line text, so an edited l
 - `finance_plan(user_id PK, data JSON)` — `{assume, bills, planned, goals, incomes}`: assumptions (daily spend, card and line-of-credit APRs, the line's cap and drawn balance, the cash floor and sweep day, the savings / car / house goals, debtStart), recurring bills (`debt` = pays the debt pool, `until` ends a payment plan), planned spending, goals in order, incomes.
 - `finance_tips(id, user_id, kind, body, feedback up|no|replaced|NULL, created_at, answered_at)`.
 - `finance_statements(id, user_id, name, size, file)` — the file sits in `statements/` next to the DB.
+- `finance_questions(id, user_id, kind number|text|yesno|category, prompt, key, merchant, options JSON, answer, created_at, answered_at)` — Tom's questions on the NEEDS row; `answer IS NULL` = waiting.
+- `finance_categories(user_id, merchant, category)` PK(user_id, merchant) — what Kevin said a merchant is; `statements.history()` consults it before its regexes. `merchant` is `merchantKey(desc)`.

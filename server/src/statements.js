@@ -88,12 +88,14 @@ const CAT_RE = {
   bills: /tmobile|t-mobile|visible|urban storage|west ky|dynamix|anthropic|claude|google|apple services|apple\.com|amazon prime|midjourney|elevenlabs|github|insurance|annual fee|netflix|spotify|hover|obsidian|storage|fiber|internet|utility|electric|water|gym/i
 };
 const APPLE_CAT = { restaurants: 'dining', groceries: 'groceries', transportation: 'travel', health: 'medical', 'medical': 'medical' };
-function category(r, appleCategory) {
+const KNOWN_CATS = ['income', 'taxes', 'medical', 'bills', 'groceries', 'dining', 'travel', 'shopping', 'entertainment', 'other'];
+function category(r, appleCategory, overrides) {
+  if (overrides && overrides.size) { const o = overrides.get(merchantKey(r.desc)); if (o) return o; }
   for (const k of ['taxes', 'medical', 'bills', 'groceries', 'dining', 'travel', 'shopping']) if (CAT_RE[k].test(r.desc)) return k;
   if (appleCategory && APPLE_CAT[appleCategory.toLowerCase()]) return APPLE_CAT[appleCategory.toLowerCase()];
   return 'other';
 }
-const merchantKey = (d) => d.toUpperCase().replace(/POS WITHDRAWAL - |EXTERNAL WITHDRAWAL - |PURCHASE AUTHORIZED ON.*/g, '').replace(/CARD ENDING IN \d+/g, '').replace(/[#*]\S*/g, ' ').replace(/\d[\d\-/.]*/g, ' ').replace(/[^A-Z& ]/g, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 3).join(' ');
+const merchantKey = (d) => d.toUpperCase().replace(/POS WITHDRAWAL - |EXTERNAL WITHDRAWAL - |PURCHASE AUTHORIZED ON.*/g, '').replace(/^\s*(SQ|TST|PT|MED|PY|PP|EPC|DD)\s?\*\s?/, '').replace(/CARD ENDING IN \d+/g, '').replace(/[#*]\S*/g, ' ').replace(/\d[\d\-/.]*/g, ' ').replace(/[^A-Z& ]/g, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 3).join(' ');
 
 // What a checking-account line is, for the cash line and the income bars.
 const RE = {
@@ -112,8 +114,8 @@ function label(desc) {
 // label, amount]) so a dip in the cash line has a reason. shares: how his everyday spending splits by category over
 // the last 90 days. months: income, spending by category and card payments for every month the files cover (habits).
 // accounts: first and last date each account's files reach, so a stale statement can be named.
-function history(rows, from, to, appleCats) {
-  appleCats = appleCats || new Map();
+function history(rows, from, to, appleCats, overrides) {
+  appleCats = appleCats || new Map(); overrides = overrides || new Map();
   const months = new Map();
   for (const r of rows) { if (r.amount < 0) { const k = merchantKey(r.desc); if (k) { if (!months.has(k)) months.set(k, new Set()); months.get(k).add(r.date.slice(0, 7)); } } }
   const recurring = (r) => { const k = merchantKey(r.desc), n = (months.get(k) || new Set()).size; return n >= 3 || (n >= 2 && CAT_RE.bills.test(r.desc)); };
@@ -143,10 +145,10 @@ function history(rows, from, to, appleCats) {
     } else if (r.amount > 0) continue;   // a card payment or refund is not spending
     if (r.amount >= 0) continue;
     if (RE.transfer.test(r.desc) || RE.cardpay.test(r.desc)) continue;   // moves between his accounts, card payments
-    const cat = category(r, appleCats.get(r.date + '|' + r.desc + '|' + r.amount.toFixed(2)));
+    const cat = category(r, appleCats.get(r.date + '|' + r.desc + '|' + r.amount.toFixed(2)), overrides);
     const rec = recurring(r), amt = -r.amount;
     const mo = month(r.date); mo.spend += amt; mo.cats[cat] = (mo.cats[cat] || 0) + amt;
-    if (inWindow) { const d = day(r.date); d.spend[cat] = (d.spend[cat] || 0) + amt; if (rec) d.rec[cat] = (d.rec[cat] || 0) + amt; d.items.push([cat, label(r.desc), r2(amt), rec]); }
+    if (inWindow) { const d = day(r.date); d.spend[cat] = (d.spend[cat] || 0) + amt; if (rec) d.rec[cat] = (d.rec[cat] || 0) + amt; d.items.push([cat, label(r.desc), r2(amt), rec, merchantKey(r.desc)]); }
     if (r.date >= shareFrom && r.date <= to && !rec && amt < 250) { share[cat] = (share[cat] || 0) + amt; shareTotal += amt; }
   }
   for (const d of Object.values(days)) { d.net = r2(d.net); d.income = r2(d.income); for (const m of [d.spend, d.rec]) for (const k of Object.keys(m)) m[k] = r2(m[k]); }
@@ -159,4 +161,4 @@ function history(rows, from, to, appleCats) {
   return { from, to, has_checking: any || !!ck, coverage: ck ? { first: ck.first, last: ck.last } : null, accounts, days, shares, months: byMonth };
 }
 
-module.exports = { parseFile, combine, loadRows, history };
+module.exports = { parseFile, combine, loadRows, history, merchantKey, KNOWN_CATS };

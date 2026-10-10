@@ -204,12 +204,13 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
   // Finance (2026-10-09). The pane on the dashboard; Tom writes its one tip-or-alert row.
   server.registerTool('get_finance', {
     title: 'Read the finance pane',
-    description: 'The last 60 days of Kevin\'s four balances (cash, savings, debt, trading), his goals in order (plan.goals), his projection settings (plan.assume: daily spend, card APR, the line of credit\'s APR, limit and drawn balance, the cash floor and sweep day, the savings, car and house goals; plan.bills with "debt" marking a payment plan; plan.incomes; plan.planned), the tip now showing, and the recent tips with his Useful / Not for me answers (read those first: they say what lands), plus the statements he has dropped (fetch one with its id at /api/finance/statements/<id>/file, or use finance_history for the digest).',
+    description: 'The last 60 days of Kevin\'s four balances (cash, savings, debt, trading), his goals in order (plan.goals), his projection settings (plan.assume: daily spend, card APR, the line of credit\'s APR, limit and drawn balance, the cash floor and sweep day, the savings, car and house goals; plan.bills with "debt" marking a payment plan; plan.incomes; plan.planned), the tip now showing, the recent tips with his Useful / Not for me answers (read those first: they say what lands), the questions you asked with his answers (questions: answer null = still waiting), his merchant categories (categories: merchant key to category), plus the statements he has dropped (fetch one with its id at /api/finance/statements/<id>/file, or use finance_history for the digest).',
     inputSchema: {}
   }, async () => {
     const d = await api(`${me}/finance`);
     const tips = await api(`${me}/finance/tips?limit=30`);
-    return text({ ...d, recent_tips: tips, statement_files: d.statements.map(s => ({ ...s, file: `${URL_BASE}/api/finance/statements/${s.id}/file` })) });
+    const questions = await api(`${me}/finance/questions?limit=40`);
+    return text({ ...d, recent_tips: tips, questions, statement_files: d.statements.map(s => ({ ...s, file: `${URL_BASE}/api/finance/statements/${s.id}/file` })) });
   });
 
   server.registerTool('log_finance', {
@@ -228,6 +229,12 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     description: 'Put ONE row on the finance pane: kind "alert" for something dated (a payment due today or tomorrow) or "tip" for a pattern, trend, saving opportunity or a strategy he is not using. Under 300 characters, plain words, no cash-flow arithmetic. Replaces the row now showing.',
     inputSchema: { kind: z.enum(['tip', 'alert']), body: z.string().min(1) }
   }, async ({ kind, body }) => text(await api(`${me}/finance/tips`, { method: 'POST', body: { kind, body } })));
+
+  server.registerTool('ask_finance', {
+    title: 'Ask Kevin a finance question',
+    description: 'Put a question in the NEEDS row of the finance pane; he answers in place and get_finance shows the answer. kind "number" with key fills that assumption when he answers (key is one of the plan.assume names: cardApr, locApr, locCap, locBalance, carGoal, cashFloor, sweepDay, saveGoal, houseGoal, spend); "yesno" gives him two buttons; "text" a one-line box; "category" asks what a charge was: pass merchant (the merchant key, the fifth element of a finance_history item) and options (the categories you think fit; he can also type his own). Under 160 characters, one thing per question, at most six waiting.',
+    inputSchema: { kind: z.enum(['number', 'text', 'yesno', 'category']), prompt: z.string().min(1), key: z.string().optional(), merchant: z.string().optional(), options: z.array(z.string()).optional() }
+  }, async (q) => text(await api(`${me}/finance/questions`, { method: 'POST', body: q })));
 
   server.registerTool('finance_history', {
     title: 'Read what the statements say',
@@ -583,7 +590,14 @@ export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance p
    - Progress worth marking: a goal reached, a month that beat the plan, the debt-free date moving earlier. Say it plainly, with the number.
    - Something you need to know to project well: the APR of a card, what a large one-off charge was, whether a deposit will repeat. Ask for one thing, in one sentence. The pane itself already nags about stale statements and missing balances, so do not.
 
-5. One or two sentences, under 300 characters, plain words, one specific number at most. A tip is an observation and a suggestion, never a lecture. Say which goal it serves when that is not obvious. If there is nothing worth saying, post nothing.`;
+5. One or two sentences, under 300 characters, plain words, one specific number at most. A tip is an observation and a suggestion, never a lecture. Say which goal it serves when that is not obvious. If there is nothing worth saying, post nothing.
+
+6. Questions (ask_finance). The NEEDS row is where you get to know how he handles money, one question at a time. Read get_finance's questions first: never ask again what he has answered, and use the answers in every later tip. Ask when at most one of yours is still waiting, and at most one new question a day:
+   - a number the projection is missing (kind number with its key): a card's APR, a car budget, what the line of credit charges;
+   - why a decision was made (kind text): a large one-off charge, a transfer pattern, a month that broke the pattern. One sentence from him is the answer;
+   - a decision coming up (kind yesno or text): an annual fee about to renew, a 0% plan ending, a card balance about to start costing interest, a subscription he has not used. Ask early enough to matter;
+   - what a charge was (kind category) when a merchant that lands in "other" or looks wrongly placed carries real money ($50 or more, or repeats): pass its merchant key from finance_history and the categories you think fit (income, taxes, medical, bills, groceries, dining, travel, shopping, entertainment, other). He can type his own; a new word from him is a category from then on.
+   Plain words, under 160 characters, one thing per question. Never ask what the pane already asks itself (stale statements, missing balances).`;
 
 // The mail strip (2026-09-23). Kevin's rules: unread mail in the inbox only
 // (he tried "unread anywhere" and it surfaced ~200 filtered newsletters), two colours only — blue for "needs

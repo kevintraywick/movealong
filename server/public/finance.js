@@ -95,20 +95,25 @@
 .stat .v { font-size: 17px; font-weight: 600; margin-top: 2px; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
 .bar { height: 4px; border-radius: 2px; background: #f1f5f9; margin-top: 6px; overflow: hidden; }
 .bar i { display: block; height: 100%; background: #38bdf8; }
-.chart-wrap { position: relative; }
+.chart-wrap { display: flex; align-items: stretch; gap: 10px; }
+.chart-svg { flex: 1; min-width: 0; }
 svg.chart { width: 100%; height: auto; display: block; }
 svg.chart text { font-size: 10px; fill: #94a3b8; font-family: inherit; }
 svg.chart text.today { fill: #0284c7; font-weight: 600; }
 svg.chart .grid { stroke: #f1f5f9; stroke-width: 1; }
 svg.chart .zero { stroke: #cbd5e1; stroke-width: 1; }
 svg.chart .hit { fill: transparent; }
-.tipbox {
-        position: absolute; pointer-events: none; opacity: 0; transition: opacity 0.1s; z-index: 5;
-        background: #0f172a; color: #f1f5f9; border-radius: 8px; padding: 7px 10px; font-size: 11.5px; line-height: 1.5; white-space: nowrap;
-    }
-.tipbox.on { opacity: 1; }
-.tipbox .d { color: #cbd5e1; margin-bottom: 2px; }
-.tipbox .sw { display: inline-block; width: 8px; height: 8px; border-radius: 2px; margin-right: 6px; }
+.tipbox { flex: 0 0 172px; width: 172px; border: 1px solid #f1f5f9; border-radius: 8px; padding: 7px 9px; font-size: 11px; line-height: 1.45; color: #334155; background: #f8fafc; overflow: hidden; }
+.tipbox:empty { visibility: hidden; }
+.tipbox .d { color: #64748b; margin-bottom: 3px; font-weight: 600; }
+.tipbox > div { display: flex; align-items: baseline; gap: 4px; }
+.tipbox > div > b { margin-left: auto; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tipbox > div > span:not(.sw) { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tipbox i { color: #94a3b8; font-style: normal; font-size: 10px; }
+#fin.dark .tipbox { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+#fin.dark .tipbox .d { color: #94a3b8; }
+@media (max-width: 560px) { .chart-wrap { flex-wrap: wrap; } .tipbox { flex-basis: 100%; width: 100%; } }
+.tipbox .sw { display: inline-block; flex-shrink: 0; width: 8px; height: 8px; border-radius: 2px; margin-right: 2px; }
 .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; margin-top: 8px; padding-top: 8px; border-top: 1px solid #f1f5f9; font-size: 11.5px; color: #475569; }
 .legend .item { display: flex; align-items: center; gap: 6px; }
 .legend .sw { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
@@ -163,7 +168,6 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin.dark svg.chart text.today { fill: #38bdf8; }
 #fin.dark .legend { border-top-color: #334155; color: #cbd5e1; }
 #fin.dark .sub { color: #64748b; }
-#fin.dark .tipbox { background: #020617; border: 1px solid #334155; }
 #fin .empty { padding: 26px 0; text-align: center; color: #94a3b8; font-size: 12px; }
 #fin .tiprow.idle .txt { color: #94a3b8; }
 #fin .bill .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
@@ -209,7 +213,33 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin .entry .state.err { color: #ef4444; width: auto; max-width: 110px; }
 #fin .tiprow.needs { margin-top: 6px; border-style: dashed; background: #f8fafc; color: #475569; align-items: flex-start; }
 #fin .tiprow.needs .chip { color: #475569; background: #e2e8f0; margin-top: 2px; }
-#fin .tiprow.needs .txt div + div { margin-top: 3px; }
+#fin .tiprow.needs .txt div + div { margin-top: 5px; }
+#fin .ask { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+#fin .ask .money { display: inline-block; width: 96px; }
+#fin .ask .money i { position: absolute; left: 7px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 12px; color: #94a3b8; pointer-events: none; }
+#fin .ask .money.pct i { left: auto; right: 7px; }
+#fin .ask .money { position: relative; }
+#fin .ask input[type=text] { width: 100%; font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px 3px 16px; background: #fff; color: #0f172a; font-variant-numeric: tabular-nums; }
+#fin .ask .money.pct input[type=text] { padding: 3px 18px 3px 6px; }
+#fin .ask input.line { width: 260px; max-width: 100%; padding: 3px 6px; }
+#fin .ask input[type=text]:focus { outline: none; border-color: #7dd3fc; box-shadow: 0 0 0 2px #e0f2fe; }
+#fin .ask .fb { display: flex; gap: 4px; }
+#fin .ask .fb button, #fin .catrow .fb button { font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #475569; cursor: pointer; }
+#fin .ask .fb button:hover, #fin .catrow .fb button:hover { border-color: #bae6fd; color: #0284c7; }
+#fin .ask .who { font-size: 10px; font-weight: 700; letter-spacing: .05em; color: #0284c7; }
+#fin.dark .ask input[type=text] { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+#fin.dark .ask .fb button, #fin.dark .catrow .fb button { background: #1e293b; border-color: #334155; color: #cbd5e1; }
+#fin .tiprow.catrow { margin-top: 8px; border-style: dashed; background: #f8fafc; color: #475569; align-items: flex-start; }
+#fin .tiprow.catrow .chip { color: #475569; background: #e2e8f0; margin-top: 2px; }
+#fin .catrow .q + .q { margin-top: 6px; padding-top: 6px; border-top: 1px dashed #e2e8f0; }
+#fin .catrow .opts { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; align-items: center; }
+#fin .catrow .opts label { display: flex; align-items: center; gap: 4px; cursor: pointer; }
+#fin .catrow .opts input[type=checkbox] { accent-color: #0ea5e9; margin: 0; }
+#fin .catrow .opts input[type=text] { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 2px 6px; width: 120px; background: #fff; color: #0f172a; }
+#fin.dark .tiprow.catrow { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+#fin.dark .tiprow.catrow .chip { color: #cbd5e1; background: #334155; }
+#fin.dark .catrow .q + .q { border-top-color: #334155; }
+#fin.dark .catrow .opts input[type=text] { background: #0f172a; border-color: #334155; color: #e2e8f0; }
 #fin.dark .tiprow.needs { background: #0f172a; border-color: #334155; color: #cbd5e1; }
 #fin.dark .tiprow.needs .chip { color: #cbd5e1; background: #334155; }
 #fin .ladder { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
@@ -257,6 +287,11 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             <div class="chart-wrap" id="c0wrap"><div class="tipbox" id="tip0"></div></div>
             <div class="legend" id="leg0"></div>
 
+            <div class="sub">Spending <span class="r">what went out, by kind</span></div>
+            <div class="chart-wrap" id="c3wrap"><div class="tipbox" id="tip3"></div></div>
+            <div class="legend" id="leg3"></div>
+            <div class="tiprow catrow" id="catrow" hidden></div>
+
             <div class="sub">Cash <span class="r">30 days back, 30 ahead · what comes in, what goes out</span></div>
             <div class="chart-wrap" id="c1wrap"><div class="tipbox" id="tip1"></div></div>
             <div class="legend" id="leg1"></div>
@@ -293,7 +328,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     const FIELDS = ['cash', 'savings', 'debt', 'invest'];
     const DEFAULT_ASSUME = { income: 0, spend: 0, debtApr: 0, cardApr: 0, locApr: 0, locCap: 0, locBalance: 0, debtStart: 0, carGoal: 0, cashFloor: 0, sweepDay: 0,
         saveAdd: 0, houseAdd: 0, houseGoal: 0, house: 0, saveApy: 0, hysaApy: 0, investReturn: 0, saveGoal: 0 };
-    let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], goals: [], incomes: [], history: null, statements: [], tip: null, nextId: 1 };
+    let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], goals: [], incomes: [], history: null, statements: [], tip: null, questions: [], categories: {}, nextId: 1 };
     function take(d) {
         TODAY = d.today; yearEnd = `${TODAY.slice(0, 4)}-12-31`;
         S.entries = d.entries || {};
@@ -305,6 +340,8 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         S.nextId = S.planned.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
         S.statements = d.statements || [];
         S.tip = d.tip || null;
+        S.questions = d.questions || [];
+        S.categories = d.categories || {};
     }
     const say = (t, bad) => { const el = $('state'); el.textContent = t; el.className = 'state ' + (bad ? 'err' : 'saved'); if (!bad) setTimeout(() => { if (el.textContent === t) el.textContent = ''; }, 1600); };
     let planTimer = null;
@@ -531,30 +568,92 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     // Not Tom's row: these are the pane's own asks, computed from what it can see. A statement older than ten days,
     // balances not entered for three, a card APR of zero while cards carry a balance, a goal without a number.
     const ACCT_NAME = { becu_checking: 'BECU checking', becu_visa: 'BECU Visa', bofa: 'Bank of America', apple: 'Apple Card' };
+    // Each ask is { text } (just words), { text, key, unit } (a number the pane wants, typed straight into that
+    // assumption, like the health pane's boxes) or { q } (one of Tom's questions, answered in place).
     function needs() {
         const out = [], A = S.assume, H = S.history;
+        for (const q of S.questions) if (q.kind !== 'category') out.push({ q });
         const accts = (H && H.accounts) || {};
-        if (!Object.keys(accts).length) out.push('No statements yet. Drop your checking and card exports in the + circle and the past half of the charts fills in.');
+        if (!Object.keys(accts).length) out.push({ text: 'No statements yet. Drop your checking and card exports in the + circle and the past half of the charts fills in.' });
         else for (const k of Object.keys(ACCT_NAME)) {
             const a = accts[k];
-            if (!a) { out.push(`No ${ACCT_NAME[k]} statement yet. Drop one in the + circle.`); continue; }
+            if (!a) { out.push({ text: `No ${ACCT_NAME[k]} statement yet. Drop one in the + circle.` }); continue; }
             const age = diff(a.last, TODAY);
-            if (age > 10) out.push(`Your ${ACCT_NAME[k]} statement ends ${fmtDay(a.last, { month: 'short', day: 'numeric' })}, ${age} days ago. Drop a newer export in the + circle.`);
+            if (age > 10) out.push({ text: `Your ${ACCT_NAME[k]} statement ends ${fmtDay(a.last, { month: 'short', day: 'numeric' })}, ${age} days ago. Drop a newer export in the + circle.` });
         }
         const fullDays = Object.keys(S.entries).filter(d => isFull(S.entries[d]) && d <= TODAY).sort(), lastFull = fullDays[fullDays.length - 1];
-        if (!lastFull) out.push('Enter cash, savings and debt for a day and the projection starts.');
-        else if (diff(lastFull, TODAY) >= 3) out.push(`Balances were last entered ${fmtDay(lastFull, { month: 'short', day: 'numeric' })}. Today’s cash, savings and debt keep the projection honest.`);
+        if (!lastFull) out.push({ text: 'Enter cash, savings and debt for a day and the projection starts.' });
+        else if (diff(lastFull, TODAY) >= 3) out.push({ text: `Balances were last entered ${fmtDay(lastFull, { month: 'short', day: 'numeric' })}. Today’s cash, savings and debt keep the projection honest.` });
         if (!M.empty) {
             const cards = M.base.state.debt - (M.base.state.loc || 0) - planLeft(M.base.date, S.bills);
-            if (cards > 50 && !(A.cardApr || A.debtApr)) out.push(`What APR do your cards charge? With it (under assumptions) the pane can say whether moving a balance to the ${A.locApr ? A.locApr + '% ' : ''}line of credit saves enough to bother.`);
+            if (cards > 50 && !(A.cardApr || A.debtApr) && !S.questions.some(q => q.key === 'cardApr')) out.push({ text: 'What APR do your cards charge? Then the pane can say whether a balance belongs on the line of credit.', key: 'cardApr', unit: '%' });
         }
-        if (S.goals.some(g => !g.done && /\bcar\b/i.test(g.title)) && !A.carGoal) out.push('What would the car cost? A car budget under assumptions puts it on the ladder below.');
-        return out.slice(0, 3);
+        if (S.goals.some(g => !g.done && /\bcar\b/i.test(g.title)) && !A.carGoal && !S.questions.some(q => q.key === 'carGoal')) out.push({ text: 'What would the car cost? That puts it on the ladder below.', key: 'carGoal', unit: '$' });
+        return out.slice(0, 8);
+    }
+    const moneyBox = (unit, attrs) => unit === '%' ? `<span class="money pct"><input type="text" inputmode="decimal" ${attrs}><i>%</i></span>` : `<span class="money"><i>$</i><input type="text" inputmode="decimal" ${attrs}></span>`;
+    function askHtml(n, i) {
+        if (n.q) {
+            const q = n.q, p = `<span class="who" title="Tom asked">TOM</span><span>${esc(q.prompt)}</span>`;
+            if (q.kind === 'number') return `<div class="ask" data-qi="${i}">${p}${moneyBox(/apr|apy|return/i.test(q.key || '') ? '%' : '$', 'data-ans="number"')}</div>`;
+            if (q.kind === 'yesno') return `<div class="ask" data-qi="${i}">${p}<span class="fb"><button data-ans="yes">Yes</button><button data-ans="no">No</button></span></div>`;
+            return `<div class="ask" data-qi="${i}">${p}<input type="text" class="line" data-ans="text" placeholder="One sentence, then Enter"></div>`;
+        }
+        if (n.key) return `<div class="ask" data-ni="${i}"><span>${esc(n.text)}</span>${moneyBox(n.unit, `data-key="${n.key}"`)}</div>`;
+        return `<div>${esc(n.text)}</div>`;
+    }
+    async function answer(q, value) {
+        S.questions = S.questions.filter(x => x.id !== q.id);
+        if (q.kind === 'number' && q.key && Object.prototype.hasOwnProperty.call(DEFAULT_ASSUME, q.key)) { S.assume[q.key] = value; persist(); drawAssume(); }
+        drawNeeds(); drawCatRow();
+        try {
+            await call(`/api/finance/questions/${q.id}`, { method: 'PUT', body: { answer: String(value) } });
+            say('saved');
+            if (q.kind === 'category') { try { S.history = await call('/history?days=' + (HIST_BACK + 1)); } catch (e) { /* keep what we had */ } }
+            refresh(false);
+        } catch (e) { say(e.message || 'not saved', true); }
     }
     function drawNeeds() {
         const row = $('needs'), list = M ? needs() : [];
         row.hidden = !list.length;
-        row.innerHTML = list.length ? `<span class="chip">NEEDS</span><div class="txt">${list.map(t => `<div>${esc(t)}</div>`).join('')}</div>` : '';
+        row.innerHTML = list.length ? `<span class="chip">NEEDS</span><div class="txt">${list.map(askHtml).join('')}</div>` : '';
+        row.querySelectorAll('[data-key]').forEach(inp => {
+            const commit = () => { const v = parseMoney(inp.value); if (v === null) return; S.assume[inp.dataset.key] = v; persist(); say('saved'); refresh(false); drawAssume(); };
+            inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+            inp.addEventListener('change', commit);
+        });
+        row.querySelectorAll('.ask[data-qi]').forEach(el => {
+            const q = list[+el.dataset.qi].q;
+            el.querySelectorAll('button[data-ans]').forEach(b => b.addEventListener('click', () => answer(q, b.dataset.ans)));
+            const inp = el.querySelector('input[data-ans]');
+            if (!inp) return;
+            const commit = () => { const raw = inp.value.trim(); if (!raw) return; if (inp.dataset.ans === 'number') { const v = parseMoney(raw); if (v === null) return; answer(q, v); } else answer(q, raw); };
+            inp.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+            inp.addEventListener('change', commit);
+        });
+    }
+    // Under the spending chart: Tom's "what was this?" questions, one line each, the categories he thinks fit as
+    // ticks plus "other" with a box for Kevin's own word. One tick answers.
+    function drawCatRow() {
+        const row = $('catrow'), qs = S.questions.filter(q => q.kind === 'category');
+        row.hidden = !qs.length;
+        if (!qs.length) { row.innerHTML = ''; return; }
+        row.innerHTML = `<span class="chip">TOM</span><div class="txt">` + qs.map((q, i) => {
+            const opts = (q.options || []).filter(o => o !== 'other');
+            return `<div class="q" data-i="${i}"><div>${esc(q.prompt)}</div><div class="opts">${opts.map(o => `<label><input type="checkbox" data-cat="${esc(o)}">${esc(catInfo(o)[0])}</label>`).join('')}<label><input type="checkbox" data-cat="other">other</label><input type="text" data-other placeholder="your word, then Enter" hidden></div></div>`;
+        }).join('') + '</div>';
+        row.querySelectorAll('.q').forEach(el => {
+            const q = qs[+el.dataset.i], other = el.querySelector('[data-other]');
+            el.querySelectorAll('input[type=checkbox]').forEach(cb => cb.addEventListener('change', () => {
+                if (!cb.checked) return;
+                el.querySelectorAll('input[type=checkbox]').forEach(x => { if (x !== cb) x.checked = false; });
+                if (cb.dataset.cat === 'other') { other.hidden = false; other.focus(); return; }
+                other.hidden = true; answer(q, cb.dataset.cat);
+            }));
+            const commit = () => { const v = other.value.trim().toLowerCase(); if (v) answer(q, v); };
+            other.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); commit(); } });
+            other.addEventListener('change', commit);
+        });
     }
 
     // ---------- the goals ladder ----------
@@ -635,22 +734,17 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         if (M.freeDate && M.freeDate <= pts[pts.length - 1].d) g += `<circle cx="${x(M.freeDate)}" cy="${y(0)}" r="3.5" fill="none" stroke="var(--debtc)" stroke-width="1.5"><title>Debt reaches zero ${fmtDay(M.freeDate, { month: 'short', day: 'numeric' })}</title></circle>`;
         pts.forEach((p, i) => { if (i === 0 || (i % 2 === 1 && x(p.d) - L > 36)) g += `<text class="${i === 0 ? 'today' : ''}" x="${x(p.d)}" y="${H - 6}" text-anchor="middle">${i === 0 ? 'today' : fmtDay(p.d, { month: 'short' })}</text>`; });
         g += pts.map((p, i) => { const x0 = i === 0 ? L : (x(pts[i - 1].d) + x(p.d)) / 2, x1 = i === pts.length - 1 ? W - R : (x(p.d) + x(pts[i + 1].d)) / 2; return `<rect class="hit" data-i="${i}" x="${x0}" y="${TOP}" width="${x1 - x0}" height="${H1}"/>`; }).join('');
-        const old = wrap.querySelector('svg'); if (old) old.remove();
-        wrap.insertAdjacentHTML('afterbegin', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="The year ahead: net, debt and savings against the targets">${g}</svg>`);
-        wrap.querySelectorAll('.hit').forEach(el => {
-            el.addEventListener('mouseenter', () => {
-                const p = pts[+el.dataset.i];
-                let h = `<div class="d">${esc(fmtDay(p.d, { month: 'short', day: 'numeric' }))} · ${p.k === 0 ? 'now' : 'projected'}</div>`
-                    + `<div><span class="sw" style="background:${INK}"></span>Net <b>${money(p.net)}</b></div>`
-                    + `<div><span class="sw" style="background:var(--debtc)"></span>Debt <b>${money(p.debt)}</b>${p.loc > 0.5 ? ` · ${money(p.loc)} on the line of credit` : ''}</div>`
-                    + `<div><span class="sw" style="background:${SAV}"></span>Savings <b>${money(p.savings)}</b>${goal ? (p.savings >= goal ? ' · past the goal' : ` · ${money(goal - p.savings)} to go`) : ''}</div>`;
-                if (anyPlan) h += `<div><span class="sw" style="background:var(--plan)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
-                tip.innerHTML = h; tip.classList.add('on');
-                const wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect(), left = er.left - wr.left + er.width / 2;
-                tip.style.left = Math.max(0, Math.min(wr.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px'; tip.style.top = '4px';
-            });
-            el.addEventListener('mouseleave', () => tip.classList.remove('on'));
-        });
+        putSvg(wrap, `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="The year ahead: net, debt and savings against the targets">${g}</svg>`);
+        hoverTips(wrap, tip, pts, p => {
+            let h = `<div class="d">${esc(fmtDay(p.d, { month: 'short', day: 'numeric' }))} · ${p.k === 0 ? 'now' : 'projected'}</div>`
+                + `<div><span class="sw" style="background:${INK}"></span><span>Net</span><b>${money(p.net)}</b></div>`
+                + `<div><span class="sw" style="background:var(--debtc)"></span><span>Debt</span><b>${money(p.debt)}</b></div>`
+                + (p.loc > 0.5 ? `<div><span></span><span>on the line of credit</span><b>${money(p.loc)}</b></div>` : '')
+                + `<div><span class="sw" style="background:${SAV}"></span><span>Savings</span><b>${money(p.savings)}</b></div>`
+                + (goal ? `<div><span></span><span>${p.savings >= goal ? 'past the goal' : 'to the goal'}</span><b>${p.savings >= goal ? '' : money(goal - p.savings)}</b></div>` : '');
+            if (anyPlan) h += `<div><span class="sw" style="background:var(--plan)"></span><span>With planned spending</span><b>${money(p.plan)}</b></div>`;
+            return h;
+        }, 0);
         const endDebt = pts[pts.length - 1].debt;
         $('leg2').innerHTML = `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:${INK}"></span>Net</span>
             <span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--debtc)"></span>Debt</span>
@@ -817,8 +911,23 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     }
 
     // ---------- glue ----------
+    // The chart's svg sits in its own box so the details panel can stand beside it (2026-10-10, Kevin: the floating
+    // tooltip hid the chart). The panel shows today's day until a day is hovered, and goes back to it after.
+    function putSvg(wrap, html) {
+        let box = wrap.querySelector('.chart-svg');
+        if (!box) { box = document.createElement('div'); box.className = 'chart-svg'; wrap.insertBefore(box, wrap.firstChild); }
+        box.innerHTML = html; return box;
+    }
+    function hoverTips(wrap, tip, pts, html, ti) {
+        const dflt = ti >= 0 ? html(pts[ti]) : '';
+        tip.innerHTML = dflt;
+        wrap.querySelectorAll('.hit').forEach(el => {
+            el.addEventListener('mouseenter', () => { tip.innerHTML = html(pts[+el.dataset.i]); });
+            el.addEventListener('mouseleave', () => { tip.innerHTML = dflt; });
+        });
+    }
     function showEmpty(id, msg) {
-        const w = $(id); const old = w.querySelector('svg'); if (old) old.remove();
+        const w = $(id); const old = w.querySelector('.chart-svg'); if (old) old.remove(); const t = w.querySelector('.tipbox'); if (t) t.innerHTML = '';
         let e = w.querySelector('.empty'); if (!e) { e = document.createElement('div'); e.className = 'empty'; w.insertBefore(e, w.firstChild); }
         e.textContent = msg; e.hidden = !msg;
     }
@@ -832,12 +941,19 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     // day, not when the card is paid), so card payments are not bars; the cash line still dips when you pay them.
     const CATS = {
         income: ['Income', 'var(--orange)'], medical: ['Medical', 'var(--pink)'], groceries: ['Groceries', '#eda100'], dining: ['Dining', 'var(--violet)'],
-        travel: ['Travel', 'var(--blue)'], bills: ['Bills', '#38bdf8'], shopping: ['Shopping', '#b45309'], taxes: ['Taxes', '#475569'], other: ['Other', '#94a3b8']
+        travel: ['Travel', 'var(--blue)'], bills: ['Bills', '#38bdf8'], shopping: ['Shopping', '#b45309'], entertainment: ['Entertainment', '#0d9488'], taxes: ['Taxes', '#475569'], other: ['Other', '#94a3b8']
     };
-    const OUT = ['groceries', 'dining', 'travel', 'shopping', 'bills', 'medical', 'taxes', 'other'];   // nearest the zero line first
+    const BUILT_OUT = ['groceries', 'dining', 'travel', 'shopping', 'entertainment', 'bills', 'medical', 'taxes', 'other'];   // nearest the zero line first
+    // A category Kevin typed himself gets a colour from this palette, in order of first appearance, and keeps it for the session.
+    const EXTRA_COLOURS = ['#be123c', '#4d7c0f', '#7c3aed', '#a16207', '#0369a1', '#9f1239'];
+    const extraCats = [];
+    const catInfo = k => { if (CATS[k]) return CATS[k]; if (!extraCats.includes(k)) extraCats.push(k); return [k.charAt(0).toUpperCase() + k.slice(1), EXTRA_COLOURS[(extraCats.indexOf(k)) % EXTRA_COLOURS.length]]; };
+    // The outgoing categories, in drawing order: the built-ins, then his own words in the order they appeared.
+    const outCats = pts => BUILT_OUT.concat(extraCats.slice()).concat(pts ? pts.reduce((acc, p) => { if (p.flows) Object.keys(p.flows.cats).forEach(k => { if (k !== 'income' && !CATS[k] && !acc.includes(k) && !extraCats.includes(k)) acc.push(k); }); return acc; }, []) : []);
+    const OUT = BUILT_OUT;
     const billCat = (label) => /health|baptist|medical|bcbs|clinic|pharm|doctor|dental|therapy|hospital/i.test(label || '') ? 'medical' : 'bills';
     const matchesBill = (label) => S.bills.some(b => { const w = (b.label || '').toLowerCase().split(/[^a-z0-9]+/).filter(x => x.length >= 4)[0]; return w && String(label).toLowerCase().includes(w); });
-    const outOf = (f) => OUT.reduce((t, k) => t + (f.cats[k] || 0), 0);
+    const outOf = (f) => Object.keys(f.cats).reduce((t, k) => t + (k === 'income' ? 0 : (f.cats[k] || 0)), 0);
     function flowsFor(d) {
         const day = dom(d), last = dim(d), f = { income: 0, cats: {}, rec: {}, items: [], moves: [], daily: 0 };
         const A = S.assume;
@@ -915,8 +1031,8 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const haveCash = Object.keys(S.entries).some(d => typeof S.entries[d].cash === 'number');
         const hist = S.history && S.history.has_checking;
         const anyPlan = S.planned.some(p => p.on && p.amount) && !M.empty;
-        if (!hist && M.empty) { showEmpty('c0wrap', 'Drop your BECU checking statement in the + circle, or enter cash for a day, and the next 30 days appear here.'); $('leg0').innerHTML = ''; }
-        else { clearEmpty('c0wrap'); renderFlowChart({ wrapId: 'c0wrap', tipId: 'tip0', legId: 'leg0', pts: cashSeries().filter(p => Math.abs(p.k) <= 15), anyPlan }); }
+        if (!hist && M.empty) { showEmpty('c0wrap', 'Drop your BECU checking statement in the + circle, or enter cash for a day, and the next 30 days appear here.'); $('leg0').innerHTML = ''; showEmpty('c3wrap', ''); $('leg3').innerHTML = ''; }
+        else { clearEmpty('c0wrap'); clearEmpty('c3wrap'); const near = cashSeries().filter(p => Math.abs(p.k) <= 15); renderFlowChart({ wrapId: 'c0wrap', tipId: 'tip0', legId: 'leg0', pts: near, anyPlan }); renderSpendChart({ wrapId: 'c3wrap', tipId: 'tip3', legId: 'leg3', pts: near }); }
         if (M.empty && !haveCash) { showEmpty('c1wrap', 'Enter your cash for a day and the cash picture appears.'); $('leg1').innerHTML = ''; return; }
         clearEmpty('c1wrap');
         renderCash({ wrapId: 'c1wrap', tipId: 'tip1', legId: 'leg1', pts: cashSeries(), anyPlan, band: [-15, 15] });
@@ -926,14 +1042,66 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     // cap is clipped, notched, and labelled with its total.
     function flowCap(vals) { const s = vals.filter(v => v > 0).sort((a, b) => b - a); return Math.max(500, s[1] || s[0] || 0); }
     const MOVE_LABEL = { card: 'card payment', in: 'moved in', out: 'moved out' };
+    const hatchId = k => k.replace(/[^a-z0-9]+/g, '-');
+    const hatchDefs = (cats, scope) => '<defs>' + cats.concat(['income']).map(k => `<pattern id="hat-${scope}-${hatchId(k)}" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)"><rect width="5" height="5" fill="${catInfo(k)[1]}"/><rect width="2" height="5" fill="#fff" fill-opacity="0.72"/></pattern>`).join('') + '</defs>';
+    // One day's line items for the side panel: purchases by kind, then the moves that are not spending.
+    function dayItems(f, kind) {
+        let h = '';
+        f.items.forEach(([cat, label, amt, rec]) => { h += `<div><span class="sw" style="background:${catInfo(cat)[1]}"></span><span>${esc(label)}${rec && cat !== 'income' ? ' <i>recurring</i>' : ''}</span><b>${cat === 'income' ? '+' : '−'}${money(amt)}</b></div>`; });
+        if (f.daily && kind === 'proj') h += `<div><span></span><span>Everyday spending</span><b>−${money(f.daily)}</b></div>`;
+        (f.moves || []).forEach(([k, label, amt]) => { h += `<div><span class="sw" style="background:#94a3b8"></span><span>${esc(label)} <i>${MOVE_LABEL[k] || k}</i></span><b>${k === 'in' ? '+' : '−'}${money(amt)}</b></div>`; });
+        return h;
+    }
+    // Spending only (2026-10-10, Kevin: the small bars in the 30-day chart were too small to read). Same 30 days,
+    // same categories and hatch, bars upward, no income and no cash line, so the scale is set by the spending.
+    function renderSpendChart(cfg) {
+        const wrap = $(cfg.wrapId), tip = $(cfg.tipId), pts = cfg.pts;
+        const W = 600, L = 40, R = 10, slot = (W - L - R) / pts.length, cx = i => L + slot * i + slot / 2;
+        const TOP = 14, H1 = 150, LAB = 22, H = TOP + H1 + LAB;
+        const fl = pts.filter(p => p.flows), cats = outCats(pts);
+        const cap = Math.max(300, flowCap(fl.map(p => outOf(p.flows)))), unit = H1 / cap, y0 = TOP + H1;
+        let g = hatchDefs(cats, cfg.wrapId);
+        niceTicks(0, cap, 3).forEach(v => { if (v > 0 && v <= cap) g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y0 - v * unit}" y2="${y0 - v * unit}"/><text x="${L - 5}" y="${y0 - v * unit + 3}" text-anchor="end">${money(v, true)}</text>`; });
+        g += `<line class="zero" x1="${L}" x2="${W - R}" y1="${y0}" y2="${y0}"/>`;
+        const bw = Math.max(4, slot * 0.72);
+        let clipped = '';
+        pts.forEach((p, i) => {
+            if (!p.flows) return;
+            const f = p.flows; let up = 0;
+            const seg = (v, cat, hatched) => {
+                if (v <= 0.005) return;
+                const from = up, to = from + v, a = Math.min(from, cap), b = Math.min(to, cap);
+                if (b > a) g += `<rect x="${cx(i) - bw / 2}" y="${y0 - b * unit}" width="${bw}" height="${Math.max(1, (b - a) * unit)}" fill="${hatched ? `url(#hat-${cfg.wrapId}-${hatchId(cat)})` : catInfo(cat)[1]}"${p.kind === 'proj' && !hatched ? ' fill-opacity="0.8"' : ''}/>`;
+                up = to;
+            };
+            cats.forEach(k => { const tot = f.cats[k] || 0, rec = Math.min(tot, f.rec[k] || 0); seg(tot - rec, k, false); seg(rec, k, true); });
+            if (up > cap) clipped += `<line x1="${cx(i) - bw / 2 - 1}" x2="${cx(i) + bw / 2 + 1}" y1="${TOP + 3}" y2="${TOP + 3}" stroke="#fff" stroke-width="2"/><text x="${cx(i)}" y="${TOP - 3}" text-anchor="middle" style="fill:#475569;font-weight:600">${money(up, true)}</text>`;
+        });
+        g += clipped;
+        const ti = pts.findIndex(p => p.k === 0);
+        g += `<line x1="${cx(ti)}" x2="${cx(ti)}" y1="${TOP}" y2="${TOP + H1}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/>`;
+        pts.forEach((p, i) => { if (i % 5 === 0 || i === pts.length - 1) g += `<text class="${p.k === 0 ? 'today' : ''}" x="${cx(i)}" y="${H - 6}" text-anchor="middle">${p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' })}</text>`; });
+        g += pts.map((p, i) => `<rect class="hit" data-i="${i}" x="${L + slot * i}" y="${TOP}" width="${slot}" height="${H1}"/>`).join('');
+        putSvg(wrap, `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Spending by kind, 15 days back and 15 ahead">${g}</svg>`);
+        hoverTips(wrap, tip, pts, p => {
+            const f = p.flows, o = f ? outOf(f) : 0;
+            let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'proj' ? 'projected' : 'spent'} <b style="margin-left:auto">${money(o)}</b></div>`;
+            if (f) f.items.forEach(([cat, label, amt, rec]) => { if (cat !== 'income') h += `<div><span class="sw" style="background:${catInfo(cat)[1]}"></span><span>${esc(label)}${rec ? ' <i>recurring</i>' : ''}</span><b>${money(amt)}</b></div>`; });
+            if (f && f.daily && p.kind === 'proj') h += `<div><span></span><span>Everyday spending</span><b>${money(f.daily)}</b></div>`;
+            return h;
+        }, ti);
+        const present = cats.filter(k => pts.some(p => p.flows && p.flows.cats[k]));
+        $(cfg.legId).className = 'legend one';
+        $(cfg.legId).innerHTML = present.map(k => `<span class="item"><span class="sw" style="background:${catInfo(k)[1]}"></span>${esc(catInfo(k)[0])}</span>`).join('') + '<span class="item" title="Hatched bars repeat every month"><span class="sw hatch"></span>recurring</span>';
+    }
     function renderFlowChart(cfg) {
         const wrap = $(cfg.wrapId), tip = $(cfg.tipId), pts = cfg.pts, anyPlan = cfg.anyPlan;
         const W = 600, L = 40, R = 44, slot = (W - L - R) / pts.length, cx = i => L + slot * i + slot / 2;
         const TOP = 14, H1 = 176, LAB = 22, H = TOP + H1 + LAB;
-        const fl = pts.filter(p => p.flows);
+        const fl = pts.filter(p => p.flows), cats = outCats(pts);
         const capIn = flowCap(fl.map(p => p.flows.income)), capOut = flowCap(fl.map(p => outOf(p.flows)));
         const unit = H1 / (capIn + capOut), y0 = TOP + capIn * unit;
-        let g = '<defs>' + OUT.concat(['income']).map(k => `<pattern id="hat-${k}" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)"><rect width="5" height="5" fill="${CATS[k][1]}"/><rect width="2" height="5" fill="#fff" fill-opacity="0.72"/></pattern>`).join('') + '</defs>';
+        let g = hatchDefs(cats, cfg.wrapId);
         niceTicks(0, capIn, 2).forEach(v => { if (v > 0 && v <= capIn) g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y0 - v * unit}" y2="${y0 - v * unit}"/><text x="${L - 5}" y="${y0 - v * unit + 3}" text-anchor="end">+${money(v, true)}</text>`; });
         niceTicks(0, capOut, 2).forEach(v => { if (v > 0 && v <= capOut) g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y0 + v * unit}" y2="${y0 + v * unit}"/><text x="${L - 5}" y="${y0 + v * unit + 3}" text-anchor="end">−${money(v, true)}</text>`; });
         g += `<line class="zero" x1="${L}" x2="${W - R}" y1="${y0}" y2="${y0}"/>`;
@@ -946,11 +1114,11 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 if (v <= 0.005) return;
                 const cap = dirUp ? capIn : capOut, from = dirUp ? up : down, to = from + v;
                 const a = Math.min(from, cap), b = Math.min(to, cap);
-                if (b > a) { const h = Math.max(1, (b - a) * unit), yy = dirUp ? y0 - b * unit : y0 + a * unit; g += `<rect x="${cx(i) - bw / 2}" y="${yy}" width="${bw}" height="${h}" fill="${hatched ? `url(#hat-${cat})` : CATS[cat][1]}"${p.kind === 'proj' && !hatched ? ' fill-opacity="0.8"' : ''}/>`; }
+                if (b > a) { const h = Math.max(1, (b - a) * unit), yy = dirUp ? y0 - b * unit : y0 + a * unit; g += `<rect x="${cx(i) - bw / 2}" y="${yy}" width="${bw}" height="${h}" fill="${hatched ? `url(#hat-${cfg.wrapId}-${hatchId(cat)})` : catInfo(cat)[1]}"${p.kind === 'proj' && !hatched ? ' fill-opacity="0.8"' : ''}/>`; }
                 if (dirUp) up = to; else down = to;
             };
             seg(f.income, 'income', false, true);
-            OUT.forEach(k => { const tot = f.cats[k] || 0, rec = Math.min(tot, f.rec[k] || 0); seg(tot - rec, k, false, false); seg(rec, k, true, false); });
+            cats.forEach(k => { const tot = f.cats[k] || 0, rec = Math.min(tot, f.rec[k] || 0); seg(tot - rec, k, false, false); seg(rec, k, true, false); });
             if (up > capIn) clipped += `<line x1="${cx(i) - bw / 2 - 1}" x2="${cx(i) + bw / 2 + 1}" y1="${TOP + 3}" y2="${TOP + 3}" stroke="#fff" stroke-width="2"/><text x="${cx(i)}" y="${TOP - 3}" text-anchor="middle" style="fill:var(--orange);font-weight:600">${money(up, true)}</text>`;
             if (down > capOut) clipped += `<line x1="${cx(i) - bw / 2 - 1}" x2="${cx(i) + bw / 2 + 1}" y1="${TOP + H1 - 3}" y2="${TOP + H1 - 3}" stroke="#fff" stroke-width="2"/><text x="${cx(i)}" y="${TOP + H1 + 9}" text-anchor="middle" style="fill:#475569;font-weight:600">${money(down, true)}</text>`;
             // a card payment or a move between his accounts: a grey tick on the zero line, never a bar
@@ -982,30 +1150,20 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         g += `<line x1="${cx(ti)}" x2="${cx(ti)}" y1="${TOP}" y2="${TOP + H1}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/>`;
         pts.forEach((p, i) => { if (i % 5 === 0 || i === pts.length - 1) g += `<text class="${p.k === 0 ? 'today' : ''}" x="${cx(i)}" y="${H - 6}" text-anchor="middle">${p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' })}</text>`; });
         g += pts.map((p, i) => `<rect class="hit" data-i="${i}" x="${L + slot * i}" y="${TOP}" width="${slot}" height="${H1}"/>`).join('');
-        const old = wrap.querySelector('svg'); if (old) old.remove();
-        wrap.insertAdjacentHTML('afterbegin', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Money in and out by category for 15 days back and 15 ahead, with the cash balance as a line">${g}</svg>`);
-        wrap.querySelectorAll('.hit').forEach(el => {
-            el.addEventListener('mouseenter', () => {
-                const p = pts[+el.dataset.i], f = p.flows;
-                let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'actual' ? 'from your statements and entries' : p.kind === 'est' ? 'estimated' : 'projected'}</div>`;
-                if (p.cash !== null && p.cash !== undefined) h += `<div><span class="sw" style="background:#fff;box-shadow:0 0 0 1px #64748b"></span>Cash <b>${money(p.cash)}</b></div>`;
-                if (p.plan !== null && p.plan !== undefined && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--plan)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
-                if (f) {
-                    f.items.forEach(([cat, label, amt, rec]) => { h += `<div><span class="sw" style="background:${CATS[cat][1]}"></span>${esc(label)}${rec && cat !== 'income' ? ' <i>(recurring)</i>' : ''} <b>${cat === 'income' ? '+' : '−'}${money(amt)}</b></div>`; });
-                    if (f.daily && p.kind === 'proj') h += `<div>Everyday spending <b>−${money(f.daily)}</b></div>`;
-                    (f.moves || []).forEach(([kind, label, amt]) => { h += `<div><span class="sw" style="background:#94a3b8"></span>${esc(label)} <i>(${MOVE_LABEL[kind] || kind}, not spending)</i> <b>${kind === 'in' ? '+' : '−'}${money(amt)}</b></div>`; });
-                }
-                tip.innerHTML = h; tip.classList.add('on');
-                const wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect(), left = er.left - wr.left + er.width / 2;
-                tip.style.left = Math.max(0, Math.min(wr.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px'; tip.style.top = '4px';
-            });
-            el.addEventListener('mouseleave', () => tip.classList.remove('on'));
-        });
+        putSvg(wrap, `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Money in and out by category for 15 days back and 15 ahead, with the cash balance as a line">${g}</svg>`);
+        hoverTips(wrap, tip, pts, p => {
+            const f = p.flows;
+            let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'actual' ? 'actual' : p.kind === 'est' ? 'estimated' : 'projected'}</div>`;
+            if (p.cash !== null && p.cash !== undefined) h += `<div><span class="sw" style="background:#fff;box-shadow:0 0 0 1px #64748b"></span><span>Cash</span><b>${money(p.cash)}</b></div>`;
+            if (p.plan !== null && p.plan !== undefined && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--plan)"></span><span>With planned spending</span><b>${money(p.plan)}</b></div>`;
+            if (f) h += dayItems(f, p.kind);
+            return h;
+        }, ti);
         // one line: the kinds that appear, the hatch, the grey tick, the white line
-        const present = ['income'].concat(OUT).filter(k => pts.some(p => p.flows && (k === 'income' ? p.flows.income : p.flows.cats[k])));
+        const present = ['income'].concat(cats).filter(k => pts.some(p => p.flows && (k === 'income' ? p.flows.income : p.flows.cats[k])));
         const anyMove = pts.some(p => p.flows && p.flows.moves && p.flows.moves.length);
         $(cfg.legId).className = 'legend one';
-        $(cfg.legId).innerHTML = present.map(k => `<span class="item"><span class="sw" style="background:${CATS[k][1]}"></span>${CATS[k][0]}</span>`).join('')
+        $(cfg.legId).innerHTML = present.map(k => `<span class="item"><span class="sw" style="background:${catInfo(k)[1]}"></span>${esc(catInfo(k)[0])}</span>`).join('')
             + '<span class="item" title="Hatched bars repeat every month"><span class="sw hatch"></span>recurring</span>'
             + (anyMove ? '<span class="item" title="A card payment or a move between your accounts: the cash line moves, nothing was bought"><span class="sw tick"></span>card payment</span>' : '')
             + '<span class="item"><span class="ln white"></span>cash</span>'
@@ -1040,21 +1198,14 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         g += `<line x1="${cx(ti)}" x2="${cx(ti)}" y1="${TOP}" y2="${TOP + H1}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/>`;
         pts.forEach((p, i) => { if (i % 10 === 0 || i === pts.length - 1) g += `<text class="${p.k === 0 ? 'today' : ''}" x="${cx(i)}" y="${H - 6}" text-anchor="middle">${p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' })}</text>`; });
         g += pts.map((p, i) => `<rect class="hit" data-i="${i}" x="${L + slot * i}" y="${TOP}" width="${slot}" height="${H1}"/>`).join('');
-        const old = wrap.querySelector('svg'); if (old) old.remove();
-        wrap.insertAdjacentHTML('afterbegin', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cash balance, 30 days back and 30 ahead">${g}</svg>`);
-        wrap.querySelectorAll('.hit').forEach(el => {
-            el.addEventListener('mouseenter', () => {
-                const p = pts[+el.dataset.i];
-                let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'actual' ? 'entered or from statements' : p.kind === 'est' ? 'estimated' : 'projected'}</div>`;
-                if (p.cash !== null) h += `<div><span class="sw" style="background:${INK}"></span>Cash <b>${money(p.cash)}</b></div>`;
-                if (p.plan !== null && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--plan)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
-                if (p.flows) { if (p.flows.income) h += `<div><span class="sw" style="background:var(--orange)"></span>In <b>+${money(p.flows.income)}</b></div>`; const o = outOf(p.flows); if (o) h += `<div><span class="sw" style="background:#475569"></span>Spent <b>−${money(o)}</b></div>`; (p.flows.moves || []).forEach(([kind, label, amt]) => { h += `<div><span class="sw" style="background:#94a3b8"></span>${esc(label)} <i>(${MOVE_LABEL[kind] || kind})</i> <b>${kind === 'in' ? '+' : '−'}${money(amt)}</b></div>`; }); }
-                tip.innerHTML = h; tip.classList.add('on');
-                const wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect(), left = er.left - wr.left + er.width / 2;
-                tip.style.left = Math.max(0, Math.min(wr.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px'; tip.style.top = '4px';
-            });
-            el.addEventListener('mouseleave', () => tip.classList.remove('on'));
-        });
+        putSvg(wrap, `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="Cash balance, 30 days back and 30 ahead">${g}</svg>`);
+        hoverTips(wrap, tip, pts, p => {
+            let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'actual' ? 'actual' : p.kind === 'est' ? 'estimated' : 'projected'}</div>`;
+            if (p.cash !== null) h += `<div><span class="sw" style="background:${INK}"></span><span>Cash</span><b>${money(p.cash)}</b></div>`;
+            if (p.plan !== null && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--plan)"></span><span>With planned spending</span><b>${money(p.plan)}</b></div>`;
+            if (p.flows) { if (p.flows.income) h += `<div><span class="sw" style="background:var(--orange)"></span><span>In</span><b>+${money(p.flows.income)}</b></div>`; const o = outOf(p.flows); if (o) h += `<div><span class="sw" style="background:#475569"></span><span>Spent</span><b>−${money(o)}</b></div>`; (p.flows.moves || []).forEach(([kind, label, amt]) => { h += `<div><span class="sw" style="background:#94a3b8"></span><span>${esc(label)} <i>${MOVE_LABEL[kind] || kind}</i></span><b>${kind === 'in' ? '+' : '−'}${money(amt)}</b></div>`; }); }
+            return h;
+        }, ti);
         $(cfg.legId).className = 'legend';
         $(cfg.legId).innerHTML = `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:${INK}"></span>Cash balance</span><span class="item"><span class="ln" style="border-top-color:${INK}"></span>projected</span>` + (anyPlan ? '<span class="item"><span class="ln"></span>with planned spending</span>' : '') + '<span class="item"><span class="sw tick"></span>card payment</span><span class="item"><span class="sw" style="background:var(--band)"></span>the 30 days above</span>';
         drawMonthEnd();
@@ -1085,7 +1236,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     function refresh(refill) {
         M = model();
         if (refill !== false) fillEntry(); else if (!root.activeElement || !root.activeElement.closest || !root.activeElement.closest('#entry')) fillEntry();
-        drawBoxes(); drawStats(); drawCash(); draw2(); drawEffect(); drawTips(); drawNeeds(); drawLadder();
+        drawBoxes(); drawStats(); drawCash(); draw2(); drawEffect(); drawTips(); drawNeeds(); drawCatRow(); drawLadder();
     }
     $('entry').addEventListener('input', e => { if (e.target.matches('input[data-f]')) onType(); });
     $('entry').addEventListener('focusout', e => { if (e.target.matches('input[data-f]')) { clearTimeout(saveTimer); commitEntry(); } });

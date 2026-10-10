@@ -333,6 +333,31 @@ async function initDb() {
       file TEXT NOT NULL,
       created_at DATETIME DEFAULT CURRENT_TIMESTAMP
     );
+    -- Questions on the finance pane (2026-10-10): Tom asks, Kevin answers in
+    -- place. kind is number (key names the assumption the answer fills),
+    -- text, yesno or category (merchant names the charge; options the
+    -- categories offered). A category answer also lands in
+    -- finance_categories, which the statement reader consults first.
+    CREATE TABLE IF NOT EXISTS finance_questions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      prompt TEXT NOT NULL,
+      key TEXT,
+      merchant TEXT,
+      options TEXT,
+      answer TEXT,
+      created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      answered_at DATETIME
+    );
+    CREATE INDEX IF NOT EXISTS idx_finance_questions_user ON finance_questions(user_id, id);
+    CREATE TABLE IF NOT EXISTS finance_categories (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      merchant TEXT NOT NULL,
+      category TEXT NOT NULL,
+      updated_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+      PRIMARY KEY (user_id, merchant)
+    );
 
     -- Morning briefing (2026-09-13). Items are posted by the user's own
     -- Claude through the MoveIt server (post_briefing) — mail, calendar,

@@ -1783,6 +1783,10 @@ function financePlanOf(userId) {
   return plan || { assume: {}, bills: [], planned: [], goals: [], incomes: [] };
 }
 const tipOut = (t) => t && { id: t.id, kind: t.kind, body: t.body, feedback: t.feedback, created_at: t.created_at };
+const QUESTION_KINDS = ['number', 'text', 'yesno', 'category'];
+const questionOut = (q) => q && { id: q.id, kind: q.kind, prompt: q.prompt, key: q.key || null, merchant: q.merchant || null, options: q.options ? JSON.parse(q.options) : null, answer: q.answer, created_at: q.created_at, answered_at: q.answered_at };
+const categoryOverrides = (userId) => Object.fromEntries(queryAll('SELECT merchant, category FROM finance_categories WHERE user_id = ? ORDER BY merchant', [userId]).map(r => [r.merchant, r.category]));
+const slugCat = (v) => String(v || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 24);
 const statementOut = (r) => ({ id: r.id, name: r.name, size: r.size, created_at: r.created_at });
 
 app.get('/api/companies/:subdomain/users/:slug/finance', (req, res) => {
@@ -1798,7 +1802,8 @@ app.get('/api/companies/:subdomain/users/:slug/finance', (req, res) => {
   }
   const tip = queryOne('SELECT * FROM finance_tips WHERE user_id = ? AND feedback IS NULL ORDER BY id DESC LIMIT 1', [user.id]);
   const statements = queryAll('SELECT id, name, size, created_at FROM finance_statements WHERE user_id = ? ORDER BY id DESC LIMIT 40', [user.id]);
-  res.json({ today, from, entries, plan: financePlanOf(user.id), tip: tipOut(tip) || null, statements: statements.map(statementOut) });
+  const questions = queryAll('SELECT * FROM finance_questions WHERE user_id = ? AND answer IS NULL ORDER BY id LIMIT 8', [user.id]).map(questionOut);
+  res.json({ today, from, entries, plan: financePlanOf(user.id), tip: tipOut(tip) || null, statements: statements.map(statementOut), questions, categories: categoryOverrides(user.id) });
 });
 
 // Actual money in and out of checking over the last N days, read from the statements he dropped.
@@ -1811,7 +1816,8 @@ app.get('/api/companies/:subdomain/users/:slug/finance/history', (req, res) => {
   const files = queryAll('SELECT file FROM finance_statements WHERE user_id = ? ORDER BY id', [user.id]);
   const rows = statementsLib.loadRows(STATEMENT_DIR, files);
   const appleCats = new Map(rows.filter(r => r.acct === 'apple' && r.appleCategory).map(r => [r.date + '|' + r.desc + '|' + r.amount.toFixed(2), r.appleCategory]));
-  res.json({ today, statements: files.length, ...statementsLib.history(rows, addDays(today, -(days - 1)), today, appleCats) });
+  const overrides = new Map(queryAll('SELECT merchant, category FROM finance_categories WHERE user_id = ?', [user.id]).map(r => [r.merchant, r.category]));
+  res.json({ today, statements: files.length, ...statementsLib.history(rows, addDays(today, -(days - 1)), today, appleCats, overrides) });
 });
 
 // One day's balances. null or '' clears a field; days after today are refused.
@@ -1903,6 +1909,58 @@ app.put('/api/finance/tips/:id', (req, res) => {
   if (fb !== 'up' && fb !== 'no') return res.status(400).json({ error: "feedback must be 'up' or 'no'" });
   runSql('UPDATE finance_tips SET feedback = ?, answered_at = ? WHERE id = ?', [fb, new Date().toISOString(), tip.id]);
   res.json(tipOut(queryOne('SELECT * FROM finance_tips WHERE id = ?', [tip.id])));
+});
+
+// Questions (2026-10-10): Tom asks, Kevin answers on the pane. number fills an
+// assumption (key); yesno and text are read back by Tom; category teaches the
+// statement reader what a merchant is (finance_categories, by merchant key).
+app.post('/api/companies/:subdomain/users/:slug/finance/questions', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const b = req.body || {};
+  const kind = String(b.kind || '');
+  if (!QUESTION_KINDS.includes(kind)) return res.status(400).json({ error: `kind must be one of ${QUESTION_KINDS.join(', ')}` });
+  const prompt = String(b.prompt || '').trim().slice(0, 300);
+  if (!prompt) return res.status(400).json({ error: 'prompt is required' });
+  const key = kind === 'number' && b.key && FINANCE_ASSUME_KEYS.includes(String(b.key)) ? String(b.key) : null;
+  const merchant = kind === 'category' ? statementsLib.merchantKey(String(b.merchant || '')) : null;
+  if (kind === 'category' && !merchant) return res.status(400).json({ error: 'merchant is required for a category question' });
+  const options = kind === 'category' ? (Array.isArray(b.options) ? b.options : []).map(slugCat).filter(Boolean).slice(0, 8) : null;
+  const open = queryAll('SELECT id FROM finance_questions WHERE user_id = ? AND answer IS NULL', [user.id]).length;
+  if (open >= 6) return res.status(409).json({ error: 'Six questions are already waiting; let him answer first' });
+  runSql('INSERT INTO finance_questions (user_id, kind, prompt, key, merchant, options) VALUES (?, ?, ?, ?, ?, ?)', [user.id, kind, prompt, key, merchant, options ? JSON.stringify(options) : null]);
+  const id = queryOne('SELECT last_insert_rowid() AS id').id;
+  res.status(201).json(questionOut(queryOne('SELECT * FROM finance_questions WHERE id = ?', [id])));
+});
+app.get('/api/companies/:subdomain/users/:slug/finance/questions', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 30));
+  res.json(queryAll('SELECT * FROM finance_questions WHERE user_id = ? ORDER BY id DESC LIMIT ?', [user.id, limit]).map(questionOut));
+});
+app.put('/api/finance/questions/:id', (req, res) => {
+  const q = queryOne('SELECT * FROM finance_questions WHERE id = ?', [req.params.id]);
+  if (!q) return res.status(404).json({ error: 'Question not found' });
+  const raw = (req.body || {}).answer;
+  let answer;
+  if (raw === null || raw === undefined || raw === '') { answer = null; }
+  else if (q.kind === 'number') { const n = financeNum(raw, -1e9, 1e9); if (n === null) return res.status(400).json({ error: 'answer must be a number' }); answer = String(n); }
+  else if (q.kind === 'yesno') { if (raw !== 'yes' && raw !== 'no') return res.status(400).json({ error: "answer must be 'yes' or 'no'" }); answer = raw; }
+  else if (q.kind === 'category') { answer = slugCat(raw); if (!answer) return res.status(400).json({ error: 'answer must name a category' }); }
+  else answer = String(raw).trim().slice(0, 600);
+  runSql('UPDATE finance_questions SET answer = ?, answered_at = ? WHERE id = ?', [answer, answer === null ? null : new Date().toISOString(), q.id]);
+  if (q.kind === 'category' && q.merchant) {
+    if (answer === null) runSql('DELETE FROM finance_categories WHERE user_id = ? AND merchant = ?', [q.user_id, q.merchant]);
+    else runSql(`INSERT INTO finance_categories (user_id, merchant, category, updated_at) VALUES (?, ?, ?, ?)
+                 ON CONFLICT(user_id, merchant) DO UPDATE SET category = excluded.category, updated_at = excluded.updated_at`, [q.user_id, q.merchant, answer, new Date().toISOString()]);
+  }
+  res.json(questionOut(queryOne('SELECT * FROM finance_questions WHERE id = ?', [q.id])));
+});
+app.delete('/api/finance/questions/:id', (req, res) => {
+  const q = queryOne('SELECT id FROM finance_questions WHERE id = ?', [req.params.id]);
+  if (!q) return res.status(404).json({ error: 'Question not found' });
+  runSql('DELETE FROM finance_questions WHERE id = ?', [q.id]);
+  res.json({ ok: true });
 });
 
 // Statements: the raw file in the body, its name in x-filename (URL-encoded).
