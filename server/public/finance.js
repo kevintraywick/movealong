@@ -589,11 +589,15 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         if (S.goals.some(g => !g.done && /\bcar\b/i.test(g.title)) && !A.carGoal && !S.questions.some(q => q.key === 'carGoal')) out.push({ text: 'What would the car cost? That puts it on the ladder below.', key: 'carGoal', unit: '$' });
         return out.slice(0, 1);
     }
-    const moneyBox = (unit, attrs) => unit === '%' ? `<span class="money pct"><input type="text" inputmode="decimal" ${attrs}><i>%</i></span>` : `<span class="money"><i>$</i><input type="text" inputmode="decimal" ${attrs}></span>`;
+    const moneyBox = (unit, attrs) => unit === '%' ? `<span class="money pct"><input type="text" inputmode="decimal" ${attrs}><i>%</i></span>`
+        : unit === 'day' ? `<span class="money pct"><input type="text" inputmode="numeric" ${attrs}><i>th</i></span>`
+        : `<span class="money"><i>$</i><input type="text" inputmode="decimal" ${attrs}></span>`;
+    // A number question's box: % for a rate, a day for a card's close day (key card.closes:<label>), else $.
+    const unitOf = (key) => /apr|apy|return/i.test(key || '') ? '%' : /^card\.closes:/.test(key || '') ? 'day' : '$';
     function askHtml(n, i) {
         if (n.q) {
             const q = n.q, p = `<span class="who" title="Tom asked">TOM</span><span>${esc(q.prompt)}</span>`;
-            if (q.kind === 'number') return `<div class="ask" data-qi="${i}">${p}${moneyBox(/apr|apy|return/i.test(q.key || '') ? '%' : '$', 'data-ans="number"')}</div>`;
+            if (q.kind === 'number') return `<div class="ask" data-qi="${i}">${p}${moneyBox(unitOf(q.key), 'data-ans="number"')}</div>`;
             if (q.kind === 'yesno') return `<div class="ask" data-qi="${i}">${p}<span class="fb"><button data-ans="yes">Yes</button><button data-ans="no">No</button></span></div>`;
             return `<div class="ask" data-qi="${i}">${p}<input type="text" class="line" data-ans="text" placeholder="One sentence, then Enter"></div>`;
         }
@@ -603,6 +607,10 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     async function answer(q, value) {
         S.questions = S.questions.filter(x => x.id !== q.id);
         if (q.kind === 'number' && q.key && Object.prototype.hasOwnProperty.call(DEFAULT_ASSUME, q.key)) { S.assume[q.key] = value; persist(); drawAssume(); }
+        // A card question (key card.limit:<label> etc.): the server puts the number on the card; mirror it
+        // here so a later persist() of the plan does not write the old card back over it.
+        const ck = /^card\.(limit|apr|closes):(.+)$/.exec(q.key || '');
+        if (q.kind === 'number' && ck) { const c = S.cards.find(x => String(x.label).toLowerCase() === ck[2].toLowerCase()); if (c) { c[ck[1]] = ck[1] === 'closes' ? Math.round(value) : value; drawCards(); } }
         drawNeeds(); drawCatRow();
         try {
             await call(`/api/finance/questions/${q.id}`, { method: 'PUT', body: { answer: String(value) } });

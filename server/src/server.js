@@ -1838,6 +1838,20 @@ function financePlanOf(userId) {
 }
 const tipOut = (t) => t && { id: t.id, kind: t.kind, body: t.body, feedback: t.feedback, created_at: t.created_at };
 const QUESTION_KINDS = ['number', 'text', 'yesno', 'category'];
+const cardKey = (k) => { const m = /^card\.(limit|apr|closes):(.+)$/.exec(k || ''); return m ? { field: m[1], label: m[2].trim().toLowerCase() } : null; };
+// A card question answered: the number goes onto that card row in the plan.
+function applyCardAnswer(userId, key, value) {
+  const ck = cardKey(key);
+  if (!ck) return;
+  const plan = financePlanOf(userId);
+  const card = (plan.cards || []).find(c => String(c.label).toLowerCase() === ck.label);
+  if (!card) return;
+  if (ck.field === 'limit') card.limit = financeNum(value, 0, 1e9) || 0;
+  else if (ck.field === 'apr') card.apr = financeNum(value, 0, 100) || 0;
+  else card.closes = Math.round(financeNum(value, 0, 31) || 0);
+  runSql(`INSERT INTO finance_plan (user_id, data, updated_at) VALUES (?, ?, ?)
+          ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, [userId, JSON.stringify(plan), new Date().toISOString()]);
+}
 const questionOut = (q) => q && { id: q.id, kind: q.kind, prompt: q.prompt, key: q.key || null, merchant: q.merchant || null, options: q.options ? JSON.parse(q.options) : null, answer: q.answer, created_at: q.created_at, answered_at: q.answered_at };
 const categoryOverrides = (userId) => Object.fromEntries(queryAll('SELECT merchant, category FROM finance_categories WHERE user_id = ? ORDER BY merchant', [userId]).map(r => [r.merchant, r.category]));
 const slugCat = (v) => String(v || '').trim().toLowerCase().replace(/[^a-z0-9]+/g, ' ').trim().slice(0, 24);
@@ -2162,7 +2176,21 @@ app.post('/api/companies/:subdomain/users/:slug/finance/questions', (req, res) =
   if (!QUESTION_KINDS.includes(kind)) return res.status(400).json({ error: `kind must be one of ${QUESTION_KINDS.join(', ')}` });
   const prompt = String(b.prompt || '').trim().slice(0, 300);
   if (!prompt) return res.status(400).json({ error: 'prompt is required' });
-  const key = kind === 'number' && b.key && FINANCE_ASSUME_KEYS.includes(String(b.key)) ? String(b.key) : null;
+  // A number question's key names where the answer lands: a plan.assume name, or a card's field
+  // (card.limit:<label>, card.apr:<label>, card.closes:<label>) for the gaps Tom chases (2026-10-10).
+  let key = null;
+  if (kind === 'number' && b.key) {
+    const k = String(b.key);
+    if (FINANCE_ASSUME_KEYS.includes(k)) key = k;
+    else {
+      const ck = cardKey(k);
+      if (ck) {
+        const card = (financePlanOf(user.id).cards || []).find(c => c.label.toLowerCase() === ck.label);
+        if (!card) return res.status(400).json({ error: `No card called "${ck.label}" in plan.cards` });
+        key = `card.${ck.field}:${card.label}`;
+      }
+    }
+  }
   const merchant = kind === 'category' ? statementsLib.merchantKey(String(b.merchant || '')) : null;
   if (kind === 'category' && !merchant) return res.status(400).json({ error: 'merchant is required for a category question' });
   const options = kind === 'category' ? (Array.isArray(b.options) ? b.options : []).map(slugCat).filter(Boolean).slice(0, 8) : null;
@@ -2204,6 +2232,7 @@ app.put('/api/finance/questions/:id', (req, res) => {
   else if (q.kind === 'category') { answer = slugCat(raw); if (!answer) return res.status(400).json({ error: 'answer must name a category' }); }
   else answer = String(raw).trim().slice(0, 600);
   runSql('UPDATE finance_questions SET answer = ?, answered_at = ? WHERE id = ?', [answer, answer === null ? null : new Date().toISOString(), q.id]);
+  if (q.kind === 'number' && answer !== null && q.key) applyCardAnswer(q.user_id, q.key, answer);
   if (q.kind === 'category' && q.merchant) {
     if (answer === null) runSql('DELETE FROM finance_categories WHERE user_id = ? AND merchant = ?', [q.user_id, q.merchant]);
     else runSql(`INSERT INTO finance_categories (user_id, merchant, category, updated_at) VALUES (?, ?, ?, ?)

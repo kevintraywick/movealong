@@ -232,7 +232,7 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
 
   server.registerTool('ask_finance', {
     title: 'Ask Kevin a finance question',
-    description: 'Put a question in the NEEDS row of the finance pane; he answers in place and get_finance shows the answer. kind "number" with key fills that assumption when he answers (key is one of the plan.assume names: cardApr, locApr, locCap, locBalance, carGoal, cashFloor, sweepDay, saveGoal, houseGoal, spend); "yesno" gives him two buttons; "text" a one-line box; "category" asks what a charge was: pass merchant (the merchant key, the fifth element of a finance_history item) and options (the categories you think fit; he can also type his own). Under 160 characters, one thing per question, one waiting at a time (409 while one is open; a category question counts separately).',
+    description: 'Put a question in the NEEDS row of the finance pane; he answers in place and get_finance shows the answer. kind "number" with key fills that assumption when he answers (key is one of the plan.assume names: cardApr, locApr, locCap, locBalance, carGoal, cashFloor, sweepDay, saveGoal, houseGoal, spend; or a card field, card.limit:<label>, card.apr:<label>, card.closes:<label>, with the label as plan.cards spells it); "yesno" gives him two buttons; "text" a one-line box; "category" asks what a charge was: pass merchant (the merchant key, the fifth element of a finance_history item) and options (the categories you think fit; he can also type his own). Under 160 characters, one thing per question, one waiting at a time (409 while one is open; a category question counts separately).',
     inputSchema: { kind: z.enum(['number', 'text', 'yesno', 'category']), prompt: z.string().min(1), key: z.string().optional(), merchant: z.string().optional(), options: z.array(z.string()).optional() }
   }, async (q) => text(await api(`${me}/finance/questions`, { method: 'POST', body: q })));
 
@@ -613,8 +613,9 @@ export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance p
 
 5. One or two sentences, under 300 characters, plain words, one specific number at most. A tip is an observation and a suggestion, never a lecture. Say which goal it serves when that is not obvious. If there is nothing worth saying, post nothing.
 
-6. Questions (ask_finance). The NEEDS row is where you get to know how he handles money, one question at a time: the row holds one, and the server refuses a second while one is waiting (409). Read get_finance's questions first: never ask again what he has answered, and use the answers in every later tip. Ask only when none of yours is waiting (a category question counts separately: it waits under the spending chart, also one at a time), and at most one new question a day. Choose the one question whose answer changes the next tip most:
-   - a number the projection is missing (kind number with its key): a card's APR, a car budget, what the line of credit charges;
+6. Questions (ask_finance). The NEEDS row is where you get to know how he handles money, one question at a time: the row holds one, and the server refuses a second while one is waiting (409). Read get_finance's questions first: never ask again what he has answered, and use the answers in every later tip. Ask only when none of yours is waiting (a category question counts separately: it waits under the spending chart, also one at a time). The moment the row is empty, ask the next (Kevin, 2026-10-10: "this is the kind of thing I would expect Tom to want to know"); up to three a day. Choose the one question whose answer changes the next tip most:
+   - a gap in what you know (kind number with its key): what you do not know about his money is your list, not his, so keep one in your head on every run and work through it. A card whose limit is 0 (key card.limit:<its label>: say it is on the statement or the card's page), whose APR is 0 (card.apr:<label>) or whose close day is 0 (card.closes:<label>, the day of the month); a car budget, what the line of credit charges (a plan.assume key). The answer lands on that card or assumption by itself;
+   - a thing that disagrees (kind text or yesno): a payment the statements show at a new amount while plan.bills still has the old one (which is right?); a goal whose title names a number the plan does not match; a bill in the plan that the statements have not shown for two months (cancelled?);
    - why a decision was made (kind text): a large one-off charge, a transfer pattern, a month that broke the pattern. One sentence from him is the answer;
    - a decision coming up (kind yesno or text): an annual fee about to renew, a 0% plan ending, a card balance about to start costing interest, a subscription he has not used. Ask early enough to matter;
    - what a charge was (kind category) when a merchant that lands in "other" or looks wrongly placed carries real money ($50 or more, or repeats): pass its merchant key from finance_history and the categories you think fit (income, taxes, medical, bills, groceries, dining, travel, shopping, entertainment, other). He can type his own; a new word from him is a category from then on.
@@ -726,7 +727,7 @@ ${CALENDAR_RECIPE}
 B. The mail strip — follow this recipe exactly, using the events you just read:
 ${INBOX_RECIPE}
 
-C. The finance pane's one row — once a day is plenty; the recipe says when to skip:
+C. The finance pane's one row — the tip once a day is plenty, the recipe says when to skip; its step 6 (a question whenever the NEEDS row is empty) runs every time:
 ${FINANCE_RECIPE}
 
 D. On Sunday morning only: call get_report; if it says due: true, follow this recipe, otherwise skip D:
