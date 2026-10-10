@@ -1,7 +1,9 @@
-// The finance pane on the dashboard (2026-10-09): four balances a day, a
-// projection of cash + savings - debt (30 days back and ahead, then weekly for
-// a year), planned spending drawn as a second line, one tip-or-alert row that
-// Tom writes, and a drop zone for statements. The page projects; the server
+// The finance pane on the dashboard (2026-10-09, reworked 2026-10-10): four
+// balances a day, a projection of cash, debt and savings (15 days back and
+// ahead as bars with the cash line; 30 back and ahead as the cash line; then
+// month-ends for a year against the targets), one tip-or-alert row that Tom
+// writes, a row of what the pane needs from Kevin, the goals ladder, and a
+// drop zone for statements. The page projects; the server
 // stores (routes in server.js, tables in db.js). It lives in a shadow root so
 // the dashboard's own styles (.stat, .legend, .entry ...) can't leak in or out.
 // Design source: finance-dashboard-mockup.html at the repo root.
@@ -27,8 +29,8 @@
 
     const root = host.attachShadow({ mode: 'open' });
     const CSS = `:host { display: block; }
-#fin { --orange: #eb6834; --blue: #0284c7; --violet: #4a3aa7; --pink: #c2417a; --debtc: #b91c1c; --red: #ef4444; --band: rgba(100,116,139,.16); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; color: #0f172a; }
-#fin.dark { --orange: #ea580c; --violet: #9085e9; --pink: #f472b6; --debtc: #fca5a5; --red: #f87171; --band: rgba(255,255,255,.12); color: #e2e8f0; }
+#fin { --orange: #eb6834; --blue: #0284c7; --violet: #4a3aa7; --pink: #c2417a; --debtc: #b91c1c; --red: #ef4444; --ink: #0f172a; --plan: #64748b; --band: rgba(100,116,139,.16); font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; font-size: 13px; color: #0f172a; }
+#fin.dark { --orange: #ea580c; --violet: #9085e9; --pink: #f472b6; --debtc: #fca5a5; --red: #f87171; --ink: #f1f5f9; --plan: #94a3b8; --band: rgba(255,255,255,.12); color: #e2e8f0; }
 *, *::before, *::after { box-sizing: border-box; }
 #fin.dark { --orange: #ea580c; --blue: #0284c7; --violet: #9085e9; --red: #f87171; }
 .btn {
@@ -111,7 +113,8 @@ svg.chart .hit { fill: transparent; }
 .legend .item { display: flex; align-items: center; gap: 6px; }
 .legend .sw { width: 10px; height: 10px; border-radius: 3px; flex-shrink: 0; }
 .legend .sw.proj { background: transparent; border: 1.5px solid; }
-.legend .ln { width: 14px; height: 0; border-top: 2px dashed var(--violet); }
+.legend .ln { width: 14px; height: 0; border-top: 2px dashed var(--plan); }
+.legend .sw.tick { width: 4px; height: 10px; border-radius: 1px; background: #94a3b8; margin: 0 3px; }
 .legend label { display: flex; align-items: center; gap: 5px; cursor: pointer; margin-left: auto; }
 .plans { display: flex; flex-direction: column; gap: 5px; }
 .plan { display: grid; grid-template-columns: 18px 1fr 124px 86px auto 22px; gap: 6px; align-items: center; font-size: 12px; }
@@ -204,6 +207,28 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin.dark .gtitle { color: #cbd5e1; }
 #fin.dark .goal input[type=text] { background: #0f172a; border-color: #334155; color: #e2e8f0; }
 #fin .entry .state.err { color: #ef4444; width: auto; max-width: 110px; }
+#fin .tiprow.needs { margin-top: 6px; border-style: dashed; background: #f8fafc; color: #475569; align-items: flex-start; }
+#fin .tiprow.needs .chip { color: #475569; background: #e2e8f0; margin-top: 2px; }
+#fin .tiprow.needs .txt div + div { margin-top: 3px; }
+#fin.dark .tiprow.needs { background: #0f172a; border-color: #334155; color: #cbd5e1; }
+#fin.dark .tiprow.needs .chip { color: #cbd5e1; background: #334155; }
+#fin .ladder { display: flex; flex-direction: column; gap: 8px; margin-top: 2px; }
+#fin .rung { display: grid; grid-template-columns: 20px 1fr; gap: 8px; align-items: start; }
+#fin .rung .n { width: 20px; height: 20px; border-radius: 50%; border: 1px solid #e2e8f0; font-size: 11px; font-weight: 600; color: #64748b; display: flex; align-items: center; justify-content: center; margin-top: 1px; }
+#fin .rung.done .n { background: #16a34a; border-color: #16a34a; color: #fff; }
+#fin .rung .t { display: flex; justify-content: space-between; gap: 8px; font-size: 12px; color: #0f172a; }
+#fin .rung .t .left { color: #64748b; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#fin .rung .track { position: relative; height: 6px; border-radius: 3px; background: #f1f5f9; margin: 5px 14px 0 0; }
+#fin .rung .track i { display: block; height: 100%; border-radius: 3px; background: #38bdf8; }
+#fin .rung.done .track i { background: #16a34a; }
+#fin .rung .track em { position: absolute; top: -3px; width: 1px; height: 12px; background: #475569; }
+#fin .rung .track b { position: absolute; right: -14px; top: -2px; width: 10px; height: 10px; border-radius: 50%; background: #16a34a; }
+#fin .rung .lands { font-size: 11px; color: #64748b; margin-top: 3px; }
+#fin .rung .lands.bad { color: var(--red); }
+#fin.dark .rung .n { border-color: #334155; color: #94a3b8; }
+#fin.dark .rung .t { color: #e2e8f0; }
+#fin.dark .rung .track { background: #334155; }
+#fin.dark .rung .track em { background: #cbd5e1; }
 `;
     const MARKUP = `<div class="pane" id="fin">
             <div class="pane-head">
@@ -224,6 +249,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             <div class="boxes" id="boxes"></div>
 
             <div class="tiprow" id="tips"></div>
+            <div class="tiprow needs" id="needs" hidden></div>
 
             <div class="stats" id="stats"></div>
 
@@ -244,13 +270,16 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             <div class="plans" id="plans"></div>
             <div class="effect" id="effect"></div>
 
+            <div class="sub">Goals <span class="r">in order · the dot is the target, the tick is on pace</span></div>
+            <div class="ladder" id="ladder" hidden></div>
+
             <details>
                 <summary>Goals, assumptions and bills</summary>
                 <div class="goals" id="goals"></div>
                 <div class="incomes" id="incomes"></div>
                 <div class="assume" id="assume"></div>
                 <div class="bills" id="bills"></div>
-                <div class="note">The projection starts from your last day with cash, savings and debt entered and walks forward: pay on the 1st and 15th, your daily spend, these bills on their days, interest on debt and savings, and the monthly moves into savings and the house fund. Leave a setting at 0 and it counts for nothing.</div>
+                <div class="note">The projection starts from your last day with cash, savings and debt entered and walks forward a day at a time: income on its days, everyday spending, these bills on their days (one marked <b>pays debt</b> moves cash to the debt instead), interest on the cards and the line of credit, the monthly moves into savings and the house fund. On the sweep day, whatever cash sits above the floor goes to the debt, dearest balance first; a day that ends below zero draws the line of credit, the way overdraft cover does. Leave a setting at 0 and it counts for nothing.</div>
             </details>
         </div>`;
     root.innerHTML = '<style>' + CSS + '</style>' + MARKUP;
@@ -262,7 +291,8 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 
     // ---------- state ----------
     const FIELDS = ['cash', 'savings', 'debt', 'invest'];
-    const DEFAULT_ASSUME = { income: 0, spend: 0, debtApr: 0, saveAdd: 0, houseAdd: 0, houseGoal: 0, house: 0, saveApy: 0, hysaApy: 0, investReturn: 0, saveGoal: 0 };
+    const DEFAULT_ASSUME = { income: 0, spend: 0, debtApr: 0, cardApr: 0, locApr: 0, locCap: 0, locBalance: 0, debtStart: 0, carGoal: 0, cashFloor: 0, sweepDay: 0,
+        saveAdd: 0, houseAdd: 0, houseGoal: 0, house: 0, saveApy: 0, hysaApy: 0, investReturn: 0, saveGoal: 0 };
     let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], goals: [], incomes: [], history: null, statements: [], tip: null, nextId: 1 };
     function take(d) {
         TODAY = d.today; yearEnd = `${TODAY.slice(0, 4)}-12-31`;
@@ -309,17 +339,38 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     // Money coming in: a monthly one lands on its day; a one-time one on its date.
     const incomeHits = (inc, d, day, last) => inc.amount > 0 && !inc.off && !(inc.until && d > inc.until)
         && (inc.date ? inc.date === d : Math.min(inc.day || 1, last) === day);
+    // What is still owed on the 0% payment plans after day d: those dollars sit inside "debt" but earn no interest.
+    function planLeft(d, bills) {
+        let left = 0;
+        for (const b of bills) {
+            if (!b.debt || !b.until || b.off || b.until < d) continue;
+            let n = 0; for (let m = d.slice(0, 7); m <= b.until.slice(0, 7); m = add(m + '-01', 32).slice(0, 7)) { const pd = m + '-' + pad(Math.min(b.day, dim(m + '-01'))); if (pd > d && pd <= b.until && !(b.from && pd < b.from)) n++; }
+            left += n * b.amount;
+        }
+        return left;
+    }
+    // One day of the projection. Debt is one pool: the 0% plans, the cards and the line of credit (loc, tracked on
+    // its own so interest and the sweep can tell them apart). Spending comes out of cash; a bill marked "pays debt"
+    // moves cash to debt; on the sweep day whatever cash is above the floor goes to the debt, dearest first; a day
+    // that ends below zero draws the line of credit (it is wired as overdraft cover) up to its cap.
     function stepDay(st, d, A, bills, spendCut, planned, incomes) {
         incomes = incomes || [];
-        const o = { cash: st.cash, savings: st.savings, debt: st.debt, invest: st.invest, house: st.house };
+        const o = { cash: st.cash, savings: st.savings, debt: st.debt, invest: st.invest, house: st.house, loc: st.loc || 0, sweep: 0, draw: 0 };
         const day = dom(d), last = dim(d);
         if (A.income && (day === 1 || day === 15)) o.cash += A.income / 2;
         for (const inc of incomes) if (incomeHits(inc, d, day, last)) o.cash += inc.amount;
         o.cash -= Math.max(0, A.spend - spendCut);
+        const payDebt = (amt) => {   // the dearer balance first
+            const pay = Math.min(amt, o.debt); if (pay <= 0) return 0;
+            o.cash -= pay; o.debt -= pay;
+            const cardApr = A.cardApr || A.debtApr, cards = Math.max(0, o.debt + pay - o.loc - planLeft(d, bills));
+            if (A.locApr >= cardApr) o.loc -= Math.min(pay, o.loc); else o.loc -= Math.max(0, Math.min(o.loc, pay - cards));
+            return pay;
+        };
         for (const b of bills) {
             if (Math.min(b.day, last) !== day) continue;
             if (b.off || (b.from && d < b.from) || (b.until && d > b.until)) continue;   // switched off, or a payment plan that has ended
-            if (b.debt) { const pay = Math.min(b.amount, o.debt); o.cash -= pay; o.debt -= pay; }
+            if (b.debt) { const pay = Math.min(b.amount, o.debt); o.cash -= pay; o.debt -= pay; }   // a plan instalment pays its own plan, never the line
             else o.cash -= b.amount;
         }
         for (const p of planned) {
@@ -328,7 +379,12 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             if (hit) o.cash -= p.amount;
         }
         if (day === 1) { const mv = A.saveAdd + A.houseAdd; o.cash -= mv; o.savings += mv; o.house += A.houseAdd; }
-        o.debt += o.debt * (A.debtApr / 100) / 365;
+        if (A.sweepDay && Math.min(A.sweepDay, last) === day && o.debt > planLeft(d, bills) + 0.5) o.sweep = payDebt(o.cash - A.cashFloor);
+        if (o.cash < 0 && A.locCap > 0) { const draw = Math.min(-o.cash, Math.max(0, A.locCap - o.loc)); o.cash += draw; o.loc += draw; o.debt += draw; o.draw = draw; }
+        const cardApr = (A.cardApr || A.debtApr) / 100 / 365, locApr = (A.locApr || 0) / 100 / 365;
+        const cards = Math.max(0, o.debt - o.loc - planLeft(d, bills));
+        const interest = cards * cardApr + o.loc * locApr;
+        o.debt += interest; o.loc += o.loc * locApr; o.interest = interest;
         o.savings += o.savings * (A.saveApy / 100) / 365;
         o.invest += o.invest * (A.investReturn / 100) / 365;
         return o;
@@ -356,7 +412,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const days = Object.keys(S.entries).filter(d => isFull(S.entries[d]) && d <= TODAY).sort();
         if (!days.length) return null;
         const d = days[days.length - 1], e = S.entries[d];
-        return { date: d, state: { cash: e.cash, savings: e.savings, debt: e.debt, invest: e.invest || 0, house: S.assume.house } };
+        return { date: d, state: { cash: e.cash, savings: e.savings, debt: e.debt, invest: e.invest || 0, house: S.assume.house, loc: Math.min(S.assume.locBalance || 0, e.debt) } };
     }
     const debtFree = rows => { const r = rows.find(x => x.debt <= 0.5); return r ? r.date : null; };
 
@@ -375,28 +431,18 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     }
     const simAt = (rows, base, d) => rows[diff(base.date, d) - 1];
 
-    // net for each of the 61 days
-    // Fixed expenses so far from today: the recurring bills that are not a debt payment, summed day by day.
-    const hasExpenses = () => S.bills.some(b => !b.debt && !b.off && b.amount > 0);
-    function expenseTotals(days) {
-        const out = {}; let run = 0;
-        for (let i = 1; i <= days; i++) {
-            const d = add(TODAY, i), last = dim(d);
-            for (const b of S.bills) if (!b.debt && !b.off && Math.min(b.day, last) === dom(d) && !(b.from && d < b.from) && !(b.until && d > b.until)) run += b.amount;
-            out[d] = run;
-        }
-        return out;
-    }
-    const monthlyExpenses = () => S.bills.filter(b => !b.debt && !b.off && !(b.until && b.until < TODAY) && !(b.from && b.from > TODAY)).reduce((t, b) => t + (b.amount || 0), 0);
+    // The year ahead, sampled at today and at each month's end. Weekly samples were tried first: where the sample
+    // fell relative to the paycheck swung net by thousands and drew a sawtooth that meant nothing.
+    const monthEnd = k => k.slice(0, 7) + '-' + pad(dim(k));
     function series2() {
         const out = [];
         if (M.empty) return out;
-        const mk = (d, a, b) => ({ d, net: netOf(a, false), plan: netOf(b, false), debt: a.debt, planDebt: b.debt, house: a.house, savings: a.savings, kind: 'proj' });
+        const mk = (d, a, b) => ({ d, net: netOf(a, false), plan: netOf(b, false), debt: a.debt, planDebt: b.debt, house: a.house, savings: a.savings, loc: a.loc || 0, kind: 'proj' });
         const t0 = TODAY > M.base.date ? [simAt(M.plain, M.base, TODAY), simAt(M.withPlan, M.base, TODAY)] : [M.base.state, M.base.state];
         out.push(Object.assign(mk(TODAY, t0[0], t0[1]), { k: 0 }));
-        for (let w = 1; w <= 52; w++) {
-            const d = add(TODAY, 7 * w);
-            if (d <= M.base.date) continue;
+        let d = monthEnd(TODAY);
+        for (let i = 0; i < 12; i++, d = monthEnd(add(d, 1))) {
+            if (d <= TODAY) { i--; continue; }
             out.push(mk(d, simAt(M.plain, M.base, d), simAt(M.withPlan, M.base, d)));
         }
         return out;
@@ -471,93 +517,147 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const t = isFull(S.entries[TODAY]) ? S.entries[TODAY] : simAt(M.plain, M.base, TODAY) || M.base.state;
         const net = t.cash + t.savings - t.debt;
         const free = M.freeDate, A = S.assume;
-        const house = (simAt(M.plain, M.base, TODAY) || { house: A.house }).house;
+        const loc = TODAY > M.base.date ? (simAt(M.plain, M.base, TODAY) || {}).loc || 0 : M.base.state.loc || 0;
+        const pct = (v, g) => g > 0 ? Math.min(100, Math.max(0, v / g * 100)) : 0;
         $('stats').innerHTML = `
-            <div class="stat"><div class="k"><span class="sw" style="background:${net >= 0 ? 'var(--orange)' : 'var(--blue)'}"></span>Net</div><div class="v">${money(net)}</div></div>
-            <div class="stat"><div class="k">Debt-free</div><div class="v">${free ? esc(fmtDay(free, { month: 'short', day: 'numeric' })) : '—'}</div></div>
-            <div class="stat"><div class="k">Debt left</div><div class="v">${money(t.debt)}</div></div>
-            <div class="stat"><div class="k">Savings</div><div class="v">${money(t.savings)}</div></div>
-            <div class="stat"><div class="k">House fund</div><div class="v">${money(house)}</div><div class="bar"><i style="width:${A.houseGoal ? Math.min(100, house / A.houseGoal * 100) : 0}%"></i></div></div>`;
+            <div class="stat"><div class="k"><span class="sw" style="background:${INK}"></span>Net</div><div class="v">${money(net)}</div></div>
+            <div class="stat"><div class="k">Debt-free</div><div class="v">${free ? esc(fmtDay(free, { month: 'short', day: 'numeric', year: free.slice(0, 4) !== TODAY.slice(0, 4) ? '2-digit' : undefined })) : 'not yet'}</div></div>
+            <div class="stat"><div class="k"><span class="sw" style="background:var(--debtc)"></span>Debt left</div><div class="v">${money(t.debt)}</div></div>
+            <div class="stat"><div class="k"><span class="sw" style="background:${SAV}"></span>Savings</div><div class="v">${money(t.savings)}</div>${A.saveGoal ? `<div class="bar" title="Savings goal ${money(A.saveGoal)}"><i style="width:${pct(t.savings, A.saveGoal)}%"></i></div>` : ''}</div>
+            ${A.locCap ? `<div class="stat"><div class="k">Line of credit</div><div class="v">${money(loc)}</div><div class="bar" title="Of ${money(A.locCap)} available"><i style="width:${pct(loc, A.locCap)}%;background:var(--debtc)"></i></div></div>` : ''}`;
+    }
+
+    // ---------- what the pane needs from you ----------
+    // Not Tom's row: these are the pane's own asks, computed from what it can see. A statement older than ten days,
+    // balances not entered for three, a card APR of zero while cards carry a balance, a goal without a number.
+    const ACCT_NAME = { becu_checking: 'BECU checking', becu_visa: 'BECU Visa', bofa: 'Bank of America', apple: 'Apple Card' };
+    function needs() {
+        const out = [], A = S.assume, H = S.history;
+        const accts = (H && H.accounts) || {};
+        if (!Object.keys(accts).length) out.push('No statements yet. Drop your checking and card exports in the + circle and the past half of the charts fills in.');
+        else for (const k of Object.keys(ACCT_NAME)) {
+            const a = accts[k];
+            if (!a) { out.push(`No ${ACCT_NAME[k]} statement yet. Drop one in the + circle.`); continue; }
+            const age = diff(a.last, TODAY);
+            if (age > 10) out.push(`Your ${ACCT_NAME[k]} statement ends ${fmtDay(a.last, { month: 'short', day: 'numeric' })}, ${age} days ago. Drop a newer export in the + circle.`);
+        }
+        const fullDays = Object.keys(S.entries).filter(d => isFull(S.entries[d]) && d <= TODAY).sort(), lastFull = fullDays[fullDays.length - 1];
+        if (!lastFull) out.push('Enter cash, savings and debt for a day and the projection starts.');
+        else if (diff(lastFull, TODAY) >= 3) out.push(`Balances were last entered ${fmtDay(lastFull, { month: 'short', day: 'numeric' })}. Today’s cash, savings and debt keep the projection honest.`);
+        if (!M.empty) {
+            const cards = M.base.state.debt - (M.base.state.loc || 0) - planLeft(M.base.date, S.bills);
+            if (cards > 50 && !(A.cardApr || A.debtApr)) out.push(`What APR do your cards charge? With it (under assumptions) the pane can say whether moving a balance to the ${A.locApr ? A.locApr + '% ' : ''}line of credit saves enough to bother.`);
+        }
+        if (S.goals.some(g => !g.done && /\bcar\b/i.test(g.title)) && !A.carGoal) out.push('What would the car cost? A car budget under assumptions puts it on the ladder below.');
+        return out.slice(0, 3);
+    }
+    function drawNeeds() {
+        const row = $('needs'), list = M ? needs() : [];
+        row.hidden = !list.length;
+        row.innerHTML = list.length ? `<span class="chip">NEEDS</span><div class="txt">${list.map(t => `<div>${esc(t)}</div>`).join('')}</div>` : '';
+    }
+
+    // ---------- the goals ladder ----------
+    // The four goals in order, each a bar toward a green dot: the debt to zero by Dec 31, the savings floor, the car,
+    // the house down payment. Titles come from plan.goals (Kevin's words); the numbers from the assumptions. Progress
+    // is money, the small tick is where "on pace" would be today, and the right-hand words are where the projection
+    // says it lands.
+    function ladderRows() {
+        if (M.empty) return [];
+        const A = S.assume, now = isFull(S.entries[TODAY]) ? S.entries[TODAY] : simAt(M.plain, M.base, TODAY) || M.base.state;
+        const title = (i, dflt) => (S.goals[i] && S.goals[i].title) || dflt;
+        const startDay = Object.keys(S.entries).filter(d => typeof S.entries[d].debt === 'number').sort()[0] || M.base.date;
+        const debtStart = A.debtStart || Math.max(now.debt, ...Object.values(S.entries).map(e => e.debt || 0));
+        const rows = [];
+        const paid = Math.max(0, debtStart - now.debt);
+        const pace = yearEnd > startDay ? Math.min(1, Math.max(0, diff(startDay, TODAY) / diff(startDay, yearEnd))) : 1;
+        rows.push({ title: title(0, 'Debt-free by Dec 31'), have: paid, goal: debtStart, pace, done: now.debt <= 0.5, left: `${money(now.debt)} left`,
+            lands: M.freeDate ? (M.freeDate <= yearEnd ? `on course: ${fmtDay(M.freeDate, { month: 'short', day: 'numeric' })}` : `lands ${fmtDay(M.freeDate, { month: 'short', day: 'numeric', year: 'numeric' })}`) : 'not within a year as things stand', bad: !M.freeDate || M.freeDate > yearEnd });
+        if (A.saveGoal) {
+            const hit = M.plain.find(r => r.savings >= A.saveGoal);
+            rows.push({ title: title(1, 'Savings'), have: now.savings, goal: A.saveGoal, done: now.savings >= A.saveGoal, left: `${money(now.savings)} of ${money(A.saveGoal)}`, lands: now.savings >= A.saveGoal ? 'reached' : hit ? `lands ${fmtDay(hit.date, { month: 'short', day: 'numeric', year: 'numeric' })}` : 'nothing is moving to savings yet', bad: !(now.savings >= A.saveGoal || hit) });
+        }
+        const carHave = Math.max(0, now.savings - (A.saveGoal || 0));
+        rows.push({ title: title(2, 'A car'), have: carHave, goal: A.carGoal, done: A.carGoal && carHave >= A.carGoal, left: A.carGoal ? `${money(carHave)} of ${money(A.carGoal)}` : 'no budget set', lands: A.carGoal ? 'after the first two' : 'set a car budget under assumptions', bad: false });
+        if (A.houseGoal) rows.push({ title: title(3, 'A house'), have: now.house || A.house || 0, goal: A.houseGoal, done: (now.house || 0) >= A.houseGoal, left: `${money(now.house || A.house || 0)} of ${money(A.houseGoal)}`, lands: A.houseAdd ? `${money(A.houseAdd)} a month from the 1st` : 'after the car', bad: false });
+        return rows;
+    }
+    function drawLadder() {
+        const rows = ladderRows(), box = $('ladder');
+        box.hidden = !rows.length; if (!rows.length) { box.innerHTML = ''; return; }
+        box.innerHTML = rows.map((r, i) => {
+            const pct = r.goal > 0 ? Math.min(100, r.have / r.goal * 100) : 0;
+            return `<div class="rung ${r.done ? 'done' : ''}"><div class="n">${i + 1}</div><div class="body"><div class="t"><span>${esc(r.title)}</span><span class="left">${esc(r.left)}</span></div>
+                <div class="track"><i style="width:${pct}%"></i>${r.pace !== undefined && !r.done ? `<em style="left:${r.pace * 100}%" title="Where on pace would be today"></em>` : ''}<b title="The target"></b></div>
+                <div class="lands ${r.bad ? 'bad' : ''}">${esc(r.lands)}</div></div></div>`;
+        }).join('');
     }
 
     // ---------- charts ----------
-    const NS = 'http://www.w3.org/2000/svg';
     function niceTicks(lo, hi, n) {
         const span = (hi - lo) || 1, raw = span / n, mag = Math.pow(10, Math.floor(Math.log10(raw)));
         const step = [1, 2, 2.5, 5, 10].map(m => m * mag).find(s => s >= raw);
         const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-6; v += step) out.push(Math.round(v * 100) / 100);
         return out;
     }
-    // The year ahead against its targets: net, the debt line falling toward zero, the savings line rising toward a green
-    // dot at the savings goal. Zero sits in the middle. Gridlines every $100 while that fits (about four pixels each),
-    // $250 and then $500 once the range gets too tall for $100 to be readable.
+    // The year ahead against its targets (2026-10-10): net in ink, the debt line in red falling toward a green dot at
+    // zero on Dec 31 (the goal date), the savings line rising toward a green dot at the savings goal. One scale that
+    // fits the lines, zero where it falls, points at today and each month's end, x by date.
+    const INK = 'var(--ink)', SAV = '#0ea5e9', GREEN = '#16a34a';
     function draw2() {
         const wrap = $('c2wrap'), tip = $('tip2');
         if (M.empty) { showEmpty('c2wrap', ''); $('leg2').innerHTML = ''; return; }
         clearEmpty('c2wrap');
         const pts = series2();
-        if (!pts.length) { $('leg2').innerHTML = ''; return; }
+        if (pts.length < 2) { $('leg2').innerHTML = ''; return; }
         const anyPlan = S.planned.some(p => p.on && p.amount), goal = S.assume.saveGoal || 0;
-        const W = 600, L = 44, R = 24, slot = (W - L - R) / pts.length, cx = i => L + slot * i + slot / 2;
+        const W = 600, L = 44, R = 26, TOP = 18, H1 = 210, LAB = 22, H = TOP + H1 + LAB;
+        const span = diff(TODAY, pts[pts.length - 1].d) || 1, x = d => L + (W - L - R) * diff(TODAY, d) / span;
         const vals = [0, goal]; pts.forEach(p => { vals.push(p.net, p.debt, p.savings); if (anyPlan) vals.push(p.plan); });
-        const m = Math.max(...vals.map(Math.abs)) * 1.05 || 1000, range = 2 * m;
-        const step = range <= 8000 ? 100 : range <= 24000 ? 250 : 500;
-        const labelEvery = step === 100 ? 500 : step === 250 ? 1000 : 2000;
-        const TOP = 16, H1 = Math.max(190, Math.min(440, Math.round(range / step * 4))), LAB = 22, H = TOP + H1 + LAB;
-        const y = v => TOP + H1 * (1 - (v + m) / range);
+        let lo = Math.min(...vals), hi = Math.max(...vals); const padv = (hi - lo) * 0.08 || 500; lo -= padv; hi += padv;
+        const ticks = niceTicks(lo, hi, 5); lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks[ticks.length - 1]);
+        const y = v => TOP + H1 * (1 - (v - lo) / (hi - lo));
         let g = '';
-        for (let v = Math.ceil(-m / step) * step; v <= m; v += step) {
-            const major = v % labelEvery === 0;
-            g += `<line class="${v === 0 ? 'zero' : 'grid'}" style="${major || v === 0 ? '' : 'opacity:.45'}" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/>`;
-            if (major) g += `<text x="${L - 5}" y="${y(v) + 3}" text-anchor="end">${money(v, true)}</text>`;
-        }
-        // net, orange above zero and blue below
-        const colOf = v => v >= 0 ? 'var(--orange)' : 'var(--blue)';
-        let run = null;
-        const flush = () => { if (run) g += `<polyline fill="none" stroke="${run.c}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round" points="${run.pts.join(' ')}"/>`; run = null; };
-        for (let i = 0; i < pts.length - 1; i++) {
-            const a = pts[i], b = pts[i + 1];
-            const parts = (a.net >= 0) !== (b.net >= 0) ? (() => { const t = a.net / (a.net - b.net), xm = cx(i) + (cx(i + 1) - cx(i)) * t; return [[a.net, 0, cx(i), xm], [0, b.net, xm, cx(i + 1)]]; })() : [[a.net, b.net, cx(i), cx(i + 1)]];
-            parts.forEach(([v0, v1, x0, x1]) => { const c = colOf(v0 || v1); if (!run || run.c !== c) { flush(); run = { c, pts: [`${x0},${y(v0)}`] }; } run.pts.push(`${x1},${y(v1)}`); });
-        }
-        flush();
-        const line = (key, col, w, dash) => `<polyline fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round"${dash ? ` stroke-dasharray="${dash}"` : ''} points="${pts.map((p, i) => `${cx(i)},${y(p[key])}`).join(' ')}"/>`;
+        ticks.forEach(v => { g += `<line class="${v === 0 ? 'zero' : 'grid'}" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 5}" y="${y(v) + 3}" text-anchor="end">${money(v, true)}</text>`; });
+        // the goal date: Dec 31, with the debt target sitting on it
+        const decX = yearEnd > TODAY && yearEnd <= pts[pts.length - 1].d ? x(yearEnd) : null;
+        if (decX !== null) g += `<line x1="${decX}" x2="${decX}" y1="${TOP - 4}" y2="${TOP + H1}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/><text x="${decX}" y="${TOP - 6}" text-anchor="middle">Dec 31</text>`;
+        const line = (key, col, w, dash) => `<polyline fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''} points="${pts.map(p => `${x(p.d)},${y(p[key])}`).join(' ')}"/>`;
+        g += line('net', INK, 2.2);
         g += line('debt', 'var(--debtc)', 2);
-        g += line('savings', '#0ea5e9', 2);
-        if (anyPlan) g += line('plan', 'var(--violet)', 2, '5 3');
-        // the targets: a green dot on the savings goal, and the debt line ends at zero
-        if (goal > 0) {
-            g += `<line x1="${L}" x2="${W - R}" y1="${y(goal)}" y2="${y(goal)}" stroke="#16a34a" stroke-opacity=".4" stroke-width="1" stroke-dasharray="3 4"/><circle cx="${W - R + 9}" cy="${y(goal)}" r="5" fill="#16a34a"><title>Savings goal ${money(goal)}</title></circle>`;
-        }
+        g += line('savings', SAV, 2);
+        if (anyPlan) g += line('plan', 'var(--plan)', 2, '5 3');
+        pts.forEach(p => { g += `<circle cx="${x(p.d)}" cy="${y(p.net)}" r="2.2" fill="${INK}"/>`; });
+        // the targets, as green dots
+        if (goal > 0) g += `<line x1="${L}" x2="${W - R}" y1="${y(goal)}" y2="${y(goal)}" stroke="${GREEN}" stroke-opacity=".35" stroke-width="1" stroke-dasharray="3 4"/><circle cx="${W - R + 9}" cy="${y(goal)}" r="5" fill="${GREEN}"><title>Savings goal ${money(goal)}</title></circle>`;
+        if (decX !== null) g += `<circle cx="${decX}" cy="${y(0)}" r="5" fill="${GREEN}"><title>Debt at zero by Dec 31</title></circle>`;
         const freeIdx = pts.findIndex(p => p.debt <= 0.5);
-        if (freeIdx >= 0) g += `<line x1="${cx(freeIdx)}" x2="${cx(freeIdx)}" y1="${TOP - 4}" y2="${TOP + H1}" stroke="var(--debtc)" stroke-width="1" stroke-dasharray="2 3"/><text x="${cx(freeIdx)}" y="${TOP - 5}" text-anchor="middle" style="fill:var(--debtc)">debt-free</text>`;
-        const last = pts[pts.length - 1];
-        pts.forEach((p, i) => { if (i === 0 || p.d.slice(5, 7) !== pts[i - 1].d.slice(5, 7)) g += `<text class="${i === 0 ? 'today' : ''}" x="${cx(i)}" y="${H - 6}" text-anchor="middle">${i === 0 ? 'today' : fmtDay(p.d, { month: 'short' })}</text>`; });
-        g += pts.map((p, i) => `<rect class="hit" data-i="${i}" x="${L + slot * i}" y="${TOP}" width="${slot}" height="${H1}"/>`).join('');
+        if (M.freeDate && M.freeDate <= pts[pts.length - 1].d) g += `<circle cx="${x(M.freeDate)}" cy="${y(0)}" r="3.5" fill="none" stroke="var(--debtc)" stroke-width="1.5"><title>Debt reaches zero ${fmtDay(M.freeDate, { month: 'short', day: 'numeric' })}</title></circle>`;
+        pts.forEach((p, i) => { if (i === 0 || (i % 2 === 1 && x(p.d) - L > 36)) g += `<text class="${i === 0 ? 'today' : ''}" x="${x(p.d)}" y="${H - 6}" text-anchor="middle">${i === 0 ? 'today' : fmtDay(p.d, { month: 'short' })}</text>`; });
+        g += pts.map((p, i) => { const x0 = i === 0 ? L : (x(pts[i - 1].d) + x(p.d)) / 2, x1 = i === pts.length - 1 ? W - R : (x(p.d) + x(pts[i + 1].d)) / 2; return `<rect class="hit" data-i="${i}" x="${x0}" y="${TOP}" width="${x1 - x0}" height="${H1}"/>`; }).join('');
         const old = wrap.querySelector('svg'); if (old) old.remove();
-        wrap.insertAdjacentHTML('afterbegin', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="The year ahead: net, debt and savings against the savings goal">${g}</svg>`);
+        wrap.insertAdjacentHTML('afterbegin', `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="The year ahead: net, debt and savings against the targets">${g}</svg>`);
         wrap.querySelectorAll('.hit').forEach(el => {
             el.addEventListener('mouseenter', () => {
                 const p = pts[+el.dataset.i];
                 let h = `<div class="d">${esc(fmtDay(p.d, { month: 'short', day: 'numeric' }))} · ${p.k === 0 ? 'now' : 'projected'}</div>`
-                    + `<div><span class="sw" style="background:${colOf(p.net)}"></span>Net <b>${money(p.net)}</b></div>`
-                    + `<div><span class="sw" style="background:var(--debtc)"></span>Debt <b>${money(p.debt)}</b></div>`
-                    + `<div><span class="sw" style="background:#0ea5e9"></span>Savings <b>${money(p.savings)}</b>${goal ? (p.savings >= goal ? ' · past the goal' : ` · ${money(goal - p.savings)} to go`) : ''}</div>`
-                    + `<div>House fund ${money(p.house)}</div>`;
-                if (anyPlan) h += `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
+                    + `<div><span class="sw" style="background:${INK}"></span>Net <b>${money(p.net)}</b></div>`
+                    + `<div><span class="sw" style="background:var(--debtc)"></span>Debt <b>${money(p.debt)}</b>${p.loc > 0.5 ? ` · ${money(p.loc)} on the line of credit` : ''}</div>`
+                    + `<div><span class="sw" style="background:${SAV}"></span>Savings <b>${money(p.savings)}</b>${goal ? (p.savings >= goal ? ' · past the goal' : ` · ${money(goal - p.savings)} to go`) : ''}</div>`;
+                if (anyPlan) h += `<div><span class="sw" style="background:var(--plan)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
                 tip.innerHTML = h; tip.classList.add('on');
                 const wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect(), left = er.left - wr.left + er.width / 2;
                 tip.style.left = Math.max(0, Math.min(wr.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px'; tip.style.top = '4px';
             });
             el.addEventListener('mouseleave', () => tip.classList.remove('on'));
         });
-        const decIdx = (() => { let j = -1; pts.forEach((p, i) => { if (p.d <= yearEnd) j = i; }); return j; })();
-        $('leg2').innerHTML = `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--orange)"></span>Net</span>
+        const endDebt = pts[pts.length - 1].debt;
+        $('leg2').innerHTML = `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:${INK}"></span>Net</span>
             <span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--debtc)"></span>Debt</span>
-            <span class="item"><span class="ln" style="border-top-style:solid;border-top-color:#0ea5e9"></span>Savings</span>
-            ${goal ? `<span class="item"><span class="sw" style="background:#16a34a;border-radius:50%"></span>Savings goal</span>` : ''}
+            <span class="item"><span class="ln" style="border-top-style:solid;border-top-color:${SAV}"></span>Savings</span>
+            <span class="item"><span class="sw" style="background:${GREEN};border-radius:50%"></span>targets</span>
             ${anyPlan ? '<span class="item"><span class="ln"></span>With planned spending</span>' : ''}
-            ${freeIdx >= 0 ? `<span class="item">Debt reaches zero the week of <b style="margin-left:3px">${esc(fmtDay(pts[freeIdx].d, { month: 'short', day: 'numeric' }))}</b></span>` : ''}`;
+            ${freeIdx >= 0 || M.freeDate ? `<span class="item">Debt reaches zero <b style="margin-left:3px">${esc(fmtDay(M.freeDate, { month: 'short', day: 'numeric', year: 'numeric' }))}</b></span>` : endDebt > 0.5 ? `<span class="item">Debt in a year: <b style="margin-left:3px">${money(endDebt)}</b></span>` : ''}`;
     }
     // ---------- planned spending ----------
     function drawPlans() {
@@ -604,7 +704,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     function drawEffect() {
         const on = S.planned.filter(p => p.on && p.amount);
         if (!M) return;
-        if (M.empty || !on.length) { $('effect').textContent = on.length ? '' : 'Tick one on, or add something you are thinking of buying, and the violet line shows what it does to your cash and to the year ahead.'; return; }
+        if (M.empty || !on.length) { $('effect').textContent = on.length ? '' : 'Tick one on, or add something you are thinking of buying, and the dashed grey line shows what it does to your cash and to the year ahead.'; return; }
         const total = on.reduce((s, p) => s + p.amount * (p.monthly ? 1 : 1), 0);
         const d = yearEnd > M.base.date ? simAt(M.plain, M.base, yearEnd) : null, dp = d ? simAt(M.withPlan, M.base, yearEnd) : null;
         const shift = M.freeDate && M.freePlanDate ? diff(M.freeDate, M.freePlanDate) : null;
@@ -613,9 +713,11 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             + '.';
     }
 
-    const AS = [['spend', 'Everyday spending a day', '$'], ['debtApr', 'Debt APR', '%'], ['saveAdd', 'To savings, the 1st', '$'],
-                ['houseAdd', 'To house fund, the 1st', '$'], ['houseGoal', 'House fund goal', '$'], ['house', 'House fund now (inside savings)', '$'],
-                ['saveGoal', 'Savings goal (the green dot)', '$'], ['saveApy', 'Your savings rate', '%'], ['hysaApy', 'A better savings rate', '%'], ['investReturn', 'Trading account return', '%']];
+    const AS = [['spend', 'Everyday spending a day', '$'], ['cardApr', 'Card APR', '%'], ['locApr', 'Line of credit APR', '%'], ['locCap', 'Line of credit limit', '$'], ['locBalance', 'Drawn on the line now (inside debt)', '$'],
+                ['cashFloor', 'Cash to keep in checking', '$'], ['sweepDay', 'Day the rest goes to the debt (0 = never)', ''], ['debtStart', 'Debt when you started', '$'],
+                ['saveGoal', 'Savings goal', '$'], ['carGoal', 'Car budget', '$'], ['saveAdd', 'To savings, the 1st', '$'],
+                ['houseAdd', 'To house fund, the 1st', '$'], ['houseGoal', 'House down payment goal', '$'], ['house', 'House fund now (inside savings)', '$'],
+                ['saveApy', 'Your savings rate', '%'], ['hysaApy', 'A better savings rate', '%'], ['investReturn', 'Trading account return', '%']];
     function drawAssume() {
         $('assume').innerHTML = AS.map(([k, label]) => `<label>${label}<input type="text" inputmode="decimal" data-a="${k}" value="${S.assume[k] || ''}" placeholder="0"></label>`).join('');
         $('assume').querySelectorAll('input').forEach(el => el.addEventListener('input', () => {
@@ -709,7 +811,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 const res = await fetch(base + '/statements', { method: 'POST', headers: { 'x-filename': encodeURIComponent(f.name), 'Content-Type': f.type || 'application/octet-stream' }, body: f });
                 const out = await res.json().catch(() => ({}));
                 if (!res.ok) throw new Error(out.error || ('HTTP ' + res.status));
-                S.statements.unshift(out); drawFiles(); say('saved'); try { S.history = await call('/history?days=30'); refresh(false); } catch (e) { /* the chart keeps what it had */ }
+                S.statements.unshift(out); drawFiles(); say('saved'); try { S.history = await call('/history?days=' + (HIST_BACK + 1)); refresh(false); } catch (e) { /* the chart keeps what it had */ }
             } catch (e) { say(e.message || 'not uploaded', true); }
         }
     }
@@ -737,15 +839,17 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     const matchesBill = (label) => S.bills.some(b => { const w = (b.label || '').toLowerCase().split(/[^a-z0-9]+/).filter(x => x.length >= 4)[0]; return w && String(label).toLowerCase().includes(w); });
     const outOf = (f) => OUT.reduce((t, k) => t + (f.cats[k] || 0), 0);
     function flowsFor(d) {
-        const day = dom(d), last = dim(d), f = { income: 0, cats: {}, rec: {}, items: [], daily: 0 };
+        const day = dom(d), last = dim(d), f = { income: 0, cats: {}, rec: {}, items: [], moves: [], daily: 0 };
         const A = S.assume;
         const put = (cat, label, amt, rec) => { f.cats[cat] = (f.cats[cat] || 0) + amt; if (rec) f.rec[cat] = (f.rec[cat] || 0) + amt; f.items.push([cat, label, amt, !!rec]); };
         if (A.income && (day === 1 || day === 15)) { f.income += A.income / 2; f.items.push(['income', 'Pay', A.income / 2, false]); }
         for (const inc of S.incomes) if (incomeHits(inc, d, day, last)) { f.income += inc.amount; f.items.push(['income', inc.label || 'Income', inc.amount, true]); }
         for (const b of S.bills) {
-            if (b.off || b.debt || Math.min(b.day, last) !== day || (b.from && d < b.from) || (b.until && d > b.until)) continue;
-            put(billCat(b.label), b.label, b.amount, true);
+            if (b.off || Math.min(b.day, last) !== day || (b.from && d < b.from) || (b.until && d > b.until)) continue;
+            if (b.debt) f.moves.push(['card', b.label, b.amount]);   // pays debt: cash to debt, not spending
+            else put(billCat(b.label), b.label, b.amount, true);
         }
+        if (M && !M.empty && d > M.base.date) { const r = simAt(M.plain, M.base, d); if (r && r.sweep > 0.5) f.moves.push(['card', 'To the debt (what is above the cash floor)', r.sweep]); if (r && r.draw > 0.5) f.moves.push(['in', 'Drawn on the line of credit', r.draw]); }
         for (const p of S.planned) {
             if (!p.on || !p.amount) continue;
             if (p.date === d || (p.monthly && d > p.date && Math.min(dom(p.date), last) === day)) put('other', p.label, p.amount, !!p.monthly);
@@ -759,9 +863,9 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     }
     function flowsFromHistory(d) {
         const h = S.history && S.history.days && S.history.days[d];
-        const f = { income: 0, cats: {}, rec: {}, items: [], daily: 0 };
+        const f = { income: 0, cats: {}, rec: {}, items: [], moves: [], daily: 0 };
         if (!h) return f;
-        f.income = h.income;
+        f.income = h.income; f.moves = h.moves || [];
         h.items.forEach(([cat, label, amt, rec]) => {
             if (cat === 'income') { f.items.push([cat, label, amt, false]); return; }
             const r = !!rec || matchesBill(label);
@@ -770,14 +874,15 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         });
         return f;
     }
+    const HIST_BACK = 30;   // the Cash chart's past half; the history request covers HIST_BACK + 1 days so day −30 is real, not interpolated
     function historySeries() {
         const out = []; const H = S.history && S.history.days || {};
         const anchorDay = Object.keys(S.entries).filter(d => d <= TODAY && typeof S.entries[d].cash === 'number').sort().pop();
         const net = d => (H[d] ? H[d].net : 0);
         const rel = !anchorDay;
-        for (let k = -29; k <= 0; k++) {
+        for (let k = -HIST_BACK; k <= 0; k++) {
             const d = add(TODAY, k); let cash;
-            if (rel) { cash = 0; for (let x = add(TODAY, -29); x <= d; x = add(x, 1)) cash += net(x); }
+            if (rel) { cash = 0; for (let x = add(TODAY, -HIST_BACK); x <= d; x = add(x, 1)) cash += net(x); }
             else if (d <= anchorDay) { cash = S.entries[anchorDay].cash; for (let x = add(d, 1); x <= anchorDay; x = add(x, 1)) cash -= net(x); }
             else { cash = S.entries[anchorDay].cash; for (let x = add(anchorDay, 1); x <= d; x = add(x, 1)) cash += net(x); }
             out.push({ d, k, cash: Math.round(cash * 100) / 100, kind: 'actual', plan: null, flows: flowsFromHistory(d) });
@@ -816,44 +921,48 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         clearEmpty('c1wrap');
         renderCash({ wrapId: 'c1wrap', tipId: 'tip1', legId: 'leg1', pts: cashSeries(), anyPlan, band: [-15, 15] });
     }
-    const FS = Math.sqrt;
-    function flowTicks(maxIn, maxOut) {
-        const cand = [10, 50, 200, 500, 1000, 2000, 5000, 10000];
-        return { up: cand.filter(v => v <= maxIn).slice(-3), down: cand.filter(v => v <= maxOut).slice(-3) };
-    }
+    // Bars on a linear scale (2026-10-10; the square-root scale flattered big days). Each direction's scale is set by
+    // the second-largest day, at least $500, so one airline day cannot squash a month of groceries: a bar over the
+    // cap is clipped, notched, and labelled with its total.
+    function flowCap(vals) { const s = vals.filter(v => v > 0).sort((a, b) => b - a); return Math.max(500, s[1] || s[0] || 0); }
+    const MOVE_LABEL = { card: 'card payment', in: 'moved in', out: 'moved out' };
     function renderFlowChart(cfg) {
         const wrap = $(cfg.wrapId), tip = $(cfg.tipId), pts = cfg.pts, anyPlan = cfg.anyPlan;
         const W = 600, L = 40, R = 44, slot = (W - L - R) / pts.length, cx = i => L + slot * i + slot / 2;
         const TOP = 14, H1 = 176, LAB = 22, H = TOP + H1 + LAB;
         const fl = pts.filter(p => p.flows);
-        const maxIn = Math.max(1, ...fl.map(p => p.flows.income)), maxOut = Math.max(1, ...fl.map(p => outOf(p.flows)));
-        const unit = H1 / (FS(maxIn) + FS(maxOut)), y0 = TOP + FS(maxIn) * unit;
+        const capIn = flowCap(fl.map(p => p.flows.income)), capOut = flowCap(fl.map(p => outOf(p.flows)));
+        const unit = H1 / (capIn + capOut), y0 = TOP + capIn * unit;
         let g = '<defs>' + OUT.concat(['income']).map(k => `<pattern id="hat-${k}" patternUnits="userSpaceOnUse" width="5" height="5" patternTransform="rotate(45)"><rect width="5" height="5" fill="${CATS[k][1]}"/><rect width="2" height="5" fill="#fff" fill-opacity="0.72"/></pattern>`).join('') + '</defs>';
-        const t = flowTicks(maxIn, maxOut);
-        t.up.forEach(v => { g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y0 - FS(v) * unit}" y2="${y0 - FS(v) * unit}"/><text x="${L - 5}" y="${y0 - FS(v) * unit + 3}" text-anchor="end">+${money(v, true)}</text>`; });
-        t.down.forEach(v => { g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y0 + FS(v) * unit}" y2="${y0 + FS(v) * unit}"/><text x="${L - 5}" y="${y0 + FS(v) * unit + 3}" text-anchor="end">−${money(v, true)}</text>`; });
+        niceTicks(0, capIn, 2).forEach(v => { if (v > 0 && v <= capIn) g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y0 - v * unit}" y2="${y0 - v * unit}"/><text x="${L - 5}" y="${y0 - v * unit + 3}" text-anchor="end">+${money(v, true)}</text>`; });
+        niceTicks(0, capOut, 2).forEach(v => { if (v > 0 && v <= capOut) g += `<line class="grid" x1="${L}" x2="${W - R}" y1="${y0 + v * unit}" y2="${y0 + v * unit}"/><text x="${L - 5}" y="${y0 + v * unit + 3}" text-anchor="end">−${money(v, true)}</text>`; });
         g += `<line class="zero" x1="${L}" x2="${W - R}" y1="${y0}" y2="${y0}"/>`;
         const bw = Math.max(4, slot * 0.72);
+        let clipped = '';
         pts.forEach((p, i) => {
             if (!p.flows) return;
             const f = p.flows; let up = 0, down = 0;
             const seg = (v, cat, hatched, dirUp) => {
                 if (v <= 0.005) return;
-                const from = dirUp ? up : down, to = from + v;
-                const h = Math.max(1, (FS(to) - FS(from)) * unit), yy = dirUp ? y0 - FS(to) * unit : y0 + FS(from) * unit;
-                g += `<rect x="${cx(i) - bw / 2}" y="${yy}" width="${bw}" height="${h}" fill="${hatched ? `url(#hat-${cat})` : CATS[cat][1]}"${p.kind === 'proj' && !hatched ? ' fill-opacity="0.8"' : ''}/>`;
+                const cap = dirUp ? capIn : capOut, from = dirUp ? up : down, to = from + v;
+                const a = Math.min(from, cap), b = Math.min(to, cap);
+                if (b > a) { const h = Math.max(1, (b - a) * unit), yy = dirUp ? y0 - b * unit : y0 + a * unit; g += `<rect x="${cx(i) - bw / 2}" y="${yy}" width="${bw}" height="${h}" fill="${hatched ? `url(#hat-${cat})` : CATS[cat][1]}"${p.kind === 'proj' && !hatched ? ' fill-opacity="0.8"' : ''}/>`; }
                 if (dirUp) up = to; else down = to;
             };
             seg(f.income, 'income', false, true);
             OUT.forEach(k => { const tot = f.cats[k] || 0, rec = Math.min(tot, f.rec[k] || 0); seg(tot - rec, k, false, false); seg(rec, k, true, false); });
+            if (up > capIn) clipped += `<line x1="${cx(i) - bw / 2 - 1}" x2="${cx(i) + bw / 2 + 1}" y1="${TOP + 3}" y2="${TOP + 3}" stroke="#fff" stroke-width="2"/><text x="${cx(i)}" y="${TOP - 3}" text-anchor="middle" style="fill:var(--orange);font-weight:600">${money(up, true)}</text>`;
+            if (down > capOut) clipped += `<line x1="${cx(i) - bw / 2 - 1}" x2="${cx(i) + bw / 2 + 1}" y1="${TOP + H1 - 3}" y2="${TOP + H1 - 3}" stroke="#fff" stroke-width="2"/><text x="${cx(i)}" y="${TOP + H1 + 9}" text-anchor="middle" style="fill:#475569;font-weight:600">${money(down, true)}</text>`;
+            // a card payment or a move between his accounts: a grey tick on the zero line, never a bar
+            if (f.moves && f.moves.length) g += `<rect x="${cx(i) - 2}" y="${y0 - 5}" width="4" height="10" rx="1" fill="#94a3b8"/>`;
         });
-        // the cash line: white with a dark edge so it reads over any bar colour, on its own scale at the right
+        g += clipped;
+        // the cash line: white with a dark edge so it reads over any bar colour; its zero is the bars' zero line
         const cv = pts.map(p => p.cash).filter(v => v !== null && v !== undefined);
         if (cv.length > 1) {
-            let lo = Math.min.apply(null, cv), hi = Math.max.apply(null, cv); const pad = (hi - lo) * 0.12 || 100; lo -= pad; hi += pad;
-            const tk = niceTicks(lo, hi, 3), yc = v => TOP + H1 * (1 - (v - lo) / (hi - lo));
-            tk.forEach(v => { if (v >= lo && v <= hi) g += `<text x="${W - R + 5}" y="${yc(v) + 3}" style="fill:#64748b">${money(v, true)}</text>`; });
-            g += `<text x="${W - R + 5}" y="${TOP - 3}" style="fill:#64748b">cash</text>`;
+            const hiC = Math.max(100, Math.max.apply(null, cv) * 1.06), yc = v => y0 - v * (y0 - TOP) / hiC;
+            niceTicks(0, hiC, 2).forEach(v => { if (v > 0 && v <= hiC) g += `<text x="${W - R + 5}" y="${yc(v) + 3}" style="fill:#64748b">${money(v, true)}</text>`; });
+            g += `<text x="${W - R + 5}" y="${y0 + 3}" style="fill:#64748b">$0</text>`;
             let seg = [], dashed = false; const lines = [];
             for (let i = 0; i < pts.length; i++) {
                 const p = pts[i];
@@ -867,7 +976,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             lines.forEach(l => { g += `<polyline fill="none" stroke="#ffffff" stroke-width="2.3" stroke-linejoin="round" stroke-linecap="round"${l.dashed ? ' stroke-dasharray="5 3"' : ''} points="${l.pts.join(' ')}"/>`; });
             pts.forEach((p, i) => { if (p.kind === 'actual' && p.cash !== null) g += `<circle cx="${cx(i)}" cy="${yc(p.cash)}" r="2.4" fill="#ffffff" stroke="#0f172a" stroke-opacity="0.55" stroke-width="1"/>`; });
             const pp = pts.map((p, i) => ({ i, v: p.plan })).filter(q => q.v !== null && q.v !== undefined);
-            if (anyPlan && pp.length > 1) g += `<polyline fill="none" stroke="var(--violet)" stroke-width="2" stroke-dasharray="5 3" stroke-linejoin="round" points="${pp.map(q => `${cx(q.i)},${yc(q.v)}`).join(' ')}"/>`;
+            if (anyPlan && pp.length > 1) g += `<polyline fill="none" stroke="var(--plan)" stroke-width="2" stroke-dasharray="5 3" stroke-linejoin="round" points="${pp.map(q => `${cx(q.i)},${yc(q.v)}`).join(' ')}"/>`;
         }
         const ti = pts.findIndex(p => p.k === 0);
         g += `<line x1="${cx(ti)}" x2="${cx(ti)}" y1="${TOP}" y2="${TOP + H1}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/>`;
@@ -880,10 +989,11 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 const p = pts[+el.dataset.i], f = p.flows;
                 let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'actual' ? 'from your statements and entries' : p.kind === 'est' ? 'estimated' : 'projected'}</div>`;
                 if (p.cash !== null && p.cash !== undefined) h += `<div><span class="sw" style="background:#fff;box-shadow:0 0 0 1px #64748b"></span>Cash <b>${money(p.cash)}</b></div>`;
-                if (p.plan !== null && p.plan !== undefined && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
+                if (p.plan !== null && p.plan !== undefined && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--plan)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
                 if (f) {
                     f.items.forEach(([cat, label, amt, rec]) => { h += `<div><span class="sw" style="background:${CATS[cat][1]}"></span>${esc(label)}${rec && cat !== 'income' ? ' <i>(recurring)</i>' : ''} <b>${cat === 'income' ? '+' : '−'}${money(amt)}</b></div>`; });
                     if (f.daily && p.kind === 'proj') h += `<div>Everyday spending <b>−${money(f.daily)}</b></div>`;
+                    (f.moves || []).forEach(([kind, label, amt]) => { h += `<div><span class="sw" style="background:#94a3b8"></span>${esc(label)} <i>(${MOVE_LABEL[kind] || kind}, not spending)</i> <b>${kind === 'in' ? '+' : '−'}${money(amt)}</b></div>`; });
                 }
                 tip.innerHTML = h; tip.classList.add('on');
                 const wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect(), left = er.left - wr.left + er.width / 2;
@@ -891,11 +1001,14 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             });
             el.addEventListener('mouseleave', () => tip.classList.remove('on'));
         });
-        // one line: the kinds that appear, the hatch, the white line
+        // one line: the kinds that appear, the hatch, the grey tick, the white line
         const present = ['income'].concat(OUT).filter(k => pts.some(p => p.flows && (k === 'income' ? p.flows.income : p.flows.cats[k])));
+        const anyMove = pts.some(p => p.flows && p.flows.moves && p.flows.moves.length);
         $(cfg.legId).className = 'legend one';
         $(cfg.legId).innerHTML = present.map(k => `<span class="item"><span class="sw" style="background:${CATS[k][1]}"></span>${CATS[k][0]}</span>`).join('')
-            + '<span class="item" title="Hatched bars repeat every month"><span class="sw hatch"></span>recurring</span><span class="item"><span class="ln white"></span>cash</span>'
+            + '<span class="item" title="Hatched bars repeat every month"><span class="sw hatch"></span>recurring</span>'
+            + (anyMove ? '<span class="item" title="A card payment or a move between your accounts: the cash line moves, nothing was bought"><span class="sw tick"></span>card payment</span>' : '')
+            + '<span class="item"><span class="ln white"></span>cash</span>'
             + (anyPlan ? '<span class="item"><span class="ln"></span>planned</span>' : '');
     }
     function renderCash(cfg) {
@@ -908,20 +1021,21 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const y1 = v => TOP + H1 * (1 - (v - lo) / (hi - lo));
         let g = '';
         t1.forEach(v => { g += `<line class="${v === 0 ? 'zero' : 'grid'}" x1="${L}" x2="${W - R}" y1="${y1(v)}" y2="${y1(v)}"/><text x="${L - 5}" y="${y1(v) + 3}" text-anchor="end">${money(v, true)}</text>`; });
-        const colOf = v => v >= 0 ? 'var(--orange)' : 'var(--blue)';
+        if (cfg.band) { const bi = pts.findIndex(p => p.k === cfg.band[0]), bj = pts.findIndex(p => p.k === cfg.band[1]); if (bi >= 0 && bj >= 0) g += `<rect x="${cx(bi) - slot / 2}" y="${TOP}" width="${cx(bj) - cx(bi) + slot}" height="${H1}" fill="var(--band)" stroke="var(--band)" stroke-width="1"><title>The 30 days shown in the chart above</title></rect>`; }
+        // one ink line: solid where entered or read from statements, lighter where estimated, dashed where projected
         let run = null;
-        const flush = () => { if (run) g += `<polyline fill="none" stroke="${run.c}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${run.kind === 'proj' ? ' stroke-dasharray="5 3"' : ''}${run.kind === 'est' ? ' stroke-opacity="0.55"' : ''} points="${run.pts.join(' ')}"/>`; run = null; };
+        const flush = () => { if (run) g += `<polyline fill="none" stroke="${INK}" stroke-width="2.2" stroke-linejoin="round" stroke-linecap="round"${run.kind === 'proj' ? ' stroke-dasharray="5 3"' : ''}${run.kind === 'est' ? ' stroke-opacity="0.45"' : ''} points="${run.pts.join(' ')}"/>`; run = null; };
         for (let i = 0; i < pts.length - 1; i++) {
             const a = pts[i], b = pts[i + 1]; if (a.cash === null || b.cash === null) { flush(); continue; }
             const kind = (a.kind === 'proj' || b.kind === 'proj') ? 'proj' : (a.kind === 'est' || b.kind === 'est') ? 'est' : 'actual';
-            const parts = (a.cash >= 0) !== (b.cash >= 0) ? (() => { const t = a.cash / (a.cash - b.cash); return [[a.cash, 0, cx(i), cx(i) + (cx(i + 1) - cx(i)) * t], [0, b.cash, cx(i) + (cx(i + 1) - cx(i)) * t, cx(i + 1)]]; })() : [[a.cash, b.cash, cx(i), cx(i + 1)]];
-            parts.forEach(([v0, v1, x0, x1]) => { const c = colOf(v0 || v1); if (!run || run.c !== c || run.kind !== kind) { flush(); run = { c, kind, pts: [`${x0},${y1(v0)}`] }; } run.pts.push(`${x1},${y1(v1)}`); });
+            if (!run || run.kind !== kind) { flush(); run = { kind, pts: [`${cx(i)},${y1(a.cash)}`] }; }
+            run.pts.push(`${cx(i + 1)},${y1(b.cash)}`);
         }
         flush();
-        pts.forEach((p, i) => { if (p.kind === 'actual') g += `<circle cx="${cx(i)}" cy="${y1(p.cash)}" r="2.3" fill="${colOf(p.cash)}"/>`; });
+        pts.forEach((p, i) => { if (p.kind === 'actual') g += `<circle cx="${cx(i)}" cy="${y1(p.cash)}" r="2.3" fill="${INK}"/>`; });
+        pts.forEach((p, i) => { if (p.flows && p.flows.moves && p.flows.moves.some(m => m[0] === 'card')) g += `<rect x="${cx(i) - 1.5}" y="${TOP + H1 - 8}" width="3" height="8" rx="1" fill="#94a3b8"><title>Card payment</title></rect>`; });
         const pp = pts.map((p, i) => ({ i, v: p.plan })).filter(q => q.v !== null);
-        if (anyPlan && pp.length > 1) g += `<polyline fill="none" stroke="var(--violet)" stroke-width="2" stroke-dasharray="5 3" stroke-linejoin="round" points="${pp.map(q => `${cx(q.i)},${y1(q.v)}`).join(' ')}"/>`;
-        if (cfg.band) { const bi = pts.findIndex(p => p.k === cfg.band[0]), bj = pts.findIndex(p => p.k === cfg.band[1]); if (bi >= 0 && bj >= 0) g += `<rect x="${cx(bi) - slot / 2}" y="${TOP}" width="${cx(bj) - cx(bi) + slot}" height="${H1}" fill="var(--band)" stroke="var(--band)" stroke-width="1"><title>The 30 days shown in the chart above</title></rect>`; }
+        if (anyPlan && pp.length > 1) g += `<polyline fill="none" stroke="var(--plan)" stroke-width="2" stroke-dasharray="5 3" stroke-linejoin="round" points="${pp.map(q => `${cx(q.i)},${y1(q.v)}`).join(' ')}"/>`;
         const ti = pts.findIndex(p => p.k === 0);
         g += `<line x1="${cx(ti)}" x2="${cx(ti)}" y1="${TOP}" y2="${TOP + H1}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/>`;
         pts.forEach((p, i) => { if (i % 10 === 0 || i === pts.length - 1) g += `<text class="${p.k === 0 ? 'today' : ''}" x="${cx(i)}" y="${H - 6}" text-anchor="middle">${p.k === 0 ? 'today' : fmtDay(p.d, { month: 'short', day: 'numeric' })}</text>`; });
@@ -931,9 +1045,10 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         wrap.querySelectorAll('.hit').forEach(el => {
             el.addEventListener('mouseenter', () => {
                 const p = pts[+el.dataset.i];
-                let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'actual' ? 'entered' : p.kind === 'est' ? 'estimated' : 'projected'}</div>`;
-                if (p.cash !== null) h += `<div><span class="sw" style="background:${colOf(p.cash)}"></span>Cash <b>${money(p.cash)}</b></div>`;
-                if (p.plan !== null && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--violet)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
+                let h = `<div class="d">${esc(fmtDay(p.d, { weekday: 'short', month: 'short', day: 'numeric' }))} · ${p.kind === 'actual' ? 'entered or from statements' : p.kind === 'est' ? 'estimated' : 'projected'}</div>`;
+                if (p.cash !== null) h += `<div><span class="sw" style="background:${INK}"></span>Cash <b>${money(p.cash)}</b></div>`;
+                if (p.plan !== null && anyPlan && Math.abs(p.plan - p.cash) > 0.5) h += `<div><span class="sw" style="background:var(--plan)"></span>With planned spending <b>${money(p.plan)}</b></div>`;
+                if (p.flows) { if (p.flows.income) h += `<div><span class="sw" style="background:var(--orange)"></span>In <b>+${money(p.flows.income)}</b></div>`; const o = outOf(p.flows); if (o) h += `<div><span class="sw" style="background:#475569"></span>Spent <b>−${money(o)}</b></div>`; (p.flows.moves || []).forEach(([kind, label, amt]) => { h += `<div><span class="sw" style="background:#94a3b8"></span>${esc(label)} <i>(${MOVE_LABEL[kind] || kind})</i> <b>${kind === 'in' ? '+' : '−'}${money(amt)}</b></div>`; }); }
                 tip.innerHTML = h; tip.classList.add('on');
                 const wr = wrap.getBoundingClientRect(), er = el.getBoundingClientRect(), left = er.left - wr.left + er.width / 2;
                 tip.style.left = Math.max(0, Math.min(wr.width - tip.offsetWidth, left - tip.offsetWidth / 2)) + 'px'; tip.style.top = '4px';
@@ -941,7 +1056,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             el.addEventListener('mouseleave', () => tip.classList.remove('on'));
         });
         $(cfg.legId).className = 'legend';
-        $(cfg.legId).innerHTML = '<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--orange)"></span>Cash balance</span>' + (anyPlan ? '<span class="item"><span class="ln"></span>Cash with planned spending</span>' : '') + '<span class="item"><span class="sw" style="background:var(--band)"></span>the 30 days above</span>';
+        $(cfg.legId).innerHTML = `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:${INK}"></span>Cash balance</span><span class="item"><span class="ln" style="border-top-color:${INK}"></span>projected</span>` + (anyPlan ? '<span class="item"><span class="ln"></span>with planned spending</span>' : '') + '<span class="item"><span class="sw tick"></span>card payment</span><span class="item"><span class="sw" style="background:var(--band)"></span>the 30 days above</span>';
         drawMonthEnd();
     }
     function drawMonthEnd() {
@@ -970,7 +1085,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     function refresh(refill) {
         M = model();
         if (refill !== false) fillEntry(); else if (!root.activeElement || !root.activeElement.closest || !root.activeElement.closest('#entry')) fillEntry();
-        drawBoxes(); drawStats(); drawCash(); draw2(); drawEffect(); drawTips();
+        drawBoxes(); drawStats(); drawCash(); draw2(); drawEffect(); drawTips(); drawNeeds(); drawLadder();
     }
     $('entry').addEventListener('input', e => { if (e.target.matches('input[data-f]')) onType(); });
     $('entry').addEventListener('focusout', e => { if (e.target.matches('input[data-f]')) { clearTimeout(saveTimer); commitEntry(); } });
@@ -992,7 +1107,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             const d = await call('');
             if (!first && (root.activeElement || planTimer)) return;
             take(d);
-            try { S.history = await call('/history?days=30'); } catch (e) { S.history = null; }
+            try { S.history = await call('/history?days=' + (HIST_BACK + 1)); } catch (e) { S.history = null; }
             if (first) selDay = TODAY;
             drawFiles(); drawPlans(); drawAssume(); refresh(first);
         } catch (e) {

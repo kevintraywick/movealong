@@ -108,37 +108,55 @@ function label(desc) {
 // Daily money in and out over a window. income: checking deposits that are not moves between his own accounts.
 // spend: purchases on every account, by category, with the recurring part marked (a merchant that charges in three
 // or more different months, or a recurring kind of bill in two). net: the checking account's own movement, which
-// is what the cash line follows. shares: how his everyday spending splits by category over the last 90 days.
+// is what the cash line follows. moves: card payments and transfers between his accounts that day (['card'|'in'|'out',
+// label, amount]) so a dip in the cash line has a reason. shares: how his everyday spending splits by category over
+// the last 90 days. months: income, spending by category and card payments for every month the files cover (habits).
+// accounts: first and last date each account's files reach, so a stale statement can be named.
 function history(rows, from, to, appleCats) {
   appleCats = appleCats || new Map();
   const months = new Map();
   for (const r of rows) { if (r.amount < 0) { const k = merchantKey(r.desc); if (k) { if (!months.has(k)) months.set(k, new Set()); months.get(k).add(r.date.slice(0, 7)); } } }
   const recurring = (r) => { const k = merchantKey(r.desc), n = (months.get(k) || new Set()).size; return n >= 3 || (n >= 2 && CAT_RE.bills.test(r.desc)); };
   const days = {};
-  const day = (d) => days[d] = days[d] || { income: 0, spend: {}, rec: {}, net: 0, items: [] };
+  const day = (d) => days[d] = days[d] || { income: 0, spend: {}, rec: {}, net: 0, items: [], moves: [] };
   const share = {}; let shareTotal = 0;
   const shareFrom = new Date(Date.parse(to + 'T00:00:00Z') - 90 * 86400000).toISOString().slice(0, 10);
+  // Habits by month, every month the files cover: income, spending by category, what went to the cards.
+  const byMonth = {};
+  const month = (d) => byMonth[d.slice(0, 7)] = byMonth[d.slice(0, 7)] || { income: 0, spend: 0, cats: {}, cardPay: 0 };
+  const r2 = (n) => Math.round(n * 100) / 100;
   let any = false;
   for (const r of rows) {
     const inWindow = r.date >= from && r.date <= to;
     if (r.acct === 'becu_checking') {
       if (inWindow) { any = true; day(r.date).net += r.amount; }
       if (r.amount > 0) {
-        if (inWindow && !RE.transfer.test(r.desc) && (/mobile banking|deposit - (check|ach|direct)|payroll|direct dep/i.test(r.desc) || r.amount >= 100)) { const d = day(r.date); d.income += r.amount; d.items.push(['income', label(r.desc), Math.round(r.amount * 100) / 100, false]); }
+        if (!RE.transfer.test(r.desc) && (/mobile banking|deposit - (check|ach|direct)|payroll|direct dep/i.test(r.desc) || r.amount >= 100)) {
+          month(r.date).income += r.amount;
+          if (inWindow) { const d = day(r.date); d.income += r.amount; d.items.push(['income', label(r.desc), r2(r.amount), false]); }
+        } else if (inWindow) day(r.date).moves.push(['in', label(r.desc), r2(r.amount)]);
         continue;
       }
+      // Money leaving checking for his own cards or accounts is a move, not spending: the cash line dips, no bar.
+      if (RE.cardpay.test(r.desc)) { month(r.date).cardPay += -r.amount; if (inWindow) day(r.date).moves.push(['card', label(r.desc), r2(-r.amount)]); continue; }
+      if (RE.transfer.test(r.desc)) { if (inWindow) day(r.date).moves.push(['out', label(r.desc), r2(-r.amount)]); continue; }
     } else if (r.amount > 0) continue;   // a card payment or refund is not spending
     if (r.amount >= 0) continue;
     if (RE.transfer.test(r.desc) || RE.cardpay.test(r.desc)) continue;   // moves between his accounts, card payments
     const cat = category(r, appleCats.get(r.date + '|' + r.desc + '|' + r.amount.toFixed(2)));
     const rec = recurring(r), amt = -r.amount;
-    if (inWindow) { const d = day(r.date); d.spend[cat] = (d.spend[cat] || 0) + amt; if (rec) d.rec[cat] = (d.rec[cat] || 0) + amt; d.items.push([cat, label(r.desc), Math.round(amt * 100) / 100, rec]); }
+    const mo = month(r.date); mo.spend += amt; mo.cats[cat] = (mo.cats[cat] || 0) + amt;
+    if (inWindow) { const d = day(r.date); d.spend[cat] = (d.spend[cat] || 0) + amt; if (rec) d.rec[cat] = (d.rec[cat] || 0) + amt; d.items.push([cat, label(r.desc), r2(amt), rec]); }
     if (r.date >= shareFrom && r.date <= to && !rec && amt < 250) { share[cat] = (share[cat] || 0) + amt; shareTotal += amt; }
   }
-  for (const d of Object.values(days)) { d.net = Math.round(d.net * 100) / 100; d.income = Math.round(d.income * 100) / 100; for (const m of [d.spend, d.rec]) for (const k of Object.keys(m)) m[k] = Math.round(m[k] * 100) / 100; }
+  for (const d of Object.values(days)) { d.net = r2(d.net); d.income = r2(d.income); for (const m of [d.spend, d.rec]) for (const k of Object.keys(m)) m[k] = r2(m[k]); }
+  for (const m of Object.values(byMonth)) { m.income = r2(m.income); m.spend = r2(m.spend); m.cardPay = r2(m.cardPay); for (const k of Object.keys(m.cats)) m.cats[k] = r2(m.cats[k]); }
   const shares = {}; if (shareTotal > 0) for (const k of Object.keys(share)) shares[k] = Math.round(share[k] / shareTotal * 1000) / 1000;
-  const dates = rows.filter(r => r.acct === 'becu_checking').map(r => r.date).sort();
-  return { from, to, has_checking: any || dates.length > 0, coverage: dates.length ? { first: dates[0], last: dates[dates.length - 1] } : null, days, shares };
+  // What each account's files cover, so the pane can say which statement has gone stale.
+  const accounts = {};
+  for (const r of rows) { const a = accounts[r.acct] = accounts[r.acct] || { first: r.date, last: r.date, rows: 0 }; a.rows++; if (r.date < a.first) a.first = r.date; if (r.date > a.last) a.last = r.date; }
+  const ck = accounts.becu_checking;
+  return { from, to, has_checking: any || !!ck, coverage: ck ? { first: ck.first, last: ck.last } : null, accounts, days, shares, months: byMonth };
 }
 
 module.exports = { parseFile, combine, loadRows, history };

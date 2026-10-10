@@ -67,7 +67,7 @@ sends one — Claude Code on the Mac runs both; the MoveIt server can't reach Me
 | `add_note` | append to the task page's note feed |
 | `send_note` / `list_notes` | a free-standing note to the Notes page (`/notes`) — a quote, an idea, a feature request; not attached to any task |
 | `get_lists` / `create_list` / `add_list_items` / `put_list_on_board` | the Lists page — make a list (with items) from the phone, add to it, drop a copy on a day |
-| `get_finance` / `log_finance` / `post_finance_tip` / `finance_recipe` | the finance pane — balances, recent tips with Kevin's answers, statements; Tom writes the one tip-or-alert row |
+| `get_finance` / `finance_history` / `log_finance` / `post_finance_tip` / `finance_recipe` | the finance pane — balances, plan (goals, line of credit, bills), recent tips with Kevin's answers, statements; `finance_history` is the habits digest read from the statements (months, shares, accounts, recent days); Tom writes the one tip-or-alert row |
 | `set_results` | write the Results (and/or Background) pane |
 | `add_step` / `tick_step` / `promote_step` | steps under a task |
 | `get_brief` / `append_brief` / `set_contact_field` | the standing notes the assistant reads |

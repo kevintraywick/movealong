@@ -1765,7 +1765,11 @@ const FINANCE_WINDOW_DAYS = 60;
 const STATEMENT_EXT = ['pdf', 'csv', 'ofx', 'qfx', 'txt'];
 const STATEMENT_MAX = 15 * 1024 * 1024;
 const STATEMENT_DIR = path.join(path.dirname(process.env.DB_PATH || path.join(__dirname, '..', 'movealong.db')), 'statements');
-const FINANCE_ASSUME_KEYS = ['income', 'spend', 'debtApr', 'saveAdd', 'houseAdd', 'houseGoal', 'house', 'saveApy', 'hysaApy', 'investReturn', 'saveGoal'];
+// cardApr / locApr / locCap / locBalance: the cards and the line of credit (2026-10-10); debtStart: the debt when he
+// began, for the goals ladder; carGoal: the car budget; cashFloor + sweepDay: what the projection keeps in checking
+// and the day each month it sends the rest to the debt.
+const FINANCE_ASSUME_KEYS = ['income', 'spend', 'debtApr', 'cardApr', 'locApr', 'locCap', 'locBalance', 'debtStart', 'carGoal', 'cashFloor', 'sweepDay',
+  'saveAdd', 'houseAdd', 'houseGoal', 'house', 'saveApy', 'hysaApy', 'investReturn', 'saveGoal'];
 
 function financeNum(v, lo, hi) {
   const n = typeof v === 'number' ? v : Number(String(v).replace(/[$,\s]/g, ''));
@@ -1803,7 +1807,7 @@ app.get('/api/companies/:subdomain/users/:slug/finance/history', (req, res) => {
   const user = healthUser(req, res);
   if (!user) return;
   const today = todayKeyFor(req);
-  const days = Math.min(120, Math.max(1, parseInt(req.query.days, 10) || 30));
+  const days = Math.min(400, Math.max(1, parseInt(req.query.days, 10) || 30));
   const files = queryAll('SELECT file FROM finance_statements WHERE user_id = ? ORDER BY id', [user.id]);
   const rows = statementsLib.loadRows(STATEMENT_DIR, files);
   const appleCats = new Map(rows.filter(r => r.acct === 'apple' && r.appleCategory).map(r => [r.date + '|' + r.desc + '|' + r.amount.toFixed(2), r.appleCategory]));

@@ -785,6 +785,7 @@ The board read (`GET .../tasks`) and the List view carry `list_master_id` and `l
 ## Finance (2026-10-09) — see `features/finance.md`
 - `GET /api/companies/:sub/users/:slug/finance` → `{today, from, entries{day:{cash,savings,debt,invest}}, plan{assume,bills,planned}, tip, statements}`
 - `PUT .../finance/entries/:day` `{cash,savings,debt,invest}` (null clears; future refused)
-- `PUT .../finance/plan` `{assume,bills,planned}` (replaced whole)
+- `PUT .../finance/plan` `{assume,bills,planned,goals,incomes}` (replaced whole; `assume` keys are whitelisted in `FINANCE_ASSUME_KEYS`: spend, cardApr, locApr, locCap, locBalance, debtStart, carGoal, cashFloor, sweepDay, saveGoal, saveAdd, houseAdd, houseGoal, house, saveApy, hysaApy, investReturn, and the legacy income / debtApr)
+- `GET .../finance/history?days=N` (≤400) → `{today, statements, has_checking, coverage, accounts{acct:{first,last,rows}}, days{d:{income, spend{cat}, rec{cat}, net, items[[cat,label,amt,rec]], moves[[card|in|out,label,amt]]}}, shares{cat}, months{ym:{income, spend, cats{cat}, cardPay}}}` — read from the dropped statement files
 - `POST|GET .../finance/tips` `{kind:'tip'|'alert', body}`; `PUT /api/finance/tips/:id {feedback:'up'|'no'}`
 - `POST .../finance/statements` (raw body + `x-filename`); `GET /api/finance/statements/:id/file`; `DELETE /api/finance/statements/:id`

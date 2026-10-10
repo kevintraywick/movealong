@@ -204,7 +204,7 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
   // Finance (2026-10-09). The pane on the dashboard; Tom writes its one tip-or-alert row.
   server.registerTool('get_finance', {
     title: 'Read the finance pane',
-    description: 'The last 60 days of Kevin\'s four balances (cash, savings, debt, trading), his goals in order (plan.goals), his projection settings (income, daily spend, debt APR, monthly savings and house-fund moves, recurring bills, planned spending), the tip now showing, and the recent tips with his Useful / Not for me answers (read those first: they say what lands), plus the statements he has dropped (fetch one with its id at /api/finance/statements/<id>/file).',
+    description: 'The last 60 days of Kevin\'s four balances (cash, savings, debt, trading), his goals in order (plan.goals), his projection settings (plan.assume: daily spend, card APR, the line of credit\'s APR, limit and drawn balance, the cash floor and sweep day, the savings, car and house goals; plan.bills with "debt" marking a payment plan; plan.incomes; plan.planned), the tip now showing, and the recent tips with his Useful / Not for me answers (read those first: they say what lands), plus the statements he has dropped (fetch one with its id at /api/finance/statements/<id>/file, or use finance_history for the digest).',
     inputSchema: {}
   }, async () => {
     const d = await api(`${me}/finance`);
@@ -228,6 +228,16 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     description: 'Put ONE row on the finance pane: kind "alert" for something dated (a payment due today or tomorrow) or "tip" for a pattern, trend, saving opportunity or a strategy he is not using. Under 300 characters, plain words, no cash-flow arithmetic. Replaces the row now showing.',
     inputSchema: { kind: z.enum(['tip', 'alert']), body: z.string().min(1) }
   }, async ({ kind, body }) => text(await api(`${me}/finance/tips`, { method: 'POST', body: { kind, body } })));
+
+  server.registerTool('finance_history', {
+    title: 'Read what the statements say',
+    description: 'Kevin\'s habits from the statements he dropped: months (income, spending by category and card payments for every month the files cover), shares (how everyday spending splits by category, last 90 days), accounts (the first and last date each account\'s files reach, so you can see a stale one), and the last two weeks day by day (income, spending by category, items, moves between his accounts).',
+    inputSchema: { days: z.number().int().optional().describe('How many past days of day-by-day detail, default 14, max 120') }
+  }, async ({ days }) => {
+    const n = Math.min(120, Math.max(1, days || 14));
+    const h = await api(`${me}/finance/history?days=${n}`);
+    return text({ today: h.today, statements: h.statements, coverage: h.coverage, accounts: h.accounts, months: h.months, shares: h.shares, days: h.days });
+  });
 
   server.registerTool('finance_recipe', {
     title: 'How to write the finance tip',
@@ -550,24 +560,30 @@ export const BRIEFING_RECIPE = `Build my morning briefing and post it to the Mov
 At most 12 items total, in this order: calendar, mail, market, texts, nudges, health. Then call post_briefing once with the whole list. Tell me in one line what you posted.`;
 
 
-// The finance pane's one row (2026-10-09). Kevin's goals: debt to zero by the
-// end of the year, savings up, money set aside for a house. His figures and
-// habits live in the board, not in this public repo.
-export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance pane and post it with post_finance_tip.
+// The finance pane's one row (2026-10-09; widened 2026-10-10). Kevin's goals: debt to zero by the
+// end of the year, savings up, a car, money set aside for a house. His figures and habits live in the
+// board (plan.assume, plan.goals, the statements), not in this public repo.
+export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance pane and post it with post_finance_tip. The pane's job is to keep him fiscally healthy: show progress toward his goals and offer strategies that fit how he actually spends and saves.
 
-1. get_finance and get_brief. The brief holds money facts he has told you (what a payment was for, what is cancelled, what is not part of the debt goal): honour them, and do not raise again anything it already explains. From get_finance read plan.goals first: Kevin's goals in order (a done one is crossed off). The first not done is the one every tip must serve; the rest are what comes after it. Then read recent_tips: every one has his answer (up = Useful, no = Not for me, replaced = never answered). Learn from them. Do not repeat a kind of tip he said was not for him, and lean toward the kinds he found useful.
+1. get_finance, finance_history and get_brief. The brief holds money facts he has told you (what a payment was for, what is cancelled, what is not part of the debt goal): honour them, and do not raise again anything it already explains. From get_finance read plan.goals first: Kevin's goals in order (a done one is crossed off). The first not done is the one every tip must serve; the rest are what comes after it. Then read recent_tips: every one has his answer (up = Useful, no = Not for me, replaced = never answered). Learn from them. Do not repeat a kind of tip he said was not for him, and lean toward the kinds he found useful. finance_history is his habits: income, spending by category and card payments month by month, and the split of everyday spending. Ground every strategy in those numbers, never in a generic rule.
 
 2. If a tip posted in the last 20 hours is still unanswered, stop; do not post another.
 
-3. Look for the one thing most worth his attention, in this order:
-   - An alert: a bill or payment due today or tomorrow (the plan's recurring bills, or a due date you can see in a statement file). Say what and how much. Do not work out what cash will be left.
-   - A pattern in his entries or statements he would not see: spending that runs higher on certain days, a category that keeps rising, months he saves and months he does not and what was different.
-   - An opportunity: money earning almost nothing that could earn more, interest he is paying that the money in his trading account or savings could remove.
-   - A strategy he is not using that would help the first goal that is not done, or a small change in daily spending that moves the date he reaches it. Say which goal it serves.
-   - A new monthly charge. Read the statement files he has dropped (statement_files, each a CSV or PDF at the URL given) and look for a charge that repeats monthly (same merchant, similar amount, a different month each time) that is not in plan.bills. Name it, the amount and the day of the month, and tell him to add it on the blank line under the bills if it is real. Check this before the other kinds: it is the alert he asked for.
-   - If there are gaps in his entries, a statement dropped in the plus box would fill them.
+3. What you know about his accounts (the numbers are in plan.assume; use them, never these words):
+   - debt is one pool: the 0% payment plans (bills marked debt, with an end date), the cards (cardApr) and a line of credit (locApr, locCap, locBalance). The pane already models it: spending from cash, plans paid on their day, the cards' balance accruing at cardApr, a day below zero drawn on the line.
+   - The line of credit is his flexibility. He can move money to it and from it. Moving a card balance to the line is worth suggesting when the card's APR is above the line's and the interest saved is real: work out the monthly interest saved and say it in one number. If cardApr is 0 (unknown), ask for it once instead of guessing.
+   - He can sometimes find extra income, usually by taking on more work. Suggest it rarely: only when a specific extra amount (say $1,000) would save enough interest or bring a goal date forward enough to be worth the work, and say what it buys. Never as a general nudge to earn more.
+   - A 0% plan paid early saves nothing. Say so if the numbers tempt him that way.
 
-4. One or two sentences, under 300 characters, plain words, one specific number at most. A tip is an observation and a suggestion, never a lecture. If there is nothing worth saying, post nothing.`;
+4. Look for the one thing most worth his attention, in this order:
+   - An alert: a bill or payment due today or tomorrow (the plan's recurring bills, or a due date you can see in a statement file). Say what and how much. Do not work out what cash will be left.
+   - A new monthly charge: a merchant in finance_history that charges every month and is not in plan.bills. Name it, the amount and the day, and tell him to add it on the blank line under the bills if it is real.
+   - A pattern in his habits he would not see: a category that keeps rising month over month, spending that runs higher on certain days, months he saved and months he did not and what was different.
+   - A strategy that serves the first open goal, in his numbers: what a cut in one category does to the debt-free date; a card balance that belongs on the line of credit; cash sitting above what a month needs while the cards charge interest; a trading-account or savings balance earning less than the debt costs.
+   - Progress worth marking: a goal reached, a month that beat the plan, the debt-free date moving earlier. Say it plainly, with the number.
+   - Something you need to know to project well: the APR of a card, what a large one-off charge was, whether a deposit will repeat. Ask for one thing, in one sentence. The pane itself already nags about stale statements and missing balances, so do not.
+
+5. One or two sentences, under 300 characters, plain words, one specific number at most. A tip is an observation and a suggestion, never a lecture. Say which goal it serves when that is not obvious. If there is nothing worth saying, post nothing.`;
 
 // The mail strip (2026-09-23). Kevin's rules: unread mail in the inbox only
 // (he tried "unread anywhere" and it surfaced ~200 filtered newsletters), two colours only — blue for "needs
@@ -650,7 +666,7 @@ Tell me in one line how many events you posted and for which days.`;
 const UNATTENDED_RULES = `Rules for an unattended run:
 - Never ask a question and never wait for an answer. If something needs Kevin, it belongs on the strip (attention: true), not in your reply.
 - If a Gmail or Calendar action is denied or fails, report it with finish_inbox_action ok: false (for mail) and carry on. Do not retry it and do not look for another way to do it.
-- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing, marking spam and leaving reply drafts under the recipe are the only Gmail writes. On the board, write only through post_inbox, finish_inbox_action, post_calendar and note_from_mail.
+- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing, marking spam and leaving reply drafts under the recipe are the only Gmail writes. On the board, write only through post_inbox, finish_inbox_action, post_calendar, note_from_mail and post_finance_tip.
 - \`enabled\` / \`connected\` in post_calendar's reply describe only the secret-address feed. Events you post show on the board regardless; don't mention it.`;
 
 export const HEARTBEAT_RECIPE = `You are Tom, running on a 30-minute heartbeat with nobody watching. Do these in order, then stop.
