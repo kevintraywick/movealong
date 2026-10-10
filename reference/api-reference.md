@@ -27,7 +27,18 @@ DB_PATH=/path/to/db.sqlite npm start
 | Header | Purpose |
 | --- | --- |
 | `x-tz` | The caller's IANA timezone (e.g. `America/Chicago`). The browser sends it on **every** call. The server resolves "today" from it — spillover, `due_today` deadline flags, subtask return and calendar sync all use `todayKeyFor(req)`. Absent or unrecognized, it falls back to UTC, which is what curl and older clients get. |
-| `x-ai-key` | Matches `AI_ACCESS_KEY` when the deployment sets one. Without it, AI endpoints silently return mock output. |
+| `x-ai-key` | Matches `AI_ACCESS_KEY` when the deployment sets one. Without it, AI endpoints silently return mock output. Also passes the site login. |
+
+## Site login (when `SITE_USER` + `SITE_PASSWORD` are set)
+
+```
+GET  /login                          the sign-in form (login.html); ?next= where to go after, ?bad=1 / ?slow=1 show the error line
+POST /login   form: username, password, next   → 303 next with the moveit_session cookie (HttpOnly, SameSite=Lax, Secure on https, one year)
+                                                 wrong → 303 /login?bad=1; ten wrong per address per ten minutes → 303 /login?slow=1
+GET  /logout                         clears the cookie → 303 /login
+```
+
+Without a valid cookie, `x-ai-key`, Basic header or loopback: a page GET (Accept text/html, not `/api/`) is `302 /login?next=<url>`; anything else is `401 {"error":"Sign in to MoveIt","login":"/login"}`. `session.js` on every page follows that 401 to `/login`. The cookie is `<expiry>.<HMAC-SHA256(expiry)>`, keyed from the user and password, so nothing is stored and a password change signs every device out. Unset both variables and all of this is off.
 
 ## API Endpoints
 

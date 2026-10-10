@@ -96,49 +96,102 @@ app.all('/mcp/:secret', async (req, res) => {
 });
 
 // ---- Site login (2026-10-09, Kevin: reachable over the internet, not public) ----
-// One username and password for the whole site, as HTTP Basic auth: Safari asks
-// once, remembers it, and sends it on every page and fetch after. Off until
-// SITE_USER and SITE_PASSWORD are both set, so local runs and tests are
-// unchanged. Left open on purpose: /help and the icons; /mcp/<secret> (its own
-// secret); anyone sending the AI_ACCESS_KEY in x-ai-key (Tom's scripts and the
-// stdio MCP server already do); and this server calling itself over loopback
-// (the phone connector's tools). Ten wrong tries from one address in ten
-// minutes earns a 429.
+// One username and password for the whole site. It began as HTTP Basic auth;
+// Safari keeps those in the Mac's local keychain, never in iCloud Keychain, so
+// every other device asked again (Kevin, 2026-10-10). Now it is a plain form at
+// /login that the Passwords app saves and syncs, and a signed cookie for a
+// year after. The cookie is an HMAC over its expiry, keyed from the user and
+// password, so changing the password signs every device out and nothing is
+// stored. Off until SITE_USER and SITE_PASSWORD are both set, so local runs
+// and tests are unchanged. Left open on purpose: /login, /help and the icons;
+// /mcp/<secret> (its own secret); anyone sending the AI_ACCESS_KEY in x-ai-key
+// (Tom's scripts and the stdio MCP server already do); a Basic header, still
+// accepted for curl; and this server calling itself over loopback (the phone
+// connector's tools). A browser without a cookie is sent to /login when it
+// asks for a page, and gets a 401 JSON on a fetch (no WWW-Authenticate, so no
+// prompt; the pages reload to /login on it). Ten wrong tries from one address
+// in ten minutes earns a 429.
 const SITE_USER = process.env.SITE_USER || '';
 const SITE_PASSWORD = process.env.SITE_PASSWORD || '';
 const sha = (v) => crypto.createHash('sha256').update(String(v)).digest();
 const sameSecret = (a, b) => crypto.timingSafeEqual(sha(a), sha(b));
-const SITE_OPEN = /^\/(help\/?|favicon[^/]*|apple-touch-icon\.png|fonts\/.*)$/;
+const SITE_OPEN = /^\/(help\/?|login|favicon[^/]*|apple-touch-icon\.png|fonts\/.*)$/;
+const SITE_COOKIE = 'moveit_session';
+const SITE_YEAR = 365 * 86400 * 1000;
 const siteFails = new Map();   // ip -> { n, since }
+const siteKey = () => crypto.createHmac('sha256', 'moveit-site').update(SITE_USER + '\n' + SITE_PASSWORD).digest();
+const sessionSig = (exp) => crypto.createHmac('sha256', siteKey()).update(String(exp)).digest('base64url');
+const sessionToken = () => { const exp = Date.now() + SITE_YEAR; return `${exp}.${sessionSig(exp)}`; };
+function sessionValid(tok) {
+  const m = /^(\d+)\.([A-Za-z0-9_-]+)$/.exec(tok || '');
+  if (!m || Number(m[1]) < Date.now()) return false;
+  const want = sessionSig(m[1]);
+  return m[2].length === want.length && crypto.timingSafeEqual(Buffer.from(m[2]), Buffer.from(want));
+}
+const cookieOf = (req, name) => {
+  const m = new RegExp('(?:^|;\\s*)' + name + '=([^;]*)').exec(req.get('cookie') || '');
+  return m ? decodeURIComponent(m[1]) : '';
+};
+const secureCookie = (req) => req.secure || req.get('x-forwarded-proto') === 'https';
 function isLoopback(req) {
   const a = req.socket.remoteAddress || '';
   return (a === '127.0.0.1' || a === '::1' || a === '::ffff:127.0.0.1') && !req.get('x-forwarded-for');
 }
+function tooManyTries(req) {
+  const now = Date.now(), rec = siteFails.get(req.ip);
+  if (rec && now - rec.since > 600000) siteFails.delete(req.ip);
+  const cur = siteFails.get(req.ip);
+  return !!(cur && cur.n >= 10);
+}
+function noteFail(req) {
+  const f = siteFails.get(req.ip) || { n: 0, since: Date.now() };
+  f.n++; siteFails.set(req.ip, f);
+}
+const credentialsOk = (u, p) => sameSecret(u, SITE_USER) && sameSecret(p, SITE_PASSWORD);
+// Only a path on this site, never a scheme or a //host.
+const safeNext = (n) => (typeof n === 'string' && /^\/(?!\/)/.test(n) ? n : '/');
+
+app.get('/login', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'login.html')));
+app.post('/login', express.urlencoded({ extended: false }), (req, res) => {
+  const next = safeNext(req.body && req.body.next);
+  if (!SITE_USER || !SITE_PASSWORD) return res.redirect(303, next);
+  if (tooManyTries(req)) return res.redirect(303, `/login?slow=1&next=${encodeURIComponent(next)}`);
+  const { username = '', password = '' } = req.body || {};
+  if (!credentialsOk(String(username), String(password))) {
+    noteFail(req);
+    return res.redirect(303, `/login?bad=1&next=${encodeURIComponent(next)}`);
+  }
+  siteFails.delete(req.ip);
+  res.cookie(SITE_COOKIE, sessionToken(), { httpOnly: true, sameSite: 'lax', secure: secureCookie(req), maxAge: SITE_YEAR, path: '/' });
+  res.redirect(303, next);
+});
+app.get('/logout', (req, res) => {
+  res.clearCookie(SITE_COOKIE, { path: '/' });
+  res.redirect(303, '/login');
+});
 app.use((req, res, next) => {
   if (!SITE_USER || !SITE_PASSWORD) return next();
   if (SITE_OPEN.test(req.path) || req.path.startsWith('/mcp/') || isLoopback(req)) return next();
   const aiKey = process.env.AI_ACCESS_KEY || '';
   const given = req.get('x-ai-key');
   if (aiKey && given && sameSecret(given, aiKey)) return next();
+  if (sessionValid(cookieOf(req, SITE_COOKIE))) return next();
 
-  const now = Date.now(), rec = siteFails.get(req.ip);
-  if (rec && now - rec.since > 600000) siteFails.delete(req.ip);
-  const cur = siteFails.get(req.ip);
-  if (cur && cur.n >= 10) return res.status(429).type('text').send('Too many tries. Wait ten minutes.');
+  if (tooManyTries(req)) return res.status(429).type('text').send('Too many tries. Wait ten minutes.');
 
   const m = /^Basic (.+)$/i.exec(req.get('authorization') || '');
   if (m) {
     const text = Buffer.from(m[1], 'base64').toString('utf8');
     const i = text.indexOf(':');
-    if (i >= 0 && sameSecret(text.slice(0, i), SITE_USER) && sameSecret(text.slice(i + 1), SITE_PASSWORD)) {
+    if (i >= 0 && credentialsOk(text.slice(0, i), text.slice(i + 1))) {
       siteFails.delete(req.ip);
       return next();
     }
-    const f = siteFails.get(req.ip) || { n: 0, since: now };
-    f.n++; siteFails.set(req.ip, f);
+    noteFail(req);
   }
-  res.set('WWW-Authenticate', 'Basic realm="MoveIt", charset="UTF-8"');
-  res.status(401).type('text').send('Sign in to MoveIt');
+  const wantsPage = req.method === 'GET' && /text\/html/.test(req.get('accept') || '') && !req.path.startsWith('/api/');
+  if (wantsPage) return res.redirect(302, `/login?next=${encodeURIComponent(req.originalUrl)}`);
+  res.status(401).json({ error: 'Sign in to MoveIt', login: '/login' });
 });
 
 // Persist the database once per request (after the response is sent) instead
