@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="/session.js"></script>
+    <title>Report cards · MoveIt</title>
+    <link rel="icon" href="/favicon-32.png" sizes="32x32" type="image/png">
+    <link rel="mask-icon" href="/favicon-mask.svg" color="#0ea5e9">
+    <style>
+        @font-face {
+            font-family: 'Bricolage Grotesque';
+            src: url('/fonts/bricolage-grotesque-800.woff2') format('woff2');
+            font-weight: 800;
+            font-display: swap;
+        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            font-size: 13px; background: #f8fafc; color: #0f172a; padding: 20px;
+        }
+        .page { max-width: 980px; margin: 0 auto; display: flex; flex-direction: column; gap: 14px; }
+        .theme-toggle {
+            width: 28px; height: 28px; border-radius: 6px; border: 1px solid #e2e8f0; background: #fff; color: #0284c7;
+            font-size: 13px; cursor: pointer; display: flex; align-items: center; justify-content: center;
+        }
+        .pane { background: #fff; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px 16px 12px; }
+        .pane-head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+        .pane-title { font-size: 15px; font-weight: 600; }
+        .pane-sub { font-size: 12px; color: #64748b; }
+        .pane-link { margin-left: auto; font-size: 12px; color: #0284c7; text-decoration: none; }
+        .pane-link:hover { text-decoration: underline; }
+        .week { margin-top: 12px; }
+        .week h2 { font-size: 13px; font-weight: 600; color: #475569; margin: 0 0 2px; }
+        .week .rc { margin: 6px 0 0; }
+        .empty, .page-error { padding: 20px; text-align: center; color: #64748b; }
+        .page-error { color: #ef4444; }
+        body.dark { background: #0f172a; color: #e2e8f0; }
+        body.dark .theme-toggle { background: #1e293b; border-color: #334155; color: #38bdf8; }
+        body.dark .pane { background: #1e293b; border-color: #334155; }
+        body.dark .pane-title { color: #f1f5f9; }
+        body.dark .week h2 { color: #cbd5e1; }
+    </style>
+</head>
+<body>
+    <script src="/nav.js"></script>
+    <script src="/report-card.js"></script>
+    <div class="page">
+        <div class="pane">
+            <div class="pane-head">
+                <span class="pane-title">Report cards</span>
+                <span class="pane-sub">Every week, Sunday to Saturday, newest first. Grades regrade when late data arrives.</span>
+                <a class="pane-link" href="/dashboard" title="Back to the dashboard">Dashboard &rarr;</a>
+            </div>
+            <div id="weeks"><div class="empty">Loading&hellip;</div></div>
+        </div>
+    </div>
+    <script>
+        const THEME_KEY = 'movealong.theme';
+        function applyTheme() {
+            const dark = localStorage.getItem(THEME_KEY) === 'dark';
+            document.body.classList.toggle('dark', dark);
+            const t = document.getElementById('themeToggle'); if (t) t.textContent = dark ? '☀️' : '🌙';
+        }
+        const tt = document.getElementById('themeToggle');
+        if (tt) tt.addEventListener('click', () => { localStorage.setItem(THEME_KEY, document.body.classList.contains('dark') ? 'light' : 'dark'); applyTheme(); });
+        applyTheme();
+        (function () { const st = document.createElement('style'); st.textContent = REPORT_CSS; document.head.appendChild(st); })();
+
+        function session() { try { return JSON.parse(localStorage.getItem('movealong.session') || 'null'); } catch (e) { return null; } }
+        function escapeHtml(text) { const d = document.createElement('div'); d.textContent = text == null ? '' : String(text); return d.innerHTML; }
+        async function api(path) {
+            const headers = { 'Content-Type': 'application/json' };
+            try { headers['x-tz'] = Intl.DateTimeFormat().resolvedOptions().timeZone; } catch (e) { /* UTC */ }
+            const res = await fetch('/api' + path, { headers });
+            const body = await res.json().catch(() => ({}));
+            if (!res.ok) throw new Error(body.error || ('HTTP ' + res.status));
+            return body;
+        }
+        const shiftDays = (key, n) => { const d = new Date(key + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+
+        // The last twelve graded weeks: the newest from the plain route, then each Saturday before it.
+        const WEEKS = 12;
+        async function load() {
+            const sess = session(), box = document.getElementById('weeks');
+            if (!sess || !sess.subdomain || !sess.slug) { box.innerHTML = '<div class="empty">Open your board first, then come back.</div>'; return; }
+            const base = `/companies/${encodeURIComponent(sess.subdomain)}/users/${encodeURIComponent(sess.slug)}/report`;
+            try {
+                const first = await api(base);
+                const sats = []; for (let i = 1; i < WEEKS; i++) sats.push(shiftDays(first.week_ending, -7 * i));
+                const rest = await Promise.all(sats.map(w => api(base + '?week=' + w).catch(() => null)));
+                const cards = [first, ...rest.filter(Boolean)];
+                // Weeks before any data are all I; stop at the last one that has a grade.
+                const graded = (R) => ['health', 'finance'].some(p => R[p].grade !== 'I');
+                let last = cards.length; while (last > 1 && !graded(cards[last - 1])) last--;
+                box.innerHTML = cards.slice(0, last).map((R, i) => `<div class="week"><h2>${fmtDayLocal(R.week_start, { month: 'short', day: 'numeric' })} – ${fmtDayLocal(R.week_ending, { month: 'short', day: 'numeric', year: 'numeric' })}</h2>${reportCardHtml('health', R, escapeHtml, i === 0)}${reportCardHtml('finance', R, escapeHtml, i === 0)}</div>`).join('');
+                // Targets are edited on the dashboard's Sunday pane; here they are read-only.
+                box.querySelectorAll('input[data-target]').forEach(inp => { inp.disabled = true; inp.title = 'Change targets on the dashboard on Sunday'; });
+            } catch (err) { box.innerHTML = `<div class="page-error">${escapeHtml(err.message)}</div>`; }
+        }
+        load();
+    </script>
+</body>
+</html>

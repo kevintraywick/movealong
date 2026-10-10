@@ -228,6 +228,11 @@ app.get('/dashboard', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'));
 });
 
+// Report cards (2026-10-10): every week's card, newest first; the dashboard shows only Sunday's.
+app.get('/report', (req, res) => {
+  res.sendFile(path.join(__dirname, '..', 'public', 'report.html'));
+});
+
 // Notes (2026-09-16): one card per note, newest first. Same pattern.
 app.get('/notes', (req, res) => {
   res.sendFile(path.join(__dirname, '..', 'public', 'notes.html'));

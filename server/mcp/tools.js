@@ -224,6 +224,25 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
     return text(await api(`${me}/finance/entries/${day || todayKey()}`, { method: 'PUT', body }));
   });
 
+  // Kevin, 2026-10-10: his fixed monthly expenses are in plan.bills, "fairly accurate"; Tom keeps them true over time.
+  server.registerTool('set_bill', {
+    title: 'Keep a recurring bill true',
+    description: 'Change one of plan.bills, or add one: label (matched to an existing bill, case-insensitive; a new label adds a bill), amount, day of the month, off (true = cancelled, keeps the row). Only for what the statements prove: the same merchant at a new amount two months running, a day that moved, a charge gone for two months (ask him first with ask_finance yesno, then set off), or a new monthly charge he said yes to. Never a bill marked debt (the 0% plans): those are his to edit.',
+    inputSchema: { label: z.string().min(1), amount: z.number().optional(), day: z.number().int().optional(), off: z.boolean().optional() }
+  }, async ({ label, amount, day, off }) => {
+    const d = await api(`${me}/finance`);
+    const plan = d.plan || {};
+    const bills = Array.isArray(plan.bills) ? plan.bills : [];
+    let bill = bills.find(b => String(b.label).toLowerCase() === label.trim().toLowerCase());
+    if (bill && bill.debt) throw new Error(`"${bill.label}" is a payment plan; Kevin edits those himself`);
+    if (!bill) { if (amount == null) throw new Error('A new bill needs an amount'); bill = { label: label.trim(), day: 1, amount: 0, debt: false }; bills.push(bill); }
+    if (amount != null) bill.amount = amount;
+    if (day != null) bill.day = day;
+    if (off != null) { if (off) bill.off = true; else delete bill.off; }
+    const out = await api(`${me}/finance/plan`, { method: 'PUT', body: { ...plan, bills } });
+    return text({ bill: out.bills.find(b => String(b.label).toLowerCase() === bill.label.toLowerCase()), bills: out.bills.length });
+  });
+
   server.registerTool('post_finance_tip', {
     title: 'Post the finance tip or alert',
     description: 'Put ONE row on the finance pane: kind "alert" for something dated (a payment due today or tomorrow) or "tip" for a pattern, trend, saving opportunity or a strategy he is not using. Under 300 characters, plain words, no cash-flow arithmetic. Replaces the row now showing.',
@@ -605,7 +624,8 @@ export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance p
 4. Look for the one thing most worth his attention, in this order:
    - An alert: a bill or payment due today or tomorrow (the plan's recurring bills, or a due date you can see in a statement file). Say what and how much. Do not work out what cash will be left.
    - A statement to upload: an account in statements_due with due true and days_since of 3 or more. Name the account and the close date, and say to drop the export in the + circle on the pane. One reminder per close: not again within six days of a tip that asked for the same one (recent_tips). An account whose close day is unknown (closes null, and it is a card he uses): ask for the day once, as a text question, instead of reminding.
-   - A new monthly charge: a merchant in finance_history that charges every month and is not in plan.bills. Name it, the amount and the day, and tell him to add it on the blank line under the bills if it is real.
+   - A new monthly charge: a merchant in finance_history that charges every month and is not in plan.bills. Ask (ask_finance, yesno) whether it is a bill to keep; on yes, set_bill adds it with the amount and day the statements show.
+   - The bills kept true (Kevin, 2026-10-10: plan.bills is his fixed monthly list, "fairly accurate", and you update it over time). On every run compare plan.bills with what the statements show: a bill whose merchant charged a different amount two months running, or on a different day, gets set_bill with the new number, and the tip says so in half a sentence when it posts; a bill the statements have not shown for two months gets a yesno question (cancelled?) and set_bill off on yes. Never touch a bill marked debt.
    - A pattern in his habits he would not see: a category that keeps rising month over month, spending that runs higher on certain days, months he saved and months he did not and what was different.
    - A strategy that serves the first open goal, in his numbers: what a cut in one category does to the debt-free date; a card balance that belongs on the line of credit; cash sitting above what a month needs while the cards charge interest; a trading-account or savings balance earning less than the debt costs.
    - Progress worth marking: a goal reached, a month that beat the plan, the debt-free date moving earlier. Say it plainly, with the number.
@@ -716,7 +736,7 @@ Tell me in one line how many events you posted and for which days.`;
 const UNATTENDED_RULES = `Rules for an unattended run:
 - Never ask a question and never wait for an answer. If something needs Kevin, it belongs on the strip (attention: true), not in your reply.
 - If a Gmail or Calendar action is denied or fails, report it with finish_inbox_action ok: false (for mail) and carry on. Do not retry it and do not look for another way to do it.
-- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing, marking spam and leaving reply drafts under the recipe are the only Gmail writes. On the board, write only through post_inbox, finish_inbox_action, post_calendar, note_from_mail, post_finance_tip, ask_finance and grade_week.
+- Never send, reply to or forward an email, and never create, change or delete a calendar event. Reading, labelling, trashing, marking spam and leaving reply drafts under the recipe are the only Gmail writes. On the board, write only through post_inbox, finish_inbox_action, post_calendar, note_from_mail, post_finance_tip, ask_finance, set_bill and grade_week.
 - \`enabled\` / \`connected\` in post_calendar's reply describe only the secret-address feed. Events you post show on the board regardless; don't mention it.`;
 
 export const HEARTBEAT_RECIPE = `You are Tom, running on a 30-minute heartbeat with nobody watching. Do these in order, then stop.
