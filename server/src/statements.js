@@ -97,7 +97,7 @@ function category(r, appleCategory, overrides) {
   if (appleCategory && APPLE_CAT[appleCategory.toLowerCase()]) return APPLE_CAT[appleCategory.toLowerCase()];
   return 'other';
 }
-const merchantKey = (d) => d.toUpperCase().replace(/POS WITHDRAWAL - |EXTERNAL WITHDRAWAL - |PURCHASE AUTHORIZED ON.*/g, '').replace(/^\s*(SQ|TST|PT|MED|PY|PP|EPC|DD)\s?\*\s?/, '').replace(/CARD ENDING IN \d+/g, '').replace(/[#*]\S*/g, ' ').replace(/\d[\d\-/.]*/g, ' ').replace(/[^A-Z& ]/g, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 3).join(' ');
+const merchantKey = (d) => d.toUpperCase().replace(/^\s*(EXTERNAL WITHDRAWAL|POS WITHDRAWAL|TRANSFER WITHDRAWAL|TRANSFER DEPOSIT|ELECTRONIC CHECK|WITHDRAWAL|DEPOSIT)\s*-\s*/, '').replace(/POS WITHDRAWAL - |EXTERNAL WITHDRAWAL - |PURCHASE AUTHORIZED ON.*/g, '').replace(/^\s*(SQ|TST|PT|MED|PY|PP|EPC|DD)\s?\*\s?/, '').replace(/CARD ENDING IN \d+/g, '').replace(/[#*]\S*/g, ' ').replace(/\d[\d\-/.]*/g, ' ').replace(/[^A-Z& ]/g, ' ').split(/\s+/).filter(w => w.length > 1).slice(0, 3).join(' ');
 
 // What a checking-account line is, for the cash line and the income bars.
 const RE = {
