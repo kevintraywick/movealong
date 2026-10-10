@@ -1780,7 +1780,7 @@ function financePlanOf(userId) {
   const row = queryOne('SELECT data FROM finance_plan WHERE user_id = ?', [userId]);
   let plan = null;
   try { plan = row ? JSON.parse(row.data) : null; } catch (e) { /* start over */ }
-  return plan || { assume: {}, bills: [], planned: [], goals: [], incomes: [] };
+  return plan || { assume: {}, bills: [], planned: [], goals: [], incomes: [], cards: [] };
 }
 const tipOut = (t) => t && { id: t.id, kind: t.kind, body: t.body, feedback: t.feedback, created_at: t.created_at };
 const QUESTION_KINDS = ['number', 'text', 'yesno', 'category'];
@@ -1877,10 +1877,16 @@ app.put('/api/companies/:subdomain/users/:slug/finance/plan', (req, res) => {
     ...(/^\d{4}-\d{2}-\d{2}$/.test(String(x.until)) ? { until: x.until } : {}), ...(x.off ? { off: true } : {})
   })).filter(x => x.amount > 0);
   const goals = (Array.isArray(b.goals) ? b.goals : []).slice(0, 12).map(g => ({ title: str(g.title, 140), done: !!g.done })).filter(g => g.title);
-  const data = JSON.stringify({ assume, bills, planned, goals, incomes });
+  // The cards (2026-10-10): one row each with its APR, balance now and limit, so the pane charges the cards'
+  // share of the debt at the balance-weighted rate and Tom can see which balance costs most and how much of
+  // each limit is in use (his credit score).
+  const cards = (Array.isArray(b.cards) ? b.cards : []).slice(0, 12).map(x => ({
+    label: str(x.label, 40) || 'Card', apr: financeNum(x.apr, 0, 100) || 0, balance: financeNum(x.balance, 0, 1e9) || 0, limit: financeNum(x.limit, 0, 1e9) || 0
+  })).filter(x => x.label);
+  const data = JSON.stringify({ assume, bills, planned, goals, incomes, cards });
   runSql(`INSERT INTO finance_plan (user_id, data, updated_at) VALUES (?, ?, ?)
           ON CONFLICT(user_id) DO UPDATE SET data = excluded.data, updated_at = excluded.updated_at`, [user.id, data, new Date().toISOString()]);
-  res.json({ assume, bills, planned, goals, incomes });
+  res.json({ assume, bills, planned, goals, incomes, cards });
 });
 
 // Tom's one row. A new tip replaces the one on show; the older ones stay, with

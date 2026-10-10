@@ -179,6 +179,15 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin .inc .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
 #fin .incomes { margin-top: 10px; }
 #fin.dark .inc input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+#fin .cards { margin-top: 10px; }
+#fin .card { display: grid; grid-template-columns: 1fr 64px 84px 84px 110px 20px; gap: 6px; align-items: center; font-size: 12px; margin-top: 4px; }
+#fin .card.h span { font-size: 10.5px; color: #94a3b8; }
+#fin .card input[type=text] { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; background: #fff; color: #0f172a; min-width: 0; width: 100%; font-variant-numeric: tabular-nums; }
+#fin .card.new input { border-style: dashed; }
+#fin .card .use { font-size: 11px; color: #64748b; white-space: nowrap; }
+#fin .card .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
+#fin.dark .card input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
+#fin.dark .card .use { color: #94a3b8; }
 #fin .legend.one { flex-wrap: nowrap; overflow: hidden; white-space: nowrap; gap: 4px 10px; font-size: 10.5px; }
 #fin .legend.one .item { flex-shrink: 0; gap: 4px; }
 #fin .sw.hatch { background: repeating-linear-gradient(45deg, #64748b 0 2px, #fff 2px 4px); }
@@ -311,9 +320,10 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 <summary>Goals, assumptions and bills</summary>
                 <div class="goals" id="goals"></div>
                 <div class="incomes" id="incomes"></div>
+                <div class="cards" id="cards"></div>
                 <div class="assume" id="assume"></div>
                 <div class="bills" id="bills"></div>
-                <div class="note">The projection starts from your last day with cash, savings and debt entered and walks forward a day at a time: income on its days, everyday spending, these bills on their days (one marked <b>pays debt</b> moves cash to the debt instead), interest on the cards and the line of credit, the monthly moves into savings and the house fund. On the sweep day, whatever cash sits above the floor goes to the debt, dearest balance first; a day that ends below zero draws the line of credit, the way overdraft cover does. Leave a setting at 0 and it counts for nothing.</div>
+                <div class="note">The projection starts from your last day with cash, savings and debt entered and walks forward a day at a time: income on its days, everyday spending, these bills on their days (one marked <b>pays debt</b> moves cash to the debt instead), interest on the cards (at the blended APR of the cards listed) and the line of credit, the monthly moves into savings and the house fund. On the sweep day, whatever cash sits above the floor goes to the debt, dearest balance first; a day that ends below zero draws the line of credit, the way overdraft cover does. Leave a setting at 0 and it counts for nothing.</div>
             </details>
         </div>`;
     root.innerHTML = '<style>' + CSS + '</style>' + MARKUP;
@@ -327,7 +337,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     const FIELDS = ['cash', 'savings', 'debt', 'invest'];
     const DEFAULT_ASSUME = { income: 0, spend: 0, debtApr: 0, cardApr: 0, locApr: 0, locCap: 0, locBalance: 0, debtStart: 0, carGoal: 0, cashFloor: 0, sweepDay: 0,
         saveAdd: 0, houseAdd: 0, houseGoal: 0, house: 0, saveApy: 0, hysaApy: 0, investReturn: 0, saveGoal: 0 };
-    let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], goals: [], incomes: [], history: null, statements: [], tip: null, questions: [], categories: {}, nextId: 1 };
+    let S = { entries: {}, assume: Object.assign({}, DEFAULT_ASSUME), bills: [], planned: [], goals: [], incomes: [], cards: [], history: null, statements: [], tip: null, questions: [], categories: {}, nextId: 1 };
     function take(d) {
         TODAY = d.today; yearEnd = `${TODAY.slice(0, 4)}-12-31`;
         S.entries = d.entries || {};
@@ -336,6 +346,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         S.planned = ((d.plan || {}).planned || []).map(p => Object.assign({}, p));
         S.goals = ((d.plan || {}).goals || []).map(g => Object.assign({}, g));
         S.incomes = ((d.plan || {}).incomes || []).map(g => Object.assign({}, g));
+        S.cards = ((d.plan || {}).cards || []).map(c => Object.assign({}, c));
         S.nextId = S.planned.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
         S.statements = d.statements || [];
         S.tip = d.tip || null;
@@ -347,7 +358,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     const persist = () => {
         clearTimeout(planTimer);
         planTimer = setTimeout(async () => {
-            try { await call('/plan', { method: 'PUT', body: { assume: S.assume, bills: S.bills, planned: S.planned, goals: S.goals, incomes: S.incomes } }); }
+            try { await call('/plan', { method: 'PUT', body: { assume: S.assume, bills: S.bills, planned: S.planned, goals: S.goals, incomes: S.incomes, cards: S.cards } }); }
             catch (e) { say(e.message || 'not saved', true); }
         }, 600);
     };
@@ -399,7 +410,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const payDebt = (amt) => {   // the dearer balance first
             const pay = Math.min(amt, o.debt); if (pay <= 0) return 0;
             o.cash -= pay; o.debt -= pay;
-            const cardApr = A.cardApr || A.debtApr, cards = Math.max(0, o.debt + pay - o.loc - planLeft(d, bills));
+            const cardApr = cardRate(A), cards = Math.max(0, o.debt + pay - o.loc - planLeft(d, bills));
             if (A.locApr >= cardApr) o.loc -= Math.min(pay, o.loc); else o.loc -= Math.max(0, Math.min(o.loc, pay - cards));
             return pay;
         };
@@ -417,7 +428,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         if (day === 1) { const mv = A.saveAdd + A.houseAdd; o.cash -= mv; o.savings += mv; o.house += A.houseAdd; }
         if (A.sweepDay && Math.min(A.sweepDay, last) === day && o.debt > planLeft(d, bills) + 0.5) o.sweep = payDebt(o.cash - A.cashFloor);
         if (o.cash < 0 && A.locCap > 0) { const draw = Math.min(-o.cash, Math.max(0, A.locCap - o.loc)); o.cash += draw; o.loc += draw; o.debt += draw; o.draw = draw; }
-        const cardApr = (A.cardApr || A.debtApr) / 100 / 365, locApr = (A.locApr || 0) / 100 / 365;
+        const cardApr = cardRate(A) / 100 / 365, locApr = (A.locApr || 0) / 100 / 365;
         const cards = Math.max(0, o.debt - o.loc - planLeft(d, bills));
         const interest = cards * cardApr + o.loc * locApr;
         o.debt += interest; o.loc += o.loc * locApr; o.interest = interest;
@@ -587,7 +598,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         if (lastFull && diff(lastFull, TODAY) >= 3) out.push({ text: `Balances were last entered ${fmtDay(lastFull, { month: 'short', day: 'numeric' })}. Today’s cash, savings and debt keep the projection honest.` });
         if (!M.empty) {
             const cards = M.base.state.debt - (M.base.state.loc || 0) - planLeft(M.base.date, S.bills);
-            if (cards > 50 && !(A.cardApr || A.debtApr) && !S.questions.some(q => q.key === 'cardApr')) out.push({ text: 'What APR do your cards charge? Then the pane can say whether a balance belongs on the line of credit.', key: 'cardApr', unit: '%' });
+            if (cards > 50 && !cardRate(A) && !S.questions.some(q => q.key === 'cardApr')) out.push({ text: 'What APR do your cards charge? Then the pane can say whether a balance belongs on the line of credit.', key: 'cardApr', unit: '%' });
         }
         if (S.goals.some(g => !g.done && /\bcar\b/i.test(g.title)) && !A.carGoal && !S.questions.some(q => q.key === 'carGoal')) out.push({ text: 'What would the car cost? That puts it on the ladder below.', key: 'carGoal', unit: '$' });
         return out.slice(0, 1);
@@ -808,7 +819,14 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             + '.';
     }
 
-    const AS = [['spend', 'Everyday spending a day', '$'], ['cardApr', 'Card APR', '%'], ['locApr', 'Line of credit APR', '%'], ['locCap', 'Line of credit limit', '$'], ['locBalance', 'Drawn on the line now (inside debt)', '$'],
+    // The cards' share of the debt pool accrues at the balance-weighted APR of the cards listed below (a card
+    // with no balance weighs nothing); the Card APR assumption is the fallback when no card is listed.
+    function cardRate(A) {
+        let bal = 0, cost = 0;
+        for (const c of S.cards) if (c.apr > 0 && c.balance > 0) { bal += c.balance; cost += c.balance * c.apr; }
+        return bal > 0 ? cost / bal : (A.cardApr || A.debtApr || 0);
+    }
+    const AS = [['spend', 'Everyday spending a day', '$'], ['cardApr', 'Card APR, if no card is listed', '%'], ['locApr', 'Line of credit APR', '%'], ['locCap', 'Line of credit limit', '$'], ['locBalance', 'Drawn on the line now (inside debt)', '$'],
                 ['cashFloor', 'Cash to keep in checking', '$'], ['sweepDay', 'Day the rest goes to the debt (0 = never)', ''], ['debtStart', 'Debt when you started', '$'],
                 ['saveGoal', 'Savings goal', '$'], ['carGoal', 'Car budget', '$'], ['saveAdd', 'To savings, the 1st', '$'],
                 ['houseAdd', 'To house fund, the 1st', '$'], ['houseGoal', 'House down payment goal', '$'], ['house', 'House fund now (inside savings)', '$'],
@@ -821,7 +839,38 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         }));
         drawGoals();
         drawIncomes();
+        drawCards();
         drawBills();
+    }
+    // The cards, one row each: name, APR, balance now, limit. The blank line at the foot adds one.
+    function drawCards() {
+        const use = (c) => c.limit > 0 && c.balance > 0 ? `${Math.round(100 * c.balance / c.limit)}% of its limit` : c.limit > 0 ? 'nothing on it' : '';
+        const rate = cardRate(S.assume);
+        $('cards').innerHTML = `<div class="gtitle">Cards <span>${S.cards.length ? `balances accrue at ${rate.toFixed(2)}% blended · the sweep pays the dearest first` : 'name, APR, balance and limit'}</span></div>`
+            + `<div class="card h"><span></span><span>APR</span><span>balance</span><span>limit</span><span></span><span></span></div>`
+            + S.cards.map((c, i) => `<div class="card"><input type="text" data-c="label" data-i="${i}" value="${esc(c.label || '')}" placeholder="Card"><input type="text" inputmode="decimal" data-c="apr" data-i="${i}" value="${c.apr || ''}" placeholder="%"><input type="text" inputmode="decimal" data-c="balance" data-i="${i}" value="${c.balance || ''}" placeholder="$"><input type="text" inputmode="decimal" data-c="limit" data-i="${i}" value="${c.limit || ''}" placeholder="$"><span class="use">${use(c)}</span><button class="x" data-c="del" data-i="${i}" title="Remove">×</button></div>`).join('')
+            + `<div class="card new"><input type="text" id="card-new-label" placeholder="Add a card…"><input type="text" inputmode="decimal" id="card-new-apr" placeholder="%"><input type="text" inputmode="decimal" id="card-new-balance" placeholder="$"><input type="text" inputmode="decimal" id="card-new-limit" placeholder="$"><span></span><span></span></div>`;
+        $('cards').querySelectorAll('[data-c]').forEach(el => {
+            const ev = el.tagName === 'BUTTON' ? 'click' : 'input';
+            el.addEventListener(ev, () => {
+                const i = +el.dataset.i, k = el.dataset.c;
+                if (k === 'del') { S.cards.splice(i, 1); persist(); drawCards(); refresh(false); return; }
+                const c = S.cards[i];
+                if (k === 'label') c.label = el.value;
+                else { const v = el.value.trim() === '' ? 0 : parseMoney(el.value); if (v === null) return; c[k] = v; }
+                persist(); refresh(false);
+                const u = el.closest('.card').querySelector('.use'); if (u) u.textContent = use(c);
+                $('cards').querySelector('.gtitle span').textContent = `balances accrue at ${cardRate(S.assume).toFixed(2)}% blended · the sweep pays the dearest first`;
+            });
+        });
+        const addCard = () => {
+            const label = $('card-new-label').value.trim(), apr = parseMoney($('card-new-apr').value), balance = parseMoney($('card-new-balance').value), limit = parseMoney($('card-new-limit').value);
+            if (!label || apr === null) return;
+            S.cards.push({ label, apr, balance: balance || 0, limit: limit || 0 });
+            persist(); drawCards(); refresh(false); const nl = $('card-new-label'); if (nl) nl.focus();
+        };
+        ['card-new-label', 'card-new-apr', 'card-new-balance', 'card-new-limit'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addCard(); } }));
+        $('card-new-limit').addEventListener('change', addCard);
     }
     function drawGoals() {
         $('goals').innerHTML = `<div class="gtitle">Goals, in order <span>Tom works toward the first one that isn't done</span></div>`
