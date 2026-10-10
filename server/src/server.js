@@ -1926,8 +1926,11 @@ app.post('/api/companies/:subdomain/users/:slug/finance/questions', (req, res) =
   const merchant = kind === 'category' ? statementsLib.merchantKey(String(b.merchant || '')) : null;
   if (kind === 'category' && !merchant) return res.status(400).json({ error: 'merchant is required for a category question' });
   const options = kind === 'category' ? (Array.isArray(b.options) ? b.options : []).map(slugCat).filter(Boolean).slice(0, 8) : null;
-  const open = queryAll('SELECT id FROM finance_questions WHERE user_id = ? AND answer IS NULL', [user.id]).length;
-  if (open >= 6) return res.status(409).json({ error: 'Six questions are already waiting; let him answer first' });
+  // One question at a time (Kevin, 2026-10-10): one open on the NEEDS row (number, text, yesno) and one open
+  // under the spending chart (category). The next one waits until he has answered.
+  const place = kind === 'category' ? "kind = 'category'" : "kind <> 'category'";
+  const open = queryAll(`SELECT id FROM finance_questions WHERE user_id = ? AND answer IS NULL AND ${place}`, [user.id]).length;
+  if (open >= 1) return res.status(409).json({ error: kind === 'category' ? 'A category question is already waiting under the spending chart; let him answer first' : 'A question is already waiting on the NEEDS row; let him answer first' });
   runSql('INSERT INTO finance_questions (user_id, kind, prompt, key, merchant, options) VALUES (?, ?, ?, ?, ?, ?)', [user.id, kind, prompt, key, merchant, options ? JSON.stringify(options) : null]);
   const id = queryOne('SELECT last_insert_rowid() AS id').id;
   res.status(201).json(questionOut(queryOne('SELECT * FROM finance_questions WHERE id = ?', [id])));

@@ -232,7 +232,7 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
 
   server.registerTool('ask_finance', {
     title: 'Ask Kevin a finance question',
-    description: 'Put a question in the NEEDS row of the finance pane; he answers in place and get_finance shows the answer. kind "number" with key fills that assumption when he answers (key is one of the plan.assume names: cardApr, locApr, locCap, locBalance, carGoal, cashFloor, sweepDay, saveGoal, houseGoal, spend); "yesno" gives him two buttons; "text" a one-line box; "category" asks what a charge was: pass merchant (the merchant key, the fifth element of a finance_history item) and options (the categories you think fit; he can also type his own). Under 160 characters, one thing per question, at most six waiting.',
+    description: 'Put a question in the NEEDS row of the finance pane; he answers in place and get_finance shows the answer. kind "number" with key fills that assumption when he answers (key is one of the plan.assume names: cardApr, locApr, locCap, locBalance, carGoal, cashFloor, sweepDay, saveGoal, houseGoal, spend); "yesno" gives him two buttons; "text" a one-line box; "category" asks what a charge was: pass merchant (the merchant key, the fifth element of a finance_history item) and options (the categories you think fit; he can also type his own). Under 160 characters, one thing per question, one waiting at a time (409 while one is open; a category question counts separately).',
     inputSchema: { kind: z.enum(['number', 'text', 'yesno', 'category']), prompt: z.string().min(1), key: z.string().optional(), merchant: z.string().optional(), options: z.array(z.string()).optional() }
   }, async (q) => text(await api(`${me}/finance/questions`, { method: 'POST', body: q })));
 
@@ -568,11 +568,12 @@ At most 12 items total, in this order: calendar, mail, market, texts, nudges, he
 
 
 // The finance pane's one row (2026-10-09; widened 2026-10-10). Kevin's goals: debt to zero by the
-// end of the year, savings up, a car, money set aside for a house. His figures and habits live in the
-// board (plan.assume, plan.goals, the statements), not in this public repo.
+// end of the year, savings up, a car, money set aside for a house, and three standing ones (his credit
+// score rising toward a mortgage, never a card balance carried, interest kept to the minimum). His
+// figures and habits live in the board (plan.assume, plan.goals, the statements), not in this public repo.
 export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance pane and post it with post_finance_tip. The pane's job is to keep him fiscally healthy: show progress toward his goals and offer strategies that fit how he actually spends and saves.
 
-1. get_finance, finance_history and get_brief. The brief holds money facts he has told you (what a payment was for, what is cancelled, what is not part of the debt goal): honour them, and do not raise again anything it already explains. From get_finance read plan.goals first: Kevin's goals in order (a done one is crossed off). The first not done is the one every tip must serve; the rest are what comes after it. Then read recent_tips: every one has his answer (up = Useful, no = Not for me, replaced = never answered). Learn from them. Do not repeat a kind of tip he said was not for him, and lean toward the kinds he found useful. finance_history is his habits: income, spending by category and card payments month by month, and the split of everyday spending. Ground every strategy in those numbers, never in a generic rule.
+1. get_finance, finance_history and get_brief. The brief holds money facts he has told you (what a payment was for, what is cancelled, what is not part of the debt goal): honour them, and do not raise again anything it already explains. From get_finance read plan.goals first: Kevin's goals in order (a done one is crossed off). The first not done is the one every tip must serve; the rest are what comes after it. Some goals are standing rules rather than targets (his credit score, carrying no card balance, paying the least interest): every tip must respect them, and a strategy that serves a target but breaks a rule is not a strategy. Then read recent_tips: every one has his answer (up = Useful, no = Not for me, replaced = never answered). Learn from them. Do not repeat a kind of tip he said was not for him, and lean toward the kinds he found useful. finance_history is his habits: income, spending by category and card payments month by month, and the split of everyday spending. Ground every strategy in those numbers, never in a generic rule.
 
 2. If a tip posted in the last 20 hours is still unanswered, stop; do not post another.
 
@@ -581,6 +582,8 @@ export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance p
    - The line of credit is his flexibility. He can move money to it and from it. Moving a card balance to the line is worth suggesting when the card's APR is above the line's and the interest saved is real: work out the monthly interest saved and say it in one number. If cardApr is 0 (unknown), ask for it once instead of guessing.
    - He can sometimes find extra income, usually by taking on more work. Suggest it rarely: only when a specific extra amount (say $1,000) would save enough interest or bring a goal date forward enough to be worth the work, and say what it buys. Never as a general nudge to earn more.
    - A 0% plan paid early saves nothing. Say so if the numbers tempt him that way.
+   - His credit score matters because a mortgage is coming (the score and the house are in plan.goals). What moves it: the share of each card's limit in use when the statement closes (keep it under a tenth: paying a card down before its statement date, not just before the due date, is the cheap lever), paying every card in full and on time, keeping old cards open (so an annual-fee decision is also a credit-age decision; say so), and no new credit lines or hard pulls in the months before the mortgage application. A balance moved to the line of credit lowers card use; say what it does to the score as well as to interest.
+   - Never a card balance carried: a card balance at its due date is a problem to solve this month, from cash, the line of credit (if its APR is lower) or more work, in that order. Interest paid is the number to drive to zero: when two moves serve a goal equally, pick the one that pays less interest.
 
 4. Look for the one thing most worth his attention, in this order:
    - An alert: a bill or payment due today or tomorrow (the plan's recurring bills, or a due date you can see in a statement file). Say what and how much. Do not work out what cash will be left.
@@ -592,7 +595,7 @@ export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance p
 
 5. One or two sentences, under 300 characters, plain words, one specific number at most. A tip is an observation and a suggestion, never a lecture. Say which goal it serves when that is not obvious. If there is nothing worth saying, post nothing.
 
-6. Questions (ask_finance). The NEEDS row is where you get to know how he handles money, one question at a time. Read get_finance's questions first: never ask again what he has answered, and use the answers in every later tip. Ask when at most one of yours is still waiting, and at most one new question a day:
+6. Questions (ask_finance). The NEEDS row is where you get to know how he handles money, one question at a time: the row holds one, and the server refuses a second while one is waiting (409). Read get_finance's questions first: never ask again what he has answered, and use the answers in every later tip. Ask only when none of yours is waiting (a category question counts separately: it waits under the spending chart, also one at a time), and at most one new question a day. Choose the one question whose answer changes the next tip most:
    - a number the projection is missing (kind number with its key): a card's APR, a car budget, what the line of credit charges;
    - why a decision was made (kind text): a large one-off charge, a transfer pattern, a month that broke the pattern. One sentence from him is the answer;
    - a decision coming up (kind yesno or text): an annual fee about to renew, a 0% plan ending, a card balance about to start costing interest, a subscription he has not used. Ask early enough to matter;

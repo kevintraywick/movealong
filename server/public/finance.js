@@ -211,9 +211,8 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin.dark .gtitle { color: #cbd5e1; }
 #fin.dark .goal input[type=text] { background: #0f172a; border-color: #334155; color: #e2e8f0; }
 #fin .entry .state.err { color: #ef4444; width: auto; max-width: 110px; }
-#fin .tiprow.needs { margin-top: 6px; border-style: dashed; background: #f8fafc; color: #475569; align-items: flex-start; }
-#fin .tiprow.needs .chip { color: #475569; background: #e2e8f0; margin-top: 2px; }
-#fin .tiprow.needs .txt div + div { margin-top: 5px; }
+#fin .tiprow.needs { margin-top: 6px; border-style: dashed; background: #f8fafc; color: #475569; }
+#fin .tiprow.needs .chip { color: #475569; background: #e2e8f0; }
 #fin .ask { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 #fin .ask .money { display: inline-block; width: 96px; }
 #fin .ask .money i { position: absolute; left: 7px; top: 50%; transform: translateY(-50%); font-style: normal; font-size: 12px; color: #94a3b8; pointer-events: none; }
@@ -570,26 +569,28 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     const ACCT_NAME = { becu_checking: 'BECU checking', becu_visa: 'BECU Visa', bofa: 'Bank of America', apple: 'Apple Card' };
     // Each ask is { text } (just words), { text, key, unit } (a number the pane wants, typed straight into that
     // assumption, like the health pane's boxes) or { q } (one of Tom's questions, answered in place).
+    // One row, one ask at a time (Kevin, 2026-10-10): the pane's blocking asks first (nothing to project from),
+    // then Tom's open question, then the pane's softer ones. The next appears once this one is answered.
     function needs() {
         const out = [], A = S.assume, H = S.history;
-        for (const q of S.questions) if (q.kind !== 'category') out.push({ q });
         const accts = (H && H.accounts) || {};
         if (!Object.keys(accts).length) out.push({ text: 'No statements yet. Drop your checking and card exports in the + circle and the past half of the charts fills in.' });
-        else for (const k of Object.keys(ACCT_NAME)) {
+        const fullDays = Object.keys(S.entries).filter(d => isFull(S.entries[d]) && d <= TODAY).sort(), lastFull = fullDays[fullDays.length - 1];
+        if (!lastFull) out.push({ text: 'Enter cash, savings and debt for a day and the projection starts.' });
+        for (const q of S.questions) if (q.kind !== 'category') out.push({ q });
+        if (Object.keys(accts).length) for (const k of Object.keys(ACCT_NAME)) {
             const a = accts[k];
             if (!a) { out.push({ text: `No ${ACCT_NAME[k]} statement yet. Drop one in the + circle.` }); continue; }
             const age = diff(a.last, TODAY);
             if (age > 10) out.push({ text: `Your ${ACCT_NAME[k]} statement ends ${fmtDay(a.last, { month: 'short', day: 'numeric' })}, ${age} days ago. Drop a newer export in the + circle.` });
         }
-        const fullDays = Object.keys(S.entries).filter(d => isFull(S.entries[d]) && d <= TODAY).sort(), lastFull = fullDays[fullDays.length - 1];
-        if (!lastFull) out.push({ text: 'Enter cash, savings and debt for a day and the projection starts.' });
-        else if (diff(lastFull, TODAY) >= 3) out.push({ text: `Balances were last entered ${fmtDay(lastFull, { month: 'short', day: 'numeric' })}. Today’s cash, savings and debt keep the projection honest.` });
+        if (lastFull && diff(lastFull, TODAY) >= 3) out.push({ text: `Balances were last entered ${fmtDay(lastFull, { month: 'short', day: 'numeric' })}. Today’s cash, savings and debt keep the projection honest.` });
         if (!M.empty) {
             const cards = M.base.state.debt - (M.base.state.loc || 0) - planLeft(M.base.date, S.bills);
             if (cards > 50 && !(A.cardApr || A.debtApr) && !S.questions.some(q => q.key === 'cardApr')) out.push({ text: 'What APR do your cards charge? Then the pane can say whether a balance belongs on the line of credit.', key: 'cardApr', unit: '%' });
         }
         if (S.goals.some(g => !g.done && /\bcar\b/i.test(g.title)) && !A.carGoal && !S.questions.some(q => q.key === 'carGoal')) out.push({ text: 'What would the car cost? That puts it on the ladder below.', key: 'carGoal', unit: '$' });
-        return out.slice(0, 8);
+        return out.slice(0, 1);
     }
     const moneyBox = (unit, attrs) => unit === '%' ? `<span class="money pct"><input type="text" inputmode="decimal" ${attrs}><i>%</i></span>` : `<span class="money"><i>$</i><input type="text" inputmode="decimal" ${attrs}></span>`;
     function askHtml(n, i) {
@@ -633,9 +634,9 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         });
     }
     // Under the spending chart: Tom's "what was this?" questions, one line each, the categories he thinks fit as
-    // ticks plus "other" with a box for Kevin's own word. One tick answers.
+    // ticks plus "other" with a box for Kevin's own word. One tick answers. One question at a time here too.
     function drawCatRow() {
-        const row = $('catrow'), qs = S.questions.filter(q => q.kind === 'category');
+        const row = $('catrow'), qs = S.questions.filter(q => q.kind === 'category').slice(0, 1);
         row.hidden = !qs.length;
         if (!qs.length) { row.innerHTML = ''; return; }
         row.innerHTML = `<span class="chip">TOM</span><div class="txt">` + qs.map((q, i) => {
