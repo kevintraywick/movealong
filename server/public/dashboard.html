@@ -165,7 +165,7 @@
         .sub-title span { font-weight: 400; color: #94a3b8; font-size: 11px; }
         .chart .bar { cursor: default; }
         .chart .bar:hover { filter: brightness(0.85); }
-        .chart .avg { fill: none; stroke: #0f172a; stroke-width: 1.2; stroke-dasharray: 3 3; opacity: .55; }
+        .chart .avg { fill: none; stroke: #0f172a; stroke-width: 1.4; opacity: .7; }
         .chart .wline { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
         .chart .wdot { stroke: #fff; stroke-width: 1.5; }
         .chart .wlabel { font-size: 10px; fill: #475569; text-anchor: middle; }
@@ -619,10 +619,10 @@
             }
             document.getElementById('stats').innerHTML = stats.map(st =>
                 `<div class="stat"><div class="k"><span class="sw" style="background:${hcol(st.k)}"></span>${escapeHtml(st.name)}</div>` +
-                `<div class="v">${escapeHtml(st.v)}${st.unit ? `<small>${escapeHtml(st.unit)}</small>` : ''}</div><div class="s${st.up ? ' up' : ''}">${escapeHtml(st.s)}</div></div>`).join('');
+                `<div class="v">${escapeHtml(st.v)}${st.unit ? `<small>${escapeHtml(st.unit)}</small>` : ''}</div></div>`).join('');
         }
 
-        // Steps: one bar a day, a dashed 7-day rolling average over it.
+        // Steps: one bar a day, a solid 7-day rolling average over it.
         // Targets drawn as a dashed line so you can see how far off you are (Kevin, 2026-10-09).
         const STEPS_GOAL = 7000, WEIGHT_GOAL = 175;
         function stepsChart(days) {
@@ -698,7 +698,7 @@
                     const n = chunk.filter(d => d.e[k] === 1).length;
                     wk.push(`<div class="week"><div class="cells">${chunk.map(d =>
                         `<div class="cell${d.e[k] === 1 ? ' on' : ''}${d.future ? ' future' : ''}${d.today ? ' today' : ''}" style="--c:${hcol(k)}" title="${escapeHtml(fmtDay(d.key, { weekday: 'short', month: 'short', day: 'numeric' }))}${d.e[k] === 1 ? ' · ' + k : ''}"></div>`).join('')}</div>` +
-                        `<div class="wk">${n ? `<b>${n}</b>` : '·'}</div></div>`);
+                        `</div>`);
                 }
                 return `<div class="streak"><div class="name">${k === 'gym' ? 'Gym' : 'Yoga'}</div><div class="weeks">${wk.join('')}</div></div>`;
             });
@@ -711,9 +711,9 @@
             renderStats(days);
             const first = days[0].key, last = days[days.length - 1].key;
             document.getElementById('healthBody').innerHTML =
-                `<div class="sub-title">Steps <span>a day · dashed line is the 7-day average</span></div>${stepsChart(days)}` +
+                `<div class="sub-title">Steps</div>${stepsChart(days)}` +
                 `<div class="sub-title">Weight <span>lb</span></div>${weightChart(days)}` +
-                `<div class="sub-title">Gym and yoga <span>a cell a day, Monday first · count per week</span></div>${streakGrid(days)}` +
+                `<div class="sub-title">Gym and yoga</div>${streakGrid(days)}` +
                 `<details><summary>As a table</summary><div>${healthTable(days)}</div></details>`;
             // hover tips on bars and dots reuse the completions tooltip element
             const tip = document.getElementById('tip');
