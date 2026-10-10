@@ -1975,11 +1975,11 @@ function healthCard(userId, weekEnd, targets) {
     const grade = targets.weight > 0 && m1 <= targets.weight ? 'A' : delta <= -0.5 ? 'A' : delta <= -0.2 ? 'B' : delta < 0.2 ? 'C' : delta < 1 ? 'D' : 'F';
     lines.push({ key: 'weight', label: 'Weight', grade, value: Math.round(m1 * 10) / 10, target: targets.weight || null, note: `${m1.toFixed(1)} on average, ${Math.abs(delta) < 0.05 ? 'level with' : (delta < 0 ? 'down ' : 'up ') + Math.abs(delta).toFixed(1) + ' from'} last week${targets.weight > 0 && m1 <= targets.weight ? ', at the goal' : ''}` });
   }
-  const anyLogged = week.some(e => Object.keys(e).length);
+  // Unlogged is not zero (the health pane's rule): a week with no gym or yoga entry at all, yes or no, is I.
   for (const k of ['gym', 'yoga']) {
-    const n = week.filter(e => e[k] === 1).length, t = targets[k] || 0;
-    const grade = t <= 0 || !anyLogged ? 'I' : n === 0 ? 'F' : letterFor(n / t, [1, 0.66, 0.33, 0.01]);
-    lines.push({ key: k, label: k === 'gym' ? 'Gym' : 'Yoga', grade, value: n, target: t || null, note: t <= 0 ? 'no weekly target set' : !anyLogged ? 'nothing logged this week' : `${n} of ${t} days` });
+    const n = week.filter(e => e[k] === 1).length, asked = week.filter(e => typeof e[k] === 'number').length, t = targets[k] || 0;
+    const grade = t <= 0 || !asked ? 'I' : n === 0 ? 'F' : letterFor(n / t, [1, 0.66, 0.33, 0.01]);
+    lines.push({ key: k, label: k === 'gym' ? 'Gym' : 'Yoga', grade, value: n, target: t || null, note: t <= 0 ? 'no weekly target set' : !asked ? 'not logged this week (tick or untick the box)' : `${n} of ${t} days` });
   }
   const logged = week.filter(e => Object.keys(e).length).length;
   lines.push({ key: 'logged', label: 'Logged', grade: logged >= 7 ? 'A' : logged === 6 ? 'B' : logged === 5 ? 'C' : logged === 4 ? 'D' : logged === 0 ? 'I' : 'F', value: logged, target: 7, note: logged ? `${logged} of 7 days have an entry` : 'nothing logged this week' });
@@ -2129,6 +2129,18 @@ app.post('/api/companies/:subdomain/users/:slug/finance/questions', (req, res) =
   runSql('INSERT INTO finance_questions (user_id, kind, prompt, key, merchant, options) VALUES (?, ?, ?, ?, ?, ?)', [user.id, kind, prompt, key, merchant, options ? JSON.stringify(options) : null]);
   const id = queryOne('SELECT last_insert_rowid() AS id').id;
   res.status(201).json(questionOut(queryOne('SELECT * FROM finance_questions WHERE id = ?', [id])));
+});
+// Set a merchant's category outright (what answering a category question does), for a merchant nobody
+// needs to be asked about.
+app.put('/api/companies/:subdomain/users/:slug/finance/categories', (req, res) => {
+  const user = healthUser(req, res);
+  if (!user) return;
+  const b = req.body || {};
+  const merchant = statementsLib.merchantKey(String(b.merchant || '')), category = slugCat(b.category);
+  if (!merchant) return res.status(400).json({ error: 'merchant is required' });
+  if (!category) { runSql('DELETE FROM finance_categories WHERE user_id = ? AND merchant = ?', [user.id, merchant]); return res.json({ merchant, category: null }); }
+  runSql(`INSERT INTO finance_categories (user_id, merchant, category, updated_at) VALUES (?, ?, ?, ?) ON CONFLICT(user_id, merchant) DO UPDATE SET category = excluded.category, updated_at = excluded.updated_at`, [user.id, merchant, category, new Date().toISOString()]);
+  res.json({ merchant, category });
 });
 app.get('/api/companies/:subdomain/users/:slug/finance/questions', (req, res) => {
   const user = healthUser(req, res);
