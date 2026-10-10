@@ -105,8 +105,7 @@ app.all('/mcp/:secret', async (req, res) => {
 // stored. Off until SITE_USER and SITE_PASSWORD are both set, so local runs
 // and tests are unchanged. Left open on purpose: /login, /help and the icons;
 // /mcp/<secret> (its own secret); anyone sending the AI_ACCESS_KEY in x-ai-key
-// (Tom's scripts and the stdio MCP server already do); a Basic header, still
-// accepted for curl; and this server calling itself over loopback (the phone
+// (Tom's scripts and the stdio MCP server already do); and this server calling itself over loopback (the phone
 // connector's tools). A browser without a cookie is sent to /login when it
 // asks for a page, and gets a 401 JSON on a fetch (no WWW-Authenticate, so no
 // prompt; the pages reload to /login on it). Ten wrong tries from one address
@@ -179,16 +178,9 @@ app.use((req, res, next) => {
 
   if (tooManyTries(req)) return res.status(429).type('text').send('Too many tries. Wait ten minutes.');
 
-  const m = /^Basic (.+)$/i.exec(req.get('authorization') || '');
-  if (m) {
-    const text = Buffer.from(m[1], 'base64').toString('utf8');
-    const i = text.indexOf(':');
-    if (i >= 0 && credentialsOk(text.slice(0, i), text.slice(i + 1))) {
-      siteFails.delete(req.ip);
-      return next();
-    }
-    noteFail(req);
-  }
+  // No Basic fallback: Safari keeps the old credential in the Mac keychain and
+  // sends it unasked, so accepting it meant the form never appeared and the
+  // Passwords app never got to offer (Kevin, 2026-10-10). curl uses the cookie.
   const wantsPage = req.method === 'GET' && /text\/html/.test(req.get('accept') || '') && !req.path.startsWith('/api/');
   if (wantsPage) return res.redirect(302, `/login?next=${encodeURIComponent(req.originalUrl)}`);
   res.status(401).json({ error: 'Sign in to MoveIt', login: '/login' });

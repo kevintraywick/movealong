@@ -38,7 +38,7 @@ POST /login   form: username, password, next   → 303 next with the moveit_sess
 GET  /logout                         clears the cookie → 303 /login
 ```
 
-Without a valid cookie, `x-ai-key`, Basic header or loopback: a page GET (Accept text/html, not `/api/`) is `302 /login?next=<url>`; anything else is `401 {"error":"Sign in to MoveIt","login":"/login"}`. `session.js` on every page follows that 401 to `/login`. The cookie is `<expiry>.<HMAC-SHA256(expiry)>`, keyed from the user and password, so nothing is stored and a password change signs every device out. Unset both variables and all of this is off.
+Without a valid cookie, `x-ai-key` or loopback (a Basic header is ignored: Safari sends the old one unasked): a page GET (Accept text/html, not `/api/`) is `302 /login?next=<url>`; anything else is `401 {"error":"Sign in to MoveIt","login":"/login"}`. `session.js` on every page follows that 401 to `/login`. The cookie is `<expiry>.<HMAC-SHA256(expiry)>`, keyed from the user and password, so nothing is stored and a password change signs every device out. Unset both variables and all of this is off.
 
 ## API Endpoints
 
