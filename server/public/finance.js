@@ -180,9 +180,9 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
 #fin .incomes { margin-top: 10px; }
 #fin.dark .inc input { background: #0f172a; border-color: #334155; color: #e2e8f0; }
 #fin .cards { margin-top: 10px; }
-#fin .card { display: grid; grid-template-columns: 1fr 64px 84px 84px 110px 20px; gap: 6px; align-items: center; font-size: 12px; margin-top: 4px; }
+#fin .card { display: grid; grid-template-columns: 1fr 64px 84px 84px 56px 110px 20px; gap: 6px; align-items: center; font-size: 12px; margin-top: 4px; }
 #fin .card.h span { font-size: 10.5px; color: #94a3b8; }
-#fin .card input[type=text] { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; background: #fff; color: #0f172a; min-width: 0; width: 100%; font-variant-numeric: tabular-nums; }
+#fin .card input[type=text], #fin .card input[type=number] { font: inherit; font-size: 12px; border: 1px solid #e2e8f0; border-radius: 6px; padding: 3px 6px; background: #fff; color: #0f172a; min-width: 0; width: 100%; font-variant-numeric: tabular-nums; }
 #fin .card.new input { border-style: dashed; }
 #fin .card .use { font-size: 11px; color: #64748b; white-space: nowrap; }
 #fin .card .x { border: none; background: none; color: #94a3b8; cursor: pointer; font-size: 14px; }
@@ -349,6 +349,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         S.cards = ((d.plan || {}).cards || []).map(c => Object.assign({}, c));
         S.nextId = S.planned.reduce((m, p) => Math.max(m, p.id || 0), 0) + 1;
         S.statements = d.statements || [];
+        S.due = d.statements_due || [];
         S.tip = d.tip || null;
         S.questions = d.questions || [];
         S.categories = d.categories || {};
@@ -592,6 +593,10 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         if (Object.keys(accts).length) for (const k of Object.keys(ACCT_NAME)) {
             const a = accts[k];
             if (!a) { out.push({ text: `No ${ACCT_NAME[k]} statement yet. Drop one in the + circle.` }); continue; }
+            // With a close day known (the card's "closes" column; checking at month end) the ask is about the
+            // statement that closed; otherwise about how old the newest row is.
+            const due = (S.due || []).find(x => x.acct === k && x.closes);
+            if (due) { if (due.due && due.days_since >= 2) out.push({ text: `Your ${ACCT_NAME[k]} statement closed ${fmtDay(due.closed, { month: 'short', day: 'numeric' })}. Drop the export in the + circle.` }); continue; }
             const age = diff(a.last, TODAY);
             if (age > 10) out.push({ text: `Your ${ACCT_NAME[k]} statement ends ${fmtDay(a.last, { month: 'short', day: 'numeric' })}, ${age} days ago. Drop a newer export in the + circle.` });
         }
@@ -847,9 +852,9 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const use = (c) => c.limit > 0 && c.balance > 0 ? `${Math.round(100 * c.balance / c.limit)}% of its limit` : c.limit > 0 ? 'nothing on it' : '';
         const rate = cardRate(S.assume);
         $('cards').innerHTML = `<div class="gtitle">Cards <span>${S.cards.length ? `balances accrue at ${rate.toFixed(2)}% blended · the sweep pays the dearest first` : 'name, APR, balance and limit'}</span></div>`
-            + `<div class="card h"><span></span><span>APR</span><span>balance</span><span>limit</span><span></span><span></span></div>`
-            + S.cards.map((c, i) => `<div class="card"><input type="text" data-c="label" data-i="${i}" value="${esc(c.label || '')}" placeholder="Card"><input type="text" inputmode="decimal" data-c="apr" data-i="${i}" value="${c.apr || ''}" placeholder="%"><input type="text" inputmode="decimal" data-c="balance" data-i="${i}" value="${c.balance || ''}" placeholder="$"><input type="text" inputmode="decimal" data-c="limit" data-i="${i}" value="${c.limit || ''}" placeholder="$"><span class="use">${use(c)}</span><button class="x" data-c="del" data-i="${i}" title="Remove">×</button></div>`).join('')
-            + `<div class="card new"><input type="text" id="card-new-label" placeholder="Add a card…"><input type="text" inputmode="decimal" id="card-new-apr" placeholder="%"><input type="text" inputmode="decimal" id="card-new-balance" placeholder="$"><input type="text" inputmode="decimal" id="card-new-limit" placeholder="$"><span></span><span></span></div>`;
+            + `<div class="card h"><span></span><span>APR</span><span>balance</span><span>limit</span><span title="Day of the month the statement closes. Tom reminds you to upload it a few days after.">closes</span><span></span><span></span></div>`
+            + S.cards.map((c, i) => `<div class="card"><input type="text" data-c="label" data-i="${i}" value="${esc(c.label || '')}" placeholder="Card"><input type="text" inputmode="decimal" data-c="apr" data-i="${i}" value="${c.apr || ''}" placeholder="%"><input type="text" inputmode="decimal" data-c="balance" data-i="${i}" value="${c.balance || ''}" placeholder="$"><input type="text" inputmode="decimal" data-c="limit" data-i="${i}" value="${c.limit || ''}" placeholder="$"><input type="number" min="1" max="31" data-c="closes" data-i="${i}" value="${c.closes || ''}" placeholder="day" title="Day of the month the statement closes"><span class="use">${use(c)}</span><button class="x" data-c="del" data-i="${i}" title="Remove">×</button></div>`).join('')
+            + `<div class="card new"><input type="text" id="card-new-label" placeholder="Add a card…"><input type="text" inputmode="decimal" id="card-new-apr" placeholder="%"><input type="text" inputmode="decimal" id="card-new-balance" placeholder="$"><input type="text" inputmode="decimal" id="card-new-limit" placeholder="$"><input type="number" min="1" max="31" id="card-new-closes" placeholder="day"><span></span><span></span></div>`;
         $('cards').querySelectorAll('[data-c]').forEach(el => {
             const ev = el.tagName === 'BUTTON' ? 'click' : 'input';
             el.addEventListener(ev, () => {
@@ -857,20 +862,20 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
                 if (k === 'del') { S.cards.splice(i, 1); persist(); drawCards(); refresh(false); return; }
                 const c = S.cards[i];
                 if (k === 'label') c.label = el.value;
-                else { const v = el.value.trim() === '' ? 0 : parseMoney(el.value); if (v === null) return; c[k] = v; }
+                else { const v = el.value.trim() === '' ? 0 : parseMoney(el.value); if (v === null) return; c[k] = k === 'closes' ? Math.max(0, Math.min(31, Math.round(v))) : v; }
                 persist(); refresh(false);
                 const u = el.closest('.card').querySelector('.use'); if (u) u.textContent = use(c);
                 $('cards').querySelector('.gtitle span').textContent = `balances accrue at ${cardRate(S.assume).toFixed(2)}% blended · the sweep pays the dearest first`;
             });
         });
         const addCard = () => {
-            const label = $('card-new-label').value.trim(), apr = parseMoney($('card-new-apr').value), balance = parseMoney($('card-new-balance').value), limit = parseMoney($('card-new-limit').value);
+            const label = $('card-new-label').value.trim(), apr = parseMoney($('card-new-apr').value), balance = parseMoney($('card-new-balance').value), limit = parseMoney($('card-new-limit').value), closes = parseMoney($('card-new-closes').value);
             if (!label || apr === null) return;
-            S.cards.push({ label, apr, balance: balance || 0, limit: limit || 0 });
+            S.cards.push({ label, apr, balance: balance || 0, limit: limit || 0, closes: closes ? Math.max(1, Math.min(31, Math.round(closes))) : 0 });
             persist(); drawCards(); refresh(false); const nl = $('card-new-label'); if (nl) nl.focus();
         };
-        ['card-new-label', 'card-new-apr', 'card-new-balance', 'card-new-limit'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addCard(); } }));
-        $('card-new-limit').addEventListener('change', addCard);
+        ['card-new-label', 'card-new-apr', 'card-new-balance', 'card-new-limit', 'card-new-closes'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); addCard(); } }));
+        $('card-new-closes').addEventListener('change', addCard);
     }
     function drawGoals() {
         $('goals').innerHTML = `<div class="gtitle">Goals, in order <span>Tom works toward the first one that isn't done</span></div>`

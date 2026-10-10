@@ -1803,8 +1803,42 @@ app.get('/api/companies/:subdomain/users/:slug/finance', (req, res) => {
   const tip = queryOne('SELECT * FROM finance_tips WHERE user_id = ? AND feedback IS NULL ORDER BY id DESC LIMIT 1', [user.id]);
   const statements = queryAll('SELECT id, name, size, created_at FROM finance_statements WHERE user_id = ? ORDER BY id DESC LIMIT 40', [user.id]);
   const questions = queryAll('SELECT * FROM finance_questions WHERE user_id = ? AND answer IS NULL ORDER BY id LIMIT 8', [user.id]).map(questionOut);
-  res.json({ today, from, entries, plan: financePlanOf(user.id), tip: tipOut(tip) || null, statements: statements.map(statementOut), questions, categories: categoryOverrides(user.id) });
+  const plan = financePlanOf(user.id);
+  res.json({ today, from, entries, plan, tip: tipOut(tip) || null, statements: statements.map(statementOut), questions, categories: categoryOverrides(user.id), statements_due: statementsDue(user.id, plan, today) });
 });
+
+// Which statements have closed and are not uploaded yet (2026-10-10). Each card row carries the day of the
+// month its statement closes (plan.cards[].closes); checking closes at month end. For every account the
+// statement reader knows, the most recent close on or before today, the newest row uploaded for that account,
+// and whether the upload reaches the close. Tom reminds Kevin a few days after a close he has not covered.
+const STATEMENT_ACCOUNTS = [
+  ['becu_checking', 'BECU checking', /becu.*check/i], ['becu_visa', 'BECU Visa', /becu/i], ['bofa', 'Bank of America', /alaska|bofa|bank of america|\bba\b/i], ['apple', 'Apple Card', /apple/i]
+];
+function statementsDue(userId, plan, today) {
+  const files = queryAll('SELECT file FROM finance_statements WHERE user_id = ? ORDER BY id', [userId]);
+  const last = {};
+  for (const r of statementsLib.loadRows(STATEMENT_DIR, files)) if (!last[r.acct] || r.date > last[r.acct]) last[r.acct] = r.date;
+  const [y, m, d] = today.split('-').map(Number);
+  const dim = (yy, mm) => new Date(Date.UTC(yy, mm, 0)).getUTCDate();   // days in month mm (1-based)
+  const closeOn = (day) => {   // the most recent close on or before today
+    let yy = y, mm = m;
+    if (Math.min(day, dim(yy, mm)) > d) { mm -= 1; if (mm === 0) { mm = 12; yy -= 1; } }
+    return `${yy}-${String(mm).padStart(2, '0')}-${String(Math.min(day, dim(yy, mm))).padStart(2, '0')}`;
+  };
+  const out = [];
+  for (const [acct, name, re] of STATEMENT_ACCOUNTS) {
+    let closes = acct === 'becu_checking' ? 31 : 0;
+    if (!closes) { const card = (plan.cards || []).find(c => c.closes > 0 && re.test(c.label) && !(acct === 'becu_visa' && /check/i.test(c.label))); if (card) closes = card.closes; }
+    const row = { acct, name, closes: closes || null, uploaded_through: last[acct] || null };
+    if (closes) {
+      row.closed = closeOn(closes);
+      row.days_since = Math.round((Date.parse(today) - Date.parse(row.closed)) / 86400000);
+      row.due = !last[acct] || last[acct] < row.closed;
+    }
+    out.push(row);
+  }
+  return out;
+}
 
 // Actual money in and out of checking over the last N days, read from the statements he dropped.
 const statementsLib = require('./statements');
@@ -1881,7 +1915,8 @@ app.put('/api/companies/:subdomain/users/:slug/finance/plan', (req, res) => {
   // share of the debt at the balance-weighted rate and Tom can see which balance costs most and how much of
   // each limit is in use (his credit score).
   const cards = (Array.isArray(b.cards) ? b.cards : []).slice(0, 12).map(x => ({
-    label: str(x.label, 40) || 'Card', apr: financeNum(x.apr, 0, 100) || 0, balance: financeNum(x.balance, 0, 1e9) || 0, limit: financeNum(x.limit, 0, 1e9) || 0
+    label: str(x.label, 40) || 'Card', apr: financeNum(x.apr, 0, 100) || 0, balance: financeNum(x.balance, 0, 1e9) || 0, limit: financeNum(x.limit, 0, 1e9) || 0,
+    closes: Math.round(financeNum(x.closes, 0, 31) || 0)   // day of the month the statement closes; 0 = unknown
   })).filter(x => x.label);
   const data = JSON.stringify({ assume, bills, planned, goals, incomes, cards });
   runSql(`INSERT INTO finance_plan (user_id, data, updated_at) VALUES (?, ?, ?)

@@ -204,7 +204,7 @@ export function createMoveItServer({ urlBase, team, user, aiKey = '', tz }) {
   // Finance (2026-10-09). The pane on the dashboard; Tom writes its one tip-or-alert row.
   server.registerTool('get_finance', {
     title: 'Read the finance pane',
-    description: 'The last 60 days of Kevin\'s four balances (cash, savings, debt, trading), his goals in order (plan.goals), his projection settings (plan.assume: daily spend, card APR, the line of credit\'s APR, limit and drawn balance, the cash floor and sweep day, the savings, car and house goals; plan.bills with "debt" marking a payment plan; plan.incomes; plan.planned; plan.cards: each card with its APR, balance now and limit), the tip now showing, the recent tips with his Useful / Not for me answers (read those first: they say what lands), the questions you asked with his answers (questions: answer null = still waiting), his merchant categories (categories: merchant key to category), plus the statements he has dropped (fetch one with its id at /api/finance/statements/<id>/file, or use finance_history for the digest).',
+    description: 'The last 60 days of Kevin\'s four balances (cash, savings, debt, trading), his goals in order (plan.goals), his projection settings (plan.assume: daily spend, card APR, the line of credit\'s APR, limit and drawn balance, the cash floor and sweep day, the savings, car and house goals; plan.bills with "debt" marking a payment plan; plan.incomes; plan.planned; plan.cards: each card with its APR, balance now, limit and the day its statement closes), statements_due (per account: the day it closes, the most recent close, days since, the newest row he has uploaded, and due = that close is not uploaded yet), the tip now showing, the recent tips with his Useful / Not for me answers (read those first: they say what lands), the questions you asked with his answers (questions: answer null = still waiting), his merchant categories (categories: merchant key to category), plus the statements he has dropped (fetch one with its id at /api/finance/statements/<id>/file, or use finance_history for the digest).',
     inputSchema: {}
   }, async () => {
     const d = await api(`${me}/finance`);
@@ -587,11 +587,12 @@ export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance p
 
 4. Look for the one thing most worth his attention, in this order:
    - An alert: a bill or payment due today or tomorrow (the plan's recurring bills, or a due date you can see in a statement file). Say what and how much. Do not work out what cash will be left.
+   - A statement to upload: an account in statements_due with due true and days_since of 3 or more. Name the account and the close date, and say to drop the export in the + circle on the pane. One reminder per close: not again within six days of a tip that asked for the same one (recent_tips). An account whose close day is unknown (closes null, and it is a card he uses): ask for the day once, as a text question, instead of reminding.
    - A new monthly charge: a merchant in finance_history that charges every month and is not in plan.bills. Name it, the amount and the day, and tell him to add it on the blank line under the bills if it is real.
    - A pattern in his habits he would not see: a category that keeps rising month over month, spending that runs higher on certain days, months he saved and months he did not and what was different.
    - A strategy that serves the first open goal, in his numbers: what a cut in one category does to the debt-free date; a card balance that belongs on the line of credit; cash sitting above what a month needs while the cards charge interest; a trading-account or savings balance earning less than the debt costs.
    - Progress worth marking: a goal reached, a month that beat the plan, the debt-free date moving earlier. Say it plainly, with the number.
-   - Something you need to know to project well: the APR of a card, what a large one-off charge was, whether a deposit will repeat. Ask for one thing, in one sentence. The pane itself already nags about stale statements and missing balances, so do not.
+   - Something you need to know to project well: the APR of a card, what a large one-off charge was, whether a deposit will repeat. Ask for one thing, in one sentence. The pane itself nags about missing balances, so do not; statements you do remind about (above), a few days after they close.
 
 5. One or two sentences, under 300 characters, plain words, one specific number at most. A tip is an observation and a suggestion, never a lecture. Say which goal it serves when that is not obvious. If there is nothing worth saying, post nothing.
 
@@ -600,7 +601,7 @@ export const FINANCE_RECIPE = `Choose the ONE tip or alert for Kevin's finance p
    - why a decision was made (kind text): a large one-off charge, a transfer pattern, a month that broke the pattern. One sentence from him is the answer;
    - a decision coming up (kind yesno or text): an annual fee about to renew, a 0% plan ending, a card balance about to start costing interest, a subscription he has not used. Ask early enough to matter;
    - what a charge was (kind category) when a merchant that lands in "other" or looks wrongly placed carries real money ($50 or more, or repeats): pass its merchant key from finance_history and the categories you think fit (income, taxes, medical, bills, groceries, dining, travel, shopping, entertainment, other). He can type his own; a new word from him is a category from then on.
-   Plain words, under 160 characters, one thing per question. Never ask what the pane already asks itself (stale statements, missing balances).`;
+   Plain words, under 160 characters, one thing per question. Never ask what the pane already asks itself (missing balances).`;
 
 // The mail strip (2026-09-23). Kevin's rules: unread mail in the inbox only
 // (he tried "unread anywhere" and it surfaced ~200 filtered newsletters), two colours only — blue for "needs
