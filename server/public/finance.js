@@ -1,7 +1,7 @@
 // The finance pane on the dashboard (2026-10-09, reworked 2026-10-10): four
 // balances a day, a projection of cash, debt and savings (15 days back and
-// ahead as bars with the cash line; 30 back and ahead as the cash line; then
-// month-ends for a year against the targets), one tip-or-alert row that Tom
+// ahead as bars with the cash line; a spending-only chart of the same days;
+// 30 back and ahead as the cash line), one tip-or-alert row that Tom
 // writes, a row of what the pane needs from Kevin, the goals ladder, and a
 // drop zone for statements. The page projects; the server
 // stores (routes in server.js, tables in db.js). It lives in a shadow root so
@@ -305,10 +305,6 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
             <div class="legend" id="leg1"></div>
             <div class="monthend" id="monthend"></div>
 
-            <div class="sub">Next 12 months <span class="r">net, debt and savings against your targets</span></div>
-            <div class="chart-wrap" id="c2wrap"><div class="tipbox" id="tip2"></div></div>
-            <div class="legend" id="leg2"></div>
-
             <div class="sub">What if I spend…</div>
             <div class="plans" id="plans"></div>
             <div class="effect" id="effect"></div>
@@ -479,22 +475,6 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     }
     const simAt = (rows, base, d) => rows[diff(base.date, d) - 1];
 
-    // The year ahead, sampled at today and at each month's end. Weekly samples were tried first: where the sample
-    // fell relative to the paycheck swung net by thousands and drew a sawtooth that meant nothing.
-    const monthEnd = k => k.slice(0, 7) + '-' + pad(dim(k));
-    function series2() {
-        const out = [];
-        if (M.empty) return out;
-        const mk = (d, a, b) => ({ d, net: netOf(a, false), plan: netOf(b, false), debt: a.debt, planDebt: b.debt, house: a.house, savings: a.savings, loc: a.loc || 0, kind: 'proj' });
-        const t0 = TODAY > M.base.date ? [simAt(M.plain, M.base, TODAY), simAt(M.withPlan, M.base, TODAY)] : [M.base.state, M.base.state];
-        out.push(Object.assign(mk(TODAY, t0[0], t0[1]), { k: 0 }));
-        let d = monthEnd(TODAY);
-        for (let i = 0; i < 12; i++, d = monthEnd(add(d, 1))) {
-            if (d <= TODAY) { i--; continue; }
-            out.push(mk(d, simAt(M.plain, M.base, d), simAt(M.withPlan, M.base, d)));
-        }
-        return out;
-    }
     // ---------- entry bar ----------
     let selDay = '', saveTimer = null;
     const parseMoney = v => { const n = parseFloat(String(v).replace(/[$,\s]/g, '')); return isFinite(n) ? n : null; };
@@ -716,60 +696,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
         const out = []; for (let v = Math.ceil(lo / step) * step; v <= hi + 1e-6; v += step) out.push(Math.round(v * 100) / 100);
         return out;
     }
-    // The year ahead against its targets (2026-10-10): net in ink, the debt line in red falling toward a green dot at
-    // zero on Dec 31 (the goal date), the savings line rising toward a green dot at the savings goal. One scale that
-    // fits the lines, zero where it falls, points at today and each month's end, x by date.
-    const INK = 'var(--ink)', SAV = '#0ea5e9', GREEN = '#16a34a';
-    function draw2() {
-        const wrap = $('c2wrap'), tip = $('tip2');
-        if (M.empty) { showEmpty('c2wrap', ''); $('leg2').innerHTML = ''; return; }
-        clearEmpty('c2wrap');
-        const pts = series2();
-        if (pts.length < 2) { $('leg2').innerHTML = ''; return; }
-        const anyPlan = S.planned.some(p => p.on && p.amount), goal = S.assume.saveGoal || 0;
-        const W = 600, L = 44, R = 26, TOP = 18, H1 = 210, LAB = 22, H = TOP + H1 + LAB;
-        const span = diff(TODAY, pts[pts.length - 1].d) || 1, x = d => L + (W - L - R) * diff(TODAY, d) / span;
-        const vals = [0, goal]; pts.forEach(p => { vals.push(p.net, p.debt, p.savings); if (anyPlan) vals.push(p.plan); });
-        let lo = Math.min(...vals), hi = Math.max(...vals); const padv = (hi - lo) * 0.08 || 500; lo -= padv; hi += padv;
-        const ticks = niceTicks(lo, hi, 5); lo = Math.min(lo, ticks[0]); hi = Math.max(hi, ticks[ticks.length - 1]);
-        const y = v => TOP + H1 * (1 - (v - lo) / (hi - lo));
-        let g = '';
-        ticks.forEach(v => { g += `<line class="${v === 0 ? 'zero' : 'grid'}" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 5}" y="${y(v) + 3}" text-anchor="end">${money(v, true)}</text>`; });
-        // the goal date: Dec 31, with the debt target sitting on it
-        const decX = yearEnd > TODAY && yearEnd <= pts[pts.length - 1].d ? x(yearEnd) : null;
-        if (decX !== null) g += `<line x1="${decX}" x2="${decX}" y1="${TOP - 4}" y2="${TOP + H1}" stroke="#94a3b8" stroke-width="1" stroke-dasharray="2 3"/><text x="${decX}" y="${TOP - 6}" text-anchor="middle">Dec 31</text>`;
-        const line = (key, col, w, dash) => `<polyline fill="none" stroke="${col}" stroke-width="${w}" stroke-linejoin="round" stroke-linecap="round"${dash ? ` stroke-dasharray="${dash}"` : ''} points="${pts.map(p => `${x(p.d)},${y(p[key])}`).join(' ')}"/>`;
-        g += line('net', INK, 2.2);
-        g += line('debt', 'var(--debtc)', 2);
-        g += line('savings', SAV, 2);
-        if (anyPlan) g += line('plan', 'var(--plan)', 2, '5 3');
-        pts.forEach(p => { g += `<circle cx="${x(p.d)}" cy="${y(p.net)}" r="2.2" fill="${INK}"/>`; });
-        // the targets, as green dots
-        if (goal > 0) g += `<line x1="${L}" x2="${W - R}" y1="${y(goal)}" y2="${y(goal)}" stroke="${GREEN}" stroke-opacity=".35" stroke-width="1" stroke-dasharray="3 4"/><circle cx="${W - R + 9}" cy="${y(goal)}" r="5" fill="${GREEN}"><title>Savings goal ${money(goal)}</title></circle>`;
-        if (decX !== null) g += `<circle cx="${decX}" cy="${y(0)}" r="5" fill="${GREEN}"><title>Debt at zero by Dec 31</title></circle>`;
-        const freeIdx = pts.findIndex(p => p.debt <= 0.5);
-        if (M.freeDate && M.freeDate <= pts[pts.length - 1].d) g += `<circle cx="${x(M.freeDate)}" cy="${y(0)}" r="3.5" fill="none" stroke="var(--debtc)" stroke-width="1.5"><title>Debt reaches zero ${fmtDay(M.freeDate, { month: 'short', day: 'numeric' })}</title></circle>`;
-        pts.forEach((p, i) => { if (i === 0 || (i % 2 === 1 && x(p.d) - L > 36)) g += `<text class="${i === 0 ? 'today' : ''}" x="${x(p.d)}" y="${H - 6}" text-anchor="middle">${i === 0 ? 'today' : fmtDay(p.d, { month: 'short' })}</text>`; });
-        g += pts.map((p, i) => { const x0 = i === 0 ? L : (x(pts[i - 1].d) + x(p.d)) / 2, x1 = i === pts.length - 1 ? W - R : (x(p.d) + x(pts[i + 1].d)) / 2; return `<rect class="hit" data-i="${i}" x="${x0}" y="${TOP}" width="${x1 - x0}" height="${H1}"/>`; }).join('');
-        putSvg(wrap, `<svg class="chart" viewBox="0 0 ${W} ${H}" role="img" aria-label="The year ahead: net, debt and savings against the targets">${g}</svg>`);
-        hoverTips(wrap, tip, pts, p => {
-            let h = `<div class="d">${esc(fmtDay(p.d, { month: 'short', day: 'numeric' }))} · ${p.k === 0 ? 'now' : 'projected'}</div>`
-                + `<div><span class="sw" style="background:${INK}"></span><span>Net</span><b>${money(p.net)}</b></div>`
-                + `<div><span class="sw" style="background:var(--debtc)"></span><span>Debt</span><b>${money(p.debt)}</b></div>`
-                + (p.loc > 0.5 ? `<div><span></span><span>on the line of credit</span><b>${money(p.loc)}</b></div>` : '')
-                + `<div><span class="sw" style="background:${SAV}"></span><span>Savings</span><b>${money(p.savings)}</b></div>`
-                + (goal ? `<div><span></span><span>${p.savings >= goal ? 'past the goal' : 'to the goal'}</span><b>${p.savings >= goal ? '' : money(goal - p.savings)}</b></div>` : '');
-            if (anyPlan) h += `<div><span class="sw" style="background:var(--plan)"></span><span>With planned spending</span><b>${money(p.plan)}</b></div>`;
-            return h;
-        }, 0);
-        const endDebt = pts[pts.length - 1].debt;
-        $('leg2').innerHTML = `<span class="item"><span class="ln" style="border-top-style:solid;border-top-color:${INK}"></span>Net</span>
-            <span class="item"><span class="ln" style="border-top-style:solid;border-top-color:var(--debtc)"></span>Debt</span>
-            <span class="item"><span class="ln" style="border-top-style:solid;border-top-color:${SAV}"></span>Savings</span>
-            <span class="item"><span class="sw" style="background:${GREEN};border-radius:50%"></span>targets</span>
-            ${anyPlan ? '<span class="item"><span class="ln"></span>With planned spending</span>' : ''}
-            ${freeIdx >= 0 || M.freeDate ? `<span class="item">Debt reaches zero <b style="margin-left:3px">${esc(fmtDay(M.freeDate, { month: 'short', day: 'numeric', year: 'numeric' }))}</b></span>` : endDebt > 0.5 ? `<span class="item">Debt in a year: <b style="margin-left:3px">${money(endDebt)}</b></span>` : ''}`;
-    }
+    const INK = 'var(--ink)', SAV = '#0ea5e9';
     // ---------- planned spending ----------
     function drawPlans() {
         $('plans').innerHTML = S.planned.map(p => `
@@ -1291,7 +1218,7 @@ summary { cursor: pointer; font-size: 12px; color: #64748b; }
     function refresh(refill) {
         M = model();
         if (refill !== false) fillEntry(); else if (!root.activeElement || !root.activeElement.closest || !root.activeElement.closest('#entry')) fillEntry();
-        drawBoxes(); drawStats(); drawCash(); draw2(); drawEffect(); drawTips(); drawNeeds(); drawCatRow(); drawLadder();
+        drawBoxes(); drawStats(); drawCash(); drawEffect(); drawTips(); drawNeeds(); drawCatRow(); drawLadder();
     }
     $('entry').addEventListener('input', e => { if (e.target.matches('input[data-f]')) onType(); });
     $('entry').addEventListener('focusout', e => { if (e.target.matches('input[data-f]')) { clearTimeout(saveTimer); commitEntry(); } });
